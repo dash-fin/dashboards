@@ -1,0 +1,1010 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: ALERTAS v2
+     Persistencia: Supabase (tablas alertas + alertas_historial)
+     Tiempo real:  Supabase Realtime (channel mercado)
+     Canales:      WhatsApp (Callmebot) + Telegram
+══════════════════════════════════════════════════ -->
+
+<!-- SQL que necesitás correr UNA VEZ en Supabase SQL Editor:
+
+CREATE TABLE IF NOT EXISTS alertas (
+  id          TEXT PRIMARY KEY,
+  user_id     TEXT NOT NULL,
+  ticker      TEXT NOT NULL,
+  tipo        TEXT NOT NULL,
+  params      JSONB NOT NULL DEFAULT '{}',
+  activa      BOOLEAN NOT NULL DEFAULT true,
+  cooldown    INTEGER NOT NULL DEFAULT 1800,
+  mensaje     TEXT DEFAULT '',
+  fired_count INTEGER NOT NULL DEFAULT 0,
+  last_fired  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS alertas_historial (
+  id          BIGSERIAL PRIMARY KEY,
+  user_id     TEXT NOT NULL,
+  alerta_id   TEXT NOT NULL,
+  ticker      TEXT NOT NULL,
+  tipo        TEXT NOT NULL,
+  cond_desc   TEXT,
+  precio      NUMERIC,
+  canal       TEXT,
+  estado      TEXT,
+  fired_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE alertas          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alertas_historial ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "user_own_alertas"     ON alertas           FOR ALL USING (user_id = auth.uid()::text);
+CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id = auth.uid()::text);
+-->
+
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="alstab-activas"   onclick="alTab('activas',this)">Activas</button>
+    <button class="stab"        id="alstab-nueva"     onclick="alTab('nueva',this)">+ Nueva</button>
+    <button class="stab"        id="alstab-historial" onclick="alTab('historial',this)">Historial</button>
+  </div>
+  <div id="al-engine-status" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+    <span id="al-rt-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
+    <span id="al-rt-label">Conectando...</span>
+  </div>
+</div>
+
+<!-- ════ PANEL: ACTIVAS ════ -->
+<div class="sub-panel active" id="alpanel-activas">
+
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+    <div class="kpi" style="--accent:var(--green)">
+      <div class="kpi-label">Activas</div>
+      <div class="kpi-val" id="al-kpi-activas">—</div>
+      <div class="kpi-sub">alertas habilitadas</div>
+    </div>
+    <div class="kpi" style="--accent:var(--amber)">
+      <div class="kpi-label">Disparadas hoy</div>
+      <div class="kpi-val" id="al-kpi-hoy">—</div>
+      <div class="kpi-sub">notificaciones enviadas</div>
+    </div>
+    <div class="kpi" style="--accent:var(--blue)">
+      <div class="kpi-label">Tickers</div>
+      <div class="kpi-val" id="al-kpi-tickers">—</div>
+      <div class="kpi-sub">símbolos únicos</div>
+    </div>
+    <div class="kpi" style="--accent:var(--cyan)">
+      <div class="kpi-label">Realtime</div>
+      <div class="kpi-val" id="al-kpi-rt" style="font-size:13px">—</div>
+      <div class="kpi-sub">último evento</div>
+    </div>
+    <div class="kpi" style="--accent:var(--purple)">
+      <div class="kpi-label">Canal</div>
+      <div class="kpi-val" id="al-kpi-canal" style="font-size:13px">—</div>
+      <div class="kpi-sub" id="al-kpi-canal-sub">sin configurar</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between">
+      <div style="display:flex;gap:4px">
+        <button class="flt on" onclick="alFiltro('all',this)">Todas</button>
+        <button class="flt"    onclick="alFiltro('precio',this)"    data-cls="on-green">Precio</button>
+        <button class="flt"    onclick="alFiltro('ma',this)"        data-cls="on-blue">Medias</button>
+        <button class="flt"    onclick="alFiltro('variacion',this)" data-cls="on-amber">Variación %</button>
+        <button class="flt"    onclick="alFiltro('volumen',this)"   data-cls="on-cyan">Volumen</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="search-input" placeholder="Buscar ticker..." id="al-search" oninput="alRenderActivas()" style="max-width:160px">
+        <button class="btn btn-outline" onclick="alReload()" style="font-size:9px;padding:3px 10px">↺ Recargar</button>
+        <button class="btn btn-outline" onclick="alTestCanal('wa')" style="font-size:9px;padding:3px 10px;color:var(--green);border-color:rgba(0,229,168,.3)">📱 Test WA</button>
+        <button class="btn btn-outline" onclick="alTestCanal('tg')" style="font-size:9px;padding:3px 10px;color:var(--blue);border-color:rgba(77,166,255,.3)">✈️ Test TG</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th class="th-left">Condición</th>
+          <th>Precio actual</th>
+          <th>Estado</th>
+          <th>Último disparo</th>
+          <th>Cooldown</th>
+          <th class="th-left">Acciones</th>
+        </tr></thead>
+        <tbody id="al-activas-tbody">
+          <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">
+            <div class="spinner" style="margin:0 auto 8px"></div>Cargando alertas...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">⚡ Log de eventos Realtime</div>
+      <button class="btn btn-outline" onclick="alClearLog()" style="font-size:9px;padding:3px 10px">Limpiar</button>
+    </div>
+    <div id="al-log" style="padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);max-height:180px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:3px">
+      <span style="color:var(--text4);font-style:italic">Esperando eventos de Supabase Realtime...</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PANEL: NUEVA ALERTA ════ -->
+<div class="sub-panel" id="alpanel-nueva">
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔔 Nueva alerta</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+
+        <div class="al-field">
+          <div class="al-label">Ticker</div>
+          <input class="search-input" id="al-f-ticker" placeholder="Ej: GGAL, YPFD, MELI" oninput="alFormPreview()" style="max-width:200px;font-size:13px;font-weight:500;text-transform:uppercase">
+        </div>
+
+        <div class="al-field">
+          <div class="al-label">Tipo de alerta</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="al-tipo-btns">
+            <button class="flt on-green on" onclick="alSetTipo('precio',this)">💰 Precio</button>
+            <button class="flt" onclick="alSetTipo('ma',this)">📈 Cruce medias</button>
+            <button class="flt" onclick="alSetTipo('variacion',this)">📊 Variación %</button>
+            <button class="flt" onclick="alSetTipo('volumen',this)">🔊 Volumen</button>
+          </div>
+        </div>
+
+        <!-- PRECIO -->
+        <div id="al-cond-precio" class="al-cond-panel">
+          <div class="al-label">Condición</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="al-select" id="al-f-precio-dir" onchange="alFormPreview()">
+              <option value="gt">Sube por encima de</option>
+              <option value="lt">Baja por debajo de</option>
+              <option value="cross_up">Cruza hacia arriba</option>
+              <option value="cross_dn">Cruza hacia abajo</option>
+            </select>
+            <input class="search-input" type="number" id="al-f-precio-val" placeholder="1500.00" oninput="alFormPreview()" style="max-width:130px">
+            <span style="font-size:11px;color:var(--text2)">ARS</span>
+          </div>
+        </div>
+
+        <!-- MEDIAS -->
+        <div id="al-cond-ma" class="al-cond-panel" style="display:none">
+          <div class="al-label">Parámetros</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <div class="al-field"><div class="al-label">MA rápida</div><input class="search-input" type="number" id="al-f-ma-fast" value="20" oninput="alFormPreview()" style="max-width:80px"></div>
+            <div class="al-field"><div class="al-label">MA lenta</div><input class="search-input" type="number" id="al-f-ma-slow" value="50" oninput="alFormPreview()" style="max-width:80px"></div>
+            <div class="al-field"><div class="al-label">Cruce</div>
+              <select class="al-select" id="al-f-ma-dir" onchange="alFormPreview()">
+                <option value="golden">Golden cross ↑</option>
+                <option value="death">Death cross ↓</option>
+                <option value="any">Cualquiera</option>
+              </select>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">Requiere tabla <code style="color:var(--blue)">mercado_history</code> con al menos <strong id="al-ma-req" style="color:var(--text2)">50</strong> velas.</div>
+        </div>
+
+        <!-- VARIACIÓN -->
+        <div id="al-cond-variacion" class="al-cond-panel" style="display:none">
+          <div class="al-label">Condición</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="al-select" id="al-f-var-dir" onchange="alFormPreview()">
+              <option value="gt">Sube más de</option>
+              <option value="lt">Baja más de</option>
+              <option value="abs">Varía más de (absoluto)</option>
+            </select>
+            <input class="search-input" type="number" id="al-f-var-val" placeholder="3" step="0.1" oninput="alFormPreview()" style="max-width:100px">
+            <span style="font-size:11px;color:var(--text2)">% en el día</span>
+          </div>
+        </div>
+
+        <!-- VOLUMEN -->
+        <div id="al-cond-volumen" class="al-cond-panel" style="display:none">
+          <div class="al-label">Turnover supera</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="search-input" type="number" id="al-f-vol-val" placeholder="5000000" oninput="alFormPreview()" style="max-width:180px">
+            <span style="font-size:11px;color:var(--text2)">ARS</span>
+          </div>
+        </div>
+
+        <div class="al-field" id="al-cooldown-wrap" style="display:none">
+          <div class="al-label">Cooldown (evitar spam)</div>
+          <select class="al-select" id="al-f-cooldown">
+            <option value="0" selected>Sin límite</option>
+            <option value="300">5 minutos</option>
+            <option value="900">15 minutos</option>
+            <option value="1800">30 minutos</option>
+            <option value="3600">1 hora</option>
+            <option value="14400">4 horas</option>
+            <option value="86400">1 vez por día</option>
+          </select>
+        </div>
+
+        <div class="al-field">
+          <div class="al-label">Mensaje personalizado (opcional)</div>
+          <input class="search-input" id="al-f-msg" placeholder="Ej: Revisá posición en {ticker}" oninput="alFormPreview()" style="width:100%">
+          <div style="font-size:9px;color:var(--text3);margin-top:3px">Variables: <code style="color:var(--blue)">{ticker}</code> <code style="color:var(--blue)">{precio}</code> <code style="color:var(--blue)">{condicion}</code> <code style="color:var(--blue)">{hora}</code></div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-green" onclick="alGuardar()" id="al-guardar-btn">💾 Guardar en Supabase</button>
+          <button class="btn btn-outline" onclick="alLimpiarForm()">Limpiar</button>
+        </div>
+        <div id="al-form-msg" style="font-size:10px;font-family:'IBM Plex Mono',monospace;display:none"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="card">
+        <div class="card-head"><div class="card-title">📱 Vista previa del mensaje</div></div>
+        <div class="card-body">
+          <div id="al-msg-preview" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:12px;font-size:10px;color:var(--text2);line-height:1.75;font-family:'IBM Plex Mono',monospace;white-space:pre-wrap;min-height:90px">Completá el formulario...</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">ℹ️ Cómo funciona el Realtime</div></div>
+        <div class="card-body" style="font-size:10px;color:var(--text3);line-height:1.7">
+          El módulo se suscribe a la tabla <code style="color:var(--blue)">mercado</code> de Supabase vía <strong style="color:var(--text2)">WebSocket</strong>. Cada vez que un precio cambia en esa tabla, Supabase lo empuja al browser al instante — sin polling, sin countdown. La evaluación de alertas ocurre en ese mismo momento.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PANEL: HISTORIAL ════ -->
+<div class="sub-panel" id="alpanel-historial">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">📋 Historial de disparos</div>
+      <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)">Guardado en Supabase · últimos 200</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Fecha/Hora</th>
+          <th class="th-left">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th class="th-left">Condición</th>
+          <th>Precio</th>
+          <th>Canal</th>
+          <th>Estado</th>
+        </tr></thead>
+        <tbody id="al-hist-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">
+            <div class="spinner" style="margin:0 auto 8px"></div>Cargando historial...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════ ESTILOS ════ -->
+<style>
+.al-field{display:flex;flex-direction:column;gap:4px}
+.al-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:500}
+.al-select{background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:5px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text);outline:none;cursor:pointer;transition:border-color .15s}
+.al-select:focus{border-color:var(--green)}
+.al-cond-panel{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px}
+.al-rt-pulse{animation:pulse 1.5s infinite}
+</style>
+
+<!-- ════ JAVASCRIPT ════ -->
+<script>
+(function(){
+'use strict';
+
+// ─────────────────────────────────────────────
+// ESTADO
+// ─────────────────────────────────────────────
+const AL = {
+  alerts: [],
+  prevPrices: {},   // sym → precio anterior (para detección de cruce)
+  prevMAs: {},      // sym → {fast, slow}
+  tipoActual: 'precio',
+  filtroTipo: 'all',
+  cfg: {},          // waNum, waKey, tgToken, tgChatId, canal
+  rtChannel: null,  // Supabase Realtime channel
+};
+
+// user_id del usuario logueado (necesario para RLS)
+function alUserId(){
+  return window.currentUser?.id || 'anon';
+}
+
+// ─────────────────────────────────────────────
+// SUPABASE HELPERS
+// ─────────────────────────────────────────────
+async function sbHeaders(){
+  const session = await window.sbAuth.auth.getSession();
+  const token = session?.data?.session?.access_token;
+  return token
+    ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer '+token, 'Content-Type': 'application/json' }
+    : { ...CFG.SBH, 'Content-Type': 'application/json' };
+}
+
+async function sbPost(table, body, prefer='return=minimal'){
+  const h = await sbHeaders();
+  return fetch(`${CFG.SB_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...h, 'Prefer': prefer },
+    body: JSON.stringify(body)
+  });
+}
+
+async function sbPatch(table, params, body){
+  const h = await sbHeaders();
+  return fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {
+    method: 'PATCH',
+    headers: { ...h, 'Prefer': 'return=minimal' },
+    body: JSON.stringify(body)
+  });
+}
+
+async function sbDelete(table, params){
+  const h = await sbHeaders();
+  return fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {
+    method: 'DELETE',
+    headers: await sbHeaders()
+  });
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+async function alInit(){
+  alCfgCargarLocal();
+  await alCargarAlertas();
+  await alCargarHistorial();
+  alKpiUpdate();
+  alRtConnect();
+  alFormPreview();
+}
+
+alInit();
+
+// ─────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────
+window.alTab = function(id, btn){
+  document.querySelectorAll('[id^="alpanel-"]').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('[id^="alstab-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('alpanel-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id === 'historial') alCargarHistorial();
+};
+
+// ─────────────────────────────────────────────
+// SUPABASE REALTIME — el corazón del módulo
+// ─────────────────────────────────────────────
+function alRtConnect(){
+  // Desconectar si ya había una conexión
+  if(AL.rtChannel){
+    try{ AL.rtChannel.unsubscribe(); }catch(e){}
+  }
+
+  alRtStatus('connecting');
+
+  // Nos suscribimos a cambios en la tabla mercado
+  // Cada UPDATE de precio llega como evento en tiempo real
+  AL.rtChannel = window.sbAuth
+    .channel('mercado-alertas')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'mercado'
+    }, alOnMercadoUpdate)
+    .subscribe((status) => {
+      if(status === 'SUBSCRIBED'){
+        alRtStatus('connected');
+        alLog('🟢 Realtime conectado — escuchando cambios en tabla mercado.', 'green');
+      } else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
+        alRtStatus('error');
+        alLog('🔴 Realtime error: '+status+'. Reconectando en 5s...', 'red');
+        setTimeout(alRtConnect, 5000);
+      } else if(status === 'CLOSED'){
+        alRtStatus('disconnected');
+      }
+    });
+}
+
+// Llega cada vez que cambia una fila en la tabla mercado
+async function alOnMercadoUpdate(payload){
+  const row = payload.new;
+  if(!row) return;
+
+  // Normalizar symbol — puede venir como "GGAL" o "GGAL_24hs" etc
+  const symRaw = row.symbol || '';
+  const sym = symRaw.replace(/_24hs|_ci|_48hs/i,'').toUpperCase().trim();
+  const cur = Number(row.last);
+  if(!sym || !cur) return;
+
+  const ts = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+  // Actualizar KPI último evento
+  const krtEl = document.getElementById('al-kpi-rt');
+  if(krtEl) krtEl.textContent = sym + ' ' + ts.slice(0,5);
+
+  alLog(`📡 ${sym} → $${fmtAR(cur,2)} | var: ${Number(row.change||0).toFixed(2)}%`, 'text3');
+
+  // Evaluar alertas activas para este ticker
+  const alertasDelTicker = AL.alerts.filter(a => {
+    if(!a.activa) return false;
+    const at = (a.ticker||'').replace(/_24hs|_ci|_48hs/i,'').toUpperCase().trim();
+    return at === sym;
+  });
+
+  if(!alertasDelTicker.length){
+    AL.prevPrices[sym] = cur;
+    return;
+  }
+
+  alLog(`🔍 Evaluando ${alertasDelTicker.length} alerta(s) para ${sym}`, 'blue');
+
+  for(const alerta of alertasDelTicker){
+    let disparado = false;
+    let condDesc  = '';
+
+    if(alerta.tipo === 'precio'){
+      const prev = AL.prevPrices[sym];
+      alLog(`   Precio: cur=$${fmtAR(cur,2)} prev=${prev!==undefined?'$'+fmtAR(prev,2):'sin prev'} val=$${fmtAR(alerta.params?.valor,2)} dir=${alerta.params?.dir}`, 'text3');
+      [disparado, condDesc] = evalPrecio(alerta, cur, prev);
+    } else if(alerta.tipo === 'ma'){
+      [disparado, condDesc] = await evalMA(alerta, sym);
+    } else if(alerta.tipo === 'variacion'){
+      [disparado, condDesc] = evalVariacion(alerta, Number(row.change||0));
+    } else if(alerta.tipo === 'volumen'){
+      [disparado, condDesc] = evalVolumen(alerta, Number(row.turnover||0));
+    }
+
+    alLog(`   → disparado: ${disparado} | ${condDesc}`, disparado?'green':'text3');
+
+    if(disparado){
+      const ahora = Date.now();
+      const cooldownMs = (alerta.params?.cooldown || 1800) * 1000;
+      const lastFiredMs = alerta.last_fired ? new Date(alerta.last_fired).getTime() : 0;
+
+      if(cooldownMs > 0 && (ahora - lastFiredMs) < cooldownMs){
+        const restMin = Math.round((cooldownMs - (ahora - lastFiredMs)) / 60000);
+        alLog(`⏳ ${sym}: en cooldown (${restMin}min restantes).`, 'amber');
+        // Aún así actualizar prevPrices para no re-disparar
+        AL.prevPrices[sym] = cur;
+        continue;
+      }
+
+      const msg = alBuildMsg(alerta, cur, Number(row.change||0), condDesc);
+      alLog(`🔔 ALERTA DISPARADA: ${sym} — ${condDesc}`, 'green');
+
+      const canal = AL.cfg.canal || 'ninguno';
+      let estado = '❌ Sin canal';
+      if(canal !== 'ninguno'){
+        const ok = await alEnviar(msg);
+        estado = ok ? '✅ Enviado' : '❌ Error envío';
+      }
+
+      alerta.last_fired = new Date().toISOString();
+      alerta.fired_count = (alerta.fired_count || 0) + 1;
+      await sbPatch('alertas', `id=eq.${alerta.id}`, {
+        last_fired: alerta.last_fired,
+        fired_count: alerta.fired_count
+      });
+
+      await sbPost('alertas_historial', {
+        user_id:    alUserId(),
+        alerta_id:  alerta.id,
+        ticker:     sym,
+        tipo:       alerta.tipo,
+        cond_desc:  condDesc,
+        precio:     cur,
+        canal:      canal,
+        estado:     estado,
+        fired_at:   new Date().toISOString()
+      });
+
+      alKpiUpdate();
+      alRenderActivas();
+    }
+  }
+
+  AL.prevPrices[sym] = cur;
+}
+
+function alRtStatus(status){
+  const dot   = document.getElementById('al-rt-dot');
+  const label = document.getElementById('al-rt-label');
+  if(!dot || !label) return;
+  const map = {
+    connecting:   {color:'var(--amber)', text:'Conectando...', pulse:true},
+    connected:    {color:'var(--green)', text:'Realtime activo', pulse:true},
+    disconnected: {color:'var(--text4)', text:'Desconectado', pulse:false},
+    error:        {color:'var(--red)',   text:'Error de conexión', pulse:false},
+  };
+  const s = map[status] || map.disconnected;
+  dot.style.background = s.color;
+  dot.className = s.pulse ? 'al-rt-pulse' : '';
+  label.textContent = s.text;
+  label.style.color = s.color;
+}
+
+// ─────────────────────────────────────────────
+// EVALUADORES
+// ─────────────────────────────────────────────
+function evalPrecio(a, cur, prev){
+  const val = a.params.valor;
+  const dir = a.params.dir;
+  let ok = false;
+  // gt/lt: disparan solo cuando CRUZAN el nivel (necesitan precio anterior)
+  // Si no hay previo, guardar y esperar el siguiente tick
+  if(dir === 'gt')       ok = prev !== undefined && prev < val  && cur >= val;  // cruce hacia arriba
+  if(dir === 'lt')       ok = prev !== undefined && prev > val  && cur <= val;  // cruce hacia abajo
+  if(dir === 'cross_up') ok = prev !== undefined && prev < val  && cur >= val;
+  if(dir === 'cross_dn') ok = prev !== undefined && prev > val  && cur <= val;
+  const labels = {
+    gt:`cruzó ↑ $${fmtAR(val,2)}`,
+    lt:`cruzó ↓ $${fmtAR(val,2)}`,
+    cross_up:`↑ cruzó $${fmtAR(val,2)}`,
+    cross_dn:`↓ cruzó $${fmtAR(val,2)}`
+  };
+  return [ok, `Precio ${labels[dir]||dir}`];
+}
+
+async function evalMA(a, sym){
+  const fast = a.params.maFast;
+  const slow = a.params.maSlow;
+  const dir  = a.params.maDir;
+  let rows = null;
+  try{
+    rows = await window.sb('mercado_history', `symbol=eq.${sym}&select=last&order=ts.desc&limit=${slow+5}`);
+  }catch(e){}
+  if(!rows || rows.length < slow) return [false, `MA${fast}/MA${slow} — historial insuficiente`];
+  const closes = rows.map(r => Number(r.last));
+  const maFast = closes.slice(0, fast).reduce((s,v)=>s+v,0) / fast;
+  const maSlow = closes.slice(0, slow).reduce((s,v)=>s+v,0) / slow;
+  const prev = AL.prevMAs[sym];
+  AL.prevMAs[sym] = {fast: maFast, slow: maSlow};
+  if(!prev) return [false, ''];
+  let ok = false;
+  if(dir === 'golden') ok = prev.fast < prev.slow && maFast >= maSlow;
+  if(dir === 'death')  ok = prev.fast > prev.slow && maFast <= maSlow;
+  if(dir === 'any')    ok = (prev.fast < prev.slow && maFast >= maSlow) || (prev.fast > prev.slow && maFast <= maSlow);
+  const lbl = {golden:'Golden cross ↑', death:'Death cross ↓', any:'Cruce'}[dir]||dir;
+  return [ok, `MA${fast}/MA${slow} ${lbl}`];
+}
+
+function evalVariacion(a, change){
+  const val = a.params.valor;
+  const dir = a.params.varDir;
+  let ok = false;
+  if(dir === 'gt')  ok = change >= val;
+  if(dir === 'lt')  ok = change <= -Math.abs(val);
+  if(dir === 'abs') ok = Math.abs(change) >= Math.abs(val);
+  const lblDir = {gt:`≥+${val}%`, lt:`≤-${val}%`, abs:`|Δ|≥${val}%`}[dir]||dir;
+  return [ok, `Variación ${lblDir} (actual: ${change>=0?'+':''}${change.toFixed(2)}%)`];
+}
+
+function evalVolumen(a, turnover){
+  const val = a.params.valor;
+  return [turnover >= val, `Turnover ≥ ${fmtM(val)} (actual: ${fmtM(turnover)})`];
+}
+
+// ─────────────────────────────────────────────
+// MENSAJE
+// ─────────────────────────────────────────────
+function alBuildMsg(a, precio, change, condDesc){
+  const hora = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+  const custom = a.params?.mensaje || '';
+  const base = `🔔 *ALERTA FINANCIERA*\nTicker: *${a.ticker}*\nTipo: ${alTipoLabel(a.tipo)}\nCondición: ${condDesc}\nPrecio: $${fmtAR(precio,2)}\nVariación: ${change>=0?'+':''}${change.toFixed(2)}%\nHora: ${hora}`;
+  if(custom){
+    const interp = custom.replace('{ticker}',a.ticker).replace('{precio}','$'+fmtAR(precio,2)).replace('{condicion}',condDesc).replace('{hora}',hora);
+    return base + '\n\n💬 ' + interp;
+  }
+  return base;
+}
+
+// ─────────────────────────────────────────────
+// ENVÍO
+// ─────────────────────────────────────────────
+async function alEnviar(msg){
+  const canal = AL.cfg.canal || 'ninguno';
+  let ok = false;
+  if(canal === 'wa'    || canal === 'ambos') ok = await alEnviarWA(msg) || ok;
+  if(canal === 'tg'    || canal === 'ambos') ok = await alEnviarTG(msg) || ok;
+  if(canal === 'ninguno') alLog('⚠️ Sin canal configurado.', 'amber');
+  return ok;
+}
+
+async function alEnviarWA(msg){
+  const num = AL.cfg.waNum, key = AL.cfg.waKey;
+  if(!num || !key){ alLog('⚠️ WhatsApp: faltan credenciales.', 'amber'); return false; }
+  try{
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(num)}&text=${encodeURIComponent(msg)}&apikey=${key}`, {mode:'no-cors'});
+    alLog('📱 WhatsApp enviado.', 'green');
+    return true;
+  }catch(e){ alLog('❌ WhatsApp error: '+e.message, 'red'); return false; }
+}
+
+async function alEnviarTG(msg){
+  const token = AL.cfg.tgToken, chatId = AL.cfg.tgChatId;
+  if(!token || !chatId){ alLog('⚠️ Telegram: faltan credenciales.', 'amber'); return false; }
+  try{
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id: chatId, text: msg, parse_mode:'Markdown'})
+    });
+    const d = await r.json();
+    if(d.ok){ alLog('✈️ Telegram enviado.', 'green'); return true; }
+    else{ alLog('❌ Telegram: '+d.description, 'red'); return false; }
+  }catch(e){ alLog('❌ Telegram error: '+e.message, 'red'); return false; }
+}
+
+// ─────────────────────────────────────────────
+// CRUD ALERTAS — Supabase
+// ─────────────────────────────────────────────
+async function alCargarAlertas(){
+  const uid = alUserId();
+  const rows = await window.sb('alertas', `user_id=eq.${uid}&order=created_at.desc`);
+  AL.alerts = rows || [];
+  alRenderActivas();
+  alKpiUpdate();
+}
+
+window.alReload = async function(){
+  await alCargarAlertas();
+  alLog('↺ Alertas recargadas desde Supabase.', 'blue');
+};
+
+window.alGuardar = async function(){
+  const ticker = (document.getElementById('al-f-ticker').value||'').trim().toUpperCase();
+  if(!ticker){ alFlash('al-guardar-btn','Falta ticker'); return; }
+
+  const tipo = AL.tipoActual;
+  const params = { cooldown: Number(document.getElementById('al-f-cooldown').value), mensaje: document.getElementById('al-f-msg').value };
+
+  if(tipo === 'precio'){
+    params.dir   = document.getElementById('al-f-precio-dir').value;
+    params.valor = parseFloat(document.getElementById('al-f-precio-val').value);
+    if(isNaN(params.valor)){ alFlash('al-guardar-btn','Valor inválido'); return; }
+  } else if(tipo === 'ma'){
+    params.maFast = parseInt(document.getElementById('al-f-ma-fast').value)||20;
+    params.maSlow = parseInt(document.getElementById('al-f-ma-slow').value)||50;
+    params.maDir  = document.getElementById('al-f-ma-dir').value;
+  } else if(tipo === 'variacion'){
+    params.varDir = document.getElementById('al-f-var-dir').value;
+    params.valor  = parseFloat(document.getElementById('al-f-var-val').value);
+    if(isNaN(params.valor)){ alFlash('al-guardar-btn','Valor inválido'); return; }
+  } else if(tipo === 'volumen'){
+    params.valor = parseFloat(document.getElementById('al-f-vol-val').value);
+    if(isNaN(params.valor)){ alFlash('al-guardar-btn','Valor inválido'); return; }
+  }
+
+  const row = {
+    id:         'al_' + Date.now(),
+    user_id:    alUserId(),
+    ticker,
+    tipo,
+    params,
+    activa:     true,
+    cooldown:   params.cooldown,
+    mensaje:    params.mensaje,
+    fired_count:0,
+    last_fired: null,
+    created_at: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('al-guardar-btn');
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+
+  const r = await sbPost('alertas', row);
+  btn.disabled = false; btn.textContent = '💾 Guardar en Supabase';
+
+  if(r.ok || r.status === 201){
+    alShowMsg('al-form-msg','✅ Alerta guardada en Supabase.','green');
+    alLog(`✅ Alerta guardada: ${ticker} — ${alTipoLabel(tipo)}`, 'green');
+    await alCargarAlertas();
+    alLimpiarForm();
+    alTab('activas', document.getElementById('alstab-activas'));
+  } else {
+    alShowMsg('al-form-msg','❌ Error al guardar: '+r.status,'red');
+    alLog('❌ Error Supabase al guardar: '+r.status, 'red');
+  }
+};
+
+window.alToggle = async function(id, val){
+  const a = AL.alerts.find(x => x.id === id);
+  if(!a) return;
+  a.activa = val;
+  await sbPatch('alertas', `id=eq.${id}`, {activa: val});
+  alRenderActivas();
+  alKpiUpdate();
+};
+
+window.alEliminar = async function(id){
+  if(!confirm('¿Eliminar esta alerta?')) return;
+  await sbDelete('alertas', `id=eq.${id}`);
+  AL.alerts = AL.alerts.filter(x => x.id !== id);
+  alRenderActivas();
+  alKpiUpdate();
+  alLog('🗑 Alerta eliminada.', 'text3');
+};
+
+window.alTestAlert = async function(id){
+  const a = AL.alerts.find(x => x.id === id);
+  if(!a) return;
+  const msg = `🧪 TEST\nTicker: *${a.ticker}*\nTipo: ${alTipoLabel(a.tipo)}\nCondición: ${alCondLabel(a)}\n\nEsta es una notificación de prueba.`;
+  alLog(`🧪 Enviando test para ${a.ticker}...`, 'blue');
+  await alEnviar(msg);
+};
+
+// ─────────────────────────────────────────────
+// HISTORIAL — Supabase
+// ─────────────────────────────────────────────
+async function alCargarHistorial(){
+  const uid = alUserId();
+  const rows = await window.sb('alertas_historial', `user_id=eq.${uid}&order=fired_at.desc&limit=200`);
+  alRenderHistorial(rows||[]);
+}
+
+function alRenderHistorial(rows){
+  const tbody = document.getElementById('al-hist-tbody');
+  if(!tbody) return;
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin historial aún.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(h => {
+    const ts = new Date(h.fired_at).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'});
+    const okColor = h.estado?.includes('✅') ? 'var(--green)' : 'var(--red)';
+    return `<tr>
+      <td class="td-left" style="color:var(--text3);font-size:9px">${ts}</td>
+      <td class="td-left" style="font-weight:500;color:var(--text)">${h.ticker}</td>
+      <td class="td-left"><span class="badge" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border)">${alTipoLabel(h.tipo)}</span></td>
+      <td class="td-left" style="color:var(--text2)">${h.cond_desc||'—'}</td>
+      <td>$${fmtAR(h.precio,2)}</td>
+      <td style="color:var(--text3)">${h.canal||'—'}</td>
+      <td style="color:${okColor}">${h.estado||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// RENDER TABLA ACTIVAS
+// ─────────────────────────────────────────────
+window.alRenderActivas = function(){
+  const q  = (document.getElementById('al-search')?.value||'').toLowerCase();
+  const tf = AL.filtroTipo;
+  const rows = AL.alerts.filter(a => {
+    if(tf !== 'all' && a.tipo !== tf) return false;
+    if(q && !a.ticker.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const tbody = document.getElementById('al-activas-tbody');
+  if(!tbody) return;
+  if(!rows.length){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">
+      ${AL.alerts.length ? 'Sin resultados.' : 'No hay alertas. Creá una en <strong style="color:var(--text2)">+ Nueva</strong>.'}
+    </td></tr>`;
+    return;
+  }
+  const colorMap = {precio:'var(--green)',ma:'var(--blue)',variacion:'var(--amber)',volumen:'var(--cyan)'};
+  tbody.innerHTML = rows.map(a => {
+    const tc = colorMap[a.tipo] || 'var(--text2)';
+    const lastF = a.last_fired ? new Date(a.last_fired).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—';
+    const cd = (a.params?.cooldown||a.cooldown||0);
+    const cdLabel = cd===0?'sin límite':cd>=3600?Math.round(cd/3600)+'h':Math.round(cd/60)+'min';
+    const curPrice = AL.prevPrices[a.ticker] ? '$'+fmtAR(AL.prevPrices[a.ticker],2) : '—';
+    return `<tr>
+      <td class="td-left" style="font-weight:500;color:var(--text)">${a.ticker}</td>
+      <td class="td-left"><span class="badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}44">${alTipoLabel(a.tipo)}</span></td>
+      <td class="td-left" style="color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis">${alCondLabel(a)}</td>
+      <td style="font-family:'IBM Plex Mono',monospace">${curPrice}</td>
+      <td>
+        <label style="display:flex;align-items:center;justify-content:flex-end;gap:5px;cursor:pointer">
+          <input type="checkbox" ${a.activa?'checked':''} onchange="alToggle('${a.id}',this.checked)" style="accent-color:var(--green)">
+          <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${a.activa?'var(--green)':'var(--text3)'}">${a.activa?'ON':'OFF'}</span>
+        </label>
+      </td>
+      <td style="font-size:9px;color:var(--text3)">${lastF}</td>
+      <td style="font-size:9px;color:var(--text3)">${cdLabel}</td>
+      <td class="td-left">
+        <div style="display:flex;gap:4px">
+          <button class="flt" onclick="alTestAlert('${a.id}')" style="padding:2px 7px;font-size:8px">test</button>
+          <button class="flt" onclick="alEliminar('${a.id}')" style="padding:2px 7px;font-size:8px;color:var(--red)">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+};
+
+window.alFiltro = function(tipo, btn){
+  AL.filtroTipo = tipo;
+  document.querySelectorAll('.toolbar .flt').forEach(b => b.className='flt');
+  const clsMap = {all:'on', precio:'on-green', ma:'on-blue', variacion:'on-amber', volumen:'on-cyan'};
+  btn.className = 'flt ' + (clsMap[tipo]||'on') + ' on';
+  alRenderActivas();
+};
+
+// ─────────────────────────────────────────────
+// FORMULARIO
+// ─────────────────────────────────────────────
+window.alSetTipo = function(tipo, btn){
+  AL.tipoActual = tipo;
+  document.querySelectorAll('#al-tipo-btns .flt').forEach(b => b.className='flt');
+  const clsMap = {precio:'on-green',ma:'on-blue',variacion:'on-amber',volumen:'on-cyan'};
+  btn.className = 'flt ' + (clsMap[tipo]||'on') + ' on';
+  document.querySelectorAll('.al-cond-panel').forEach(p => p.style.display='none');
+  document.getElementById('al-cond-'+tipo).style.display='flex';
+  // Mostrar cooldown solo para variacion y volumen
+  const cdWrap = document.getElementById('al-cooldown-wrap');
+  if(cdWrap) cdWrap.style.display = (tipo==='variacion'||tipo==='volumen') ? 'flex' : 'none';
+  alFormPreview();
+};
+
+window.alFormPreview = function(){
+  const ticker = (document.getElementById('al-f-ticker')?.value||'TICKER').toUpperCase();
+  const tipo = AL.tipoActual;
+  let condDesc = '';
+  if(tipo==='precio'){
+    const dir = document.getElementById('al-f-precio-dir').value;
+    const val = document.getElementById('al-f-precio-val').value||'?';
+    condDesc = `Precio ${ {gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'}[dir]||dir } $${val}`;
+  } else if(tipo==='ma'){
+    const f=document.getElementById('al-f-ma-fast').value||'20', s=document.getElementById('al-f-ma-slow').value||'50';
+    const dir=document.getElementById('al-f-ma-dir').value;
+    document.getElementById('al-ma-req').textContent = s;
+    condDesc = `MA${f}/MA${s} — ${{golden:'Golden↑',death:'Death↓',any:'Cualquier cruce'}[dir]||dir}`;
+  } else if(tipo==='variacion'){
+    const dir=document.getElementById('al-f-var-dir').value, val=document.getElementById('al-f-var-val').value||'?';
+    condDesc = `Variación ${ {gt:'≥+',lt:'≤-',abs:'|Δ|≥'}[dir]||dir }${val}%`;
+  } else if(tipo==='volumen'){
+    const val=document.getElementById('al-f-vol-val').value||'?';
+    condDesc = `Turnover ≥ $${Number(val).toLocaleString('es-AR')}`;
+  }
+  const hora = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const custom = document.getElementById('al-f-msg')?.value||'';
+  const base = `🔔 ALERTA FINANCIERA\nTicker: ${ticker}\nTipo: ${alTipoLabel(tipo)}\nCondición: ${condDesc}\nPrecio: $X.XX\nVariación: +X.XX%\nHora: ${hora}`;
+  const full = custom ? base+'\n\n💬 '+custom.replace('{ticker}',ticker).replace('{precio}','$X.XX').replace('{condicion}',condDesc).replace('{hora}',hora) : base;
+  const el = document.getElementById('al-msg-preview');
+  if(el) el.textContent = full;
+};
+
+window.alLimpiarForm = function(){
+  ['al-f-ticker','al-f-precio-val','al-f-var-val','al-f-vol-val','al-f-msg'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('al-msg-preview').textContent='Completá el formulario...';
+};
+
+// ─────────────────────────────────────────────
+// CONFIG CANAL — lee de window.CFG (hardcodeado en index.html)
+// ─────────────────────────────────────────────
+function alCfgCargarLocal(){
+  AL.cfg = {
+    tgToken:  window.CFG?.TG_TOKEN   || '',
+    tgChatId: window.CFG?.TG_CHAT_ID || '',
+    waNum:    window.CFG?.WA_NUM     || '',
+    waKey:    window.CFG?.WA_KEY     || '',
+    canal:    window.CFG?.AL_CANAL   || 'ambos',
+  };
+  alCfgUI();
+  alKpiUpdate();
+}
+
+window.alTestCanal = async function(canal){
+  const msg = `🧪 *TEST DE CANAL*\nDashboard Financiero\nCanal: ${canal==='wa'?'📱 WhatsApp':'✈️ Telegram'}\nHora: ${new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}\n\n✅ Notificaciones funcionando correctamente.`;
+  alLog(`🧪 Enviando test por ${canal==='wa'?'WhatsApp':'Telegram'}...`, 'blue');
+  const ok = canal==='wa' ? await alEnviarWA(msg) : await alEnviarTG(msg);
+  alLog(ok ? `✅ Test ${canal.toUpperCase()} enviado — revisá tu teléfono.` : `❌ Test ${canal.toUpperCase()} falló — verificá credenciales en CFG.`, ok?'green':'red');
+};
+
+
+
+
+function alCfgUI(){
+  const hasWa = !!(AL.cfg.waNum && AL.cfg.waKey);
+  const hasTg = !!(AL.cfg.tgToken && AL.cfg.tgChatId);
+  const canal = {wa:'📱 WhatsApp', tg:'✈️ Telegram', ambos:'📢 Ambos'}[AL.cfg.canal]||'—';
+
+  const waTag = document.getElementById('al-cfg-wa-tag');
+  const tgTag = document.getElementById('al-cfg-tg-tag');
+  const waDetail = document.getElementById('al-cfg-wa-detail');
+  const tgDetail = document.getElementById('al-cfg-tg-detail');
+  const canalEl = document.getElementById('al-canal-actual');
+
+  if(waTag){ waTag.className=hasWa?'tag tag-ok':'tag tag-err'; waTag.textContent=hasWa?'ACTIVO':'NO CONFIG'; }
+  if(tgTag){ tgTag.className=hasTg?'tag tag-ok':'tag tag-err'; tgTag.textContent=hasTg?'ACTIVO':'NO CONFIG'; }
+  if(waDetail) waDetail.textContent = hasWa ? AL.cfg.waNum : 'Falta WA_NUM o WA_KEY en CFG del index.html';
+  if(tgDetail) tgDetail.textContent = hasTg ? 'Chat ID: '+AL.cfg.tgChatId : 'Falta TG_TOKEN o TG_CHAT_ID en CFG del index.html';
+  if(canalEl) canalEl.textContent = canal;
+}
+
+// ─────────────────────────────────────────────
+// KPI
+// ─────────────────────────────────────────────
+function alKpiUpdate(){
+  const act = AL.alerts.filter(a=>a.activa).length;
+  const tickers = [...new Set(AL.alerts.filter(a=>a.activa).map(a=>a.ticker))].length;
+  const today = new Date().toDateString();
+  const canal = {wa:'WhatsApp',tg:'Telegram',ambos:'Ambos'}[AL.cfg.canal]||'—';
+  const canalSub = AL.cfg.canal ? ({wa: AL.cfg.waNum||'—', tg:'@bot', ambos:'WA + TG'}[AL.cfg.canal]) : 'sin configurar';
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('al-kpi-activas', act);
+  set('al-kpi-tickers', tickers);
+  set('al-kpi-canal', canal);
+  set('al-kpi-canal-sub', canalSub);
+  // hoy: contar desde historial cargado (aproximado, la fuente real es Supabase)
+  const hoyCount = AL.alerts.reduce((s,a) => {
+    if(!a.last_fired) return s;
+    return new Date(a.last_fired).toDateString()===today ? s+1 : s;
+  }, 0);
+  set('al-kpi-hoy', hoyCount);
+}
+
+// ─────────────────────────────────────────────
+// LOG
+// ─────────────────────────────────────────────
+function alLog(msg, color){
+  const el = document.getElementById('al-log');
+  if(!el) return;
+  const colors = {green:'var(--green)',red:'var(--red)',amber:'var(--amber)',blue:'var(--blue)',cyan:'var(--cyan)',text3:'var(--text3)'};
+  const ts = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const line = document.createElement('span');
+  line.style.color = colors[color]||'var(--text2)';
+  line.textContent = `[${ts}] ${msg}`;
+  el.prepend(line);   // más nuevo arriba
+  while(el.children.length > 80) el.removeChild(el.lastChild);
+}
+
+window.alClearLog = function(){
+  const el = document.getElementById('al-log');
+  if(el) el.innerHTML='<span style="color:var(--text4);font-style:italic">Log limpiado.</span>';
+};
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+function alShowMsg(id, msg, color){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display='block';
+  el.style.color = {green:'var(--green)',red:'var(--red)',amber:'var(--amber)'}[color]||'var(--text2)';
+  el.textContent = msg;
+  setTimeout(()=>{ el.style.display='none'; }, 4000);
+}
+
+function alFlash(id, msg){
+  const btn = document.getElementById(id);
+  if(!btn) return;
+  const orig = btn.textContent;
+  btn.textContent = '⚠️ '+msg;
+  btn.style.background = 'var(--amber)';
+  setTimeout(()=>{ btn.textContent=orig; btn.style.background=''; }, 2000);
+}
+
+function alTipoLabel(tipo){
+  return {precio:'Precio', ma:'Medias móviles', variacion:'Variación %', volumen:'Volumen'}[tipo]||tipo;
+}
+
+function alCondLabel(a){
+  const p = a.params||{};
+  if(a.tipo==='precio'){
+    const dirs={gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'};
+    return `Precio ${dirs[p.dir]||p.dir} $${fmtAR(p.valor,2)}`;
+  }
+  if(a.tipo==='ma') return `MA${p.maFast}/MA${p.maSlow} — ${{golden:'Golden↑',death:'Death↓',any:'Cruce'}[p.maDir]||p.maDir}`;
+  if(a.tipo==='variacion'){
+    const dirs={gt:'≥+',lt:'≤-',abs:'|Δ|≥'};
+    return `Variación ${dirs[p.varDir]||p.varDir}${p.valor}%`;
+  }
+  if(a.tipo==='volumen') return `Turnover ≥ ${fmtM(p.valor)}`;
+  return '—';
+}
+
+function fmtAR(n, dec=0){ return Number(n).toLocaleString('es-AR',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+function fmtM(n){ n=Number(n); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(0)+'K'; return n.toFixed(0); }
+
+})();
+</script>

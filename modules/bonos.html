@@ -1,0 +1,774 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: RENTA FIJA ARS v2
+     Curva TEM/TEA vs DM · Tabla · Arbitrajes RT
+══════════════════════════════════════════════════ -->
+
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="bstab-curva"      onclick="bTab('curva',this)">Curva</button>
+    <button class="stab"        id="bstab-tabla"      onclick="bTab('tabla',this)">Tabla</button>
+    <button class="stab"        id="bstab-arbitrajes" onclick="bTab('arbitrajes',this)">Arbitrajes</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+      TAMAR: <span id="b-tamar-val" style="color:var(--amber)">—</span>
+      &nbsp;·&nbsp; Act: <span id="b-last-update">—</span>
+    </div>
+    <button class="btn btn-outline" onclick="bReload()" style="font-size:9px;padding:3px 10px">↺ Actualizar</button>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+  <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Menor TEM</div><div class="kpi-val" id="bk-min-tem">—</div><div class="kpi-sub" id="bk-min-tem-t">—</div></div>
+  <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Mayor TEM</div><div class="kpi-val" id="bk-max-tem">—</div><div class="kpi-sub" id="bk-max-tem-t">—</div></div>
+  <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">TEM promedio</div><div class="kpi-val" id="bk-avg-tem">—</div><div class="kpi-sub">todos los bonos</div></div>
+  <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Pendiente</div><div class="kpi-val" id="bk-slope">—</div><div class="kpi-sub">corto vs largo</div></div>
+  <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Arbitrajes</div><div class="kpi-val" id="bk-arb-count">—</div><div class="kpi-sub" id="bk-arb-sub">desvío &gt; 30bps</div></div>
+  <div class="kpi" style="--accent:var(--cyan)"><div class="kpi-label">Bonos activos</div><div class="kpi-val" id="bk-count">—</div><div class="kpi-sub">con precio RT</div></div>
+</div>
+
+<!-- ════ CURVA ════ -->
+<div class="sub-panel active" id="bpanel-curva">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Curva de rendimientos — TEM vs días al vencimiento</div>
+      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:3px" id="b-curva-filter">
+          <button class="flt on" onclick="bCurvaFiltro('all',this)">Todos</button>
+          <button class="flt" onclick="bCurvaFiltro('lecap',this)">LECAP</button>
+          <button class="flt" onclick="bCurvaFiltro('boncap',this)">BONCAP</button>
+          <button class="flt" onclick="bCurvaFiltro('dual',this)">Duales</button>
+          <button class="flt" onclick="bCurvaFiltro('fijo',this)">Fija</button>
+        </div>
+        <div style="width:1px;height:16px;background:var(--border);margin:0 4px"></div>
+        <button class="flt" onclick="bSetMetrica('tem',this)" id="bm-tem" style="border-color:var(--green);color:var(--green)">TEM</button>
+        <button class="flt" onclick="bSetMetrica('tea',this)" id="bm-tea">TEA</button>
+        <button class="flt" onclick="bSetMetrica('tna',this)" id="bm-tna">TNA</button>
+      </div>
+    </div>
+    <div class="card-body" style="padding:16px 16px 8px">
+      <canvas id="bCurvaCanvas" style="width:100%;height:400px;display:block"></canvas>
+    </div>
+    <div style="padding:8px 16px 14px;display:flex;gap:16px;flex-wrap:wrap" id="b-curva-legend"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="card">
+      <div class="card-head"><div class="card-title">TEM promedio por tipo</div></div>
+      <div class="card-body"><canvas id="bTipoCanvas" style="width:100%;height:220px;display:block"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Desvío vs curva teórica (bps)</div></div>
+      <div class="card-body"><canvas id="bDesvioCanvas" style="width:100%;height:220px;display:block"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ TABLA ════ -->
+<div class="sub-panel" id="bpanel-tabla">
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:4px;flex-wrap:wrap" id="b-tipo-filter">
+        <button class="flt on" onclick="bFiltro('all',this)">Todos</button>
+        <button class="flt" onclick="bFiltro('lecap',this)">LECAP</button>
+        <button class="flt" onclick="bFiltro('boncap',this)">BONCAP</button>
+        <button class="flt" onclick="bFiltro('dual',this)">Duales</button>
+        <button class="flt" onclick="bFiltro('fijo',this)">Tasa fija</button>
+      </div>
+      <input class="search-input" placeholder="Buscar..." id="b-search" oninput="bRenderTabla()" style="max-width:140px">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left" onclick="bSort('ticker')">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th onclick="bSort('vto')">Vencimiento</th>
+          <th onclick="bSort('precio')">Precio</th>
+          <th onclick="bSort('cambio')">% día</th>
+          <th onclick="bSort('paridad')">Paridad</th>
+          <th onclick="bSort('tem')" class="sort-desc">TEM</th>
+          <th onclick="bSort('tea')">TEA</th>
+          <th onclick="bSort('tna')">TNA</th>
+          <th onclick="bSort('dm')">DM</th>
+          <th onclick="bSort('vsCurva')">vs Curva</th>
+        </tr></thead>
+        <tbody id="b-tbody">
+          <tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text3)"><div class="spinner" style="margin:0 auto 8px"></div>Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════ ARBITRAJES ════ -->
+<div class="sub-panel" id="bpanel-arbitrajes">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">⚡ Oportunidades de arbitraje en tiempo real</div>
+      <div style="display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+        Umbral:
+        <input type="range" min="5" max="100" value="30" step="5" id="b-umbral-range" oninput="bSetUmbral(this.value)" style="width:90px;vertical-align:middle">
+        <span id="b-umbral-val" style="color:var(--amber);min-width:40px">30 bps</span>
+      </div>
+    </div>
+    <div id="b-arb-lista" style="padding:16px;display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;padding:24px;color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace">Cargando datos...</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div class="card-title">📖 Cómo leer los arbitrajes</div></div>
+    <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:11px;color:var(--text2);line-height:1.8">
+      <div>
+        <div style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🟢 Bono barato — TEM sobre curva</div>
+        Rinde más de lo que le corresponde por su duration. El mercado lo cotiza con descuento respecto a sus pares. <strong style="color:var(--text)">Acción: COMPRAR</strong> este bono y vender uno "caro" de duration similar para capturar la diferencia cuando la curva converja.
+      </div>
+      <div>
+        <div style="color:var(--red);font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🔴 Bono caro — TEM bajo curva</div>
+        Rinde menos de lo que le corresponde. El mercado lo premia por encima de sus pares. <strong style="color:var(--text)">Acción: VENDER / ROTAR</strong> hacia un bono barato del mismo tramo para mejorar rendimiento sin alargar duration.
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.arb-row{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;display:grid;grid-template-columns:90px 1fr 80px 90px;gap:12px;align-items:center}
+.arb-row.barato{border-left:3px solid var(--green)}
+.arb-row.caro{border-left:3px solid var(--red)}
+.arb-par{background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-top:6px;font-size:10px;color:var(--text2);line-height:1.7}
+.arb-badge{font-size:9px;padding:3px 9px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-weight:600;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;text-align:center}
+.ab-comprar{background:var(--greenDim);color:var(--green);border:1px solid rgba(0,229,168,.3)}
+.ab-vender{background:var(--redDim);color:var(--red);border:1px solid rgba(255,63,94,.3)}
+</style>
+
+<script>
+(function(){
+'use strict';
+
+// ── Fecha hoy ──
+const HOY = new Date();
+HOY.setHours(0,0,0,0);
+
+function diasA(vtoStr){
+  const [d,m,y] = vtoStr.split('/').map(Number);
+  return Math.max(1, (new Date(y,m-1,d) - HOY) / 86400000);
+}
+function mesesA(vtoStr){ return diasA(vtoStr)/30; }
+
+// ──────────────────────────────────────────────────────
+// CATÁLOGO DE BONOS
+// precio en Supabase: precio real en pesos (ej: 107.91)
+// VF: valor al vencimiento en la misma unidad (100)
+// Para LECAP/BONCAP el precio capitaliza hacia 100
+// TEM = (100/precio)^(1/meses) - 1
+// VF por $100 VN — misma unidad que el precio de mercado en Supabase
+// Fuente: tabla @Adrian_Wibly 19/03/2026 (columna $ Vto / 1000)
+const VF = {
+  'S17A6': 110.125, 'S30A6': 127.486, 'S15Y6': 105.178,
+  'S29Y6': 132.044, 'T30J6': 144.896, 'S31L6': 117.677,
+  'S31G6': 127.064, 'S30S6': 117.536, 'S30O6': 135.278,
+  'S30N6': 129.888, 'T15E7': 161.104, 'T30A7': 157.341,
+  'T31Y7': 151.563, 'T30J7': 156.037,
+  'TTJ26': 164.367, 'TTS26': 173.306, 'TTD26': 184.409,
+};
+
+const CATALOGO = [
+  // LECAP
+  {ticker:'S17A6', vto:'17/04/2026', tipo:'lecap', label:'LECAP Abr26'},
+  {ticker:'S30A6', vto:'30/04/2026', tipo:'lecap', label:'LECAP Abr26b'},
+  {ticker:'S15Y6', vto:'15/05/2026', tipo:'lecap', label:'LECAP May26'},
+  {ticker:'S29Y6', vto:'29/05/2026', tipo:'lecap', label:'LECAP May26b'},
+  {ticker:'S31L6', vto:'31/07/2026', tipo:'lecap', label:'LECAP Jul26'},
+  {ticker:'S31G6', vto:'31/08/2026', tipo:'lecap', label:'LECAP Ago26'},
+  {ticker:'S30S6', vto:'30/09/2026', tipo:'lecap', label:'LECAP Sep26'},
+  {ticker:'S30O6', vto:'30/10/2026', tipo:'lecap', label:'LECAP Oct26'},
+  {ticker:'S30N6', vto:'30/11/2026', tipo:'lecap', label:'LECAP Nov26'},
+  // BONCAP
+  {ticker:'T30J6', vto:'30/06/2026', tipo:'boncap', label:'BONCAP Jun26'},
+  {ticker:'T15E7', vto:'15/01/2027', tipo:'boncap', label:'BONCAP Ene27'},
+  {ticker:'T30A7', vto:'30/04/2027', tipo:'boncap', label:'BONCAP Abr27'},
+  {ticker:'T31Y7', vto:'31/05/2027', tipo:'boncap', label:'BONCAP May27'},
+  {ticker:'T30J7', vto:'30/06/2027', tipo:'boncap', label:'BONCAP Jun27'},
+  // Duales
+  {ticker:'TTS26', vto:'15/09/2026', tipo:'dual', label:'Dual Sep26', tasaFija:0.03},
+  {ticker:'TTJ26', vto:'30/06/2026', tipo:'dual', label:'Dual Jun26', tasaFija:0.0295},
+  {ticker:'TTD26', vto:'15/12/2026', tipo:'dual', label:'Dual Dic26', tasaFija:0.028},
+  // Tasa fija
+  {ticker:'TO26',  vto:'17/10/2026', tipo:'fijo', label:'TO26',
+   flujos:[{dias:29, pct:0.075},{dias:212, pct:1.075}]},
+  {ticker:'TY30P', vto:'30/05/2030', tipo:'fijo', label:'TY30P (put 2027)',
+   flujos:[{dias:72,pct:0.06},{dias:255,pct:0.06},{dias:437,pct:0.06},{dias:619,pct:0.06},
+           {dias:802,pct:0.06},{dias:984,pct:0.06},{dias:1166,pct:0.06},{dias:1349,pct:0.06},
+           {dias:1532,pct:0.06},{dias:1714,pct:1.06}]},
+];
+
+// ── Estado ──
+const B = {
+  data: [],
+  tamar: 0.029,
+  metrica: 'tem',
+  filtro: 'all',
+  curvaFiltro: 'all',
+  sortCol: 'dm',
+  sortAsc: true,
+  umbral: 30,
+  charts: {},
+  curva: {a:0, b:0},
+};
+
+// ── Init ──
+async function init(){
+  await loadTamar();
+  await loadPrecios();
+  renderCurva();
+  bRenderTabla();
+  renderArbitrajes();
+}
+
+// ── Cargar TAMAR ──
+async function loadTamar(){
+  try{
+    const r = await window.sb('mercado','symbol=eq.TAMAR&select=last&limit=1');
+    if(r&&r[0]?.last){ B.tamar = Number(r[0].last)/100/12; }
+  }catch(e){}
+  const el=document.getElementById('b-tamar-val');
+  if(el) el.textContent=(B.tamar*100).toFixed(3)+'% TEM';
+}
+
+// ── Cargar precios y calcular métricas ──
+async function loadPrecios(){
+  const tickers = CATALOGO.map(b=>b.ticker);
+  const rows = await window.sb('mercado',
+    `symbol=in.(${tickers.map(t=>'"'+t+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change`
+  );
+  console.log('Bonos query result:', rows, 'tickers buscados:', tickers);
+  const mkt={};
+  if(rows) rows.forEach(r=>{ mkt[r.symbol]={precio:Number(r.last),cambio:Number(r.change||0)}; });
+
+  B.data = CATALOGO.map(b=>{
+    const m = mkt[b.ticker];
+    if(!m||!m.precio||m.precio<=0) return null;
+    const precio = m.precio;
+    const cambio = m.cambio;
+    const meses  = mesesA(b.vto);
+    if(meses<=0) return null;
+
+    let tem=0, dm=0, paridad=100;
+
+    if(b.tipo==='lecap'||b.tipo==='boncap'){
+      // TEM = (VF/precio)^(1/meses) - 1
+      // VF y precio en la misma unidad (pesos por lámina)
+      const vf = VF[b.ticker];
+      if(vf && meses > 0 && precio > 0){
+        tem = Math.pow(vf/precio, 1/meses) - 1;
+        dm  = meses/12;
+        paridad = precio/vf*100;
+      }
+    } else if(b.tipo==='dual'){
+      // Usar VF real si disponible, sino proyectar desde pata ganadora
+      const vfDual = VF[b.ticker];
+      if(vfDual && meses > 0 && precio > 0){
+        tem = Math.pow(vfDual/precio, 1/meses) - 1;
+        dm  = meses/12;
+        paridad = precio/vfDual*100;
+      } else {
+        const pataGanadora = Math.max(b.tasaFija, B.tamar);
+        const vfProyectado = 100 * Math.pow(1+pataGanadora, meses);
+        tem = Math.pow(vfProyectado/precio, 1/meses) - 1;
+        dm  = meses/12;
+        paridad = precio/vfProyectado*100;
+      }
+    } else if(b.tipo==='fijo'&&b.flujos){
+      // Newton-Raphson sobre flujos futuros
+      // flujos.dias = días desde hoy, flujos.pct = % del VF (base 100)
+      const diasVto = diasA(b.vto);
+      const fl = b.flujos
+        .map(f=>({t: f.dias/30, monto: f.pct*precio/100*100})) // escalar al precio real
+        .filter(f=>f.t>0);
+      if(fl.length){
+        tem = calcTIR(precio, fl);
+        dm  = calcDM(precio, fl, tem);
+        paridad = 100;
+      }
+    }
+
+    if(isNaN(tem)||tem<=0||tem>0.15){
+      console.log(`Filtrado: ${b.ticker} tem=${tem} precio=${precio} meses=${meses}`);
+      return null;
+    }
+    const tea = Math.pow(1+tem,12)-1;
+    const tna = tem*12;
+    console.log(`OK: ${b.ticker} tem=${(tem*100).toFixed(2)}% precio=${precio} vf=${VF[b.ticker]}`);
+    return {...b, precio, cambio, tem, tea, tna, dm, paridad, vsCurva:0};
+  }).filter(Boolean);
+
+  calcCurva();
+  updateKpis();
+  bRenderTabla();
+
+  const el=document.getElementById('b-last-update');
+  if(el) el.textContent=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+
+function calcTIR(precio, flujos){
+  let r=0.02;
+  for(let i=0;i<200;i++){
+    let pv=0,dpv=0;
+    flujos.forEach(f=>{
+      const d=Math.pow(1+r,f.t);
+      pv+=f.monto/d;
+      dpv-=f.t*f.monto/(d*(1+r));
+    });
+    const err=pv-precio;
+    if(Math.abs(err)<0.0001) break;
+    if(Math.abs(dpv)<1e-10) break;
+    r=r-err/dpv;
+    if(r<-0.99) r=0.001;
+    if(r>5) r=0.1;
+  }
+  return Math.max(0,r);
+}
+
+function calcDM(precio, flujos, tem){
+  const tea=Math.pow(1+tem,12)-1;
+  let pv=0,dur=0;
+  flujos.forEach(f=>{
+    const t=f.t/12; // años
+    const v=f.monto/Math.pow(1+tea,t);
+    pv+=v; dur+=t*v;
+  });
+  return pv>0?(dur/pv)/(1+tea):0;
+}
+
+// ── Regresión cuadrática: TEM = a + b*DM + c*DM² ──
+function calcCurva(){
+  const pts=B.data.filter(b=>b.dm>0&&b.tem>0&&b.tipo!=='dual'); // excluir duales de la curva base
+  if(pts.length<3){ B.curva={a:0,b:0,c:0}; return; }
+
+  // Regresión lineal simple primero
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.dm,0);
+  const sy=pts.reduce((s,p)=>s+p.tem,0);
+  const sx2=pts.reduce((s,p)=>s+p.dm*p.dm,0);
+  const sxy=pts.reduce((s,p)=>s+p.dm*p.tem,0);
+  const den=n*sx2-sx*sx;
+  if(Math.abs(den)<1e-12){ B.curva={a:sy/n,b:0,c:0}; }
+  else{
+    B.curva={
+      a:(sy*sx2-sx*sxy)/den,
+      b:(n*sxy-sx*sy)/den,
+      c:0,
+    };
+  }
+
+  // Calcular desvío de cada bono
+  B.data.forEach(b=>{
+    const temCurva=B.curva.a+B.curva.b*b.dm;
+    b.vsCurva=(b.tem-temCurva)*10000; // bps
+    b.temCurva=temCurva;
+  });
+}
+
+function updateKpis(){
+  const act=B.data;
+  if(!act.length) return;
+  const sorted=[...act].sort((a,b)=>a.tem-b.tem);
+  const min=sorted[0], max=sorted[sorted.length-1];
+  const avg=act.reduce((s,b)=>s+b.tem,0)/act.length;
+  const corto=act.filter(b=>b.dm<0.5), largo=act.filter(b=>b.dm>1);
+  const ac=corto.length?corto.reduce((s,b)=>s+b.tem,0)/corto.length:avg;
+  const al=largo.length?largo.reduce((s,b)=>s+b.tem,0)/largo.length:avg;
+  const pend=(al-ac)*10000;
+  const arbs=act.filter(b=>Math.abs(b.vsCurva)>B.umbral).length;
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('bk-min-tem',(min.tem*100).toFixed(2)+'%'); set('bk-min-tem-t',min.ticker);
+  set('bk-max-tem',(max.tem*100).toFixed(2)+'%'); set('bk-max-tem-t',max.ticker);
+  set('bk-avg-tem',(avg*100).toFixed(2)+'%');
+  set('bk-slope',(pend>0?'+':'')+pend.toFixed(0)+' bps');
+  set('bk-arb-count',arbs);
+  set('bk-arb-sub','desvío > '+B.umbral+' bps');
+  set('bk-count',act.length);
+}
+
+// ──────────────────────────────────────────────
+// GRÁFICOS
+// ──────────────────────────────────────────────
+const COLORES={lecap:'#00e5a8',boncap:'#4da6ff',dual:'#b39dff',fijo:'#f0a500'};
+const LABELS={lecap:'LECAP',boncap:'BONCAP',dual:'Duales',fijo:'Tasa fija'};
+const CHART_OPTS={
+  responsive:true, maintainAspectRatio:false,
+  plugins:{
+    legend:{labels:{color:'rgba(157,175,197,.8)',font:{size:11,family:'IBM Plex Mono'}}},
+    tooltip:{backgroundColor:'#0d1117',borderColor:'#28303f',borderWidth:1,
+      titleColor:'#eef2f8',bodyColor:'#9dafc5',padding:10,
+      callbacks:{label:ctx=>{
+        const r=ctx.raw;
+        return r.ticker?` ${r.ticker}: ${ctx.parsed.y.toFixed(2)}% | DM ${ctx.parsed.x.toFixed(2)}`:` ${ctx.parsed.y.toFixed(2)}%`;
+      }}
+    }
+  },
+  scales:{
+    x:{grid:{color:'rgba(30,37,48,.7)'},ticks:{color:'rgba(92,112,144,.8)',font:{size:10,family:'IBM Plex Mono'}}},
+    y:{grid:{color:'rgba(30,37,48,.7)'},ticks:{color:'rgba(92,112,144,.8)',font:{size:10,family:'IBM Plex Mono'},callback:v=>v.toFixed(1)+'%'}},
+  }
+};
+
+function renderCurva(){
+  const m = B.metrica;
+  const cf = B.curvaFiltro;
+  let act = B.data.filter(b=>b.tem>0&&b.dm>0);
+  if(cf!=='all') act=act.filter(b=>b.tipo===cf);
+  if(!act.length) return;
+
+  const getVal = b => m==='tem'?b.tem*100:m==='tea'?b.tea*100:b.tna*100;
+
+  // Eje X = días al vencimiento (como el gráfico de @Adrian_Wibly)
+  const getDias = b => Math.round(b.dm*365);
+
+  // Datasets por tipo — solo los que pasan el filtro
+  const tipos = cf==='all' ? ['lecap','boncap','dual','fijo'] : [cf];
+  const datasets = tipos.map(tipo=>({
+    label: LABELS[tipo],
+    data: act.filter(b=>b.tipo===tipo).map(b=>({
+      x: getDias(b), y: getVal(b), ticker: b.ticker, vsCurva: b.vsCurva
+    })),
+    backgroundColor: COLORES[tipo],
+    borderColor: COLORES[tipo],
+    pointRadius: 9,
+    pointHoverRadius: 12,
+    type: 'scatter',
+  })).filter(d=>d.data.length>0);
+
+  // Curva de tendencia — polinómica de grado 2 sobre todos los puntos filtrados
+  const allPts = act.map(b=>({x:getDias(b), y:getVal(b)})).sort((a,b)=>a.x-b.x);
+  if(allPts.length>=3){
+    const n=allPts.length;
+    let sx=0,sx2=0,sx3=0,sx4=0,sy=0,sxy=0,sx2y=0;
+    allPts.forEach(({x,y})=>{sx+=x;sx2+=x*x;sx3+=x*x*x;sx4+=x*x*x*x;sy+=y;sxy+=x*y;sx2y+=x*x*y;});
+    const A=[[n,sx,sx2],[sx,sx2,sx3],[sx2,sx3,sx4]],Bv=[sy,sxy,sx2y];
+    for(let i=0;i<3;i++){let max=i;for(let j=i+1;j<3;j++)if(Math.abs(A[j][i])>Math.abs(A[max][i]))max=j;[A[i],A[max]]=[A[max],A[i]];[Bv[i],Bv[max]]=[Bv[max],Bv[i]];for(let j=i+1;j<3;j++){const f=A[j][i]/A[i][i];for(let k=i;k<3;k++)A[j][k]-=f*A[i][k];Bv[j]-=f*Bv[i];}}
+    const c_=Bv[2]/A[2][2],b_=(Bv[1]-A[1][2]*c_)/A[1][1],a_=(Bv[0]-A[0][1]*b_-A[0][2]*c_)/A[0][0];
+    const xMin=Math.min(...allPts.map(p=>p.x))-5, xMax=Math.max(...allPts.map(p=>p.x))+5;
+    const curvaLine=Array.from({length:80},(_,i)=>{
+      const x=xMin+(xMax-xMin)*i/79;
+      const y=a_+b_*x+c_*x*x;
+      return y>0?{x:Math.round(x),y:+y.toFixed(2)}:null;
+    }).filter(Boolean);
+    datasets.push({
+      label:'Curva teórica',
+      data:curvaLine,
+      type:'line',
+      borderColor:'rgba(255,255,255,.35)',
+      borderWidth:2,
+      borderDash:[6,3],
+      pointRadius:0,
+      fill:false,
+      tension:0.4,
+    });
+  }
+
+  const canvas=document.getElementById('bCurvaCanvas');
+  if(!canvas) return;
+  if(B.charts.curva) B.charts.curva.destroy();
+  B.charts.curva=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:'rgba(157,175,197,.8)',font:{size:11,family:'IBM Plex Mono'},filter:i=>i.text!=='Curva teórica'}},
+        tooltip:{
+          backgroundColor:'#0d1117',borderColor:'#28303f',borderWidth:1,
+          titleColor:'#eef2f8',bodyColor:'#9dafc5',padding:10,
+          callbacks:{
+            title:ctx=>`${ctx[0].raw?.ticker||''}`,
+            label:ctx=>{
+              const r=ctx.raw;
+              if(!r?.ticker) return ` Tendencia: ${ctx.parsed.y.toFixed(2)}%`;
+              const vs=r.vsCurva?(` (${r.vsCurva>0?'+':''}${r.vsCurva.toFixed(0)} bps)`):' ';
+              return ` ${ctx.parsed.y.toFixed(2)}% | ${ctx.parsed.x}d${vs}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          type:'linear',
+          title:{display:true,text:'Días al vencimiento',color:'rgba(92,112,144,.8)',font:{size:10,family:'IBM Plex Mono'}},
+          grid:{color:'rgba(30,37,48,.7)'},
+          ticks:{color:'rgba(92,112,144,.8)',font:{size:10,family:'IBM Plex Mono'},callback:v=>v+'d'},
+          min:0,
+        },
+        y:{
+          title:{display:true,text:{tem:'TEM %',tea:'TEA %',tna:'TNA %'}[m],color:'rgba(92,112,144,.8)',font:{size:10,family:'IBM Plex Mono'}},
+          grid:{color:'rgba(30,37,48,.7)'},
+          ticks:{color:'rgba(92,112,144,.8)',font:{size:10,family:'IBM Plex Mono'},callback:v=>v.toFixed(2)+'%'},
+        }
+      }
+    }
+  });
+
+  // Leyenda
+  const leg=document.getElementById('b-curva-legend');
+  if(leg) leg.innerHTML=tipos.filter(t=>act.some(b=>b.tipo===t)).map(t=>
+    `<span style="display:flex;align-items:center;gap:5px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text2)">
+      <span style="width:10px;height:10px;border-radius:50%;background:${COLORES[t]};flex-shrink:0"></span>${LABELS[t]}
+    </span>`
+  ).join('');
+
+  renderTipoChart();
+  renderDesvioChart();
+}
+
+window.bCurvaFiltro = function(tipo, btn){
+  B.curvaFiltro = tipo;
+  document.querySelectorAll('#b-curva-filter .flt').forEach(b=>b.className='flt');
+  const cls={all:'on',lecap:'on-green',boncap:'on-blue',dual:'on-purple',fijo:'on-amber'}[tipo]||'on';
+  btn.className='flt '+cls+' on';
+  renderCurva();
+};
+
+function renderTipoChart(){
+  const canvas=document.getElementById('bTipoCanvas');
+  if(!canvas) return;
+  const tipos=['lecap','boncap','dual','fijo'];
+  const avgs=tipos.map(t=>{
+    const g=B.data.filter(b=>b.tipo===t);
+    return g.length?g.reduce((s,b)=>s+b.tem*100,0)/g.length:0;
+  });
+  if(B.charts.tipo) B.charts.tipo.destroy();
+  B.charts.tipo=new Chart(canvas,{
+    type:'bar',
+    data:{labels:tipos.map(t=>LABELS[t]),datasets:[{
+      label:'TEM % promedio',
+      data:avgs,
+      backgroundColor:tipos.map(t=>COLORES[t]+'cc'),
+      borderRadius:4,
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1117',borderColor:'#28303f',borderWidth:1,bodyColor:'#9dafc5',callbacks:{label:ctx=>`TEM: ${ctx.parsed.y.toFixed(2)}%`}}},
+      scales:{
+        x:{grid:{color:'rgba(30,37,48,.4)'},ticks:{color:'rgba(157,175,197,.8)',font:{size:10,family:'IBM Plex Mono'}}},
+        y:{grid:{color:'rgba(30,37,48,.7)'},ticks:{color:'rgba(92,112,144,.8)',font:{size:10,family:'IBM Plex Mono'},callback:v=>v.toFixed(1)+'%'}},
+      }
+    }
+  });
+}
+
+function renderDesvioChart(){
+  const canvas=document.getElementById('bDesvioCanvas');
+  if(!canvas) return;
+  const sorted=[...B.data].sort((a,b)=>a.dm-b.dm);
+  if(B.charts.desvio) B.charts.desvio.destroy();
+  B.charts.desvio=new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels:sorted.map(b=>b.ticker),
+      datasets:[{
+        label:'Desvío vs curva (bps)',
+        data:sorted.map(b=>+b.vsCurva.toFixed(1)),
+        backgroundColor:sorted.map(b=>b.vsCurva>B.umbral?'rgba(0,229,168,.7)':b.vsCurva<-B.umbral?'rgba(255,63,94,.7)':'rgba(77,166,255,.4)'),
+        borderRadius:3,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1117',borderColor:'#28303f',borderWidth:1,bodyColor:'#9dafc5',callbacks:{label:ctx=>`${ctx.parsed.y>0?'+':''}${ctx.parsed.y.toFixed(0)} bps`}}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'rgba(92,112,144,.8)',font:{size:8,family:'IBM Plex Mono'},maxRotation:45}},
+        y:{grid:{color:'rgba(30,37,48,.7)'},ticks:{color:'rgba(92,112,144,.8)',font:{size:9,family:'IBM Plex Mono'},callback:v=>(v>0?'+':'')+v+'bps'},
+          afterDataLimits(scale){scale.max=Math.max(scale.max,B.umbral+5);scale.min=Math.min(scale.min,-B.umbral-5);}
+        }
+      }
+    }
+  });
+}
+
+// ──────────────────────────────────────────────
+// TABLA
+// ──────────────────────────────────────────────
+window.bRenderTabla=function(){
+  const q=(document.getElementById('b-search')?.value||'').toLowerCase();
+  let rows=B.data.filter(b=>{
+    if(B.filtro!=='all'&&b.tipo!==B.filtro) return false;
+    if(q&&!b.ticker.toLowerCase().includes(q)&&!b.label.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  rows.sort((a,b)=>{
+    const va=a[B.sortCol]??0, vb=b[B.sortCol]??0;
+    if(typeof va==='string') return B.sortAsc?va.localeCompare(vb):vb.localeCompare(va);
+    return B.sortAsc?va-vb:vb-va;
+  });
+  const tbody=document.getElementById('b-tbody');
+  if(!tbody) return;
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Sin datos</td></tr>';
+    return;
+  }
+  tbody.innerHTML=rows.map(b=>{
+    const tc=COLORES[b.tipo]||'var(--text2)';
+    const cc=b.cambio>=0?'pos':'neg';
+    const vs=b.vsCurva;
+    const vsCol=vs>B.umbral?'var(--green)':vs<-B.umbral?'var(--red)':'var(--text3)';
+    const vsStr=(vs>0?'+':'')+vs.toFixed(0)+' bps';
+    return `<tr>
+      <td class="td-left" style="font-weight:500;color:var(--text)">${b.ticker}</td>
+      <td class="td-left"><span class="badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}44">${LABELS[b.tipo]}</span></td>
+      <td style="font-size:10px">${b.vto}</td>
+      <td style="font-weight:500">$${b.precio.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+      <td class="${cc}">${b.cambio>=0?'+':''}${b.cambio.toFixed(2)}%</td>
+      <td>${b.paridad.toFixed(1)}%</td>
+      <td style="font-weight:500;color:var(--green)">${(b.tem*100).toFixed(2)}%</td>
+      <td>${(b.tea*100).toFixed(1)}%</td>
+      <td>${(b.tna*100).toFixed(1)}%</td>
+      <td>${b.dm.toFixed(2)}</td>
+      <td style="font-weight:500;color:${vsCol}">${vsStr}</td>
+    </tr>`;
+  }).join('');
+};
+
+window.bSort=function(col){
+  if(B.sortCol===col) B.sortAsc=!B.sortAsc; else{B.sortCol=col;B.sortAsc=col==='ticker';}
+  bRenderTabla();
+};
+window.bFiltro=function(tipo,btn){
+  B.filtro=tipo;
+  document.querySelectorAll('#b-tipo-filter .flt').forEach(b=>b.className='flt');
+  const cls={all:'on',lecap:'on-green',boncap:'on-blue',dual:'on-purple',fijo:'on-amber'}[tipo]||'on';
+  btn.className='flt '+cls+' on';
+  bRenderTabla();
+};
+
+// ──────────────────────────────────────────────
+// ARBITRAJES — sugerencias explícitas
+// ──────────────────────────────────────────────
+function renderArbitrajes(){
+  const lista=document.getElementById('b-arb-lista');
+  if(!lista) return;
+
+  const baratos=B.data.filter(b=>b.vsCurva>B.umbral).sort((a,b)=>b.vsCurva-a.vsCurva);
+  const caros=B.data.filter(b=>b.vsCurva<-B.umbral).sort((a,b)=>a.vsCurva-b.vsCurva);
+
+  if(!baratos.length&&!caros.length){
+    lista.innerHTML=`<div style="text-align:center;padding:32px;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:11px">
+      ✅ Sin arbitrajes detectados por encima de ${B.umbral} bps.<br>
+      <span style="color:var(--text4);font-size:10px">Bajá el umbral o esperá movimientos de mercado.</span>
+    </div>`;
+    return;
+  }
+
+  // Armar pares: para cada barato encontrar el caro más cercano en DM
+  const pares=[];
+  const usados=new Set();
+
+  baratos.forEach(bono=>{
+    // Buscar el caro más cercano en duration
+    const parCaro=caros
+      .filter(c=>!usados.has(c.ticker)&&Math.abs(c.dm-bono.dm)<0.4)
+      .sort((a,b)=>Math.abs(a.dm-bono.dm)-Math.abs(b.dm-bono.dm))[0];
+    pares.push({tipo:'barato', bono, par:parCaro});
+  });
+
+  caros.forEach(bono=>{
+    if(pares.some(p=>p.par?.ticker===bono.ticker)) return;
+    const parBarato=baratos
+      .filter(b=>!usados.has(b.ticker)&&Math.abs(b.dm-bono.dm)<0.4)
+      .sort((a,b)=>Math.abs(a.dm-bono.dm)-Math.abs(b.dm-bono.dm))[0];
+    if(!parBarato) pares.push({tipo:'caro', bono, par:null});
+  });
+
+  lista.innerHTML=pares.map(({tipo,bono,par})=>{
+    const esBcaro=tipo==='caro';
+    const borderCol=esBcaro?'var(--red)':'var(--green)';
+    const accion=esBcaro?'VENDER':'COMPRAR';
+    const clsAccion=esBcaro?'ab-vender':'ab-comprar';
+    const desvioStr=(bono.vsCurva>0?'+':'')+bono.vsCurva.toFixed(0)+' bps';
+    const temCurvaStr=bono.temCurva?(bono.temCurva*100).toFixed(2)+'%':'—';
+
+    let parHTML='';
+    if(par){
+      const parAccion=esBcaro?'COMPRAR':'VENDER';
+      const parClsAccion=esBcaro?'ab-comprar':'ab-vender';
+      const parDesvio=(par.vsCurva>0?'+':'')+par.vsCurva.toFixed(0)+' bps';
+      parHTML=`
+        <div class="arb-par">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">
+            Operación sugerida — par de arbitraje
+          </div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center">
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--text)">${bono.ticker}</div>
+              <div style="font-size:10px;color:var(--text3)">TEM ${(bono.tem*100).toFixed(2)}% · DM ${bono.dm.toFixed(2)}</div>
+              <div style="margin-top:4px"><span class="arb-badge ${clsAccion}">${accion}</span></div>
+            </div>
+            <div style="font-size:18px;color:var(--text4);text-align:center">⇄</div>
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--text)">${par.ticker}</div>
+              <div style="font-size:10px;color:var(--text3)">TEM ${(par.tem*100).toFixed(2)}% · DM ${par.dm.toFixed(2)}</div>
+              <div style="margin-top:4px"><span class="arb-badge ${parClsAccion}">${parAccion}</span></div>
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:10px;color:var(--text3);border-top:1px solid var(--border);padding-top:8px">
+            Diferencial capturado: <strong style="color:var(--text)">${Math.abs(bono.vsCurva-par.vsCurva).toFixed(0)} bps TEM</strong>
+            &nbsp;·&nbsp; Delta DM: <strong style="color:var(--text)">${Math.abs(bono.dm-par.dm).toFixed(2)} años</strong>
+            &nbsp;·&nbsp; ${esBcaro?'Vendés caro, comprás barato del mismo tramo':'Comprás barato, vendés caro del mismo tramo'}
+          </div>
+        </div>`;
+    }
+
+    return `<div>
+      <div class="arb-row ${esBcaro?'caro':'barato'}">
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500;color:var(--text)">${bono.ticker}</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:2px">${bono.label}</div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.65">
+          TEM: <strong style="color:var(--text)">${(bono.tem*100).toFixed(2)}%</strong> &nbsp;·&nbsp;
+          Curva: <strong style="color:var(--text)">${temCurvaStr}</strong> &nbsp;·&nbsp;
+          DM: <strong style="color:var(--text)">${bono.dm.toFixed(2)}</strong> &nbsp;·&nbsp;
+          Vto: ${bono.vto}
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:${borderCol};text-align:right">${desvioStr}</div>
+        <span class="arb-badge ${clsAccion}" style="justify-self:end">${accion}</span>
+      </div>
+      ${parHTML}
+    </div>`;
+  }).join('');
+}
+
+// ── Controles ──
+window.bTab=function(id,btn){
+  document.querySelectorAll('[id^="bpanel-"]').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('[id^="bstab-"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('bpanel-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='curva') setTimeout(renderCurva,50);
+  if(id==='arbitrajes') renderArbitrajes();
+};
+window.bSetMetrica=function(m,btn){
+  B.metrica=m;
+  document.querySelectorAll('.card-head .flt').forEach(b=>b.className='flt');
+  btn.className='flt on-green on';
+  renderCurva();
+};
+window.bSetUmbral=function(v){
+  B.umbral=Number(v);
+  const el=document.getElementById('b-umbral-val');
+  if(el) el.textContent=v+' bps';
+  calcCurva();
+  updateKpis();
+  renderDesvioChart();
+  renderArbitrajes();
+  bRenderTabla();
+};
+window.bReload=async function(){
+  await loadTamar();
+  await loadPrecios();
+  renderCurva();
+  bRenderTabla();
+  renderArbitrajes();
+};
+
+init();
+})();
+</script>

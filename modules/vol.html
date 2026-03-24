@@ -1,0 +1,876 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: VOLATILIDAD & RT — Opciones GGAL
+     Solapas: Sonrisa | Superficie | Term Structure | Monitor RT
+══════════════════════════════════════════════════ -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// VOLATILIDAD IMPLÍCITA — Opciones Argentinas (BYMA)
+// Modelos: Black-Scholes + Binomial Americano
+// ═══════════════════════════════════════════════════════════
+
+// ── Constantes ──────────────────────────────────────────────
+const TASA_RF = 0.70;  // tasa libre de riesgo anualizada (~70% TNA Argentina)
+const STEPS_BINOM = 100; // pasos del árbol binomial
+
+// ── Normal CDF (aproximación Abramowitz & Stegun) ────────────
+function normCDF(x) {
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x) / Math.sqrt(2);
+  const t = 1.0 / (1.0 + p * x);
+  const y = 1.0 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return 0.5 * (1.0 + sign * y);
+}
+
+// ── Normal PDF ────────────────────────────────────────────────
+function normPDF(x) {
+  return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+}
+
+// ── Black-Scholes precio ─────────────────────────────────────
+function bsPrice(S, K, T, r, sigma, tipo) {
+  if (T <= 0 || sigma <= 0) return Math.max(tipo==='call' ? S-K : K-S, 0);
+  const d1 = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T));
+  const d2 = d1 - sigma*Math.sqrt(T);
+  if (tipo === 'call') return S*normCDF(d1) - K*Math.exp(-r*T)*normCDF(d2);
+  return K*Math.exp(-r*T)*normCDF(-d2) - S*normCDF(-d1);
+}
+
+// ── Black-Scholes Vega ────────────────────────────────────────
+function bsVega(S, K, T, r, sigma) {
+  if (T <= 0 || sigma <= 0) return 0;
+  const d1 = (Math.log(S/K) + (r + 0.5*sigma*sigma)*T) / (sigma*Math.sqrt(T));
+  return S * normPDF(d1) * Math.sqrt(T);
+}
+
+// ── IV por Newton-Raphson (Black-Scholes) ─────────────────────
+function ivBS(precio, S, K, T, r, tipo, maxIter=100, tol=1e-6) {
+  if (T <= 0 || precio <= 0) return null;
+  const intrinseco = Math.max(tipo==='call' ? S-K : K-S, 0);
+  if (precio < intrinseco * 0.999) return null;  // precio < valor intrínseco
+  if (precio < 1e-8) return null;
+
+  let sigma = 0.5;  // estimación inicial
+  for (let i = 0; i < maxIter; i++) {
+    const precio_calc = bsPrice(S, K, T, r, sigma, tipo);
+    const vega = bsVega(S, K, T, r, sigma);
+    if (Math.abs(vega) < 1e-10) break;
+    const diff = precio_calc - precio;
+    sigma = sigma - diff / vega;
+    if (sigma <= 0) sigma = 1e-4;
+    if (sigma > 20) sigma = 20;  // cap en 2000%
+    if (Math.abs(diff) < tol) return sigma;
+  }
+  return sigma > 0 && sigma < 20 ? sigma : null;
+}
+
+// ── Binomial Americano ────────────────────────────────────────
+function binomialAmerican(S, K, T, r, sigma, tipo, N=STEPS_BINOM) {
+  if (T <= 0 || sigma <= 0) return Math.max(tipo==='call' ? S-K : K-S, 0);
+  const dt = T / N;
+  const u = Math.exp(sigma * Math.sqrt(dt));
+  const d = 1 / u;
+  const p = (Math.exp(r * dt) - d) / (u - d);
+  const disc = Math.exp(-r * dt);
+
+  // Precios en el nodo final
+  let prices = [];
+  for (let j = 0; j <= N; j++) {
+    prices.push(S * Math.pow(u, N - j) * Math.pow(d, j));
+  }
+
+  // Valores en expiración
+  let values = prices.map(s => Math.max(tipo==='call' ? s-K : K-s, 0));
+
+  // Backwards induction con ejercicio anticipado
+  for (let i = N - 1; i >= 0; i--) {
+    for (let j = 0; j <= i; j++) {
+      const hold = disc * (p * values[j] + (1-p) * values[j+1]);
+      const spot = S * Math.pow(u, i - j) * Math.pow(d, j);
+      const exercise = Math.max(tipo==='call' ? spot-K : K-spot, 0);
+      values[j] = Math.max(hold, exercise);
+    }
+  }
+  return values[0];
+}
+
+// ── IV Binomial por bisección ─────────────────────────────────
+function ivBinomial(precio, S, K, T, r, tipo, maxIter=60, tol=1e-4) {
+  if (T <= 0 || precio <= 0) return null;
+  const intrinseco = Math.max(tipo==='call' ? S-K : K-S, 0);
+  if (precio < intrinseco * 0.999) return null;
+
+  let lo = 0.001, hi = 15.0;
+  // Verificar que la solución existe en el intervalo
+  if (binomialAmerican(S,K,T,r,hi,tipo) < precio) return null;
+
+  for (let i = 0; i < maxIter; i++) {
+    const mid = (lo + hi) / 2;
+    const val = binomialAmerican(S,K,T,r,mid,tipo);
+    if (Math.abs(val - precio) < tol) return mid;
+    if (val < precio) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+// ── Formatear expiration a MM/YYYY ──────────────────────────────
+function formatExpiration(exp) {
+  if (!exp) return null;
+  const s = exp.toString();
+  if (/^\d{2}\/\d{4}$/.test(s)) return s;
+  const m = s.match(/(\d{4})-?(\d{2})-?(\d{2})/);
+  if (m) return m[2] + '/' + m[1];
+  return null;
+}
+
+// ── Tiempo a vencimiento en años ──────────────────────────────
+// vencimiento: "MM/YYYY"
+function calcT(vencimiento) {
+  if (!vencimiento) return null;
+  const [mes, anio] = vencimiento.split('/').map(Number);
+  if (!mes || !anio) return null;
+  // Tercer viernes del mes de vencimiento (convención BYMA)
+  const fecha_vto = tercerViernes(anio, mes - 1);
+  const hoy = new Date();
+  const dias = (fecha_vto - hoy) / (1000 * 60 * 60 * 24);
+  return dias > 0 ? dias / 365 : null;
+}
+
+function tercerViernes(anio, mes) {
+  const d = new Date(anio, mes, 1);
+  // Encontrar primer viernes
+  while (d.getDay() !== 5) d.setDate(d.getDate() + 1);
+  // Tercer viernes = +14 días
+  d.setDate(d.getDate() + 14);
+  return d;
+}
+
+// ── Calcular IV para un array de opciones ────────────────────
+// opts: [{symbol, tipo, base, vencimiento, last, bid, ask, ...}]
+// S: precio spot del subyacente
+// Retorna opts con iv_bs, iv_binom, moneyness, T añadidos
+function calcularIV(opts, S, r = TASA_RF) {
+  return opts.map(opt => {
+    const K = opt.base;
+    const T = calcT(opt.vencimiento);
+    if (!T || !K || !S) return { ...opt, iv_bs: null, iv_binom: null, T: null };
+
+    // Precio: mid si ambos bid/ask válidos y spread razonable (<50%), sino last
+    let precio = null;
+    const bid = opt.bid > 0 ? opt.bid : null;
+    const ask = opt.ask > 0 ? opt.ask : null;
+    if (bid && ask) {
+      const mid = (bid + ask) / 2;
+      const spread = (ask - bid) / mid;
+      if (spread < 0.50) precio = mid;  // spread < 50% → usar mid
+      else if (opt.last > 0) precio = opt.last;  // spread muy amplio → usar last
+      else precio = mid;  // igual usar mid como último recurso
+    } else if (opt.last > 0) {
+      precio = opt.last;
+    }
+    if (!precio) return { ...opt, iv_bs: null, iv_binom: null, T };
+
+    const tipo = opt.tipo === 'call' ? 'call' : 'put';
+    const iv_bs    = ivBS(precio, S, K, T, r, tipo);
+    const iv_binom = ivBinomial(precio, S, K, T, r, tipo);
+    const moneyness = S / K;  // >1 = ITM call, <1 = OTM call
+
+    return { ...opt, iv_bs, iv_binom, moneyness, T, precio_usado: precio };
+  });
+}
+
+// ── Exportar ──────────────────────────────────────────────────
+window.VolLib = { calcularIV, ivBS, ivBinomial, bsPrice, binomialAmerican, calcT, formatExpiration, TASA_RF };
+
+</script>
+
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="vstab-sonrisa"  onclick="vTab('sonrisa',this)">Sonrisa de vol.</button>
+    <button class="stab"        id="vstab-surface"  onclick="vTab('surface',this)">Term structure</button>
+    <button class="stab"        id="vstab-monitor"  onclick="vTab('monitor',this)">Cadena</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="sub-tabs-meta">
+      GGAL spot: <span id="vSpot" style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:500">—</span>
+      &nbsp;·&nbsp; Tasa RF: <span style="color:var(--text2);font-family:'IBM Plex Mono',monospace" id="vTasa">70% TNA</span>
+    </div>
+    <select id="vModelo" onchange="vRerender()" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);outline:none">
+      <option value="binom">Binomial americano</option>
+      <option value="bs">Black-Scholes</option>
+    </select>
+    <select id="vVto" onchange="vRerender()" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);outline:none">
+      <option value="all">Todos los vtos.</option>
+    </select>
+  </div>
+</div>
+
+<!-- ── KPIs ── -->
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+  <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">IV ATM calls</div><div class="kpi-val" id="vk-atm-call">—</div><div class="kpi-sub">at-the-money</div></div>
+  <div class="kpi" style="--accent:var(--red)">  <div class="kpi-label">IV ATM puts</div><div class="kpi-val" id="vk-atm-put">—</div><div class="kpi-sub">at-the-money</div></div>
+  <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Skew (25Δ)</div><div class="kpi-val" id="vk-skew">—</div><div class="kpi-sub">put - call OTM</div></div>
+  <div class="kpi" style="--accent:var(--blue)"> <div class="kpi-label">IV mín.</div><div class="kpi-val" id="vk-min">—</div><div class="kpi-sub" id="vk-min-sub">—</div></div>
+  <div class="kpi" style="--accent:var(--cyan)"> <div class="kpi-label">Opciones con IV</div><div class="kpi-val" id="vk-count">—</div><div class="kpi-sub">de las cargadas</div></div>
+</div>
+
+<!-- ── PANEL: SONRISA ── -->
+<div class="sub-panel active" id="vpanel-sonrisa">
+  <div id="vSonrisaEmpty" class="empty-state"><div class="empty-icon">📉</div><p>Necesitás datos en tiempo real en opciones_rt para calcular la IV</p></div>
+  <div id="vSonrisaContent" style="display:none;flex-direction:column;gap:12px">
+    <!-- Meta -->
+    <div id="vSonrisaMeta" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
+    <!-- Dos gráficos separados -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">IV Calls — por strike</div>
+          <div style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+            <span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block"></span>Calls
+            <span style="width:20px;height:1px;background:var(--amber);border-top:1px dashed var(--amber);display:inline-block;margin-left:6px"></span>Teórica
+          </div>
+        </div>
+        <div class="card-body" style="position:relative;height:280px">
+          <canvas id="vSonrisaCallChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">IV Puts — por strike</div>
+          <div style="display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+            <span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block"></span>Puts
+            <span style="width:20px;height:1px;background:var(--amber);border-top:1px dashed var(--amber);display:inline-block;margin-left:6px"></span>Teórica
+          </div>
+        </div>
+        <div class="card-body" style="position:relative;height:280px">
+          <canvas id="vSonrisaPutChart"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- Tabla IV -->
+    <div class="card" id="vSonrisaTable">
+      <div class="card-head"><div class="card-title">IV por strike y vencimiento</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th class="th-left">Symbol</th><th class="th-left">Tipo</th>
+            <th>Vto.</th><th>Strike</th><th>Moneyness</th>
+            <th>Precio usado</th><th>IV B-S</th><th>IV Binom.</th><th>Días</th>
+          </tr></thead>
+          <tbody id="vIVTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PANEL: TERM STRUCTURE ── -->
+<div class="sub-panel" id="vpanel-surface">
+  <div class="card">
+    <div class="card-head"><div class="card-title">Term structure — IV ATM por vencimiento</div></div>
+    <div class="card-body">
+      <div class="empty-state" id="vTermEmpty"><div class="empty-icon">📐</div><p>Sin datos suficientes</p></div>
+      <div class="chart-wrap" id="vTermWrap" style="height:280px;display:none"><canvas id="vTermChart"></canvas></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px" id="vTermCards"></div>
+</div>
+
+<!-- ── PANEL: CADENA DE OPCIONES ── -->
+<div class="sub-panel" id="vpanel-monitor">
+  <style>
+  .chain-wrap{overflow-x:auto}
+  .chain-table{width:100%;border-collapse:collapse;min-width:900px}
+  .chain-table th{padding:7px 8px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border2);font-weight:400;white-space:nowrap}
+  .chain-table th.call-h{text-align:right;background:rgba(0,229,168,.03)}
+  .chain-table th.put-h{text-align:left;background:rgba(255,63,94,.03)}
+  .chain-table th.strike-h{text-align:center;background:var(--bg3);color:var(--text2);font-weight:500}
+  .chain-table td{padding:6px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;border-bottom:1px solid rgba(30,37,48,.5);white-space:nowrap}
+  .chain-table td.call-c{text-align:right;background:rgba(0,229,168,.02)}
+  .chain-table td.put-c{text-align:left;background:rgba(255,63,94,.02)}
+  .chain-table td.strike-c{text-align:center;background:var(--bg3);color:var(--text);font-weight:500;font-size:11px;border-left:1px solid var(--border2);border-right:1px solid var(--border2)}
+  .chain-table tr:hover td{filter:brightness(1.15)}
+  .chain-table tr.atm-row td{background:rgba(240,165,0,.06)!important}
+  .chain-table tr.atm-row td.strike-c{background:rgba(240,165,0,.15)!important;color:var(--amber)}
+  .itm-call{background:rgba(0,229,168,.06)!important}
+  .itm-put{background:rgba(255,63,94,.06)!important}
+  .iv-hi{color:var(--red)}.iv-mid{color:var(--amber)}.iv-lo{color:var(--green)}
+  .chain-badge{display:inline-block;padding:1px 5px;border-radius:2px;font-size:8px;font-weight:600}
+  .cb-call{background:var(--greenDim);color:var(--green);border:1px solid rgba(0,229,168,.2)}
+  .cb-put{background:var(--redDim);color:var(--red);border:1px solid rgba(255,63,94,.2)}
+  </style>
+
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+    <div style="display:flex;gap:3px" id="chainVtoGroup">
+      <!-- se llena con JS -->
+    </div>
+    <div style="display:flex;gap:3px" id="chainMoneyGroup">
+      <button class="flt on" onclick="chainSetMoney('all',this)">Todos</button>
+      <button class="flt" onclick="chainSetMoney('itm',this)" data-cls="on-green">ITM</button>
+      <button class="flt" onclick="chainSetMoney('atm',this)" data-cls="on-amber">ATM ±10%</button>
+      <button class="flt" onclick="chainSetMoney('otm',this)" data-cls="on-red">OTM</button>
+    </div>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+      Spot: <span id="chainSpot" style="color:var(--amber)">—</span>
+      &nbsp;·&nbsp; <span id="chainCount" style="color:var(--text3)">— strikes</span>
+    </span>
+    <button class="btn btn-outline" style="font-size:9px;padding:3px 8px;margin-left:auto" onclick="chainRender()">↺</button>
+  </div>
+
+  <div class="card">
+    <div class="chain-wrap">
+      <table class="chain-table">
+        <thead>
+          <tr>
+            <th class="call-h" colspan="7">CALLS</th>
+            <th class="strike-h" rowspan="2">STRIKE</th>
+            <th class="strike-h" rowspan="2">VTO</th>
+            <th class="put-h" colspan="7">PUTS</th>
+          </tr>
+          <tr>
+            <th class="call-h">IV</th>
+            <th class="call-h">Δ</th>
+            <th class="call-h">Θ</th>
+            <th class="call-h">Bid</th>
+            <th class="call-h">Ask</th>
+            <th class="call-h">Last</th>
+            <th class="call-h">Vol</th>
+            <th class="put-h">Vol</th>
+            <th class="put-h">Last</th>
+            <th class="put-h">Bid</th>
+            <th class="put-h">Ask</th>
+            <th class="put-h">Θ</th>
+            <th class="put-h">Δ</th>
+            <th class="put-h">IV</th>
+          </tr>
+        </thead>
+        <tbody id="chainTbody">
+          <tr><td colspan="16" style="text-align:center;padding:24px;color:var(--text3)">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+// ── State ──
+let vData = [];        // opciones con IV calculada
+let vSpot = null;
+let vActiveTab = 'sonrisa';
+let vMonTipo = 'all', vMonMoney = null, vMonSortCol = 'iv_binom', vMonSortDir = -1;
+let vCharts = {};
+let vVtos = [];
+
+// ── Sub-tabs ──
+window.vTab = (name, btn) => {
+  vActiveTab = name;
+  document.querySelectorAll('[id^="vpanel-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('vpanel-'+name).classList.add('active');
+  document.querySelectorAll('[id^="vstab-"]').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  vRerender();
+};
+
+// ── Load data ──
+async function vLoad() {
+  // Cargar opciones RT y precio spot GGAL en paralelo
+  const [optsRows, spotRows] = await Promise.all([
+    sb('opciones_rt', 'underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0,ask.gt.0)&limit=500'),
+    sb('mercado', 'symbol=eq.GGAL&settlement=eq.24hs&select=last'),
+  ]);
+
+  // Precio spot
+  if (spotRows && spotRows.length) {
+    vSpot = Number(spotRows[0].last);
+    document.getElementById('vSpot').textContent = '$' + fmtAR(vSpot);
+  }
+
+  if (!optsRows || !optsRows.length) return;
+
+  // Normalizar columnas reales de opciones_rt:
+  // kind → tipo, strike → base, expiration → vencimiento
+  const opts = optsRows.map(o => ({
+    symbol:      o.symbol,
+    tipo:        (o.kind || '').toString().toLowerCase().includes('call') ? 'call' : 'put',
+    base:        normalizeBase(o.strike),
+    vencimiento: o.expiration ? VolLib.formatExpiration(o.expiration) : null,
+    last:        Number(o.last || 0),
+    bid:         Number(o.bid  || 0),
+    ask:         Number(o.ask  || 0),
+  })).filter(o => o.base > 0);
+
+  if (!vSpot || !opts.length) return;
+
+  // Calcular IV
+  const modelo = document.getElementById('vModelo')?.value||'binom';
+  vData = VolLib.calcularIV(opts, vSpot, VolLib.TASA_RF);
+
+  // Solo mostrar abril y junio — excluir marzo y otros
+  const allVtos = [...new Set(vData.map(o=>o.vencimiento).filter(Boolean))].sort();
+  // Filtrar: queremos 04/YYYY y 06/YYYY
+  const abrilJunio = allVtos.filter(v => v && (v.startsWith('04/') || v.startsWith('06/')));
+  vVtos = abrilJunio.length ? abrilJunio : allVtos.slice(0,2);
+  const sel = document.getElementById('vVto');
+  // Default: siempre abril (04/) si existe, sino el primero
+  const nearest = vVtos.find(v=>v.startsWith('04/')) || vVtos[0] || allVtos[0];
+  const current = (!sel.value || sel.value === 'all' || !vVtos.includes(sel.value)) ? nearest : sel.value;
+  sel.innerHTML = vVtos.map(v => `<option value="${v}"${v===current?' selected':''}>${v}</option>`).join('');
+  sel.value = current;
+
+  vUpdateKPIs();
+  vRerender();
+}
+
+// ── KPIs ──
+function vUpdateKPIs() {
+  const modelo = document.getElementById('vModelo')?.value||'binom';
+  const ivKey = modelo === 'bs' ? 'iv_bs' : 'iv_binom';
+  const vtoFil = document.getElementById('vVto').value;
+
+  let data = vData.filter(o => o[ivKey] != null);
+  if (vtoFil !== 'all') data = data.filter(o => o.vencimiento === vtoFil);
+
+  // ATM = moneyness entre 0.97 y 1.03
+  const atmCalls = data.filter(o => o.tipo==='call' && o.moneyness >= 0.97 && o.moneyness <= 1.03);
+  const atmPuts  = data.filter(o => o.tipo==='put'  && o.moneyness >= 0.97 && o.moneyness <= 1.03);
+  const avgAtmCall = atmCalls.length ? atmCalls.reduce((s,o)=>s+o[ivKey],0)/atmCalls.length : null;
+  const avgAtmPut  = atmPuts.length  ? atmPuts.reduce((s,o)=>s+o[ivKey],0)/atmPuts.length   : null;
+
+  // Skew 25-delta: IV put OTM (moneyness ~0.90) - IV call OTM (moneyness ~1.10)
+  const otmPuts  = data.filter(o => o.tipo==='put'  && o.moneyness >= 0.85 && o.moneyness <= 0.95);
+  const otmCalls = data.filter(o => o.tipo==='call' && o.moneyness >= 1.05 && o.moneyness <= 1.15);
+  const avgOtmPut  = otmPuts.length  ? otmPuts.reduce((s,o)=>s+o[ivKey],0)/otmPuts.length   : null;
+  const avgOtmCall = otmCalls.length ? otmCalls.reduce((s,o)=>s+o[ivKey],0)/otmCalls.length : null;
+  const skew = avgOtmPut != null && avgOtmCall != null ? avgOtmPut - avgOtmCall : null;
+
+  const minIV = data.length ? data.reduce((m,o) => o[ivKey]<m.v?{v:o[ivKey],sym:o.symbol}:m, {v:Infinity,sym:'—'}) : null;
+
+  document.getElementById('vk-atm-call').textContent = avgAtmCall ? (avgAtmCall*100).toFixed(1)+'%' : '—';
+  document.getElementById('vk-atm-put').textContent  = avgAtmPut  ? (avgAtmPut*100).toFixed(1)+'%'  : '—';
+  document.getElementById('vk-skew').textContent     = skew != null ? (skew*100).toFixed(1)+'%' : '—';
+  document.getElementById('vk-min').textContent      = minIV && minIV.v < Infinity ? (minIV.v*100).toFixed(1)+'%' : '—';
+  document.getElementById('vk-min-sub').textContent  = minIV ? minIV.sym : '—';
+  document.getElementById('vk-count').textContent    = data.length + ' / ' + vData.length;
+}
+
+// ── Rerender según tab activo ──
+window.vRerender = () => {
+  vUpdateKPIs();
+  if (vActiveTab === 'sonrisa') vRenderSonrisa();
+  else if (vActiveTab === 'surface') vRenderTerm();
+  else if (vActiveTab === 'monitor') { vMonApply(); chainRender(); }
+};
+
+// ── SONRISA ──
+function vRenderSonrisa() {
+  const modelo = document.getElementById('vModelo')?.value||'binom';
+  const ivKey = modelo === 'bs' ? 'iv_bs' : 'iv_binom';
+  const vtoFil = document.getElementById('vVto')?.value||'';
+
+  let data = vData.filter(o => {
+    if(!o[ivKey] || o[ivKey] <= 0 || o.base <= 0) return false;
+    // Filtrar IVs espurias — strikes muy OTM con precios casi cero dan IVs extremas
+    if(o[ivKey] < 0.05) return false;  // < 5% — precio sin valor
+    if(o[ivKey] > 2.0)  return false;  // > 200% — espurio
+    return true;
+  });
+  if(vtoFil && vtoFil !== 'all') data = data.filter(o => o.vencimiento === vtoFil);
+
+  const empty = document.getElementById('vSonrisaEmpty');
+  const content = document.getElementById('vSonrisaContent');
+
+  if(!data.length || !vSpot){
+    if(empty) empty.style.display='flex';
+    if(content) content.style.display='none';
+    return;
+  }
+  if(empty) empty.style.display='none';
+  if(content) content.style.display='flex';
+
+  const calls = data.filter(o=>o.tipo==='call').sort((a,b)=>a.base-b.base);
+  const puts  = data.filter(o=>o.tipo==='put').sort((a,b)=>a.base-b.base);
+
+  // Métricas
+  const atmCalls = calls.filter(o=>Math.abs(o.base/vSpot-1)<0.05);
+  const atmPuts  = puts.filter(o=>Math.abs(o.base/vSpot-1)<0.05);
+  const ivAtmCall = atmCalls.length ? atmCalls.reduce((s,o)=>s+o[ivKey],0)/atmCalls.length : null;
+  const ivAtmPut  = atmPuts.length  ? atmPuts.reduce((s,o)=>s+o[ivKey],0)/atmPuts.length  : null;
+  const T = data[0]?.T || 30/365;
+  const ivAtm = ivAtmCall||ivAtmPut;
+  const moveEsp = ivAtm ? vSpot*ivAtm*Math.sqrt(T) : null;
+  const otmPut  = puts.filter(o=>Math.abs(o.base/vSpot-0.90)<0.05);
+  const otmCall = calls.filter(o=>Math.abs(o.base/vSpot-1.10)<0.05);
+  const ivOtmPut  = otmPut.length  ? otmPut.reduce((s,o)=>s+o[ivKey],0)/otmPut.length  : null;
+  const ivOtmCall = otmCall.length ? otmCall.reduce((s,o)=>s+o[ivKey],0)/otmCall.length : null;
+  const skew = ivOtmPut!=null&&ivOtmCall!=null ? (ivOtmPut-ivOtmCall)*100 : null;
+
+  const meta = document.getElementById('vSonrisaMeta');
+  if(meta) meta.innerHTML = `
+    <span>ATM: <strong style="color:var(--amber)">$${fmtAR(vSpot,0)}</strong></span>
+    <span>IV ATM call: <strong style="color:var(--green)">${ivAtmCall?(ivAtmCall*100).toFixed(1)+'%':'—'}</strong></span>
+    <span>IV ATM put: <strong style="color:var(--red)">${ivAtmPut?(ivAtmPut*100).toFixed(1)+'%':'—'}</strong></span>
+    <span>Skew P-C: <strong style="color:${skew!=null&&skew>0?'var(--red)':'var(--green)'}">${skew!=null?(skew>0?'+':'')+skew.toFixed(1)+'%':'—'}</strong></span>
+    <span>Move esp.: <strong style="color:var(--amber)">${moveEsp?'±$'+fmtAR(moveEsp,0):'—'}</strong></span>`;
+
+  function fitCurva(pts){
+    if(pts.length<3) return [];
+    const n=pts.length;
+    let sx=0,sx2=0,sx3=0,sx4=0,sy=0,sxy=0,sx2y=0;
+    pts.forEach(({x,y})=>{sx+=x;sx2+=x*x;sx3+=x*x*x;sx4+=x*x*x*x;sy+=y;sxy+=x*y;sx2y+=x*x*y;});
+    const A=[[n,sx,sx2],[sx,sx2,sx3],[sx2,sx3,sx4]],Bv=[sy,sxy,sx2y];
+    for(let i=0;i<3;i++){let max=i;for(let j=i+1;j<3;j++)if(Math.abs(A[j][i])>Math.abs(A[max][i]))max=j;[A[i],A[max]]=[A[max],A[i]];[Bv[i],Bv[max]]=[Bv[max],Bv[i]];for(let j=i+1;j<3;j++){const f=A[j][i]/A[i][i];for(let k=i;k<3;k++)A[j][k]-=f*A[i][k];Bv[j]-=f*Bv[i];}}
+    const c_=Bv[2]/A[2][2],b_=(Bv[1]-A[1][2]*c_)/A[1][1],a_=(Bv[0]-A[0][1]*b_-A[0][2]*c_)/A[0][0];
+    const xs=pts.map(p=>p.x),xMin=Math.min(...xs)*0.97,xMax=Math.max(...xs)*1.03;
+    return Array.from({length:60},(_,i)=>{const x=xMin+(xMax-xMin)*i/59;const y=a_+b_*x+c_*x*x;return y>0?{x:+x.toFixed(1),y:+y.toFixed(2)}:null;}).filter(Boolean);
+  }
+
+  const allStrikes=[...calls,...puts].map(o=>o.base);
+  const minK=allStrikes.length?Math.min(...allStrikes)*0.97:0;
+  const maxK=allStrikes.length?Math.max(...allStrikes)*1.03:10000;
+
+  function buildChart(canvasId, pts, color, chartKey){
+    if(vCharts[chartKey]) vCharts[chartKey].destroy();
+    const canvas=document.getElementById(canvasId);
+    if(!canvas||!pts.length) return;
+    const curva=fitCurva(pts);
+    const datasets=[];
+    // ATM line
+    datasets.push({label:'ATM',type:'line',data:[{x:vSpot,y:0},{x:vSpot,y:300}],borderColor:'rgba(240,165,0,0.3)',borderWidth:1,borderDash:[3,3],pointRadius:0,fill:false,order:3});
+    // Teórica
+    if(curva.length) datasets.push({label:'Teórica',type:'line',data:curva,borderColor:'#f0a500',backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,4],pointRadius:0,fill:false,order:2});
+    // Puntos
+    datasets.push({label:'IV',type:'scatter',data:pts,borderColor:color,backgroundColor:color,pointRadius:6,pointHoverRadius:9,showLine:true,borderWidth:2,tension:0.25,fill:false,order:1});
+    vCharts[chartKey]=new Chart(canvas,{
+      type:'scatter',
+      data:{datasets},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{backgroundColor:'#0d1117',borderColor:'#28303f',borderWidth:1,titleColor:'#eef2f8',bodyColor:'#9dafc5',callbacks:{
+            title:ctx=>`Strike: $${fmtAR(ctx[0].parsed.x,0)}  mono: ${vSpot?(vSpot/ctx[0].parsed.x).toFixed(3):'—'}`,
+            label:ctx=>ctx.dataset.label==='ATM'?null:`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`,
+          }}
+        },
+        scales:{
+          x:{type:'linear',min:minK,max:maxK,title:{display:true,text:'Strike ($)',color:'#5c7090',font:{size:9,family:'IBM Plex Mono'}},ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>'$'+fmtAR(v,0)},grid:{color:'#1e2530'}},
+          y:{min:0,title:{display:true,text:'IV (%)',color:'#5c7090',font:{size:9,family:'IBM Plex Mono'}},ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>v.toFixed(0)+'%'},grid:{color:'#1e2530'}},
+        }
+      }
+    });
+  }
+
+  buildChart('vSonrisaCallChart', calls.map(o=>({x:o.base,y:+(o[ivKey]*100).toFixed(2)})), '#00e5a8', 'sonrisaCall');
+  buildChart('vSonrisaPutChart',  puts.map(o=>({x:o.base,y:+(o[ivKey]*100).toFixed(2)})),  '#ff3f5e', 'sonrisaPut');
+
+  // Tabla
+  const ivClr=v=>v>0.8?'neg':v>0.5?'pos':'neu';
+  const tbody=document.getElementById('vIVTbody');
+  if(tbody) tbody.innerHTML=data.sort((a,b)=>a.base-b.base).map(o=>{
+    const iv_bs=o.iv_bs?(o.iv_bs*100).toFixed(1)+'%':'—';
+    const iv_binom=o.iv_binom?(o.iv_binom*100).toFixed(1)+'%':'—';
+    const mono=o.moneyness?o.moneyness.toFixed(3):'—';
+    const ms=o.moneyness>1.03?'color:var(--green)':o.moneyness<0.97?'color:var(--red)':'color:var(--amber)';
+    const dias=o.T?Math.round(o.T*365):'—';
+    return `<tr><td class="td-left" style="color:var(--text);font-size:10px">${o.symbol||'—'}</td><td class="td-left"><span class="badge ${o.tipo==='call'?'b-call':'b-put'}">${o.tipo}</span></td><td style="color:var(--text2)">${o.vencimiento||'—'}</td><td style="color:var(--text);font-weight:500">$${fmtAR(o.base,1)}</td><td style="${ms}">${mono}</td><td style="color:var(--text2)">${o.precio_usado?'$'+fmtAR(o.precio_usado,2):'—'}</td><td class="${ivClr(o.iv_bs)}">${iv_bs}</td><td class="${ivClr(o.iv_binom)}" style="font-weight:500">${iv_binom}</td><td style="color:var(--text3)">${dias}</td></tr>`;
+  }).join('');
+}
+
+
+// ── TERM STRUCTURE ──
+function vRenderTerm() {
+  const modelo = document.getElementById('vModelo')?.value||'binom';
+  const ivKey = modelo === 'bs' ? 'iv_bs' : 'iv_binom';
+
+  // Agrupar por vencimiento, calcular IV ATM promedio
+  const byVto = {};
+  vData.filter(o=>o[ivKey]!=null && o.moneyness>=0.93 && o.moneyness<=1.07).forEach(o=>{
+    if (!byVto[o.vencimiento]) byVto[o.vencimiento] = {sum:0,n:0,T:o.T};
+    byVto[o.vencimiento].sum += o[ivKey];
+    byVto[o.vencimiento].n++;
+  });
+
+  const termData = Object.entries(byVto)
+    .map(([vto,v]) => ({vto, ivAtm: v.sum/v.n, dias: Math.round(v.T*365)}))
+    .sort((a,b) => a.dias - b.dias);
+
+  if (!termData.length) {
+    document.getElementById('vTermEmpty').style.display='flex';
+    document.getElementById('vTermWrap').style.display='none';
+    document.getElementById('vTermCards').innerHTML='';
+    return;
+  }
+  document.getElementById('vTermEmpty').style.display='none';
+  document.getElementById('vTermWrap').style.display='block';
+
+  if (vCharts.term) vCharts.term.destroy();
+  vCharts.term = new Chart(document.getElementById('vTermChart'), {
+    type: 'line',
+    data: {
+      labels: termData.map(d => d.vto),
+      datasets: [{
+        label: 'IV ATM',
+        data: termData.map(d => parseFloat((d.ivAtm*100).toFixed(2))),
+        borderColor: '#b39dff', backgroundColor: '#b39dff20',
+        pointRadius: 6, pointHoverRadius: 8,
+        borderWidth: 2, tension: 0.3, fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => 'IV ATM: '+ctx.parsed.y.toFixed(1)+'%' } } },
+      scales: {
+        x: { ticks: { color:'#5c7090', font:{size:10,family:'IBM Plex Mono'} }, grid:{color:'#1e2530'} },
+        y: { ticks: { color:'#5c7090', font:{size:9,family:'IBM Plex Mono'}, callback:v=>v+'%' }, grid:{color:'#1e2530'} }
+      }
+    }
+  });
+
+  // Cards por vencimiento
+  document.getElementById('vTermCards').innerHTML = termData.map(d => `
+    <div class="gstat">
+      <div class="gstat-label">${d.vto}</div>
+      <div class="gstat-val" style="color:var(--purple)">${(d.ivAtm*100).toFixed(1)}%</div>
+      <div class="gstat-desc">IV ATM · ${d.dias} días</div>
+    </div>`).join('');
+}
+
+// ── MONITOR RT ──
+window.vMonApply = () => {
+  const modelo = document.getElementById('vModelo')?.value || 'binom';
+  const ivKey = modelo === 'bs' ? 'iv_bs' : 'iv_binom';
+  const q = (document.getElementById('vMonSearch')?.value||'').toLowerCase();
+
+  let rows = vData.filter(o => {
+    if (vMonTipo !== 'all' && o.tipo !== vMonTipo) return false;
+    if (vMonMoney === 'itm')  { if (!(o.tipo==='call'?o.moneyness>1.03:o.moneyness<0.97)) return false; }
+    if (vMonMoney === 'atm')  { if (!(o.moneyness>=0.97&&o.moneyness<=1.03)) return false; }
+    if (vMonMoney === 'otm')  { if (!(o.tipo==='call'?o.moneyness<0.97:o.moneyness>1.03)) return false; }
+    if (q && !(fmtAR(o.base,1).includes(q)||(o.vencimiento||'').includes(q)||(o.symbol||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  rows.sort((a,b) => {
+    const av = a[vMonSortCol] ?? -Infinity, bv = b[vMonSortCol] ?? -Infinity;
+    return vMonSortDir * ((av>bv)?1:-1);
+  });
+
+  document.getElementById('vMonCount').textContent = rows.length + ' opciones';
+
+  const ivClr = v => !v ? 'neu' : v > 0.8 ? 'neg' : v > 0.4 ? 'pos' : 'neu';
+  const monoClr = (o) => o.tipo==='call' ? (o.moneyness>1.03?'pos':o.moneyness<0.97?'neg':'neu') : (o.moneyness<0.97?'pos':o.moneyness>1.03?'neg':'neu');
+
+  // Delta estimado via BS
+  const deltaEst = (o) => {
+    if (!vSpot || !o.base || !o.T || !o[ivKey]) return null;
+    try {
+      const d1 = (Math.log(vSpot/o.base) + (VolLib.TASA_RF + 0.5*o[ivKey]*o[ivKey])*o.T) / (o[ivKey]*Math.sqrt(o.T));
+      return o.tipo==='call' ? normCDF_local(d1) : normCDF_local(d1) - 1;
+    } catch { return null; }
+  };
+  function normCDF_local(x){const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const sign=x<0?-1:1;x=Math.abs(x)/Math.sqrt(2);const t=1.0/(1.0+p*x);const y=1.0-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);return 0.5*(1.0+sign*y);}
+
+  document.getElementById('vMonTbody').innerHTML = !rows.length
+    ? '<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text3)">Sin datos</td></tr>'
+    : rows.map(o => {
+        const iv_bs    = o.iv_bs    ? (o.iv_bs*100).toFixed(1)+'%'    : '—';
+        const iv_binom = o.iv_binom ? (o.iv_binom*100).toFixed(1)+'%' : '—';
+        const mono     = o.moneyness ? o.moneyness.toFixed(3) : '—';
+        const dias     = o.T ? Math.round(o.T*365) : '—';
+        const delta    = deltaEst(o);
+        const deltaStr = delta != null ? delta.toFixed(3) : '—';
+        const deltaCls = delta > 0 ? 'pos' : delta < 0 ? 'neg' : 'neu';
+        return `<tr>
+          <td class="td-left" style="color:var(--text);font-size:10px">${o.symbol||'—'}</td>
+          <td class="td-left"><span class="badge ${o.tipo==='call'?'b-call':'b-put'}">${o.tipo}</span></td>
+          <td style="color:var(--text);font-weight:500">$${fmtAR(o.base,1)}</td>
+          <td style="color:var(--text2)">${o.vencimiento||'—'}</td>
+          <td style="color:var(--text3)">${dias}</td>
+          <td>${o.bid?'$'+fmtAR(o.bid,2):'—'}</td>
+          <td>${o.ask?'$'+fmtAR(o.ask,2):'—'}</td>
+          <td style="color:var(--text)">${o.last?'$'+fmtAR(o.last,2):'—'}</td>
+          <td class="${ivClr(o.iv_bs)}">${iv_bs}</td>
+          <td class="${ivClr(o.iv_binom)}" style="font-weight:500">${iv_binom}</td>
+          <td class="${monoClr(o)}">${mono}</td>
+          <td class="${deltaCls}">${deltaStr}</td>
+        </tr>`;
+      }).join('');
+};
+
+window.vMonSetTipo = (t,btn) => {
+  vMonTipo=t;
+  document.querySelectorAll('#vMonTipo .flt').forEach(b=>b.classList.remove('on','on-call','on-put'));
+  btn.classList.add(t==='call'?'on-call':t==='put'?'on-put':'on');
+  vMonApply();
+};
+window.vMonSetMoney = (m,btn) => {
+  if(vMonMoney===m){vMonMoney=null;document.querySelectorAll('#vMonMoney .flt').forEach(b=>b.classList.remove('on-green','on-amber','on-red'));}
+  else{document.querySelectorAll('#vMonMoney .flt').forEach(b=>b.classList.remove('on-green','on-amber','on-red'));vMonMoney=m;btn.classList.add(btn.dataset.cls||'on');}
+  vMonApply();
+};
+window.vMonSort = (col) => {
+  if(vMonSortCol===col)vMonSortDir*=-1;else{vMonSortCol=col;vMonSortDir=-1;}
+  vMonApply();
+};
+
+// ── Init ──
+vLoad();
+window.moduleTimers.vol = setInterval(vLoad, 15000);
+
+// ══════════════════════════════════════════════════
+// CADENA DE OPCIONES
+// ══════════════════════════════════════════════════
+let chainVto = null;
+let chainMoney = 'all';
+
+function normCDF_chain(x){const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const sign=x<0?-1:1;x=Math.abs(x)/Math.sqrt(2);const t=1/(1+p*x);const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);return 0.5*(1+sign*y);}
+function normPDF_chain(x){return Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI);}
+function bsDelta_c(S,K,T,r,sig,tipo){if(T<=0||sig<=0)return tipo==='call'?(S>K?1:0):(S>K?0:-1);const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T));return tipo==='call'?normCDF_chain(d1):normCDF_chain(d1)-1;}
+function bsTheta_c(S,K,T,r,sig,tipo){if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);if(tipo==='call')return(-S*normPDF_chain(d1)*sig/(2*Math.sqrt(T))-r*K*Math.exp(-r*T)*normCDF_chain(d2))/365;return(-S*normPDF_chain(d1)*sig/(2*Math.sqrt(T))+r*K*Math.exp(-r*T)*normCDF_chain(-d2))/365;}
+
+window.chainSetMoney = (m, btn) => {
+  chainMoney = m;
+  document.querySelectorAll('#chainMoneyGroup .flt').forEach(b=>b.classList.remove('on','on-green','on-amber','on-red'));
+  btn.classList.add(m==='all'?'on':(btn.dataset.cls||'on'));
+  chainRender();
+};
+
+window.chainSetVto = (v, btn) => {
+  chainVto = v;
+  document.querySelectorAll('#chainVtoGroup .flt').forEach(b=>b.classList.remove('on','on-blue'));
+  btn.classList.add('on-blue');
+  chainRender();
+};
+
+window.chainRender = () => {
+  console.log('chainRender called: vData='+vData.length+' vSpot='+vSpot+' chainVto='+chainVto);
+  if(!vData.length || !vSpot) { console.log('chainRender: no data, returning'); return; }
+  const modelo = document.getElementById('vModelo')?.value||'binom';
+  const ivKey = modelo==='bs' ? 'iv_bs' : 'iv_binom';
+  const R = 0.70;
+
+  // Solo abril y junio
+  const allVtos = [...new Set(vData.map(o=>o.vencimiento).filter(Boolean))].sort();
+  const abrilJunio = allVtos.filter(v => v && (v.startsWith('04/') || v.startsWith('06/')));
+  const vtos = abrilJunio.length ? abrilJunio : allVtos.slice(0,2);
+
+  // Default: abril
+  if(!chainVto || !vtos.includes(chainVto)){
+    chainVto = vtos.find(v=>v.startsWith('04/')) || vtos[0];
+  }
+
+  // Render vto buttons
+  console.log('chainRender: vtos='+JSON.stringify(vtos)+' chainVto='+chainVto);
+  const vtoGroup = document.getElementById('chainVtoGroup');
+  console.log('chainRender: chainVtoGroup exists=', !!vtoGroup);
+  if(vtoGroup) vtoGroup.innerHTML = vtos.map(v =>
+    `<button class="flt ${v===chainVto?'on-blue':''}" onclick="chainSetVto('${v}',this)">${v}</button>`
+  ).join('');
+
+  // Asegurar que Todos esté marcado si chainMoney es 'all'
+  document.querySelectorAll('#chainMoneyGroup .flt').forEach(b=>{
+    b.classList.remove('on','on-green','on-amber','on-red');
+    if(b.textContent.trim()==='Todos' && chainMoney==='all') b.classList.add('on');
+    if(b.dataset.cls && chainMoney===b.onclick?.toString().match(/'(\w+)'/)?.[1]) b.classList.add(b.dataset.cls,'on');
+  });
+
+  // Filtrar por vto
+  const data = vData.filter(o => o.vencimiento === chainVto);
+  const strikes = [...new Set(data.map(o=>o.base))].sort((a,b)=>a-b);
+
+  // Filtrar por moneyness
+  const filtered = strikes.filter(K => {
+    const m = vSpot/K;
+    if(chainMoney==='itm')  return m > 1.02;
+    if(chainMoney==='otm')  return m < 0.98;
+    if(chainMoney==='atm')  return m >= 0.90 && m <= 1.10;
+    return true;
+  });
+
+  document.getElementById('chainSpot').textContent = '$'+fmtAR(vSpot);
+  document.getElementById('chainCount').textContent = filtered.length+' strikes';
+
+  if(!filtered.length){
+    document.getElementById('chainTbody').innerHTML = '<tr><td colspan="16" style="text-align:center;padding:24px;color:var(--text3)">Sin datos para este filtro</td></tr>';
+    return;
+  }
+
+  const ivColor = iv => iv>0.8?'iv-hi':iv>0.5?'iv-mid':'iv-lo';
+
+  document.getElementById('chainTbody').innerHTML = filtered.map(K => {
+    const call = data.find(o=>o.tipo==='call'&&o.base===K);
+    const put  = data.find(o=>o.tipo==='put' &&o.base===K);
+    const isATM = Math.abs(vSpot/K - 1) < 0.015;
+    const itmCall = vSpot > K;
+    const itmPut  = vSpot < K;
+    const T = call?.T || put?.T || 0.1;
+
+    // Calcular griegos desde IV
+    const ivC = call?.[ivKey] || 0;
+    const ivP = put?.[ivKey]  || 0;
+    const deltaC = ivC>0 ? bsDelta_c(vSpot,K,T,R,ivC,'call') : null;
+    const thetaC = ivC>0 ? bsTheta_c(vSpot,K,T,R,ivC,'call') : null;
+    const deltaP = ivP>0 ? bsDelta_c(vSpot,K,T,R,ivP,'put')  : null;
+    const thetaP = ivP>0 ? bsTheta_c(vSpot,K,T,R,ivP,'put')  : null;
+
+    const fmt2  = v => v!=null ? fmtAR(v,2) : '—';
+    const fmtIV = v => v>0 ? (v*100).toFixed(1)+'%' : '—';
+    const fmtD  = v => v!=null ? v.toFixed(3) : '—';
+    const fmtTh = v => v!=null ? '$'+fmtAR(v,2) : '—';
+    const fmtVol= v => v>0 ? fmtAR(v,0) : '—';
+
+    const callCls = itmCall ? 'itm-call' : '';
+    const putCls  = itmPut  ? 'itm-put'  : '';
+    const rowCls  = isATM ? 'atm-row' : '';
+
+    return `<tr class="${rowCls}">
+      <td class="call-c ${callCls} ${ivColor(ivC)}">${fmtIV(ivC)}</td>
+      <td class="call-c ${callCls}" style="color:var(--blue)">${fmtD(deltaC)}</td>
+      <td class="call-c ${callCls}" style="color:var(--red)">${fmtTh(thetaC)}</td>
+      <td class="call-c ${callCls}">${call?.bid>0?'$'+fmt2(call.bid):'—'}</td>
+      <td class="call-c ${callCls}" style="color:var(--text)">${call?.ask>0?'$'+fmt2(call.ask):'—'}</td>
+      <td class="call-c ${callCls}" style="color:var(--text);font-weight:500">${call?.last>0?'$'+fmt2(call.last):'—'}</td>
+      <td class="call-c ${callCls}" style="color:var(--text3)">${fmtVol(call?.volume)}</td>
+      <td class="strike-c">${isATM?'<span style="color:var(--amber)">':''}$${fmtAR(K,1)}${isATM?'</span>':''}</td>
+      <td class="strike-c" style="font-size:9px;color:var(--text3)">${chainVto}</td>
+      <td class="put-c ${putCls}" style="color:var(--text3)">${fmtVol(put?.volume)}</td>
+      <td class="put-c ${putCls}" style="color:var(--text);font-weight:500">${put?.last>0?'$'+fmt2(put.last):'—'}</td>
+      <td class="put-c ${putCls}">${put?.bid>0?'$'+fmt2(put.bid):'—'}</td>
+      <td class="put-c ${putCls}" style="color:var(--text)">${put?.ask>0?'$'+fmt2(put.ask):'—'}</td>
+      <td class="put-c ${putCls}" style="color:var(--red)">${fmtTh(thetaP)}</td>
+      <td class="put-c ${putCls}" style="color:var(--blue)">${fmtD(deltaP)}</td>
+      <td class="put-c ${putCls} ${ivColor(ivP)}">${fmtIV(ivP)}</td>
+    </tr>`;
+  }).join('');
+};
+
+// Re-render cadena cuando se cargan datos
+const _origVLoad = vLoad;
+vLoad = async function(){
+  await _origVLoad.apply(this, arguments);
+  if(vActiveTab === 'monitor') setTimeout(chainRender, 0);
+};
+
+// Re-render cuando se activa la tab cadena
+const _origVTab = window.vTab;
+window.vTab = (name, btn) => {
+  _origVTab(name, btn);
+  if(name === 'monitor'){
+    setTimeout(()=>{
+      if(vData.length && vSpot){
+        chainRender();
+      } else {
+        const wait = setInterval(()=>{
+          if(vData.length && vSpot){ clearInterval(wait); chainRender(); }
+        }, 200);
+        setTimeout(()=>clearInterval(wait), 5000);
+      }
+    }, 50);
+  }
+};
+
+})();
+</script>

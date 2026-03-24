@@ -1,0 +1,303 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: CEDEARs
+     Solapas: MEP Implícito | Rankings | Tabla general
+══════════════════════════════════════════════════ -->
+
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="cstab-mep"      onclick="csTab('mep',this)">MEP Implícito</button>
+    <button class="stab"        id="cstab-rankings"  onclick="csTab('rankings',this)">Rankings</button>
+    <button class="stab"        id="cstab-tabla"     onclick="csTab('tabla',this)">Tabla general</button>
+  </div>
+  <div class="sub-tabs-meta" id="csTabMeta">Datos en tiempo real desde Supabase</div>
+</div>
+
+<!-- ── PANEL: MEP IMPLÍCITO ── -->
+<div class="sub-panel active" id="cspanel-mep">
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px" id="csMepKpis">
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">MEP AL30</div><div class="kpi-val" id="ck-mep">—</div><div class="kpi-sub">referencia del día</div></div>
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Baratos</div><div class="kpi-val" id="ck-cheap">—</div><div class="kpi-sub">MEP impl. &lt; AL30</div></div>
+    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Caros</div><div class="kpi-val" id="ck-exp">—</div><div class="kpi-sub">MEP impl. &gt; AL30</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Mejor oportunidad</div><div class="kpi-val" id="ck-best">—</div><div class="kpi-sub" id="ck-best-sub">—</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">CEDEARs totales</div><div class="kpi-val" id="ck-total">—</div><div class="kpi-sub">con ARS y USD</div></div>
+  </div>
+
+  <!-- Referencia AL30 -->
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <div><div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">AL30 ARS</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;color:var(--text)" id="cref-al30ars">—</div></div>
+    <div style="width:1px;height:32px;background:var(--border)"></div>
+    <div><div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">AL30D USD</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;color:var(--text)" id="cref-al30usd">—</div></div>
+    <div style="width:1px;height:32px;background:var(--border)"></div>
+    <div><div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">MEP AL30</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;color:var(--blue)" id="cref-mep">—</div></div>
+    <div style="width:1px;height:32px;background:var(--border)"></div>
+    <div><div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">Spread promedio</div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:500;color:var(--amber)" id="cref-avg">—</div></div>
+    <div style="font-size:10px;color:var(--text3);margin-left:auto;max-width:280px;line-height:1.5">MEP implícito = Precio ARS ÷ Precio USD (ticker con D). Spread negativo = barato vs AL30.</div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card">
+    <div class="toolbar">
+      <div style="display:flex;gap:3px" id="csMepFilter">
+        <button class="flt on" onclick="csMepSetFilter('all',this)">Todos</button>
+        <button class="flt" onclick="csMepSetFilter('cheap',this)" data-cls="on-green">Baratos</button>
+        <button class="flt" onclick="csMepSetFilter('expensive',this)" data-cls="on-red">Caros</button>
+        <button class="flt" onclick="csMepSetFilter('big',this)" data-cls="on-amber">Grandes (&gt;2%)</button>
+      </div>
+      <input class="search-input" placeholder="Buscar ticker..." id="csMepSearch" oninput="csMepApply()">
+      <span class="row-count" id="csMepCount">0 CEDEARs</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left" onclick="csMepSort('symbol')">Ticker</th>
+          <th onclick="csMepSort('ars')">Precio ARS</th>
+          <th onclick="csMepSort('usd')">Precio USD</th>
+          <th onclick="csMepSort('mep_impl')">MEP implícito</th>
+          <th onclick="csMepSort('spread_nom')">Spread $</th>
+          <th onclick="csMepSort('spread_pct')" class="sort-asc">Spread %</th>
+          <th onclick="csMepSort('signal')">Señal</th>
+          <th onclick="csMepSort('vol_ars')">Vol ARS</th>
+        </tr></thead>
+        <tbody id="csMepTbody"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── PANEL: RANKINGS ── -->
+<div class="sub-panel" id="cspanel-rankings">
+  <div class="sec-head" style="--hc:var(--purple)">CEDEARs</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    <div class="rank-card"><div class="rank-head"><div class="rank-head-title">🔥 Más operados</div><div class="rank-sort">turnover</div></div><div id="cs-turnover"></div></div>
+    <div class="rank-card"><div class="rank-head"><div class="rank-head-title">▲ Mayores subas</div><div class="rank-sort">var %</div></div><div id="cs-gainers"></div></div>
+    <div class="rank-card"><div class="rank-head"><div class="rank-head-title">▼ Mayores bajas</div><div class="rank-sort">var %</div></div><div id="cs-losers"></div></div>
+  </div>
+</div>
+
+<!-- ── PANEL: TABLA GENERAL ── -->
+<div class="sub-panel" id="cspanel-tabla">
+  <div class="card">
+    <div class="toolbar">
+      <div style="display:flex;gap:3px" id="csTablaSettle">
+        <button class="flt on" onclick="csTablaSettle('24hs',this)">24hs (ARS)</button>
+        <button class="flt" onclick="csTablaSettle('dolar',this)">USD (con D)</button>
+      </div>
+      <input class="search-input" placeholder="Buscar ticker..." id="csTablaSearch" oninput="csTablaApply()">
+      <span class="row-count" id="csTablaCount">0</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left" onclick="csTablaSort('symbol')">Ticker</th>
+          <th onclick="csTablaSort('last')">Último</th>
+          <th onclick="csTablaSort('change')" class="sort-desc">Var %</th>
+          <th onclick="csTablaSort('open')">Apertura</th>
+          <th onclick="csTablaSort('high')">Máx</th>
+          <th onclick="csTablaSort('low')">Mín</th>
+          <th onclick="csTablaSort('previous_close')">Cierre ant.</th>
+          <th onclick="csTablaSort('turnover')">Turnover</th>
+          <th onclick="csTablaSort('volume')">Volumen</th>
+        </tr></thead>
+        <tbody id="csTablaTbody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+// ── Sub-tabs ──
+window.csTab = (name, btn) => {
+  document.querySelectorAll('[id^="cspanel-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('cspanel-'+name).classList.add('active');
+  document.querySelectorAll('[id^="cstab-"]').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  if(name==='rankings') csLoadRankings();
+  if(name==='tabla') csLoadTabla();
+};
+
+// ════════════════════
+// MEP IMPLÍCITO
+// ════════════════════
+let csMepRows=[], csMepFilter='all', csMepSortCol='spread_pct', csMepSortDir=1;
+let csMepAL30=null;
+
+function csMepSignal(pct){
+  if(pct==null)return{cls:'sp-fair',label:'—'};
+  if(pct<=-3)return{cls:'sp-cheap',label:'◆ Muy barato'};
+  if(pct<=-1)return{cls:'sp-cheap',label:'▼ Barato'};
+  if(pct<=1) return{cls:'sp-fair', label:'◉ En línea'};
+  if(pct<=3) return{cls:'sp-expensive',label:'▲ Caro'};
+  return{cls:'sp-expensive',label:'▲▲ Muy caro'};
+}
+
+async function csMepLoad(){
+  const[arsRows,usdRows,al30Rows]=await Promise.all([
+    sb('mercado','instrument_group=eq.cedears&settlement=eq.24hs&select=symbol,last,change,turnover,volume&limit=500'),
+    sb('mercado','instrument_group=eq.cedears&settlement=eq.24hs&select=symbol,last,volume&limit=500'),
+    sb('mercado','symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last'),
+  ]);
+  if(!arsRows||!usdRows){document.getElementById('csMepTbody').innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Sin datos — iniciá el script de mercado</td></tr>';return;}
+
+  const arsMap={},usdMap={};
+  arsRows.forEach(r=>{if(!r.symbol.endsWith('D'))arsMap[r.symbol]=r;});
+  usdRows.forEach(r=>{if(r.symbol.endsWith('D'))usdMap[r.symbol]=r;});
+
+  const al30a=al30Rows?.find(r=>r.symbol==='AL30');
+  const al30u=al30Rows?.find(r=>r.symbol==='AL30D');
+  if(al30a&&al30u&&al30u.last>0){
+    csMepAL30=Number(al30a.last)/Number(al30u.last);
+    document.getElementById('cref-al30ars').textContent='$'+fmtAR(al30a.last);
+    document.getElementById('cref-al30usd').textContent='U$S '+fmtAR(al30u.last,3);
+    document.getElementById('cref-mep').textContent='$'+fmtAR(csMepAL30);
+    document.getElementById('ck-mep').textContent='$'+fmtAR(csMepAL30);
+  }
+
+  const rows=[];
+  Object.keys(arsMap).forEach(sym=>{
+    const ars=arsMap[sym],usd=usdMap[sym+'D'];
+    if(!usd||!usd.last||Number(usd.last)===0)return;
+    const arsP=Number(ars.last),usdP=Number(usd.last);
+    if(!arsP||!usdP)return;
+    const mepImpl=arsP/usdP;
+    const spreadNom=csMepAL30?mepImpl-csMepAL30:null;
+    const spreadPct=csMepAL30?((mepImpl-csMepAL30)/csMepAL30)*100:null;
+    rows.push({symbol:sym,ars:arsP,usd:usdP,mep_impl:mepImpl,spread_nom:spreadNom,spread_pct:spreadPct,chg:Number(ars.change||0),vol_ars:Number(ars.turnover||0),signal:spreadPct!=null?Math.abs(spreadPct):0});
+  });
+  csMepRows=rows;
+
+  const cheap=rows.filter(r=>r.spread_pct!=null&&r.spread_pct<0).length;
+  const exp=rows.filter(r=>r.spread_pct!=null&&r.spread_pct>0).length;
+  const best=[...rows].filter(r=>r.spread_pct!=null).sort((a,b)=>a.spread_pct-b.spread_pct)[0];
+  const avg=rows.length?rows.reduce((s,r)=>s+(r.spread_pct||0),0)/rows.length:0;
+  document.getElementById('ck-cheap').textContent=cheap;
+  document.getElementById('ck-exp').textContent=exp;
+  document.getElementById('ck-total').textContent=rows.length;
+  document.getElementById('ck-best').textContent=best?best.symbol:'—';
+  document.getElementById('ck-best-sub').textContent=best?fmtPct(best.spread_pct)+' vs AL30':'—';
+  document.getElementById('cref-avg').textContent=fmtPct(avg);
+  csMepApply();
+}
+
+window.csMepApply=()=>{
+  const q=(document.getElementById('csMepSearch').value||'').toUpperCase();
+  let rows=csMepRows.filter(r=>{
+    if(q&&!r.symbol.includes(q))return false;
+    if(csMepFilter==='cheap')return r.spread_pct!=null&&r.spread_pct<0;
+    if(csMepFilter==='expensive')return r.spread_pct!=null&&r.spread_pct>0;
+    if(csMepFilter==='big')return r.spread_pct!=null&&Math.abs(r.spread_pct)>=2;
+    return true;
+  });
+  rows.sort((a,b)=>{const av=a[csMepSortCol]??-Infinity,bv=b[csMepSortCol]??-Infinity;return csMepSortDir*((av>bv)?1:-1);});
+  document.getElementById('csMepCount').textContent=rows.length+' CEDEARs';
+  document.getElementById('csMepTbody').innerHTML=rows.map(r=>{
+    const sig=csMepSignal(r.spread_pct);
+    const spCls=r.spread_pct>0?'neg':r.spread_pct<0?'pos':'neu';
+    return`<tr>
+      <td class="td-left" style="color:var(--text);font-weight:500">${r.symbol}</td>
+      <td>$${fmtAR(r.ars)}<br><span style="font-size:9px" class="${cc(r.chg)}">${fmtPct(r.chg)}</span></td>
+      <td>U$S ${fmtAR(r.usd,3)}</td>
+      <td style="color:var(--blue);font-weight:500">$${fmtAR(r.mep_impl)}</td>
+      <td class="${spCls}">${r.spread_nom!=null?(r.spread_nom>0?'+':'')+fmtAR(r.spread_nom):'—'}</td>
+      <td class="${spCls}" style="font-weight:500">${r.spread_pct!=null?fmtPct(r.spread_pct):'—'}</td>
+      <td><span class="spread-pill ${sig.cls}">${sig.label}</span></td>
+      <td style="color:var(--text3)">${fmtM(r.vol_ars)}</td>
+    </tr>`;
+  }).join('');
+};
+window.csMepSetFilter=(f,btn)=>{
+  csMepFilter=f;
+  document.querySelectorAll('#csMepFilter .flt').forEach(b=>b.classList.remove('on','on-green','on-red','on-amber'));
+  btn.classList.add(btn.dataset.cls||'on');
+  csMepApply();
+};
+window.csMepSort=(col)=>{
+  if(csMepSortCol===col)csMepSortDir*=-1;else{csMepSortCol=col;csMepSortDir=col==='spread_pct'?1:-1;}
+  const cols=['symbol','ars','usd','mep_impl','spread_nom','spread_pct','signal','vol_ars'];
+  document.querySelectorAll('#cspanel-mep th').forEach(th=>th.classList.remove('sort-asc','sort-desc'));
+  const idx=cols.indexOf(col);if(idx>=0){const ths=document.querySelectorAll('#cspanel-mep th');ths[idx]&&ths[idx].classList.add(csMepSortDir===1?'sort-asc':'sort-desc');}
+  csMepApply();
+};
+
+// ════════════════════
+// RANKINGS
+// ════════════════════
+async function csLoadRankings(){
+  const base='instrument_group=eq.cedears&settlement=eq.24hs&select=symbol,last,change,turnover,volume';
+  const[top,gainers,losers]=await Promise.all([
+    sb('mercado',base+'&order=turnover.desc.nullslast&limit=10'),
+    sb('mercado',base+'&order=change.desc.nullslast&limit=10'),
+    sb('mercado',base+'&order=change.asc&limit=10'),
+  ]);
+  ['cs-turnover','cs-gainers','cs-losers'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const rows=id.includes('turnover')?top:id.includes('gainers')?gainers:losers;
+    const mode=id.includes('turnover')?'turnover':'change';
+    if(!rows||!rows.length){el.innerHTML='<div class="rank-empty">Sin datos</div>';return;}
+    el.innerHTML=rows.map((r,i)=>{
+      const chg=Number(r.change),cls=cc(chg);
+      const sub=mode==='turnover'?`<div class="rank-sub">${fmtM(r.turnover)}</div>`:`<div class="rank-sub">Vol ${r.volume?fmtAR(Number(r.volume),0):'—'}</div>`;
+      return`<div class="rank-item"><div class="rank-pos">${i+1}</div><div><div class="rank-sym">${r.symbol}</div>${sub}</div><div class="rank-price">$${fmtAR(r.last,2)}</div><div class="rank-chg ${cls}">${fmtPct(chg)}</div></div>`;
+    }).join('');
+  });
+}
+
+// ════════════════════
+// TABLA GENERAL
+// ════════════════════
+let csTablaRows=[], csTablaSortCol='turnover', csTablaSortDir=-1, csTablaSettle24='24hs';
+
+async function csLoadTabla(){
+  const settle=csTablaSettle24==='dolar'?'eq.24hs':'eq.24hs';
+  // Para USD filtramos símbolos que terminan en D
+  let rows=await sb('mercado',`instrument_group=eq.cedears&settlement=eq.24hs&select=symbol,last,change,open,high,low,previous_close,turnover,volume&limit=500`);
+  if(!rows){document.getElementById('csTablaTbody').innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Sin datos</td></tr>';return;}
+  if(csTablaSettle24==='dolar') rows=rows.filter(r=>r.symbol.endsWith('D'));
+  else rows=rows.filter(r=>!r.symbol.endsWith('D'));
+  csTablaRows=rows;
+  csTablaApply();
+}
+
+window.csTablaApply=()=>{
+  const q=(document.getElementById('csTablaSearch').value||'').toUpperCase();
+  let rows=csTablaRows.filter(r=>!q||r.symbol.includes(q));
+  rows.sort((a,b)=>{const av=a[csTablaSortCol]??-Infinity,bv=b[csTablaSortCol]??-Infinity;return csTablaSortDir*((av>bv)?1:-1);});
+  document.getElementById('csTablaCount').textContent=rows.length+' CEDEARs';
+  document.getElementById('csTablaTbody').innerHTML=rows.map(r=>{
+    const chg=Number(r.change),cls=cc(chg);
+    return`<tr>
+      <td class="td-left" style="color:var(--text);font-weight:500">${r.symbol}</td>
+      <td style="color:var(--text);font-weight:500">$${fmtAR(r.last,2)}</td>
+      <td class="${cls}" style="font-weight:500">${fmtPct(chg)}</td>
+      <td>${r.open?'$'+fmtAR(r.open,2):'—'}</td>
+      <td class="pos">${r.high?'$'+fmtAR(r.high,2):'—'}</td>
+      <td class="neg">${r.low?'$'+fmtAR(r.low,2):'—'}</td>
+      <td>${r.previous_close?'$'+fmtAR(r.previous_close,2):'—'}</td>
+      <td style="color:var(--text3)">${fmtM(r.turnover)}</td>
+      <td style="color:var(--text3)">${r.volume?fmtAR(Number(r.volume),0):'—'}</td>
+    </tr>`;
+  }).join('');
+};
+window.csTablaSort=(col)=>{
+  if(csTablaSortCol===col)csTablaSortDir*=-1;else{csTablaSortCol=col;csTablaSortDir=-1;}
+  const cols=['symbol','last','change','open','high','low','previous_close','turnover','volume'];
+  document.querySelectorAll('#cspanel-tabla th').forEach(th=>th.classList.remove('sort-asc','sort-desc'));
+  const idx=cols.indexOf(col);if(idx>=0){const ths=document.querySelectorAll('#cspanel-tabla th');ths[idx]&&ths[idx].classList.add(csTablaSortDir===1?'sort-asc':'sort-desc');}
+  csTablaApply();
+};
+window.csTablaSettle=(s,btn)=>{
+  csTablaSettle24=s;
+  document.querySelectorAll('#csTablaSettle .flt').forEach(b=>b.classList.remove('on','on-blue'));
+  btn.classList.add(s==='dolar'?'on-blue':'on');
+  csLoadTabla();
+};
+
+// ── Init ──
+csMepLoad();
+window.moduleTimers.cedears=setInterval(csMepLoad,10000);
+
+})();
+</script>

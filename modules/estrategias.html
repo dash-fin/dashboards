@@ -1,0 +1,912 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: ESTRATEGIAS — Opciones GGAL
+     Simulador completo con slider de días/vol, griegos, escenarios
+══════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<style>
+.es-grid{display:grid;grid-template-columns:460px 1fr;gap:14px;align-items:start}
+@media(max-width:1200px){.es-grid{grid-template-columns:1fr}}
+.es-panel{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.es-panel-head{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.es-panel-title{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:1.5px;font-weight:500}
+.es-panel-body{padding:12px 14px}
+.es-field{margin-bottom:10px}
+.es-field-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;font-weight:500}
+.es-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text);outline:none;transition:border-color .15s}
+.es-input:focus{border-color:var(--green)}
+.es-select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);outline:none}
+.es-leg-row{display:grid;grid-template-columns:90px 70px 100px 90px 60px 28px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(30,37,48,.6)}
+.es-leg-row:last-of-type{border-bottom:none}
+.es-leg-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.es-metric{background:var(--bg3);border-radius:5px;padding:8px 10px;text-align:center}
+.es-metric-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.es-metric-val{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500}
+.es-metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.es-metrics-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.es-slider-wrap{margin-bottom:10px}
+.es-slider-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.es-slider-label{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;width:40px}
+.es-slider-val{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--amber);min-width:52px;text-align:right}
+.es-slider{flex:1;accent-color:var(--amber)}
+.es-btn-save{width:100%;background:var(--green);color:#000;border:none;border-radius:5px;padding:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;letter-spacing:1px;text-transform:uppercase;transition:filter .15s}
+.es-btn-save:hover{filter:brightness(1.1)}
+.es-btn-save:disabled{background:var(--bg4);color:var(--text3);cursor:not-allowed}
+.es-greeks-bar{display:flex;gap:0;border-bottom:1px solid var(--border)}
+.es-greek{flex:1;padding:8px 10px;text-align:center;border-right:1px solid var(--border)}
+.es-greek:last-child{border-right:none}
+.es-greek-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
+.es-greek-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500}
+.es-scenarios table{width:100%;border-collapse:collapse}
+.es-scenarios td,.es-scenarios th{padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right;border-bottom:1px solid rgba(30,37,48,.5)}
+.es-scenarios th{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:400;border-bottom:1px solid var(--border)}
+.es-scenarios tr:last-child td{border-bottom:none}
+.es-scenarios tr:hover td{background:rgba(255,255,255,.02)}
+.es-scenarios td:first-child{text-align:left}
+.es-op-row{display:grid;grid-template-columns:80px 1fr 1fr auto auto auto auto 60px;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid rgba(30,37,48,.5);font-family:'IBM Plex Mono',monospace;font-size:10px}
+.es-op-row:last-child{border-bottom:none}
+.es-op-row:hover{background:rgba(255,255,255,.02)}
+.es-op-head{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-weight:400;padding:6px 14px;border-bottom:1px solid var(--border)}
+</style>
+
+<!-- Tabs principales -->
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="estab-sim"   onclick="esTab('sim',this)">Simulador</button>
+    <button class="stab"        id="estab-pos"   onclick="esTab('pos',this)">Posiciones</button>
+    <button class="stab"        id="estab-sug"   onclick="esTab('sug',this)">Sugerencias</button>
+  </div>
+  <div class="sub-tabs-meta">
+    GGAL: <span id="esSpotDisplay" style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:500">—</span>
+    &nbsp;·&nbsp; IV ATM: <span id="esIVATMDisplay" style="color:var(--purple);font-family:'IBM Plex Mono',monospace">—</span>
+  </div>
+</div>
+
+<!-- ══ PANEL: SIMULADOR ══ -->
+<div class="sub-panel active" id="espanel-sim">
+  <div class="es-grid">
+
+    <!-- Columna izquierda: constructor -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+
+      <!-- Patas -->
+      <div class="es-panel">
+        <div class="es-panel-head">
+          <div class="es-panel-title">Armá tu estrategia</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="esAddLeg()">+ Pata</button>
+            <button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="esReset()">Limpiar</button>
+          </div>
+        </div>
+        <!-- Header cols -->
+        <div style="display:grid;grid-template-columns:90px 70px 100px 90px 60px 28px;gap:5px;padding:4px 14px;border-bottom:1px solid var(--border)">
+          <div class="es-leg-lbl">Tipo</div><div class="es-leg-lbl">Opción</div>
+          <div class="es-leg-lbl">Strike</div><div class="es-leg-lbl">Vto</div>
+          <div class="es-leg-lbl">Cant.</div><div></div>
+        </div>
+        <div style="padding:6px 14px" id="esLegsContainer"></div>
+        <div style="padding:6px 14px;border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);display:flex;justify-content:space-between">
+          <span id="esNombreEstrategia">—</span>
+          <span>Costo neto: <span id="esCostoNetoVal" style="color:var(--text2)">—</span></span>
+        </div>
+      </div>
+
+      <!-- Parámetros -->
+      <div class="es-panel">
+        <div class="es-panel-head"><div class="es-panel-title">Parámetros</div></div>
+        <div class="es-panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div class="es-field">
+              <div class="es-field-label">Spot GGAL</div>
+              <input class="es-input" type="number" id="esSpotInput" value="6120" oninput="esRecalc()">
+            </div>
+            <div class="es-field">
+              <div class="es-field-label">Option size</div>
+              <input class="es-input" type="number" id="esOptSize" value="100" oninput="esRecalc()">
+            </div>
+            <div class="es-field">
+              <div class="es-field-label">Tasa anual (%)</div>
+              <input class="es-input" type="number" id="esTasa" value="70" oninput="esRecalc()">
+            </div>
+            <div class="es-field">
+              <div class="es-field-label">Rango gráfico (%)</div>
+              <input class="es-input" type="number" id="esRango" value="30" oninput="esRecalc()">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métricas -->
+      <div class="es-panel">
+        <div class="es-panel-head"><div class="es-panel-title">Métricas</div></div>
+        <div class="es-panel-body">
+          <div class="es-metrics-grid">
+            <div class="es-metric"><div class="es-metric-label">Capital</div><div class="es-metric-val" id="esCapital" style="color:var(--text)">—</div></div>
+            <div class="es-metric"><div class="es-metric-label">P&L actual</div><div class="es-metric-val" id="esPLActual">—</div></div>
+            <div class="es-metric"><div class="es-metric-label">Máx. ganancia</div><div class="es-metric-val" id="esMaxGan" style="color:var(--green)">—</div></div>
+            <div class="es-metric"><div class="es-metric-label">Máx. pérdida</div><div class="es-metric-val" id="esMaxPerd" style="color:var(--red)">—</div></div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);margin-bottom:6px">
+            Break evens: <span id="esBreakEvens" style="color:var(--amber)">—</span>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">
+            Costo financiero: <span id="esCostoFin" style="color:var(--red)">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guardar -->
+      <div class="es-panel">
+        <div class="es-panel-head"><div class="es-panel-title">Guardar operación</div></div>
+        <div class="es-panel-body">
+          <div class="es-field">
+            <div class="es-field-label">Nombre / nota</div>
+            <input class="es-input" type="text" id="esNota" placeholder="ej: cobertura cartera, bull spread abril...">
+          </div>
+          <div class="es-field">
+            <div class="es-field-label">Fecha</div>
+            <input class="es-input" type="date" id="esFecha">
+          </div>
+          <button class="es-btn-save" onclick="esGuardar()" id="esGuardarBtn">💾 Guardar operación</button>
+          <div class="modal-msg" id="esGuardarMsg" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Columna derecha: gráfico -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+
+      <!-- Sliders -->
+      <div class="es-panel">
+        <div class="es-panel-body" style="padding:10px 14px">
+          <div style="display:flex;gap:20px;flex-wrap:wrap">
+            <div class="es-slider-wrap" style="flex:1;min-width:200px">
+              <div class="es-slider-row">
+                <span class="es-slider-label">Días</span>
+                <input type="range" class="es-slider" id="esDiasSlider" min="0" max="365" value="32" oninput="esSliderChange()">
+                <span class="es-slider-val" id="esDiasVal">32d</span>
+              </div>
+            </div>
+            <div class="es-slider-wrap" style="flex:1;min-width:200px">
+              <div class="es-slider-row">
+                <span class="es-slider-label">Ajuste IV</span>
+                <input type="range" class="es-slider" id="esVolSlider" min="-50" max="100" value="0" oninput="esSliderChange()">
+                <span class="es-slider-val" id="esVolVal">0%</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="checkbox" id="esShowTeorico" checked onchange="esRecalc()">
+              <label for="esShowTeorico" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2)">Mostrar teórico</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Griegos -->
+      <div class="es-panel">
+        <div class="es-greeks-bar">
+          <div class="es-greek"><div class="es-greek-label">Δ Delta</div><div class="es-greek-val" id="gDelta" style="color:var(--blue)">—</div></div>
+          <div class="es-greek"><div class="es-greek-label">Γ Gamma</div><div class="es-greek-val" id="gGamma" style="color:var(--green)">—</div></div>
+          <div class="es-greek"><div class="es-greek-label">Θ Theta</div><div class="es-greek-val" id="gTheta" style="color:var(--red)">—</div></div>
+          <div class="es-greek"><div class="es-greek-label">V Vega</div><div class="es-greek-val" id="gVega" style="color:var(--purple)">—</div></div>
+          <div class="es-greek"><div class="es-greek-label">Capital</div><div class="es-greek-val" id="gCapital" style="color:var(--amber)">—</div></div>
+        </div>
+      </div>
+
+      <!-- Gráfico P&L -->
+      <div class="es-panel">
+        <div class="es-panel-head">
+          <div class="es-panel-title">Payoff al vencimiento + Teórico</div>
+          <div style="display:flex;gap:12px">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Vencimiento</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Teórico</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Spot actual</div>
+          </div>
+        </div>
+        <div style="padding:10px 14px;position:relative;height:240px">
+          <canvas id="esPLChart"></canvas>
+        </div>
+        <div style="padding:6px 14px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">
+          Break evens: <span id="esBreakEvens2" style="color:var(--amber)">—</span>
+          &nbsp;·&nbsp; Máx gan: <span id="esMaxGan2" style="color:var(--green)">—</span>
+          &nbsp;·&nbsp; Máx pérd: <span id="esMaxPerd2" style="color:var(--red)">—</span>
+        </div>
+      </div>
+
+      <!-- Escenarios -->
+      <div class="es-panel">
+        <div class="es-panel-head"><div class="es-panel-title">Escenarios — P&L por precio</div></div>
+        <div class="es-scenarios" style="max-height:260px;overflow-y:auto">
+          <table>
+            <thead><tr>
+              <th style="text-align:left">Var %</th>
+              <th>Precio</th>
+              <th>P&L vencimiento</th>
+              <th>P&L teórico</th>
+              <th>Total P&L</th>
+            </tr></thead>
+            <tbody id="esScenariosTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ PANEL: POSICIONES ══ -->
+<div class="sub-panel" id="espanel-pos">
+
+  <!-- Resumen griegos totales -->
+  <div class="es-panel" style="margin-bottom:10px">
+    <div class="es-greeks-bar">
+      <div class="es-greek"><div class="es-greek-label">P&L día</div><div class="es-greek-val" id="pos-pnl-dia" style="color:var(--text)">—</div></div>
+      <div class="es-greek"><div class="es-greek-label">P&L total</div><div class="es-greek-val" id="pos-pnl-total" style="color:var(--text)">—</div></div>
+      <div class="es-greek"><div class="es-greek-label">Δ total</div><div class="es-greek-val" id="pos-delta" style="color:var(--blue)">—</div></div>
+      <div class="es-greek"><div class="es-greek-label">Γ total</div><div class="es-greek-val" id="pos-gamma" style="color:var(--green)">—</div></div>
+      <div class="es-greek"><div class="es-greek-label">Θ total</div><div class="es-greek-val" id="pos-theta" style="color:var(--red)">—</div></div>
+      <div class="es-greek"><div class="es-greek-label">V total</div><div class="es-greek-val" id="pos-vega" style="color:var(--purple)">—</div></div>
+      <div class="es-greek"><div class="es-greek-label">Capital</div><div class="es-greek-val" id="pos-capital" style="color:var(--amber)">—</div></div>
+    </div>
+  </div>
+
+  <!-- Lista posiciones abiertas -->
+  <div class="es-panel" style="margin-bottom:10px">
+    <div class="es-panel-head">
+      <div class="es-panel-title">Posiciones abiertas</div>
+      <button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="esPosLoad()">↺ Actualizar</button>
+    </div>
+    <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px" class="es-op-head">
+      <div style="display:grid;grid-template-columns:80px 1fr 1fr auto auto auto auto 60px;gap:8px;padding:0">
+        <span>Fecha</span><span>Estrategia</span><span>Patas</span>
+        <span style="text-align:right">Entrada</span><span style="text-align:right">P&L</span>
+        <span style="text-align:right">Δ</span><span style="text-align:right">Θ</span><span></span>
+      </div>
+    </div>
+    <div id="esPosContainer">
+      <div class="empty-state" style="padding:24px"><div class="empty-icon">📋</div><p>Sin posiciones abiertas</p></div>
+    </div>
+  </div>
+
+  <!-- Historial cerradas -->
+  <div class="es-panel">
+    <div class="es-panel-head">
+      <div class="es-panel-title">Historial — operaciones cerradas</div>
+    </div>
+    <div id="esPosHistorial">
+      <div style="padding:16px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);text-align:center">Sin operaciones cerradas</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PANEL: SUGERENCIAS ══ -->
+<div class="sub-panel" id="espanel-sug">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <div style="font-size:11px;color:var(--text2)">Perspectiva:</div>
+    <div style="display:flex;gap:4px" id="esBiasGroup">
+      <button class="flt on" onclick="esBias('bull',this)">🐂 Alcista</button>
+      <button class="flt" onclick="esBias('bear',this)">🐻 Bajista</button>
+      <button class="flt" onclick="esBias('neutral',this)">↔ Neutral</button>
+      <button class="flt" onclick="esBias('vol',this)">⚡ Alta vol</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-left:8px">Riesgo:</div>
+    <div style="display:flex;gap:4px" id="esRiskGroup">
+      <button class="flt on" onclick="esRisk('bajo',this)">Bajo</button>
+      <button class="flt" onclick="esRisk('medio',this)">Medio</button>
+      <button class="flt" onclick="esRisk('alto',this)">Alto</button>
+    </div>
+    <button class="btn btn-green" onclick="esSugGen()" style="margin-left:auto">Buscar estrategias</button>
+  </div>
+  <div id="esSugEmpty" class="empty-state"><div class="empty-icon">🎯</div><p>Seleccioná perspectiva y hacé clic en "Buscar estrategias"</p></div>
+  <div id="esSugGrid" style="display:none;flex-direction:column;gap:10px"></div>
+</div>
+
+<script>
+// Estrategias — scope global del módulo
+// ══════════════════════════════════════════════════
+// LIBRERÍA DE CÁLCULO (BS + Binomial inline)
+// ══════════════════════════════════════════════════
+function normCDF(x){const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const sign=x<0?-1:1;x=Math.abs(x)/Math.sqrt(2);const t=1/(1+p*x);const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);return 0.5*(1+sign*y);}
+function normPDF(x){return Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI);}
+function bsPrice(S,K,T,r,sig,tipo){if(T<=0||sig<=0)return Math.max(tipo==='call'?S-K:K-S,0);const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?S*normCDF(d1)-K*Math.exp(-r*T)*normCDF(d2):K*Math.exp(-r*T)*normCDF(-d2)-S*normCDF(-d1);}
+function bsDelta(S,K,T,r,sig,tipo){if(T<=0||sig<=0)return tipo==='call'?(S>K?1:0):(S>K?0:-1);const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T));return tipo==='call'?normCDF(d1):normCDF(d1)-1;}
+function bsGamma(S,K,T,r,sig){if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T));return normPDF(d1)/(S*sig*Math.sqrt(T));}
+function bsTheta(S,K,T,r,sig,tipo){if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);if(tipo==='call')return(-S*normPDF(d1)*sig/(2*Math.sqrt(T))-r*K*Math.exp(-r*T)*normCDF(d2))/365;return(-S*normPDF(d1)*sig/(2*Math.sqrt(T))+r*K*Math.exp(-r*T)*normCDF(-d2))/365;}
+function bsVega(S,K,T,r,sig){if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*normPDF(d1)*Math.sqrt(T)/100;}
+function bsVegaFull(S,K,T,r,sig){if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*normPDF(d1)*Math.sqrt(T);}
+function ivBS(precio,S,K,T,r,tipo){
+  if(T<=0||precio<=0)return 0.6;
+  let sig=0.6;
+  for(let i=0;i<100;i++){const p=bsPrice(S,K,T,r,sig,tipo),v=bsVegaFull(S,K,T,r,sig);if(Math.abs(v)<1e-10)break;sig-=(p-precio)/v;if(sig<=0.01)sig=0.01;if(sig>15)sig=15;if(Math.abs(p-precio)<1e-5)return sig;}
+  return sig;
+}
+function esFormatVto(exp){if(!exp)return'—';const m=exp.match(/(\d{4})-(\d{2})-(\d{2})/);return m?m[2]+'/'+m[1]:exp;}
+function calcT(vto){if(!vto||vto==='—')return 32/365;const[mm,yy]=vto.split('/').map(Number);if(!mm||!yy)return 32/365;const d=new Date(yy,mm-1,1);while(d.getDay()!==5)d.setDate(d.getDate()+1);d.setDate(d.getDate()+14);return Math.max((d-new Date())/(1000*60*60*24*365),1/365);}
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let esOptsData = [];
+let esSpotVal  = 6120;
+let esIVATM    = 0.60;
+let esLegs     = [];
+let esPLChartInst = null;
+let esBiasVal  = 'bull';
+let esRiskVal  = 'bajo';
+
+// ══════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════
+window.esTab = (name, btn) => {
+  document.querySelectorAll('[id^="espanel-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('espanel-'+name).classList.add('active');
+  document.querySelectorAll('[id^="estab-"]').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  if(name==='pos') esPosLoad();
+  if(name==='sug' && esOptsData.length) esSugGen();
+};
+
+// ══════════════════════════════════════════════════
+// LOAD DATA
+// ══════════════════════════════════════════════════
+async function esLoad(){
+  const [optRows, spotRows] = await Promise.all([
+    sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0,ask.gt.0)&order=strike.asc&limit=500'),
+    sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
+  ]);
+  if(spotRows?.length){
+    esSpotVal = Number(spotRows[0].last);
+    document.getElementById('esSpotDisplay').textContent = '$'+fmtAR(esSpotVal);
+    document.getElementById('esSpotInput').value = esSpotVal;
+  }
+  if(optRows?.length){
+    esOptsData = optRows.map(o=>({
+      symbol:o.symbol, kind:(o.kind||'').toUpperCase(),
+      strike:Number(o.strike), vto:esFormatVto(o.expiration),
+      expiration:o.expiration,
+      last:Number(o.last||0), bid:Number(o.bid||0), ask:Number(o.ask||0),
+      mid:o.bid>0&&o.ask>0?(Number(o.bid)+Number(o.ask))/2:Number(o.last||0),
+    })).filter(o=>o.strike>0&&o.mid>0);
+
+    // Calcular IV ATM
+    const atmOpts = esOptsData.filter(o=>{
+      const m = esSpotVal/o.strike;
+      return m>=0.97&&m<=1.03&&o.mid>0;
+    });
+    if(atmOpts.length){
+      const ivs = atmOpts.map(o=>ivBS(o.mid,esSpotVal,o.strike,calcT(o.vto),0.70,o.kind==='CALL'?'call':'put')).filter(v=>v>0&&v<5);
+      if(ivs.length) esIVATM = ivs.reduce((s,v)=>s+v,0)/ivs.length;
+    }
+    document.getElementById('esIVATMDisplay').textContent = (esIVATM*100).toFixed(1)+'%';
+  }
+  // Fecha default hoy
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('esFecha').value = hoy;
+
+  if(esLegs.length) esRecalc();
+}
+
+// ══════════════════════════════════════════════════
+// LEGS
+// ══════════════════════════════════════════════════
+const STRATS = [
+  {id:'call',    label:'Compra Call'},    {id:'put',     label:'Compra Put'},
+  {id:'scall',   label:'Venta Call'},     {id:'sput',    label:'Venta Put'},
+  {id:'bullcs',  label:'Bull Call Spr'}, {id:'bearps',  label:'Bear Put Spr'},
+  {id:'straddle',label:'Straddle'},       {id:'strangle',label:'Strangle'},
+  {id:'butterfly',label:'Butterfly'},     {id:'icondor', label:'Iron Condor'},
+  {id:'rcall',   label:'Ratio Call'},     {id:'backsp',  label:'Backspread'},
+  {id:'ccall',   label:'Covered Call'},   {id:'collar',  label:'Collar'},
+];
+
+function detectStrat(legs){
+  if(!legs.length) return '—';
+  const b=legs.filter(l=>l.action==='buy'), s=legs.filter(l=>l.action==='sell');
+  const calls=legs.filter(l=>l.kind==='call'), puts=legs.filter(l=>l.kind==='put');
+  if(legs.length===1){
+    if(b.length===1&&calls.length===1)return'Compra de Call';
+    if(b.length===1&&puts.length===1) return'Compra de Put';
+    if(s.length===1&&calls.length===1)return'Venta de Call';
+    if(s.length===1&&puts.length===1) return'Venta de Put';
+  }
+  if(legs.length===2){
+    if(b.length===1&&s.length===1&&calls.length===2)return'Bull Call Spread';
+    if(b.length===1&&s.length===1&&puts.length===2) return'Bear Put Spread';
+    if(b.length===2&&calls.length===1&&puts.length===1)return'Straddle';
+    if(b.length===2&&calls.length===1&&puts.length===1&&legs[0].strike!==legs[1].strike)return'Strangle';
+    if(s.length===1&&b.length===1&&calls.length===2&&legs[0].strike!==legs[1].strike)return'Ratio Call Spread';
+  }
+  if(legs.length===3&&calls.length===3)return'Butterfly';
+  if(legs.length===4)return'Iron Condor';
+  return 'Personalizada';
+}
+
+window.esAddLeg = () => {
+  // Filtrar opciones de abril/junio
+  const abrilJunio = esOptsData.filter(o=>{
+    const v = o.vto||'';
+    return v.startsWith('04/') || v.startsWith('06/');
+  });
+  const pool = abrilJunio.length ? abrilJunio : esOptsData;
+  // Default: call ATM de abril
+  const abrilCalls = pool.filter(o=>o.kind==='CALL'&&(o.vto||'').startsWith('04/'));
+  const nearest = (abrilCalls.length ? abrilCalls : pool.filter(o=>o.kind==='CALL'))
+    .sort((a,b)=>Math.abs(a.strike-esSpotVal)-Math.abs(b.strike-esSpotVal))[0];
+  esLegs.push({
+    action:'buy', kind:'call',
+    strike: nearest?.strike||esSpotVal,
+    vto:    nearest?.vto||'—',
+    prima:  nearest?.mid||0,
+    qty:    1,
+  });
+  esRenderLegs(); esRecalc();
+};
+window.esReset = () => { esLegs=[]; esRenderLegs(); esRecalc(); };
+
+function esGetOpt(kind, strike, vto){
+  return esOptsData.find(o=>o.kind===kind.toUpperCase()&&o.strike===strike&&o.vto===vto) || null;
+}
+function esUpdateLegField(i, field, val){
+  esLegs[i][field] = val;
+  if(field==='strike'||field==='kind'||field==='vto'){
+    const opt = esGetOpt(esLegs[i].kind, Number(esLegs[i].strike), esLegs[i].vto);
+    if(opt) esLegs[i].prima = opt.mid;
+    if(field==='kind'){
+      const nearOpt = esOptsData.filter(o=>o.kind===val.toUpperCase()).sort((a,b)=>Math.abs(a.strike-esSpotVal)-Math.abs(b.strike-esSpotVal))[0];
+      if(nearOpt){ esLegs[i].strike=nearOpt.strike; esLegs[i].vto=nearOpt.vto; esLegs[i].prima=nearOpt.mid; }
+    }
+    // Solo re-renderizar patas cuando cambia estructura (kind/strike/vto)
+    esRenderLegs();
+  }
+  // Siempre recalcular
+  esRecalc();
+}
+window.esRemoveLeg = i => { esLegs.splice(i,1); esRenderLegs(); esRecalc(); };
+
+function esRenderLegs(){
+  const strikesCall = [...new Set(esOptsData.filter(o=>o.kind==='CALL').map(o=>o.strike))].sort((a,b)=>a-b);
+  const strikesPut  = [...new Set(esOptsData.filter(o=>o.kind==='PUT').map(o=>o.strike))].sort((a,b)=>a-b);
+  // Solo abril y junio
+  const allVtos = [...new Set(esOptsData.map(o=>o.vto))].sort();
+  const vtosFiltrados = allVtos.filter(v=>v&&(v.startsWith('04/')||v.startsWith('06/')));
+  const vtosDisp = vtosFiltrados.length ? vtosFiltrados : allVtos;
+
+  document.getElementById('esLegsContainer').innerHTML = esLegs.length ? esLegs.map((leg,i)=>{
+    const strikes = leg.kind==='call' ? strikesCall : strikesPut;
+    // vtos disponibles para este kind+strike, filtrados a abr/jun
+    const legVtosAll = [...new Set(esOptsData.filter(o=>o.kind===leg.kind.toUpperCase()&&o.strike===leg.strike).map(o=>o.vto))].sort();
+    const legVtos = legVtosAll.filter(v=>v&&(v.startsWith('04/')||v.startsWith('06/'))).length
+      ? legVtosAll.filter(v=>v&&(v.startsWith('04/')||v.startsWith('06/')))
+      : legVtosAll;
+    // Si el vto actual no está en los disponibles, tomar el primero
+    if(legVtos.length && !legVtos.includes(leg.vto)){
+      leg.vto = legVtos.find(v=>v.startsWith('04/')) || legVtos[0];
+      const opt = esGetOpt(leg.kind, leg.strike, leg.vto);
+      if(opt) leg.prima = opt.mid;
+    }
+    const opt = esGetOpt(leg.kind, leg.strike, leg.vto);
+    const primaStr = leg.prima > 0 ? '$'+fmtAR(leg.prima,2) : '—';
+    return `<div class="es-leg-row">
+      <select class="es-select" style="font-size:10px;padding:3px 5px" onchange="esUpdateLegField(${i},'action',this.value)">
+        <option value="buy" ${leg.action==='buy'?'selected':''} style="color:#00e5a8">▲ COMPRA</option>
+        <option value="sell" ${leg.action==='sell'?'selected':''} style="color:#ff3f5e">▼ VENTA</option>
+      </select>
+      <select class="es-select" style="font-size:10px;padding:3px 5px" onchange="esUpdateLegField(${i},'kind',this.value)">
+        <option value="call" ${leg.kind==='call'?'selected':''}>CALL</option>
+        <option value="put"  ${leg.kind==='put'?'selected':''}>PUT</option>
+      </select>
+      <select class="es-select" style="font-size:10px;padding:3px 5px" onchange="esUpdateLegField(${i},'strike',Number(this.value))">
+        ${strikes.map(s=>`<option value="${s}" ${s===leg.strike?'selected':''}>$${fmtAR(s,0)}</option>`).join('')}
+      </select>
+      <select class="es-select" style="font-size:10px;padding:3px 5px" onchange="esUpdateLegField(${i},'vto',this.value)">
+        ${legVtos.map(v=>`<option value="${v}" ${v===leg.vto?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <input type="number" min="1" max="9999" value="${leg.qty||1}" class="es-input"
+        style="padding:3px 5px;font-size:11px;text-align:center;width:100%"
+        oninput="esLegs[${i}].qty=Math.max(1,Number(this.value)||1);esRecalc();">
+      <button onclick="esRemoveLeg(${i})" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0;width:100%;text-align:center">✕</button>
+    </div>
+    <div style="padding:2px 0 4px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);display:flex;gap:10px">
+      <span>Prima: <span style="color:var(--text2)">${primaStr}</span></span>
+      ${opt?.bid>0?`<span>Bid: $${fmtAR(opt.bid,2)}</span>`:''}
+      ${opt?.ask>0?`<span>Ask: $${fmtAR(opt.ask,2)}</span>`:''}
+    </div>`;
+  }).join('') : `<div style="padding:12px 0;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);text-align:center">Sin patas — agregá una con + Pata</div>`;
+
+  const costoNeto = esLegs.reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0);
+  document.getElementById('esNombreEstrategia').textContent = detectStrat(esLegs);
+  document.getElementById('esCostoNetoVal').textContent = costoNeto>=0?'-$'+fmtAR(costoNeto,2):'+$'+fmtAR(Math.abs(costoNeto),2);
+  document.getElementById('esCostoNetoVal').style.color = costoNeto>0?'var(--red)':costoNeto<0?'var(--green)':'var(--text2)';
+}
+
+// ══════════════════════════════════════════════════
+// CÁLCULO P&L + GRIEGOS
+// ══════════════════════════════════════════════════
+window.esSliderChange = () => {
+  document.getElementById('esDiasVal').textContent = document.getElementById('esDiasSlider').value+'d';
+  document.getElementById('esVolVal').textContent = (document.getElementById('esVolSlider').value>=0?'+':'')+document.getElementById('esVolSlider').value+'%';
+  esRecalc();
+};
+
+window.esRecalc = () => {
+  console.log('esRecalc called, legs:', esLegs.length, JSON.stringify(esLegs));
+  if(!esLegs.length) { console.log('no legs, returning'); return; }
+  const S      = Number(document.getElementById('esSpotInput')?.value)||esSpotVal;
+  const r      = (Number(document.getElementById('esTasa')?.value)||70)/100;
+  const rango  = (Number(document.getElementById('esRango')?.value)||30)/100;
+  const optSz  = Number(document.getElementById('esOptSize')?.value)||100;
+  const dias   = Number(document.getElementById('esDiasSlider')?.value)||32;
+  const volAdj = Number(document.getElementById('esVolSlider')?.value||0)/100;
+  const showT  = document.getElementById('esShowTeorico')?.checked||false;
+  console.log('S:', S, 'r:', r, 'optSz:', optSz);
+  const T_teo  = dias/365;
+
+  const minS = S*(1-rango), maxS = S*(1+rango);
+  const steps = 200;
+  const prices = Array.from({length:steps+1},(_,i)=>minS+(maxS-minS)*i/steps);
+
+  // P&L al vencimiento
+  const pnlVto = prices.map(price=>
+    esLegs.reduce((tot,leg)=>{
+      const K=leg.strike;
+      const payoff=leg.kind==='call'?Math.max(price-K,0):Math.max(K-price,0);
+      return tot+(leg.action==='buy'?payoff-leg.prima:leg.prima-payoff)*leg.qty*optSz;
+    },0)
+  );
+
+  // P&L teórico (BS con días restantes)
+  const pnlTeo = showT ? prices.map(price=>
+    esLegs.reduce((tot,leg)=>{
+      const K=leg.strike, T=calcT(leg.vto);
+      const ivLeg = ivBS(leg.prima,S,K,T,r,leg.kind==='call'?'call':'put');
+      const ivAdj = Math.max(ivLeg*(1+volAdj),0.01);
+      const teoPrice = T_teo>0?bsPrice(price,K,T_teo,r,ivAdj,leg.kind==='call'?'call':'put'):Math.max(leg.kind==='call'?price-K:K-price,0);
+      return tot+(leg.action==='buy'?teoPrice-leg.prima:leg.prima-teoPrice)*leg.qty*optSz;
+    },0)
+  ) : null;
+
+  // Métricas
+  const maxGan  = Math.max(...pnlVto);
+  const maxPerd = Math.min(...pnlVto);
+  const costoNeto = esLegs.reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz;
+  const costFin = costoNeto>0?(costoNeto*(r/365)*32).toFixed(2):0;
+
+  // Break evens
+  const bes=[];
+  for(let i=1;i<pnlVto.length;i++){
+    if(pnlVto[i-1]*pnlVto[i]<=0){
+      const be=prices[i-1]+(prices[i]-prices[i-1])*(-pnlVto[i-1]/(pnlVto[i]-pnlVto[i-1]));
+      bes.push(be);
+    }
+  }
+
+  // P&L actual (al spot actual)
+  const spotIdx = prices.findIndex(p=>p>=S);
+  const pnlActual = pnlTeo?.[spotIdx] ?? pnlVto[spotIdx] ?? 0;
+
+  // Griegos totales al spot actual
+  let totDelta=0,totGamma=0,totTheta=0,totVega=0;
+  esLegs.forEach(leg=>{
+    const K=leg.strike, T=calcT(leg.vto);
+    const iv=ivBS(leg.prima,S,K,T,r,leg.kind==='call'?'call':'put');
+    const ivAdj=Math.max(iv*(1+volAdj),0.01);
+    const sign=leg.action==='buy'?1:-1;
+    totDelta+=sign*bsDelta(S,K,T_teo>0?T_teo:T,r,ivAdj,leg.kind==='call'?'call':'put')*leg.qty*optSz;
+    totGamma+=sign*bsGamma(S,K,T_teo>0?T_teo:T,r,ivAdj)*leg.qty*optSz;
+    totTheta+=sign*bsTheta(S,K,T_teo>0?T_teo:T,r,ivAdj,leg.kind==='call'?'call':'put')*leg.qty*optSz;
+    totVega +=sign*bsVega(S,K,T_teo>0?T_teo:T,r,ivAdj)*leg.qty*optSz;
+  });
+
+  // Update UI métricas
+  document.getElementById('esCapital').textContent = costoNeto>0?'$'+fmtAR(costoNeto,2):'—';
+  const plCls = pnlActual>=0?'var(--green)':'var(--red)';
+  document.getElementById('esPLActual').textContent = '$'+fmtAR(pnlActual,2);
+  document.getElementById('esPLActual').style.color = plCls;
+  document.getElementById('esMaxGan').textContent  = maxGan>999999?'∞':'$'+fmtAR(maxGan,2);
+  document.getElementById('esMaxPerd').textContent = maxPerd<-999999?'-∞':'$'+fmtAR(Math.abs(maxPerd),2);
+  document.getElementById('esBreakEvens').textContent = bes.length?bes.map(b=>'$'+fmtAR(b,0)).join(' / '):'N/A';
+  document.getElementById('esBreakEvens2').textContent = bes.length?bes.map(b=>'$'+fmtAR(b,0)).join(' / '):'N/A';
+  document.getElementById('esMaxGan2').textContent  = maxGan>999999?'∞':'$'+fmtAR(maxGan,2);
+  document.getElementById('esMaxPerd2').textContent = maxPerd<-999999?'-∞':'$'+fmtAR(Math.abs(maxPerd),2);
+  document.getElementById('esCostoFin').textContent = costFin>0?'$'+fmtAR(costFin,2):'—';
+
+  // Griegos
+  document.getElementById('gDelta').textContent  = totDelta.toFixed(2);
+  document.getElementById('gGamma').textContent  = totGamma.toFixed(4);
+  document.getElementById('gTheta').textContent  = '$'+fmtAR(totTheta,2);
+  document.getElementById('gVega').textContent   = '$'+fmtAR(totVega,2);
+  document.getElementById('gCapital').textContent= costoNeto>0?'$'+fmtAR(costoNeto,2):'Crédito';
+
+  // Gráfico
+  const spotLineIdx = prices.findIndex(p=>p>=S);
+  const datasets = [{
+    label:'Vencimiento',
+    data: pnlVto,
+    borderColor:'#00e5a8', backgroundColor:'rgba(0,229,168,0.06)',
+    borderWidth:2, pointRadius:0, tension:0.3, fill:true,
+  }];
+  if(showT&&pnlTeo) datasets.push({
+    label:`Teórico ${dias}d`,
+    data: pnlTeo,
+    borderColor:'#b39dff', backgroundColor:'rgba(179,157,255,0.04)',
+    borderWidth:2, pointRadius:0, tension:0.3, fill:true, borderDash:[],
+  });
+  // Línea cero
+  datasets.push({label:'Cero',data:prices.map(()=>0),borderColor:'rgba(92,112,144,0.4)',borderWidth:1,pointRadius:0,borderDash:[4,4],fill:false});
+
+  if(esPLChartInst) esPLChartInst.destroy();
+  esPLChartInst = new Chart(document.getElementById('esPLChart'),{
+    type:'line',
+    data:{labels:prices.map(p=>'$'+fmtAR(p,0)), datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          title:ctx=>'Precio: '+ctx[0].label,
+          label:ctx=>ctx.dataset.label==='Cero'?'':ctx.dataset.label+': $'+fmtAR(ctx.parsed.y,2)
+        }},
+      },
+      scales:{
+        x:{ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},maxTicksLimit:10,autoSkip:true},grid:{color:'#1e2530'}},
+        y:{ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>'$'+fmtAR(v,0)},grid:{color:'#1e2530'}}
+      }
+    }
+  });
+
+  // Escenarios
+  const varPcts = [-0.30,-0.25,-0.20,-0.15,-0.10,-0.05,-0.02,0,0.02,0.05,0.10,0.15,0.20,0.25,0.30];
+  document.getElementById('esScenariosTbody').innerHTML = varPcts.map(v=>{
+    const price = S*(1+v);
+    const idx = prices.findIndex(p=>p>=price);
+    if(idx<0)return'';
+    const pvto = pnlVto[idx]??0;
+    const pteo = pnlTeo?.[idx]??pvto;
+    const clsVto = pvto>=0?'pos':'neg';
+    const clsTeo = pteo>=0?'pos':'neg';
+    const isSpot = Math.abs(v)<0.001;
+    return`<tr style="${isSpot?'background:rgba(240,165,0,.06)':''}">
+      <td style="color:${v<0?'var(--red)':v>0?'var(--green)':'var(--amber)'}">${v>=0?'+':''}${(v*100).toFixed(0)}%</td>
+      <td>$${fmtAR(price,0)}</td>
+      <td class="${clsVto}">${pvto>=0?'+':''} $${fmtAR(pvto,2)}</td>
+      <td class="${clsTeo}">${pteo>=0?'+':''} $${fmtAR(pteo,2)}</td>
+      <td class="${clsTeo}" style="font-weight:500">${pteo>=0?'+':''} $${fmtAR(pteo,2)}</td>
+    </tr>`;
+  }).join('');
+};
+
+// ══════════════════════════════════════════════════
+// GUARDAR OPERACIÓN
+// ══════════════════════════════════════════════════
+window.esGuardar = async () => {
+  if(!esLegs.length){ alert('Agregá al menos una pata'); return; }
+  const session = await sbAuth.auth.getSession();
+  const user = session?.data?.session?.user;
+  if(!user){ alert('Necesitás estar logueado para guardar operaciones'); return; }
+
+  const btn = document.getElementById('esGuardarBtn');
+  const msg = document.getElementById('esGuardarMsg');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+
+  const optSz = Number(document.getElementById('esOptSize').value)||100;
+  const costoNeto = esLegs.reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz;
+
+  const payload = {
+    user_id:      user.id,
+    fecha:        document.getElementById('esFecha').value,
+    nombre:       detectStrat(esLegs),
+    nota:         document.getElementById('esNota').value,
+    subyacente:   'GGAL',
+    spot_entrada: esSpotVal,
+    estado:       'abierta',
+    patas:        esLegs.map(l=>({...l, option_size: optSz})),
+  };
+
+  try {
+    const headers = {...CFG.SBH,'Content-Type':'application/json','Prefer':'return=minimal'};
+    const token = session?.data?.session?.access_token;
+    if(token) headers['Authorization'] = 'Bearer '+token;
+    const r = await fetch(`${CFG.SB_URL}/rest/v1/operaciones`, {method:'POST', headers, body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error('Error '+r.status+': '+(await r.text()).slice(0,100));
+    msg.textContent = '✓ Operación guardada'; msg.className='modal-msg ok';
+    document.getElementById('esNota').value='';
+    setTimeout(()=>{ msg.className='modal-msg'; },3000);
+  } catch(e){
+    msg.textContent = 'Error: '+e.message; msg.className='modal-msg err';
+  }
+  btn.disabled=false; btn.textContent='💾 Guardar operación';
+};
+
+// ══════════════════════════════════════════════════
+// POSICIONES
+// ══════════════════════════════════════════════════
+window.esPosLoad = async () => {
+  const session = await sbAuth.auth.getSession();
+  const token = session?.data?.session?.access_token;
+  if(!token){ document.getElementById('esPosContainer').innerHTML='<div class="empty-state" style="padding:24px"><div class="empty-icon">🔒</div><p>Necesitás estar logueado</p></div>'; return; }
+
+  const headers = {...CFG.SBH,'Authorization':'Bearer '+token};
+  const r = await fetch(`${CFG.SB_URL}/rest/v1/operaciones?order=fecha.desc&select=*`, {headers});
+  if(!r.ok){ return; }
+  const ops = await r.json();
+
+  const abiertas = ops.filter(o=>o.estado==='abierta');
+  const cerradas = ops.filter(o=>o.estado==='cerrada');
+
+  // Totales griegos abiertas
+  let totDelta=0,totGamma=0,totTheta=0,totVega=0,totCapital=0,totPnL=0;
+  abiertas.forEach(op=>{
+    const optSz = op.patas?.[0]?.option_size||100;
+    op.patas?.forEach(leg=>{
+      const K=leg.strike, T=calcT(leg.vto), r=0.70;
+      const iv=ivBS(leg.prima,esSpotVal,K,T,r,leg.kind==='call'?'call':'put');
+      const T_now=T, sign=leg.action==='buy'?1:-1;
+      totDelta+=sign*bsDelta(esSpotVal,K,T_now,r,iv,leg.kind==='call'?'call':'put')*leg.qty*optSz;
+      totGamma+=sign*bsGamma(esSpotVal,K,T_now,r,iv)*leg.qty*optSz;
+      totTheta+=sign*bsTheta(esSpotVal,K,T_now,r,iv,leg.kind==='call'?'call':'put')*leg.qty*optSz;
+      totVega +=sign*bsVega(esSpotVal,K,T_now,r,iv)*leg.qty*optSz;
+      const costoLeg=(leg.action==='buy'?leg.prima:-leg.prima)*leg.qty*optSz;
+      totCapital+=costoLeg>0?costoLeg:0;
+      const currentPrice=bsPrice(esSpotVal,K,T_now,r,iv,leg.kind==='call'?'call':'put');
+      totPnL+=sign*(currentPrice-leg.prima)*leg.qty*optSz;
+    });
+  });
+
+  document.getElementById('pos-pnl-dia').textContent='—';
+  document.getElementById('pos-pnl-total').textContent='$'+fmtAR(totPnL,2);
+  document.getElementById('pos-pnl-total').style.color=totPnL>=0?'var(--green)':'var(--red)';
+  document.getElementById('pos-delta').textContent=totDelta.toFixed(2);
+  document.getElementById('pos-gamma').textContent=totGamma.toFixed(4);
+  document.getElementById('pos-theta').textContent='$'+fmtAR(totTheta,2);
+  document.getElementById('pos-vega').textContent='$'+fmtAR(totVega,2);
+  document.getElementById('pos-capital').textContent='$'+fmtAR(totCapital,2);
+
+  // Render abiertas
+  document.getElementById('esPosContainer').innerHTML = !abiertas.length
+    ? '<div class="empty-state" style="padding:24px"><div class="empty-icon">📋</div><p>Sin posiciones abiertas</p></div>'
+    : abiertas.map(op=>{
+        const optSz=op.patas?.[0]?.option_size||100;
+        const patas = (op.patas||[]).map(l=>`${l.action==='buy'?'+':'-'}${l.qty} ${l.kind?.toUpperCase()[0]}@$${fmtAR(l.strike,0)}`).join(' / ');
+        let pnlOp=0;
+        op.patas?.forEach(leg=>{
+          const K=leg.strike,T=calcT(leg.vto),r=0.70;
+          const iv=ivBS(leg.prima,esSpotVal,K,T,r,leg.kind==='call'?'call':'put');
+          const cur=bsPrice(esSpotVal,K,T,r,iv,leg.kind==='call'?'call':'put');
+          pnlOp+=(leg.action==='buy'?1:-1)*(cur-leg.prima)*leg.qty*optSz;
+        });
+        let opDelta=0,opTheta=0;
+        op.patas?.forEach(leg=>{
+          const K=leg.strike,T=calcT(leg.vto),r=0.70;
+          const iv=ivBS(leg.prima,esSpotVal,K,T,r,leg.kind==='call'?'call':'put');
+          const sign=leg.action==='buy'?1:-1;
+          opDelta+=sign*bsDelta(esSpotVal,K,T,r,iv,leg.kind==='call'?'call':'put')*leg.qty*optSz;
+          opTheta+=sign*bsTheta(esSpotVal,K,T,r,iv,leg.kind==='call'?'call':'put')*leg.qty*optSz;
+        });
+        const entrada = (op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz;
+        return`<div class="es-op-row">
+          <span style="color:var(--text3)">${op.fecha}</span>
+          <span style="color:var(--text);font-weight:500">${op.nombre||'—'}</span>
+          <span style="color:var(--text2);font-size:9px">${patas}</span>
+          <span>$${fmtAR(Math.abs(entrada),2)}</span>
+          <span style="color:${pnlOp>=0?'var(--green)':'var(--red)'};font-weight:500">$${fmtAR(pnlOp,2)}</span>
+          <span style="color:var(--blue)">${opDelta.toFixed(2)}</span>
+          <span style="color:var(--red)">${'$'+fmtAR(opTheta,2)}</span>
+          <button class="btn btn-outline" style="font-size:8px;padding:3px 8px" onclick="esCerrarOp('${op.id}')">Cerrar</button>
+        </div>`;
+      }).join('');
+
+  // Historial cerradas
+  document.getElementById('esPosHistorial').innerHTML = !cerradas.length
+    ? '<div style="padding:16px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3);text-align:center">Sin operaciones cerradas</div>'
+    : cerradas.map(op=>`
+        <div style="display:grid;grid-template-columns:80px 1fr 1fr auto auto;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid rgba(30,37,48,.5);font-family:'IBM Plex Mono',monospace;font-size:10px">
+          <span style="color:var(--text3)">${op.fecha}</span>
+          <span style="color:var(--text)">${op.nombre||'—'}</span>
+          <span style="color:var(--text2);font-size:9px">${op.nota||'—'}</span>
+          <span style="color:var(--text3)">Cierre: ${op.fecha_cierre||'—'}</span>
+          <span style="color:${(op.pnl_realizado||0)>=0?'var(--green)':'var(--red)'};font-weight:500">$${fmtAR(op.pnl_realizado||0,2)}</span>
+        </div>`).join('');
+};
+
+window.esCerrarOp = async (id) => {
+  const spotCierre = prompt('Precio de cierre de GGAL:', esSpotVal);
+  if(!spotCierre) return;
+  const session = await sbAuth.auth.getSession();
+  const token = session?.data?.session?.access_token;
+  if(!token) return;
+  const headers = {...CFG.SBH,'Authorization':'Bearer '+token,'Content-Type':'application/json','Prefer':'return=minimal'};
+  await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({estado:'cerrada',fecha_cierre:new Date().toISOString().split('T')[0],spot_cierre:Number(spotCierre)})});
+  esPosLoad();
+};
+
+// ══════════════════════════════════════════════════
+// SUGERENCIAS
+// ══════════════════════════════════════════════════
+const ESTRATEGIAS_DEF = [
+  {id:'call',    label:'Compra Call',    icon:'📈',bias:['bull'],       risk:['medio','alto'],legs:[{action:'buy',kind:'call',qty:1}]},
+  {id:'put',     label:'Compra Put',     icon:'📉',bias:['bear'],       risk:['medio','alto'],legs:[{action:'buy',kind:'put',qty:1}]},
+  {id:'scall',   label:'Venta Call',     icon:'🛡️',bias:['neutral'],   risk:['bajo'],         legs:[{action:'sell',kind:'call',qty:1}]},
+  {id:'sput',    label:'Venta Put',      icon:'💰',bias:['bull','neutral'],risk:['bajo'],      legs:[{action:'sell',kind:'put',qty:1}]},
+  {id:'bullcs',  label:'Bull Call Spread',icon:'🐂',bias:['bull'],      risk:['bajo','medio'],legs:[{action:'buy',kind:'call',qty:1,offset:0},{action:'sell',kind:'call',qty:1,offset:1}]},
+  {id:'bearps',  label:'Bear Put Spread', icon:'🐻',bias:['bear'],      risk:['bajo','medio'],legs:[{action:'buy',kind:'put',qty:1,offset:0},{action:'sell',kind:'put',qty:1,offset:-1}]},
+  {id:'straddle',label:'Straddle',        icon:'⚡',bias:['vol'],       risk:['medio'],       legs:[{action:'buy',kind:'call',qty:1},{action:'buy',kind:'put',qty:1}]},
+  {id:'strangle',label:'Strangle',        icon:'🌀',bias:['vol'],       risk:['bajo','medio'],legs:[{action:'buy',kind:'call',qty:1,offset:1},{action:'buy',kind:'put',qty:1,offset:-1}]},
+  {id:'butterfly',label:'Butterfly',      icon:'🦋',bias:['neutral'],   risk:['bajo'],        legs:[{action:'buy',kind:'call',qty:1,offset:-1},{action:'sell',kind:'call',qty:2,offset:0},{action:'buy',kind:'call',qty:1,offset:1}]},
+  {id:'icondor', label:'Iron Condor',     icon:'🦅',bias:['neutral'],   risk:['bajo'],        legs:[{action:'sell',kind:'put',qty:1,offset:-1},{action:'buy',kind:'put',qty:1,offset:-2},{action:'sell',kind:'call',qty:1,offset:1},{action:'buy',kind:'call',qty:1,offset:2}]},
+  {id:'backsp',  label:'Call Backspread', icon:'🚀',bias:['bull','vol'],  risk:['alto'],       legs:[{action:'sell',kind:'call',qty:1,offset:0},{action:'buy',kind:'call',qty:2,offset:1}]},
+  {id:'collar',  label:'Collar',          icon:'🔒',bias:['neutral'],   risk:['bajo'],        legs:[{action:'buy',kind:'put',qty:1,offset:-1},{action:'sell',kind:'call',qty:1,offset:1}]},
+];
+
+window.esBias = (b,btn)=>{ esBiasVal=b; document.querySelectorAll('#esBiasGroup .flt').forEach(x=>x.classList.remove('on','on-green','on-red','on-amber','on-blue')); btn.classList.add('on'); };
+window.esRisk = (r,btn)=>{ esRiskVal=r; document.querySelectorAll('#esRiskGroup .flt').forEach(x=>x.classList.remove('on','on-blue')); btn.classList.add('on'); };
+
+window.esSugGen = () => {
+  if(!esOptsData.length||!esSpotVal)return;
+  const sugs = ESTRATEGIAS_DEF.filter(s=>s.bias.includes(esBiasVal)&&s.risk.includes(esRiskVal));
+  if(!sugs.length){ document.getElementById('esSugEmpty').style.display='flex'; return; }
+
+  const strikes=[...new Set(esOptsData.map(o=>o.strike))].sort((a,b)=>a-b);
+  const atmIdx=strikes.indexOf(strikes.reduce((b,s)=>Math.abs(s-esSpotVal)<Math.abs(b-esSpotVal)?s:b, strikes[0]));
+  const vtoNearest=[...new Set(esOptsData.map(o=>o.vto))].sort()[0];
+
+  document.getElementById('esSugEmpty').style.display='none';
+  const grid=document.getElementById('esSugGrid');
+  grid.style.display='flex';
+
+  grid.innerHTML=sugs.map(strat=>{
+    const legs=strat.legs.map(leg=>{
+      const off=leg.offset||0;
+      const idx=Math.max(0,Math.min(strikes.length-1,atmIdx+off));
+      const strike=strikes[idx];
+      const opt=esOptsData.filter(o=>o.kind===leg.kind.toUpperCase()&&o.strike===strike&&o.vto===vtoNearest).sort((a,b)=>a.expiration<b.expiration?-1:1)[0];
+      return{...leg,strike,vto:opt?.vto||vtoNearest,prima:opt?.mid||0};
+    });
+    const costoNeto=legs.reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0);
+    // Calcular IV de las patas para ver si está "barato"
+    const ivs=legs.map(l=>{
+      const T=calcT(l.vto);
+      return l.prima>0?ivBS(l.prima,esSpotVal,l.strike,T,0.70,l.kind==='call'?'call':'put'):esIVATM;
+    });
+    const avgIV=ivs.reduce((s,v)=>s+v,0)/ivs.length;
+    const ivVsAtm=((avgIV-esIVATM)/esIVATM)*100;
+    const cheap=costoNeto>=0&&ivVsAtm<-5;
+
+    return`<div class="card">
+      <div class="card-head">
+        <div class="card-title">${strat.icon} ${strat.label}</div>
+        <div style="display:flex;gap:6px">
+          ${cheap?'<span class="tag tag-ok">IV barata</span>':''}
+          <span class="${costoNeto>0?'tag tag-err':costoNeto<0?'tag tag-ok':'tag'}" style="font-size:9px;padding:2px 8px">
+            ${costoNeto>0?'Débito $'+fmtAR(costoNeto,2):costoNeto<0?'Crédito $'+fmtAR(Math.abs(costoNeto),2):'Neutral'}
+          </span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:10px">IV promedio patas: <strong style="color:${ivVsAtm<0?'var(--green)':'var(--red)'}">${(avgIV*100).toFixed(1)}%</strong> (${ivVsAtm>=0?'+':''}${ivVsAtm.toFixed(1)}% vs ATM)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+          ${legs.map(l=>`<span style="font-size:10px;font-family:'IBM Plex Mono',monospace;padding:3px 8px;border-radius:3px;background:${l.action==='buy'?'var(--greenDim)':'var(--redDim)'};color:${l.action==='buy'?'var(--green)':'var(--red)'}">
+            ${l.action==='buy'?'▲':'▼'} ${l.qty>1?l.qty+'x ':''} ${l.kind.toUpperCase()} $${fmtAR(l.strike,0)} ${l.vto} @ $${fmtAR(l.prima,2)}
+          </span>`).join('')}
+        </div>
+        <button class="btn btn-outline" style="font-size:9px" onclick="esSugCargar(${JSON.stringify(legs).replace(/"/g,"'")})">
+          Cargar en simulador →
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+};
+
+window.esSugCargar = (legs) => {
+  esLegs = legs.map(l=>({...l,kind:l.kind.toLowerCase()}));
+  esTab('sim', document.getElementById('estab-sim'));
+  esRenderLegs(); esRecalc();
+};
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+esLoad();
+window.moduleTimers.estrategias = setInterval(esLoad, 15000);
+
+</script>

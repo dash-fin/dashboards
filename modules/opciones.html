@@ -1,0 +1,529 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: OPCIONES GGAL
+     Solapas: Datos IAMC | Estrategias | Volatilidad & RT
+     Usa helpers globales de index.html
+══════════════════════════════════════════════════ -->
+
+<!-- Sub-tabs -->
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="ostab-iamc"       onclick="oSetTab('iamc',this)">Datos IAMC</button>
+    <button class="stab"         id="ostab-estrategias" onclick="oSetTab('estrategias',this)">Estrategias</button>
+    <button class="stab"         id="ostab-vol"         onclick="oSetTab('vol',this)">Volatilidad & RT</button>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:9px">
+      <span style="color:var(--text3)">Informe:</span>
+      <span id="oTabMeta" style="color:var(--amber);font-weight:500">—</span>
+      <span id="oFechaAge" style="color:var(--text4)"></span>
+    </div>
+    <span style="color:var(--border2)">|</span>
+    <div class="sub-tabs-meta" id="oDateMeta" style="color:var(--text3)">—</div>
+    <button class="btn btn-outline" onclick="openAdmin();initAdminUpload()">⚙ Subir PDF</button>
+  </div>
+</div>
+
+<!-- ── PANEL: DATOS IAMC ── -->
+<div class="sub-panel active" id="opanel-iamc">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="oKpiRow">
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">OI Calls</div><div class="kpi-val" id="ok-calls">—</div><div class="kpi-sub">open interest</div></div>
+    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">OI Puts</div><div class="kpi-val" id="ok-puts">—</div><div class="kpi-sub">open interest</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Put/Call ratio</div><div class="kpi-val" id="ok-ratio">—</div><div class="kpi-sub" id="ok-sent">—</div></div>
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">OI Total</div><div class="kpi-val" id="ok-oi">—</div><div class="kpi-sub">calls + puts</div></div>
+    <div class="kpi" style="--accent:var(--cyan)"><div class="kpi-label">Var. día ant.</div><div class="kpi-val" id="ok-var">—</div><div class="kpi-sub">suma neta</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Net GEX</div><div class="kpi-val" id="ok-gex">—</div><div class="kpi-sub" id="ok-regime">—</div></div>
+  </div>
+
+  <!-- Charts tabs -->
+  <div class="sub-tabs-row">
+    <div class="tabs" style="display:flex;gap:1px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:3px;width:fit-content">
+      <button class="stab active" id="chtab-graficos" onclick="oChtab('graficos',this)">Gráficos</button>
+      <button class="stab"        id="chtab-tabla"    onclick="oChtab('tabla',this)">Tabla</button>
+      <button class="stab"        id="chtab-gex"      onclick="oChtab('gex',this)">Análisis GEX</button>
+    </div>
+    <div class="sub-tabs-meta" id="oDateMeta">—</div>
+  </div>
+
+  <!-- Charts panel -->
+  <div id="ochpanel-graficos" class="sub-panel active">
+    <div class="empty-state" id="oChartsEmpty"><div class="empty-icon">📊</div><p>Subí un PDF del informe IAMC para visualizar</p></div>
+    <div id="oChartsContent" style="display:none;flex-direction:column;gap:14px">
+      <div class="charts-grid">
+        <div class="card"><div class="card-head"><div class="card-title">Calls GGAL — total por base</div></div><div class="card-body"><div class="chart-wrap" style="height:240px"><canvas id="oCchart"></canvas></div></div></div>
+        <div class="card"><div class="card-head"><div class="card-title">Puts GGAL — total por base</div></div><div class="card-body"><div class="chart-wrap" style="height:240px"><canvas id="oPchart"></canvas></div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Calls vs Puts — OI por base</div></div>
+        <div class="card-body">
+          <div class="legend-row"><div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Calls</div><div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Puts</div></div>
+          <div class="chart-wrap" style="height:200px"><canvas id="oCompchart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">Distribución por cobertura</div></div>
+        <div class="card-body">
+          <div class="charts-grid">
+            <div><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:500">Calls</div><div class="chart-wrap" style="height:160px"><canvas id="oCoverCallChart"></canvas></div></div>
+            <div><div style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;font-weight:500">Puts</div><div class="chart-wrap" style="height:160px"><canvas id="oCoverPutChart"></canvas></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla panel -->
+  <div id="ochpanel-tabla" class="sub-panel">
+    <div class="empty-state" id="oTableEmpty"><div class="empty-icon">📋</div><p>Sin datos disponibles</p></div>
+    <div class="card" id="oTableCard" style="display:none">
+      <div class="toolbar">
+        <div style="display:flex;gap:3px" id="otfType">
+          <button class="flt on" onclick="oSetType('all',this)">Todos</button>
+          <button class="flt" onclick="oSetType('call',this)">Calls</button>
+          <button class="flt" onclick="oSetType('put',this)">Puts</button>
+        </div>
+        <div style="display:flex;gap:3px" id="otfCover">
+          <button class="flt" onclick="oSetCover('cubierto',this)">Cubierto</button>
+          <button class="flt" onclick="oSetCover('descubierto',this)">Descubierto</button>
+          <button class="flt" onclick="oSetCover('cruce',this)">Cruce</button>
+          <button class="flt" onclick="oSetCover('opuesto',this)">Opuesto</button>
+        </div>
+        <input class="search-input" placeholder="Buscar base, vto..." id="oSearchQ" oninput="oApplyFilters()">
+        <span class="row-count" id="oRowCount">0 filas</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th class="th-left" onclick="oSort('tipo')">Tipo</th>
+            <th class="th-left" onclick="oSort('vencimiento')">Vencimiento</th>
+            <th onclick="oSort('base')">Base</th>
+            <th onclick="oSort('cubierto')">Cubierto</th>
+            <th onclick="oSort('opuesto')">Opuesto</th>
+            <th onclick="oSort('cruce')">Cruce</th>
+            <th onclick="oSort('descubierto')">Descubierto</th>
+            <th onclick="oSort('total')">Total OI</th>
+            <th onclick="oSort('var_dia')">Var c/día ant.</th>
+          </tr></thead>
+          <tbody id="oTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- GEX panel -->
+  <div id="ochpanel-gex" class="sub-panel">
+    <div class="empty-state" id="oGexEmpty"><div class="empty-icon">⚡</div><p>Sin datos disponibles</p></div>
+    <div id="oGexContent" style="display:none;flex-direction:column;gap:14px">
+      <div id="oRegimeCard" class="regime-card regime-neutral">
+        <div class="regime-icon" id="oRegimeIcon">—</div>
+        <div><div class="regime-title" id="oRegimeTitle">—</div><div class="regime-desc" id="oRegimeDesc">—</div></div>
+      </div>
+      <div class="gex-grid">
+        <div class="gex-card" style="--accent:var(--amber)"><div class="gex-card-label">Gamma Flip Point</div><div class="gex-card-val" id="og-flip">—</div><div class="gex-card-desc">Strike donde el GEX neto cambia de signo.</div><div class="gex-card-sub" id="og-flip-pos">—</div></div>
+        <div class="gex-card" style="--accent:var(--green)"><div class="gex-card-label">Call Wall</div><div class="gex-card-val" id="og-callwall">—</div><div class="gex-card-desc">Mayor GEX positivo — resistencia dinámica.</div><div class="gex-card-sub" id="og-callwall-oi">—</div></div>
+        <div class="gex-card" style="--accent:var(--red)"><div class="gex-card-label">Put Wall</div><div class="gex-card-val" id="og-putwall">—</div><div class="gex-card-desc">Mayor GEX negativo — soporte dinámico.</div><div class="gex-card-sub" id="og-putwall-oi">—</div></div>
+        <div class="gex-card" style="--accent:var(--blue)"><div class="gex-card-label">Max Pain</div><div class="gex-card-val" id="og-pain">—</div><div class="gex-card-desc">Strike de máximo dolor para compradores.</div><div class="gex-card-sub" id="og-pain-loss">—</div></div>
+        <div class="gex-card" style="--accent:var(--green)"><div class="gex-card-label">GEX Calls</div><div class="gex-card-val" id="og-gex-calls">—</div><div class="gex-card-desc">Efecto estabilizador sobre el precio.</div></div>
+        <div class="gex-card" style="--accent:var(--red)"><div class="gex-card-label">GEX Puts</div><div class="gex-card-val" id="og-gex-puts">—</div><div class="gex-card-desc">Efecto amplificador sobre los movimientos.</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Gamma Exposure por strike <span class="tag tag-ai">GEX</span></div>
+          <div class="legend-row" style="margin:0">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Call GEX</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Put GEX</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>GEX neto</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="gamma-layout">
+            <div><div class="chart-wrap" style="height:300px"><canvas id="oGexChart"></canvas></div></div>
+            <div class="gamma-stats">
+              <div class="gstat"><div class="gstat-label">Net GEX total</div><div class="gstat-val" style="color:var(--purple)" id="ogs-net">—</div><div class="gstat-desc">GEX combinado de todas las posiciones</div></div>
+              <div class="gstat"><div class="gstat-label">Concentración calls</div><div class="gstat-val" style="color:var(--green)" id="ogs-callconc">—</div><div class="gstat-desc">% del OI calls en el Call Wall</div></div>
+              <div class="gstat"><div class="gstat-label">Concentración puts</div><div class="gstat-val" style="color:var(--red)" id="ogs-putconc">—</div><div class="gstat-desc">% del OI puts en el Put Wall</div></div>
+              <div class="gstat"><div class="gstat-label">Rango de anclaje</div><div class="gstat-val" style="color:var(--blue)" id="ogs-range">—</div><div class="gstat-desc">Put Wall — Call Wall</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── PANEL: ESTRATEGIAS ── -->
+<div class="sub-panel" id="opanel-estrategias" data-loaded="false">
+  <div class="empty-state"><div class="empty-icon">🎯</div><p>Cargando módulo de estrategias...</p></div>
+</div>
+
+<!-- ── PANEL: VOLATILIDAD & RT ── -->
+<div class="sub-panel" id="opanel-vol" data-loaded="false">
+  <div class="empty-state" id="oVolPlaceholder"><div class="empty-icon">📉</div><p>Cargando módulo de volatilidad...</p></div>
+</div>
+
+<div style="padding:10px 0;border-top:1px solid var(--border);font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;margin-top:8px">
+  ⚠ Contenido meramente informativo. Datos extraídos del informe IAMC mediante IA.
+</div>
+
+<script>
+(function(){
+// ── State ──
+let oAllRows=[], oTypeF='all', oCoverF=null, oSortCol='base', oSortDir=1;
+let oCharts={};
+
+// ── Sub-tabs ──
+window.oSetTab = async (name, btn) => {
+  document.querySelectorAll('[id^="opanel-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('opanel-'+name).classList.add('active');
+  document.querySelectorAll('[id^="ostab-"]').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  // Lazy-load vol module on first open
+  if (name === 'estrategias') {
+    const panel = document.getElementById('opanel-estrategias');
+    if (panel.dataset.loaded === 'false') {
+      panel.dataset.loaded = 'true';
+      try {
+        const r = await fetch('modules/estrategias.html');
+        const html = await r.text();
+        panel.innerHTML = html;
+        panel.querySelectorAll('script').forEach(old => {
+          const s = document.createElement('script'); s.textContent = old.textContent; old.replaceWith(s);
+        });
+      } catch(e) {
+        panel.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><p>Error: '+e.message+'</p></div>';
+      }
+    }
+  }
+  if (name === 'vol') {
+    const panel = document.getElementById('opanel-vol');
+    if (panel.dataset.loaded === 'false') {
+      panel.dataset.loaded = 'true';
+      try {
+        const r = await fetch('modules/vol.html');
+        const html = await r.text();
+        panel.innerHTML = html;
+        panel.querySelectorAll('script').forEach(old => {
+          const s = document.createElement('script'); s.textContent = old.textContent; old.replaceWith(s);
+        });
+      } catch(e) {
+        panel.innerHTML = '<div class="empty-state"><div class="empty-icon">📉</div><p>Error cargando módulo: '+e.message+'</p></div>';
+      }
+    }
+  }
+};
+window.oChtab = (name, btn) => {
+  document.querySelectorAll('[id^="ochpanel-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('ochpanel-'+name).classList.add('active');
+  document.querySelectorAll('[id^="chtab-"]').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+// ── Admin upload injection ──
+window.initAdminUpload = () => {
+  const el = document.getElementById('adminUploadContent');
+  if (!el || el.dataset.init) return;
+  el.dataset.init = '1';
+  el.innerHTML = `
+    <div class="modal-section">
+      <div class="field-label">Subir informe IAMC</div>
+      <div class="drop-zone" id="aDrop">
+        <div class="drop-title">Arrastrá el PDF o hacé clic</div>
+        <div class="drop-sub">Informe IAMC — sección GGAL</div>
+        <input type="file" accept=".pdf" id="aFileInput">
+      </div>
+      <div class="file-ready" id="aFileReady">
+        <span class="file-name" id="aFileName">—</span>
+        <span class="file-sz" id="aFileSize">—</span>
+      </div>
+      <div class="progress-wrap"><div class="progress-fill" id="aProgress"></div></div>
+      <div class="log" id="aLog"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-green" id="aProcessBtn" disabled onclick="aProcessFile()">Procesar y publicar</button>
+      <button class="btn btn-outline" onclick="closeAdmin()">Cancelar</button>
+    </div>
+    <div class="modal-msg" id="aUploadMsg"></div>`;
+
+  let aFile = null;
+  document.getElementById('aFileInput').addEventListener('change', e => { if(e.target.files[0]) aPrepFile(e.target.files[0]); });
+  const dz = document.getElementById('aDrop');
+  dz.addEventListener('dragover', e=>{e.preventDefault();dz.classList.add('drag');});
+  dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+  dz.addEventListener('drop', e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])aPrepFile(e.dataTransfer.files[0]);});
+
+  function aPrepFile(f){
+    aFile=f;
+    document.getElementById('aFileReady').style.display='flex';
+    document.getElementById('aFileName').textContent=f.name;
+    document.getElementById('aFileSize').textContent=(f.size/1024).toFixed(0)+' KB';
+    document.getElementById('aProcessBtn').disabled=false;
+  }
+
+  window.aProcessFile = async () => {
+    if(!aFile)return;
+    const btn=document.getElementById('aProcessBtn');btn.disabled=true;btn.textContent='Procesando...';
+    const lb=document.getElementById('aLog');lb.style.display='block';lb.innerHTML='';
+    const log=(m,cls='')=>{lb.innerHTML+=`<span class="${cls}">> ${m}</span><br>`;lb.scrollTop=lb.scrollHeight;};
+    const prog=p=>document.getElementById('aProgress').style.width=p+'%';
+    const msg=document.getElementById('aUploadMsg');msg.className='modal-msg';
+
+    log('Leyendo PDF...');prog(10);
+    const b64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.readAsDataURL(aFile);});
+    log('Enviando a Claude AI...');prog(25);
+
+    const prompt=`Este es un informe IAMC de opciones financieras argentinas.
+El PDF está organizado por subyacente. Extraé ÚNICAMENTE los datos de la sección "GGAL".
+IMPORTANTE: los precios de BASE usan COMA como decimal (ej: "7502,9" = 7502.9 en JSON).
+Respondé SOLO con este JSON sin texto extra ni backticks:
+{"fecha":"YYYY-MM-DD o null","opciones":[{"tipo":"call o put","vencimiento":"MM/YYYY","base":7502.9,"cubierto":0,"opuesto":0,"cruce":0,"descubierto":0,"total":0,"var_dia":0}]}
+Extraé TODAS las filas de GGAL. Si no encontrás GGAL devolvé {"fecha":null,"opciones":[]}.`;
+
+    try{
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':CFG.ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:8000,messages:[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:prompt}]}]})
+      });
+      prog(75);
+      if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error('API '+resp.status+': '+(e.error?.message||''));}
+      const json=await resp.json();if(json.error)throw new Error(json.error.message);
+      const raw=(json.content||[]).map(c=>c.text||'').join('');
+      log('Parseando...');prog(85);
+      const parsed=oExtractJSON(raw);
+      (parsed.opciones||[]).forEach(o=>{o.base=normalizeBase(o.base);});
+      const n=(parsed.opciones||[]).length;
+      if(!n)throw new Error('No se encontraron datos de GGAL');
+      log(`✓ ${n} filas extraídas. Guardando...`);prog(92);
+      await oSaveToSupabase(parsed.fecha, parsed.opciones);
+      prog(100);log('✓ Publicado correctamente.');
+      msg.textContent=`✓ ${n} filas publicadas.`;msg.className='modal-msg ok';
+      btn.textContent='Publicado ✓';
+      oLoadData();
+      setTimeout(closeAdmin,1800);
+    }catch(err){
+      log('Error: '+err.message,'lerr');
+      msg.textContent='Error: '+err.message;msg.className='modal-msg err';
+      btn.disabled=false;btn.textContent='Reintentar';
+    }
+  };
+};
+
+// ── JSON extractor ──
+function oExtractJSON(raw){
+  let clean=raw.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+  const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
+  if(s===-1||e===-1)throw new Error('No se encontró JSON');
+  clean=clean.slice(s,e+1);
+  try{return JSON.parse(clean);}catch(_){}
+  let fx=clean.replace(/,\s*([}\]])/g,'$1').replace(/(['"])?([a-zA-Z_]\w*)(['"])?\s*:/g,'"$2":');
+  try{return JSON.parse(fx);}catch(_){}
+  const am=clean.match(/"opciones"\s*:\s*(\[[\s\S]*?\])/),fm=clean.match(/"fecha"\s*:\s*"([^"]+)"/);
+  if(am){try{return{fecha:fm?fm[1]:null,opciones:JSON.parse(am[1].replace(/,\s*([}\]])/g,'$1'))};}catch(_){}}
+  throw new Error('JSON inválido');
+}
+
+// ── Supabase save ──
+async function oSaveToSupabase(fecha, opciones){
+  const payload={id:1,fecha,opciones,updated_at:new Date().toISOString()};
+  const headers={...CFG.SBH,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'};
+  const r=await fetch(`${CFG.SB_URL}/rest/v1/ggal_opciones?id=eq.1`,{method:'PUT',headers,body:JSON.stringify(payload)});
+  if(!r.ok){
+    const r2=await fetch(`${CFG.SB_URL}/rest/v1/ggal_opciones`,{method:'POST',headers:{...headers,'Prefer':'return=minimal'},body:JSON.stringify(payload)});
+    if(!r2.ok)throw new Error('Supabase error '+r2.status);
+  }
+}
+
+// ── Load data from Supabase ──
+async function oLoadData(){
+  const row=await sb('ggal_opciones','id=eq.1&select=fecha,opciones,updated_at');
+  if(!row||!row.length||!row[0].opciones){return;}
+  const data={fecha:row[0].fecha,opciones:row[0].opciones};
+  data.opciones.forEach(o=>{o.base=normalizeBase(o.base);});
+  oRenderAll(data);
+  if(row[0].updated_at){
+    const upd=new Date(row[0].updated_at);
+    document.getElementById('oTabMeta').textContent=row[0].fecha||'—';
+    document.getElementById('oDateMeta').textContent='Act. '+upd.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    // Mostrar antigüedad del informe
+    if(row[0].fecha){
+      const parts=row[0].fecha.split('/');
+      const fechaInf = parts.length===3
+        ? new Date(parts[2],parts[1]-1,parts[0])
+        : new Date(row[0].fecha);
+      const diasViejo=Math.floor((Date.now()-fechaInf.getTime())/86400000);
+      const ageEl=document.getElementById('oFechaAge');
+      if(ageEl){
+        if(diasViejo===0)      { ageEl.textContent='(hoy)';           ageEl.style.color='var(--green)'; }
+        else if(diasViejo===1) { ageEl.textContent='(ayer)';          ageEl.style.color='var(--amber)'; }
+        else                   { ageEl.textContent=`(hace ${diasViejo}d)`; ageEl.style.color='var(--red)'; }
+      }
+    }
+  }
+}
+
+// ── Render all ──
+function oRenderAll(d){
+  const opts=d.opciones||[];
+  const calls=opts.filter(o=>o.tipo==='call'),puts=opts.filter(o=>o.tipo==='put');
+  const callOI=calls.reduce((s,o)=>s+(o.total||0),0),putOI=puts.reduce((s,o)=>s+(o.total||0),0);
+  const ratio=callOI>0?putOI/callOI:0;
+  const sumVar=opts.reduce((s,o)=>s+(o.var_dia||0),0);
+  const gexC=calls.reduce((s,o)=>s+(o.total||0)*(o.base||0),0);
+  const gexP=puts.reduce((s,o)=>s+(o.total||0)*(o.base||0),0);
+  const netGex=gexC-gexP;
+  document.getElementById('ok-calls').textContent=fmtM(callOI);
+  document.getElementById('ok-puts').textContent=fmtM(putOI);
+  document.getElementById('ok-ratio').textContent=ratio.toFixed(2);
+  document.getElementById('ok-sent').textContent=ratio>1.2?'bajista':ratio<0.8?'alcista':'neutral';
+  document.getElementById('ok-oi').textContent=fmtM(callOI+putOI);
+  document.getElementById('ok-var').textContent=(sumVar>=0?'+':'')+fmtM(sumVar);
+  document.getElementById('ok-gex').textContent=fmtM(netGex);
+  document.getElementById('ok-regime').textContent=netGex>0?'Long gamma':'Short gamma';
+  oRenderCharts(calls,puts);
+  oRenderTable(opts);
+  oRenderGEX(calls,puts);
+}
+
+// ── Charts ──
+function oByBase(arr){
+  const m={};arr.forEach(o=>{const k=o.base;m[k]=(m[k]||0)+(o.total||0);});
+  const s=Object.entries(m).sort((a,b)=>Number(a[0])-Number(b[0]));
+  return{labels:s.map(e=>'$'+fmtAR(Number(e[0]),1)),vals:s.map(e=>e[1]),keys:s.map(e=>Number(e[0]))};
+}
+function oBarCfg(labels,vals,color){
+  return{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:color+'55',borderColor:color,borderWidth:1,borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},maxRotation:45,autoSkip:true},grid:{color:'#1e2530'}},
+        y:{ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>fmtM(v)},grid:{color:'#1e2530'}}}}};
+}
+function oRenderCharts(calls,puts){
+  document.getElementById('oChartsEmpty').style.display='none';
+  document.getElementById('oChartsContent').style.display='flex';
+  const cd=oByBase(calls),pd=oByBase(puts);
+  if(oCharts.c)oCharts.c.destroy(); oCharts.c=new Chart(document.getElementById('oCchart'),oBarCfg(cd.labels,cd.vals,'#00e5a8'));
+  if(oCharts.p)oCharts.p.destroy(); oCharts.p=new Chart(document.getElementById('oPchart'),oBarCfg(pd.labels,pd.vals,'#ff3f5e'));
+  const allKeys=Array.from(new Set([...cd.keys,...pd.keys])).sort((a,b)=>a-b);
+  const cMap=Object.fromEntries(cd.keys.map((k,i)=>[k,cd.vals[i]]));
+  const pMap=Object.fromEntries(pd.keys.map((k,i)=>[k,pd.vals[i]]));
+  if(oCharts.comp)oCharts.comp.destroy();
+  oCharts.comp=new Chart(document.getElementById('oCompchart'),{type:'bar',
+    data:{labels:allKeys.map(k=>'$'+fmtAR(k,1)),datasets:[
+      {label:'Calls',data:allKeys.map(k=>cMap[k]||0),backgroundColor:'#00e5a855',borderColor:'#00e5a8',borderWidth:1,borderRadius:2},
+      {label:'Puts', data:allKeys.map(k=>pMap[k]||0),backgroundColor:'#ff3f5e55',borderColor:'#ff3f5e',borderWidth:1,borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},maxRotation:45,autoSkip:true},grid:{color:'#1e2530'}},
+        y:{ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>fmtM(v)},grid:{color:'#1e2530'}}}}});
+  const ck=['cubierto','opuesto','cruce','descubierto'],cl=['Cubierto','Opuesto','Cruce','Descubierto'],cols=['#4da6ff','#b39dff','#00d4e8','#f0a500'];
+  const sumC=(arr,k)=>arr.reduce((s,o)=>s+(o[k]||0),0);
+  if(oCharts.cc)oCharts.cc.destroy();
+  oCharts.cc=new Chart(document.getElementById('oCoverCallChart'),{type:'doughnut',data:{labels:cl,datasets:[{data:ck.map(k=>sumC(calls,k)),backgroundColor:cols.map(c=>c+'99'),borderColor:cols,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#9dafc5',font:{size:9,family:'IBM Plex Mono'},boxWidth:10,padding:8}}}}});
+  if(oCharts.pc)oCharts.pc.destroy();
+  oCharts.pc=new Chart(document.getElementById('oCoverPutChart'),{type:'doughnut',data:{labels:cl,datasets:[{data:ck.map(k=>sumC(puts,k)),backgroundColor:cols.map(c=>c+'99'),borderColor:cols,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'right',labels:{color:'#9dafc5',font:{size:9,family:'IBM Plex Mono'},boxWidth:10,padding:8}}}}});
+}
+
+// ── Table ──
+function oRenderTable(opts){
+  oAllRows=opts;
+  document.getElementById('oTableEmpty').style.display='none';
+  document.getElementById('oTableCard').style.display='block';
+  oApplyFilters();
+}
+window.oApplyFilters=()=>{
+  const q=(document.getElementById('oSearchQ').value||'').toLowerCase();
+  let rows=oAllRows.filter(r=>{
+    if(oTypeF!=='all'&&r.tipo!==oTypeF)return false;
+    if(oCoverF&&!(r[oCoverF]>0))return false;
+    if(q&&!(fmtAR(r.base,1).includes(q)||(r.vencimiento||'').toLowerCase().includes(q)))return false;
+    return true;
+  });
+  rows.sort((a,b)=>oSortDir*(((a[oSortCol]||0)>(b[oSortCol]||0))?1:-1));
+  const vc=v=>v>0?'pos':v<0?'neg':'neu';
+  document.getElementById('oTbody').innerHTML=rows.map(r=>`<tr>
+    <td class="td-left"><span class="badge ${r.tipo==='call'?'b-call':'b-put'}">${r.tipo}</span></td>
+    <td class="td-left" style="color:var(--text2)">${r.vencimiento||'—'}</td>
+    <td style="color:var(--text)">$${fmtAR(r.base,1)}</td>
+    <td>${fmtM(r.cubierto)}</td><td>${fmtM(r.opuesto)}</td><td>${fmtM(r.cruce)}</td><td>${fmtM(r.descubierto)}</td>
+    <td class="td-total">${fmtM(r.total)}</td>
+    <td class="${vc(r.var_dia)}">${r.var_dia!=null?(r.var_dia>0?'+':'')+fmtM(r.var_dia):'—'}</td>
+  </tr>`).join('');
+  document.getElementById('oRowCount').textContent=rows.length+' filas';
+};
+window.oSetType=(t,btn)=>{oTypeF=t;document.querySelectorAll('#otfType .flt').forEach(b=>b.classList.remove('on','on-call','on-put'));btn.classList.add(t==='all'?'on':t==='call'?'on-call':'on-put');oApplyFilters();};
+window.oSetCover=(t,btn)=>{
+  const cm={cubierto:'on-blue',descubierto:'on-amber',cruce:'on-cyan',opuesto:'on-purple'};
+  if(oCoverF===t){oCoverF=null;document.querySelectorAll('#otfCover .flt').forEach(b=>b.classList.remove('on-blue','on-amber','on-cyan','on-purple'));}
+  else{document.querySelectorAll('#otfCover .flt').forEach(b=>b.classList.remove('on-blue','on-amber','on-cyan','on-purple'));oCoverF=t;btn.classList.add(cm[t]||'on');}
+  oApplyFilters();
+};
+window.oSort=(col)=>{
+  if(oSortCol===col)oSortDir*=-1;else{oSortCol=col;oSortDir=1;}
+  const cols=['tipo','vencimiento','base','cubierto','opuesto','cruce','descubierto','total','var_dia'];
+  document.querySelectorAll('table th').forEach(th=>th.classList.remove('sort-asc','sort-desc'));
+  const idx=cols.indexOf(col);if(idx>=0){const ths=document.querySelectorAll('table th');ths[idx]&&ths[idx].classList.add(oSortDir===1?'sort-asc':'sort-desc');}
+  oApplyFilters();
+};
+
+// ── GEX ──
+function oRenderGEX(calls,puts){
+  document.getElementById('oGexEmpty').style.display='none';
+  document.getElementById('oGexContent').style.display='flex';
+  const map={};
+  calls.forEach(o=>{const k=o.base;if(!map[k])map[k]={c:0,p:0};map[k].c+=(o.total||0)*k;});
+  puts.forEach(o=>{const k=o.base;if(!map[k])map[k]={c:0,p:0};map[k].p+=(o.total||0)*k;});
+  const keys=Object.keys(map).map(Number).sort((a,b)=>a-b);
+  const cGex=keys.map(k=>map[k].c/1e8),pGex=keys.map(k=>-map[k].p/1e8);
+  const net=keys.map((k,i)=>cGex[i]+pGex[i]);
+  const totC=cGex.reduce((s,v)=>s+v,0),totP=pGex.reduce((s,v)=>s+v,0),netTotal=totC+totP;
+  let flipKey=keys[0];
+  for(let i=1;i<net.length;i++){if(net[i-1]*net[i]<0){flipKey=keys[i];break;}}
+  const cwIdx=cGex.indexOf(Math.max(...cGex)),cwKey=keys[cwIdx];
+  const cwOI=calls.filter(o=>o.base===cwKey).reduce((s,o)=>s+(o.total||0),0);
+  const pwIdx=pGex.indexOf(Math.min(...pGex)),pwKey=keys[pwIdx];
+  const pwOI=puts.filter(o=>o.base===pwKey).reduce((s,o)=>s+(o.total||0),0);
+  let mpKey=keys[0],minL=Infinity;
+  keys.forEach(c=>{let l=0;calls.forEach(o=>{if(c<o.base)l+=(o.base-c)*(o.total||0);});puts.forEach(o=>{if(c>o.base)l+=(c-o.base)*(o.total||0);});if(l<minL){minL=l;mpKey=c;}});
+  const isN=Math.abs(netTotal)<(Math.abs(totC)+Math.abs(totP))*0.05;
+  const regime=isN?'neutral':netTotal>0?'long':'short';
+  const rc=document.getElementById('oRegimeCard');
+  rc.className='regime-card regime-'+regime;
+  document.getElementById('oRegimeIcon').textContent=regime==='long'?'🟢':regime==='short'?'🔴':'🟡';
+  document.getElementById('oRegimeTitle').textContent=regime==='long'?'Long Gamma':regime==='short'?'Short Gamma':'Gamma Neutral';
+  document.getElementById('oRegimeDesc').textContent=regime==='long'
+    ?'El mercado está en régimen Long Gamma. Los dealers absorben volatilidad: compran en bajas y venden en subidas. Rangos más acotados y reversiones hacia el Gamma Flip.'
+    :regime==='short'
+    ?'El mercado está en régimen Short Gamma. Los dealers amplifican los movimientos: venden en caídas y compran en subidas. Mayor volatilidad y tendencias más pronunciadas.'
+    :'Gamma cercano a neutral. Sin sesgo claro de cobertura.';
+  document.getElementById('og-flip').textContent='$'+fmtAR(flipKey,1);
+  document.getElementById('og-flip-pos').textContent=regime==='long'?'Zona estable':'Zona volátil';
+  document.getElementById('og-callwall').textContent='$'+fmtAR(cwKey,1);
+  document.getElementById('og-callwall-oi').textContent='OI: '+fmtM(cwOI)+' contratos';
+  document.getElementById('og-putwall').textContent='$'+fmtAR(pwKey,1);
+  document.getElementById('og-putwall-oi').textContent='OI: '+fmtM(pwOI)+' contratos';
+  document.getElementById('og-pain').textContent='$'+fmtAR(mpKey,1);
+  document.getElementById('og-pain-loss').textContent='Pérdida compradores: $'+fmtM(minL);
+  document.getElementById('og-gex-calls').textContent=(totC>=0?'+':'')+totC.toFixed(2)+'M';
+  document.getElementById('og-gex-puts').textContent=totP.toFixed(2)+'M';
+  document.getElementById('ogs-net').textContent=(netTotal>=0?'+':'')+netTotal.toFixed(2)+'M';
+  const tCallOI=calls.reduce((s,o)=>s+(o.total||0),0),tPutOI=puts.reduce((s,o)=>s+(o.total||0),0);
+  document.getElementById('ogs-callconc').textContent=tCallOI>0?((cwOI/tCallOI)*100).toFixed(1)+'%':'—';
+  document.getElementById('ogs-putconc').textContent=tPutOI>0?((pwOI/tPutOI)*100).toFixed(1)+'%':'—';
+  document.getElementById('ogs-range').textContent='$'+fmtAR(pwKey,1)+' – $'+fmtAR(cwKey,1);
+  if(oCharts.g)oCharts.g.destroy();
+  oCharts.g=new Chart(document.getElementById('oGexChart'),{type:'bar',
+    data:{labels:keys.map(k=>'$'+fmtAR(k,1)),datasets:[
+      {label:'Call GEX',data:cGex,backgroundColor:'#00e5a844',borderColor:'#00e5a8',borderWidth:1,stack:'s'},
+      {label:'Put GEX', data:pGex,backgroundColor:'#ff3f5e44',borderColor:'#ff3f5e',borderWidth:1,stack:'s'},
+      {label:'Net GEX', data:net, type:'line',borderColor:'#b39dff',backgroundColor:'transparent',borderWidth:2,pointRadius:2,tension:.4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}M`}}},
+      scales:{x:{stacked:true,ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},maxRotation:45,autoSkip:true},grid:{color:'#1e2530'}},
+        y:{stacked:true,ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>v.toFixed(1)+'M'},grid:{color:'#1e2530'}}}}});
+}
+
+// ── Init ──
+oLoadData();
+window.moduleTimers.opciones=setInterval(oLoadData,30000);
+
+})();
+</script>
