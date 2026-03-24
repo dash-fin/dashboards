@@ -1,0 +1,32 @@
+name: Procesar PDF IAMC Opciones
+
+on:
+  schedule:
+    # 00:00 UTC = 21:00 Argentina (UTC-3)
+    # Corre lunes a viernes (el martes-sabado UTC cubre lunes-viernes Argentina)
+    - cron: '0 0 * * 2-6'
+  workflow_dispatch:
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install anthropic supabase requests
+
+      - name: Procesar PDF IAMC
+        env:
+          ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_KEY }}
+          SB_URL: ${{ secrets.SB_URL }}
+          SB_KEY: ${{ secrets.SB_KEY }}
+        run: python scripts/process_iamc.py
