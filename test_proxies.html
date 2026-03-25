@@ -1,34 +1,41 @@
 <!DOCTYPE html>
 <html>
-<head><title>Test Proxies</title></head>
+<head><title>Test Delta One</title></head>
 <body>
 <pre id="out">Testing...</pre>
 <script>
 const out = document.getElementById('out');
 const log = s => { out.textContent += s + '\n'; };
 
-const rssUrl = 'https://rsshub.app/twitter/user/DeItaone';
-const fngUrl = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
-
 async function test(name, url) {
   try {
     const r = await fetch(url, {signal: AbortSignal.timeout(8000)});
     const text = await r.text();
-    log(name + ' → HTTP ' + r.status + ' | ' + text.slice(0,80));
+    log(name + ' → HTTP ' + r.status + ' | ' + text.slice(0,120));
   } catch(e) {
     log(name + ' → ERROR: ' + e.message);
   }
 }
 
 async function run() {
-  log('=== RSS Tests ===');
-  await test('allorigins+rsshub', 'https://api.allorigins.win/get?url=' + encodeURIComponent(rssUrl));
-  await test('corsproxy+rsshub', 'https://corsproxy.io/?' + encodeURIComponent(rssUrl));
-  await test('rss2json', 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
+  // Nitter instances with RSS
+  const nitters = [
+    'https://nitter.net/DeItaone/rss',
+    'https://nitter.privacydev.net/DeItaone/rss',
+    'https://nitter.poast.org/DeItaone/rss',
+    'https://nitter.1d4.us/DeItaone/rss',
+  ];
   
-  log('\n=== Fear & Greed Tests ===');
-  await test('allorigins+fng', 'https://api.allorigins.win/get?url=' + encodeURIComponent(fngUrl));
-  await test('direct fng', fngUrl);
+  log('=== Nitter RSS instances ===');
+  for(const url of nitters) {
+    await test(url.split('/')[2], url);
+  }
+
+  log('\n=== Via allorigins proxy ===');
+  for(const url of nitters.slice(0,2)) {
+    await test('allorigins+'+url.split('/')[2], 
+      'https://api.allorigins.win/get?url='+encodeURIComponent(url));
+  }
   
   log('\nDone.');
 }
