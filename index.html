@@ -349,6 +349,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
       <button class="mtab"        id="mtab-opciones" onclick="loadModuleAuth('opciones',this)"><span class="mtab-dot"></span>Opciones</button>
       <button class="mtab"        id="mtab-cedears"  onclick="loadModuleAuth('cedears',this)"><span class="mtab-dot"></span>CEDEARs</button>
       <button class="mtab"        id="mtab-alertas"  onclick="loadModuleAuth('alertas',this)">🔔 Alertas</button>
+      <button class="mtab"          id="mtab-usa"      onclick="loadModuleAuth('usa',this)"><span class="mtab-dot" style="background:var(--blue)"></span>USA</button>
       <button class="mtab disabled" id="mtab-acciones">Acciones <span class="mtab-badge">pronto</span></button>
       <button class="mtab"        id="mtab-bonos"     onclick="loadModuleAuth('bonos',this)">📐 Renta Fija</button>
       <button class="mtab disabled" id="mtab-futuros">Futuros <span class="mtab-badge">pronto</span></button>
@@ -771,81 +772,34 @@ function updateClock(){
 setInterval(updateClock,1000); updateClock();
 
 // ── Strip ──
-const YF_SYMS=[
-  {sym:'SPY',label:'SPY',color:'var(--green)'},{sym:'QQQ',label:'QQQ',color:'var(--blue)'},
-  {sym:'EWZ',label:'EWZ',color:'var(--amber)'},{sym:'FXI',label:'FXI',color:'var(--purple)'},
-  {sym:'CL=F',label:'WTI',color:'var(--amber)'},{sym:'GC=F',label:'Gold',color:'var(--amber)'},
-  {sym:'SI=F',label:'Silver',color:'var(--text2)'},
-];
 const FUTUROS_SYMS=['DLFUT','DLR','DLF','DLRMAR','DLRABR','DLRMAY','DLRJUN'];
-let yfCache={},yfLastFetch=0;
-
-async function fetchYF(sym){
-  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=1d`;
-  const proxies=[`https://corsproxy.io/?${encodeURIComponent(url)}`,`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`];
-  for(const proxy of proxies){
-    try{
-      const r=await fetch(proxy,{signal:AbortSignal.timeout(5000)});if(!r.ok)continue;
-      const text=await r.text();let raw;
-      try{const w=JSON.parse(text);raw=w.contents?JSON.parse(w.contents):w;}catch{continue;}
-      const meta=raw?.chart?.result?.[0]?.meta;if(!meta)continue;
-      const price=meta.regularMarketPrice,prev=meta.chartPreviousClose||meta.previousClose;
-      return{price,change:prev?((price-prev)/prev)*100:0};
-    }catch{continue;}
-  }
-  return null;
-}
 
 async function loadStrip(){
-  const now=Date.now();
-  if(now-yfLastFetch>60000){
-    const results=await Promise.allSettled(YF_SYMS.map(s=>fetchYF(s.sym)));
-    results.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)yfCache[YF_SYMS[i].sym]=r.value;});
-    yfLastFetch=now;
-  }
-  const futRows=await sb('mercado',`symbol=in.(${FUTUROS_SYMS.map(s=>'"'+s+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change&order=symbol.asc&limit=5`);
-  const futMap={};if(futRows)futRows.forEach(r=>{futMap[r.symbol]=r;});
-  const ind=YF_SYMS.map(item=>{
-    const d=yfCache[item.sym],chg=d?d.change:null;
-    return`<div class="strip-item"><span class="strip-sym">${item.label}</span><span class="strip-val">${d?fmtUSD(d.price):'—'}</span><span class="strip-chg ${chg!=null?cc(chg):'flat'}">${chg!=null?fmtPct(chg):'—'}</span></div>`;
+  const usaSyms = ['SPY','QQQ','DIA','IWM','GLD','USO'];
+  const [usaRows, futRows] = await Promise.all([
+    sb('mercado_usa', `symbol=in.(${usaSyms.map(s=>'"'+s+'"').join(',')})&select=symbol,last,change_pct`),
+    sb('mercado', `symbol=in.(${FUTUROS_SYMS.map(s=>'"'+s+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change&order=symbol.asc&limit=5`),
+  ]);
+  const usaMap = {};
+  if(usaRows) usaRows.forEach(r=>{ usaMap[r.symbol]=r; });
+  const USA_COLORS = {SPY:'var(--green)',QQQ:'var(--blue)',DIA:'var(--text2)',IWM:'var(--purple)',GLD:'var(--amber)',USO:'var(--amber)'};
+  const USA_LABELS = {SPY:'SPY',QQQ:'QQQ',DIA:'DJI',IWM:'IWM',GLD:'Gold',USO:'WTI'};
+  const usaPart = usaSyms.map(sym=>{
+    const d = usaMap[sym];
+    const chg = d ? Number(d.change_pct) : null;
+    return`<div class="strip-item"><span class="strip-sym" style="color:${USA_COLORS[sym]||'var(--text2)'}">${USA_LABELS[sym]||sym}</span><span class="strip-val">${d&&d.last?fmtUSD(Number(d.last)):'—'}</span><span class="strip-chg ${chg!=null?cc(chg):'flat'}">${chg!=null?fmtPct(chg):'—'}</span></div>`;
   }).join('');
+  const futMap={};if(futRows)futRows.forEach(r=>{futMap[r.symbol]=r;});
   const futKeys=FUTUROS_SYMS.filter(s=>futMap[s]);
   let futPart='';
   if(futKeys.length){
     futPart=`<div class="strip-item"><span class="strip-sym" style="font-size:8px;letter-spacing:1px;color:var(--text4)">FUT$</span></div>`;
-    futPart+=futKeys.map(s=>{const d=futMap[s],chg=Number(d.change);return`<div class="strip-item"><span class="strip-sym">${d.symbol}</span><span class="strip-val">${fmtAR(d.last,2)}</span><span class="strip-chg ${cc(chg)}">${fmtPct(chg)}</span></div>`;}).join('');
+    futPart+=futKeys.map(s=>{const d=futMap[s],chg=Number(d.change);return`<div class="strip-item"><span class="strip-sym" style="color:var(--amber)">${d.symbol}</span><span class="strip-val">${fmtAR(d.last,2)}</span><span class="strip-chg ${cc(chg)}">${fmtPct(chg)}</span></div>`;}).join('');
   }
-  document.getElementById('indicesStrip').innerHTML=ind+futPart;
+  document.getElementById('indicesStrip').innerHTML=usaPart+futPart;
 }
 
-// ── Module loader ──
-let currentModule='home';
-window.moduleTimers={};
 
-window.loadModule=async(name,btn)=>{
-  if(name===currentModule&&name!=='home')return;
-  Object.values(window.moduleTimers).forEach(t=>clearInterval(t));
-  window.moduleTimers={};
-  currentModule=name;
-  document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  const container=document.getElementById('moduleContainer');
-  if(name==='home'){container.innerHTML='';renderHome();return;}
-  container.innerHTML=`<div class="module-loading"><div class="spinner"></div>Cargando ${name}...</div>`;
-  try{
-    const r=await fetch(`modules/${name}.html`);
-    if(!r.ok)throw new Error('Módulo no encontrado');
-    const html=await r.text();
-    container.innerHTML=html;
-    container.querySelectorAll('script').forEach(old=>{
-      const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
-    });
-  }catch(e){
-    container.innerHTML=`<div class="module-loading" style="color:var(--red)">Error: ${e.message}</div>`;
-  }
-};
-
-// ── Home ──
 async function renderHome(){
   const container=document.getElementById('moduleContainer');
   container.innerHTML=`
@@ -894,8 +848,48 @@ async function renderHome(){
       <div class="mod-card disabled" style="--mc:var(--cyan)"><span class="mc-icon">📐</span><div class="mc-title">Bonos CER</div><div class="mc-sub">Curva CER, TIR real</div><span class="mc-badge">pronto</span></div>
       <div class="mod-card disabled" style="--mc:var(--purple)"><span class="mc-icon">⚡</span><div class="mc-title">Futuros</div><div class="mc-sub">Dólar, commodities, índices</div><span class="mc-badge">pronto</span></div>
     </div>`;
+  // Bottom section: news + sentiment + macro
+  container.insertAdjacentHTML('beforeend', [
+    '<div style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start">',
+    '<div>',
+    '<div class="sec-head" style="--hc:var(--cyan)">Breaking News</div>',
+    '<div class="card" style="overflow:hidden">',
+    '<div id="newsContainer" style="max-height:400px;overflow-y:auto;scrollbar-width:thin">',
+    '<div style="padding:24px;font-size:10px;color:var(--text3);text-align:center">Cargando...</div>',
+    '</div></div></div>',
+    '<div style="display:flex;flex-direction:column;gap:10px">',
+    '<div class="dolar-block"><div class="block-title">Sentimiento de mercado</div>',
+    '<div style="padding:14px;display:flex;flex-direction:column;gap:10px">',
+    '<div style="display:flex;align-items:center;gap:12px">',
+    '<div id="fngGauge" style="width:54px;height:54px;flex-shrink:0"></div>',
+    '<div><div style="font-size:8px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Fear &amp; Greed</div>',
+    '<div style="font-size:22px;font-weight:500;font-family:monospace" id="fngValue">—</div>',
+    '<div style="font-size:10px;font-family:monospace" id="fngLabel">—</div></div></div>',
+    '<div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between">',
+    '<div><div style="font-size:8px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">VIX</div>',
+    '<div style="font-size:18px;font-weight:500;font-family:monospace" id="vixValue">—</div>',
+    '<div style="font-size:9px;font-family:monospace" id="vixLabel">—</div></div>',
+    '<div style="text-align:right"><div style="font-size:8px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">SPY P/C</div>',
+    '<div style="font-size:18px;font-weight:500;font-family:monospace" id="pcRatioValue">—</div>',
+    '<div style="font-size:9px;font-family:monospace" id="pcRatioLabel">—</div></div>',
+    '</div></div></div>',
+    '<div class="dolar-block"><div class="block-title">Sectores USA</div>',
+    '<div id="miniHeatmap" style="padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px">',
+    '<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">Cargando...</div>',
+    '</div></div>',
+    '<div class="dolar-block"><div class="block-title">Próximos eventos macro</div>',
+    '<div id="macroCalendar" style="font-size:10px">',
+    '<div style="padding:12px;color:var(--text3);text-align:center;font-family:monospace">Cargando...</div>',
+    '</div></div>',
+    '</div></div>'
+  ].join(''));
+
   loadDolar(); loadRankings('bluechips','acc'); loadRankings('cedears','ced');
-  window.moduleTimers.home=setInterval(()=>{loadDolar();loadRankings('bluechips','acc');loadRankings('cedears','ced');},10000);
+  loadNews(); loadFearGreed(); loadMiniHeatmap(); loadMacroCalendar();
+  window.moduleTimers.home=setInterval(()=>{
+    loadDolar();loadRankings('bluechips','acc');loadRankings('cedears','ced');
+    loadNews();loadFearGreed();loadMiniHeatmap();
+  },30000);
 }
 
 async function loadDolar(){
@@ -1019,6 +1013,120 @@ setInterval(checkBdUpdate, 15000); // chequear cada 15 segundos
 loadStrip();setInterval(loadStrip,60000);
 loadModule('home',document.getElementById('mtab-home'));
 if(location.hash){const mod=location.hash.replace('#','');const btn=document.getElementById('mtab-'+mod);if(btn&&!btn.classList.contains('disabled'))loadModule(mod,btn);}
+
+// ── Delta One News (RSSHub) ──
+async function loadNews(){
+  const el = document.getElementById('newsContainer');
+  if(!el) return;
+  try {
+    const rssUrl = 'https://rsshub.app/twitter/user/DeItaone';
+    const proxy  = `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`;
+    const r = await fetch(proxy, {signal: AbortSignal.timeout(8000)});
+    if(!r.ok) throw new Error('fetch failed');
+    const data = await r.json();
+    const xml  = data.contents;
+    const parser = new DOMParser();
+    const doc  = parser.parseFromString(xml, 'text/xml');
+    const items = [...doc.querySelectorAll('item')].slice(0,15);
+    if(!items.length) throw new Error('no items');
+    const lines = items.map(item=>{
+      const title = item.querySelector('title')?.textContent || '';
+      const pubDate = item.querySelector('pubDate')?.textContent || '';
+      const time = pubDate ? new Date(pubDate).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '';
+      const clean = title.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/<[^>]+>/g,'').trim();
+      return {time, text: clean};
+    });
+    el.innerHTML = lines.map((l,i)=>`
+      <div style="display:flex;gap:10px;padding:7px 14px;border-bottom:1px solid rgba(30,37,48,.5)">
+        <span style="font-family:monospace;font-size:9px;color:var(--text3);white-space:nowrap;margin-top:1px">${l.time}</span>
+        <span style="font-family:monospace;font-size:11px;color:var(--text2);line-height:1.5">${l.text}</span>
+      </div>`).join('');
+  } catch(e) {
+    const el2 = document.getElementById('newsContainer');
+    if(el2) el2.innerHTML = '<div style="padding:14px;font-size:10px;color:var(--text3);text-align:center">Sin conexión al feed</div>';
+  }
+}
+
+// ── Fear & Greed + VIX ──
+async function loadFearGreed(){
+  try{
+    const url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const r = await fetch(proxy, {signal:AbortSignal.timeout(8000)});
+    if(!r.ok) throw new Error();
+    const data = JSON.parse((await r.json()).contents);
+    const score = Math.round(data.fear_and_greed?.score || 50);
+    const rating = data.fear_and_greed?.rating || '';
+    const colors = {'Extreme Fear':'#ff3f5e','Fear':'#f0a500','Neutral':'#9dafc5','Greed':'#00d4e8','Extreme Greed':'#00e5a8'};
+    const color = colors[rating] || '#9dafc5';
+    const angle = (score/100)*180 - 90;
+    const cx=27,cy=27,r2=20;
+    const nx = cx + r2*Math.cos((angle-90)*Math.PI/180);
+    const ny = cy + r2*Math.sin((angle-90)*Math.PI/180);
+    const gauge = `<svg width="54" height="40" viewBox="0 0 54 40"><path d="M7,27 A20,20 0 0,1 47,27" fill="none" stroke="var(--border2)" stroke-width="4"/><path d="M7,27 A20,20 0 0,1 ${nx.toFixed(1)},${ny.toFixed(1)}" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"/><circle cx="${nx.toFixed(1)}" cy="${ny.toFixed(1)}" r="3" fill="${color}"/></svg>`;
+    const el=document.getElementById('fngGauge'),valEl=document.getElementById('fngValue'),lblEl=document.getElementById('fngLabel');
+    if(el)el.innerHTML=gauge;
+    if(valEl){valEl.textContent=score;valEl.style.color=color;}
+    if(lblEl){lblEl.textContent=rating;lblEl.style.color=color;}
+  }catch(e){}
+  const [vixRow,pcRow] = await Promise.all([
+    sb('mercado_usa','symbol=in.("UVXY","VXX")&select=symbol,last,change_pct&limit=1'),
+    sb('opciones_usa_signals','symbol=eq.SPY&select=pc_ratio,bias'),
+  ]);
+  const vix=vixRow?.[0];
+  if(vix){
+    const chg=Number(vix.change_pct||0);
+    const vixVal=document.getElementById('vixValue'),vixLbl=document.getElementById('vixLabel');
+    if(vixVal){vixVal.textContent=fmtUSD(vix.last,2);vixVal.style.color=chg>0?'var(--red)':'var(--green)';}
+    if(vixLbl){vixLbl.textContent=fmtPct(chg);vixLbl.style.color=chg>0?'var(--red)':'var(--green)';}
+  }
+  const pc=pcRow?.[0];
+  if(pc){
+    const ratio=Number(pc.pc_ratio||0),bias=pc.bias;
+    const pcVal=document.getElementById('pcRatioValue'),pcLbl=document.getElementById('pcRatioLabel');
+    if(pcVal){pcVal.textContent=ratio.toFixed(2)+'x';pcVal.style.color=bias==='bullish'?'var(--green)':bias==='bearish'?'var(--red)':'var(--text2)';}
+    if(pcLbl){pcLbl.textContent=bias==='bullish'?'Alcista':bias==='bearish'?'Bajista':'Neutral';}
+  }
+}
+
+// ── Mini heatmap sectorial ──
+async function loadMiniHeatmap(){
+  const el=document.getElementById('miniHeatmap');
+  if(!el)return;
+  const rows=await sb('sectores_usa','select=symbol,name,change_pct&order=change_pct.desc.nullslast');
+  if(!rows||!rows.length){el.innerHTML='<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">Sin datos</div>';return;}
+  const max=Math.max(...rows.map(r=>Math.abs(r.change_pct||0)),1);
+  el.innerHTML=rows.map(r=>{
+    const chg=Number(r.change_pct||0);
+    const intensity=Math.min(Math.abs(chg)/max,1);
+    const bg=chg>=0?`rgba(0,229,168,${0.15+intensity*0.5})`:`rgba(255,63,94,${0.15+intensity*0.5})`;
+    return`<div style="background:${bg};border-radius:4px;padding:5px 4px;text-align:center"><div style="font-family:monospace;font-size:9px;font-weight:500;color:#fff">${r.symbol}</div><div style="font-family:monospace;font-size:10px;font-weight:600;color:#fff">${fmtPct(chg)}</div></div>`;
+  }).join('');
+}
+
+// ── Calendario macro ──
+function loadMacroCalendar(){
+  const el=document.getElementById('macroCalendar');
+  if(!el)return;
+  const events=[
+    {date:'2026-04-02',event:'Aranceles recíprocos USA',impact:'high'},
+    {date:'2026-04-04',event:'Nóminas no agrícolas (NFP)',impact:'high'},
+    {date:'2026-04-10',event:'CPI USA — Inflación',impact:'high'},
+    {date:'2026-04-16',event:'Inicio temporada earnings Q1',impact:'high'},
+    {date:'2026-04-28',event:'Decisión Fed (FOMC)',impact:'high'},
+    {date:'2026-04-30',event:'GDP Q1 USA (preliminar)',impact:'medium'},
+    {date:'2026-05-02',event:'NFP Abril',impact:'high'},
+  ];
+  const now=new Date();
+  const upcoming=events.map(e=>({...e,dateObj:new Date(e.date)})).filter(e=>e.dateObj>=now).sort((a,b)=>a.dateObj-b.dateObj).slice(0,5);
+  const impactColor={high:'var(--red)',medium:'var(--amber)',low:'var(--text3)'};
+  el.innerHTML=upcoming.map(e=>{
+    const days=Math.ceil((e.dateObj-now)/(1000*60*60*24));
+    const dStr=e.dateObj.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
+    return`<div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(30,37,48,.5)"><div style="width:6px;height:6px;border-radius:50%;background:${impactColor[e.impact]||'var(--text3)'};flex-shrink:0"></div><div style="flex:1;font-family:monospace;font-size:10px;color:var(--text2)">${e.event}</div><div style="font-family:monospace;font-size:9px;color:var(--text3);white-space:nowrap">${dStr} · ${days}d</div></div>`;
+  }).join('')||'<div style="padding:12px;text-align:center;font-size:10px;color:var(--text3)">Sin eventos próximos</div>';
+}
+
 </script>
 </body>
 </html>
