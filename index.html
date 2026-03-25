@@ -843,68 +843,78 @@ window.loadModule=async(name,btn)=>{
 // ── Home ──
 async function renderHome(){
   const container=document.getElementById('moduleContainer');
-  container.innerHTML=`
-    <div class="landing-grid">
-      <div class="dolar-block">
-        <div class="block-title">Tipo de cambio</div>
-        <table class="dolar-table">
-          <thead><tr><th>Tipo</th><th>Cotización</th></tr></thead>
-          <tbody id="dolarBody"><tr><td colspan="4" style="text-align:center;padding:14px;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:11px">Cargando...</td></tr></tbody>
-        </table>
-      </div>
-      <div>
-        <div class="sec-head" style="--hc:var(--blue)">Acciones</div>
-        <div class="rank-row">
-          <div class="rank-card"><div class="rank-head"><div class="rank-head-title">🔥 Más operadas</div><div class="rank-sort">turnover</div></div><div id="acc-turnover"></div></div>
-          <div class="rank-card"><div class="rank-head"><div class="rank-head-title">▲ Mayores subas</div><div class="rank-sort">var %</div></div><div id="acc-gainers"></div></div>
-          <div class="rank-card"><div class="rank-head"><div class="rank-head-title">▼ Mayores bajas</div><div class="rank-sort">var %</div></div><div id="acc-losers"></div></div>
-        </div>
-        <div class="sec-head" style="--hc:var(--purple)">CEDEARs</div>
-        <div class="rank-row">
-          <div class="rank-card"><div class="rank-head"><div class="rank-head-title">🔥 Más operados</div><div class="rank-sort">turnover</div></div><div id="ced-turnover"></div></div>
-          <div class="rank-card"><div class="rank-head"><div class="rank-head-title">▲ Mayores subas</div><div class="rank-sort">var %</div></div><div id="ced-gainers"></div></div>
-          <div class="rank-card"><div class="rank-head"><div class="rank-head-title">▼ Mayores bajas</div><div class="rank-sort">var %</div></div><div id="ced-losers"></div></div>
-        </div>
-      </div>
-    </div>`;
-  // Sección inferior: news + sentimiento + macro
-  const bottomHTML = '<div style="display:grid;grid-template-columns:1fr 480px;gap:14px;align-items:start;margin-top:14px">'
-    + '<div>'
-    + '<div class="sec-head" style="--hc:var(--cyan)">Breaking News</div>'
-    + '<div class="card" style="overflow:hidden">'
-    + '<div id="newsContainer" style="max-height:400px;overflow-y:auto;scrollbar-width:thin">'
-    + '<div style="padding:24px;font-size:10px;color:var(--text3);text-align:center">Cargando...</div>'
-    + '</div></div></div>'
-    + '<div style="display:flex;flex-direction:column;gap:10px">'
-    + '<div class="dolar-block"><div class="block-title">Sentimiento</div>'
-    + '<div style="padding:14px">'
-    + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">'
-    + '<div id="fngGauge" style="width:54px;height:54px;flex-shrink:0"></div>'
-    + '<div><div style="font-size:8px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Fear &amp; Greed</div>'
-    + '<div style="font-size:32px;font-weight:500;font-family:monospace" id="fngValue">—</div>'
-    + '<div style="font-size:10px;font-family:monospace" id="fngLabel">—</div></div></div>'
-    + '<div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between">'
-    + '<div><div style="font-size:8px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">VIX</div>'
-    + '<div style="font-size:26px;font-weight:500;font-family:monospace" id="vixValue">—</div>'
-    + '<div style="font-size:9px;font-family:monospace" id="vixLabel">—</div></div>'
-    + '<div style="text-align:right"><div style="font-size:8px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">SPY P/C</div>'
-    + '<div style="font-size:26px;font-weight:500;font-family:monospace" id="pcRatioValue">—</div>'
-    + '<div style="font-size:9px;font-family:monospace" id="pcRatioLabel">—</div></div>'
-    + '</div></div></div>'
-    + '<div class="dolar-block"><div class="block-title">Sectores USA</div>'
-    + '<div id="miniHeatmap" style="padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px">'
-    + '<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">Cargando...</div></div></div>'
-    + '<div class="dolar-block"><div class="block-title">Eventos macro</div>'
-    + '<div id="macroCalendar"><div style="padding:12px;color:var(--text3);text-align:center;font-family:monospace">Cargando...</div>'
-    + '</div></div>'
-    + '</div></div>';
-  container.insertAdjacentHTML('beforeend', bottomHTML);
+  
+  // Row 1: Dolar + Sentiment
+  const row1 = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">'
+    // Dolar block
+    +'<div>'
+    +'<div class="dolar-block"><div class="block-title">Tipo de cambio</div>'
+    +'<table class="dolar-table"><thead><tr><th>Tipo</th><th>Cotizacion</th></tr></thead>'
+    +'<tbody id="dolarBody"><tr><td colspan="4" style="text-align:center;padding:14px;color:var(--text3);font-size:11px">Cargando...</td></tr></tbody>'
+    +'</table></div>'
+    // News feed debajo del dolar
+    +'<div style="margin-top:10px"><div class="sec-head" style="--hc:var(--cyan)">Breaking News</div>'
+    +'<div class="card" style="overflow:hidden">'
+    +'<div id="newsContainer" style="max-height:340px;overflow-y:auto;scrollbar-width:thin">'
+    +'<div style="padding:24px;font-size:12px;color:var(--text3);text-align:center">Cargando...</div>'
+    +'</div></div></div>'
+    +'</div>'
+    // Sentiment panel
+    +'<div style="display:flex;flex-direction:column;gap:10px">'
+    +'<div class="dolar-block"><div class="block-title">Sentimiento</div><div style="padding:14px">'
+    +'<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">'
+    +'<div id="fngGauge" style="width:64px;height:54px;flex-shrink:0"></div>'
+    +'<div><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Fear &amp; Greed</div>'
+    +'<div style="font-size:32px;font-weight:500;font-family:monospace" id="fngValue">—</div>'
+    +'<div style="font-size:13px;font-family:monospace" id="fngLabel">—</div></div></div>'
+    +'<div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between">'
+    +'<div><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">VIX (VIXY)</div>'
+    +'<div style="font-size:26px;font-weight:500;font-family:monospace" id="vixValue">—</div>'
+    +'<div style="font-size:12px;font-family:monospace" id="vixLabel">—</div></div>'
+    +'<div style="text-align:right"><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">SPY P/C</div>'
+    +'<div style="font-size:26px;font-weight:500;font-family:monospace" id="pcRatioValue">—</div>'
+    +'<div style="font-size:12px;font-family:monospace" id="pcRatioLabel">—</div></div>'
+    +'</div></div></div>'
+    // Macro calendar
+    +'<div class="dolar-block"><div class="block-title">Eventos macro</div>'
+    +'<div id="macroCalendar"><div style="padding:12px;color:var(--text3);text-align:center;font-family:monospace;font-size:12px">Cargando...</div>'
+    +'</div></div>'
+    +'</div>'
+    +'</div>';
+
+  // Row 2: Heatmap S&P500
+  const row2 = '<div style="margin-bottom:14px">'
+    +'<div class="sec-head" style="--hc:var(--blue)">Heatmap S&P 500 — por sector</div>'
+    +'<div class="card" style="overflow:hidden">'
+    +'<div id="sp500Heatmap" style="padding:10px">'
+    +'<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Cargando heatmap...</div>'
+    +'</div></div></div>';
+
+  // Row 3: Rankings
+  const row3 = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+    +'<div>'
+    +'<div class="sec-head" style="--hc:var(--blue)">Acciones</div>'
+    +'<div class="rank-row">'
+    +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mas operadas</div></div><div id="acc-turnover"></div></div>'
+    +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores subas</div></div><div id="acc-gainers"></div></div>'
+    +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores bajas</div></div><div id="acc-losers"></div></div>'
+    +'</div></div>'
+    +'<div>'
+    +'<div class="sec-head" style="--hc:var(--purple)">CEDEARs</div>'
+    +'<div class="rank-row">'
+    +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mas operados</div></div><div id="ced-turnover"></div></div>'
+    +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores subas</div></div><div id="ced-gainers"></div></div>'
+    +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores bajas</div></div><div id="ced-losers"></div></div>'
+    +'</div></div>'
+    +'</div>';
+
+  container.innerHTML = row1 + row2 + row3;
 
   loadDolar(); loadRankings('bluechips','acc'); loadRankings('cedears','ced');
-  loadNews(); loadFearGreed(); loadMiniHeatmap(); loadMacroCalendar();
+  loadNews(); loadFearGreed(); loadMiniHeatmap(); loadMacroCalendar(); loadSP500Heatmap();
   window.moduleTimers.home=setInterval(()=>{
     loadDolar();loadRankings('bluechips','acc');loadRankings('cedears','ced');
-    loadNews();loadFearGreed();loadMiniHeatmap();
+    loadNews();loadFearGreed();loadMiniHeatmap();loadSP500Heatmap();
   },30000);
 }
 
@@ -1030,30 +1040,37 @@ loadStrip();setInterval(loadStrip,60000);
 loadModule('home',document.getElementById('mtab-home'));
 if(location.hash){const mod=location.hash.replace('#','');const btn=document.getElementById('mtab-'+mod);if(btn&&!btn.classList.contains('disabled'))loadModule(mod,btn);}
 
-// ── Breaking News desde Supabase (news_monitor.py) ──
+// ── Breaking News via Alpaca News API ──
 async function loadNews(){
   const el=document.getElementById('newsContainer');
   if(!el)return;
   try{
-    const rows=await sb('noticias','select=titulo,fuente,publicado,url&order=publicado.desc&limit=20');
-    if(!rows||!rows.length){
-      el.innerHTML='<div style="padding:14px;font-size:12px;color:var(--text3);text-align:center">Sin noticias — correr news_monitor.py</div>';
-      return;
-    }
-    el.innerHTML=rows.map(item=>{
-      const dt=new Date(item.publicado);
+    const r=await fetch('https://data.alpaca.markets/v1beta1/news?limit=20&sort=desc',{
+      headers:{
+        'APCA-API-KEY-ID':'PKLC7X7QQIUG5ZBS2CYSODUMNN',
+        'APCA-API-SECRET-KEY':'Ehw9HLhbE47AgPXfCFPGoeJWJ9BmCoCUR11dfQ33GW55'
+      },
+      signal:AbortSignal.timeout(8000)
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    const news=data.news||[];
+    if(!news.length)throw new Error('empty');
+    el.innerHTML=news.map(item=>{
+      const dt=new Date(item.created_at);
       const time=dt.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+dt.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-      const src=item.fuente==='DeItaone'?'<span style="font-family:monospace;font-size:10px;color:var(--amber)">@DeItaone</span>':'<span style="font-family:monospace;font-size:10px;color:var(--text3)">'+item.fuente+'</span>';
+      const tickers=item.symbols&&item.symbols.length
+        ?'<span style="font-family:monospace;font-size:11px;color:var(--green);margin-left:6px">'+item.symbols.slice(0,4).join(' ')+'</span>':'';
       return '<div style="display:flex;gap:12px;padding:14px;border-bottom:1px solid rgba(30,37,48,.5)">'
-        +'<div style="min-width:100px">'
+        +'<div style="min-width:90px;flex-shrink:0">'
         +'<div style="font-family:monospace;font-size:11px;color:var(--text3)">'+time+'</div>'
-        +'<div style="margin-top:3px">'+src+'</div>'
+        +'<div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:2px">'+item.source+'</div>'
         +'</div>'
-        +'<span style="font-family:monospace;font-size:14px;color:var(--text2);line-height:1.6">'+item.titulo+'</span>'
+        +'<div style="font-family:monospace;font-size:14px;color:var(--text2);line-height:1.6">'+item.headline+tickers+'</div>'
         +'</div>';
     }).join('');
   }catch(e){
-    el.innerHTML='<div style="padding:14px;font-size:12px;color:var(--text3);text-align:center">Error cargando noticias</div>';
+    el.innerHTML='<div style="padding:14px;font-size:12px;color:var(--text3);text-align:center">Sin noticias — '+e.message+'</div>';
   }
 }
 
@@ -1082,18 +1099,28 @@ async function loadFearGreed(){
     if(valEl){valEl.textContent=score;valEl.style.color=color;}
     if(lblEl){lblEl.textContent=rating;lblEl.style.color=color;}
   }catch(e){}
-  const [vixRow,pcRow]=await Promise.all([
-    sb('mercado_usa','symbol=in.("UVXY","VXX")&select=symbol,last,change_pct&limit=1'),
-    sb('opciones_usa_signals','symbol=eq.SPY&select=pc_ratio,bias'),
-  ]);
-  const vix=vixRow?.[0];
-  if(vix){
-    const chg=Number(vix.change_pct||0);
-    const vixVal=document.getElementById('vixValue');
-    const vixLbl=document.getElementById('vixLabel');
-    if(vixVal){vixVal.textContent=fmtUSD(vix.last,2);vixVal.style.color=chg>0?'var(--red)':'var(--green)';}
-    if(vixLbl){vixLbl.textContent=fmtPct(chg);vixLbl.style.color=chg>0?'var(--red)':'var(--green)';}
-  }
+  // VIX real desde Alpaca
+  try{
+    const vixR=await fetch('https://data.alpaca.markets/v2/stocks/snapshots?symbols=VIXY',{
+      headers:{'APCA-API-KEY-ID':'PKLC7X7QQIUG5ZBS2CYSODUMNN','APCA-API-SECRET-KEY':'Ehw9HLhbE47AgPXfCFPGoeJWJ9BmCoCUR11dfQ33GW55'},
+      signal:AbortSignal.timeout(5000)
+    });
+    if(vixR.ok){
+      const vd=await vixR.json();
+      const snap=vd['VIXY'];
+      if(snap){
+        const last=snap.latestTrade?.p||snap.dailyBar?.c||0;
+        const prev=snap.prevDailyBar?.c||0;
+        const chg=prev?((last-prev)/prev)*100:0;
+        const vixVal=document.getElementById('vixValue');
+        const vixLbl=document.getElementById('vixLabel');
+        if(vixVal){vixVal.textContent=fmtUSD(last,2);vixVal.style.color=chg>0?'var(--red)':'var(--green)';}
+        if(vixLbl){vixLbl.textContent=fmtPct(chg);vixLbl.style.color=chg>0?'var(--red)':'var(--green)';}
+      }
+    }
+  }catch(e){}
+
+  const pcRow=await sb('opciones_usa_signals','symbol=eq.SPY&select=pc_ratio,bias');
   const pc=pcRow?.[0];
   if(pc){
     const ratio=Number(pc.pc_ratio||0),bias=pc.bias;
@@ -1145,6 +1172,82 @@ function loadMacroCalendar(){
       +'<div style="flex:1;font-family:monospace;font-size:13px;color:var(--text2)">'+e.event+'</div>'
       +'<div style="font-family:monospace;font-size:12px;color:var(--text3);white-space:nowrap">'+dStr+' · '+days+'d</div></div>';
   }).join('')||'<div style="padding:12px;text-align:center;font-size:10px;color:var(--text3)">Sin eventos proximos</div>';
+}
+
+// ── Heatmap S&P500 por sector (tipo Finviz) ──
+async function loadSP500Heatmap(){
+  const el=document.getElementById('sp500Heatmap');
+  if(!el)return;
+  // Traer todas las acciones con datos válidos
+  const rows=await sb('mercado_usa',
+    'select=symbol,sector,last,change_pct,volume,market_cap_cat'
+    +'&sector=not.ilike.ETF*&sector=not.ilike.ADR*'
+    +'&change_pct=not.is.null&last=gt.0'
+    +'&order=volume.desc.nullslast&limit=500');
+  if(!rows||!rows.length){
+    el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Sin datos — correr alpaca_usa.py</div>';
+    return;
+  }
+
+  // Color scale tipo Finviz
+  function getColor(v){
+    v=Number(v)||0;
+    if(v>=4)   return '#1a7a3a';
+    if(v>=2)   return '#1e9e4a';
+    if(v>=0.5) return '#22b854';
+    if(v>=0)   return '#1a5c2a';
+    if(v>=-0.5)return '#7a1f1f';
+    if(v>=-2)  return '#a02828';
+    if(v>=-4)  return '#c43030';
+    return '#e03030';
+  }
+
+  // Agrupar por sector
+  const sectorMap={};
+  rows.forEach(r=>{
+    const s=(r.sector||'Other').replace(' Services','').replace(' Discretionary','Disc.').replace(' Staples','Stpls').replace(' Care','');
+    if(!sectorMap[s])sectorMap[s]=[];
+    sectorMap[s].push(r);
+  });
+
+  // Ordenar sectores por cantidad de acciones (más grande primero)
+  const SECTOR_ORDER=['Technology','Financials','Healthcare','Comm.','Industrials','Energy','Consumer Disc.','Consumer Stpls','Materials','Real Estate','Utilities'];
+  const allSectors=Object.keys(sectorMap).sort((a,b)=>{
+    const ai=SECTOR_ORDER.indexOf(a), bi=SECTOR_ORDER.indexOf(b);
+    if(ai>=0&&bi>=0)return ai-bi;
+    if(ai>=0)return -1; if(bi>=0)return 1;
+    return sectorMap[b].length-sectorMap[a].length;
+  });
+
+  el.style.display='grid';
+  el.style.gridTemplateColumns='repeat(auto-fill,minmax(280px,1fr))';
+  el.style.gap='8px';
+
+  el.innerHTML=allSectors.map(sName=>{
+    const stocks=sectorMap[sName].slice(0,20); // max 20 por sector
+    const avgChg=stocks.reduce((s,r)=>s+Number(r.change_pct||0),0)/stocks.length;
+    const cells=stocks.map(r=>{
+      const chg=Number(r.change_pct||0);
+      const bg=getColor(chg);
+      const isMega=r.market_cap_cat==='mega';
+      const isLarge=r.market_cap_cat==='large';
+      const h=isMega?54:isLarge?44:36;
+      const fs=isMega?11:isLarge?10:9;
+      return '<div title="'+r.symbol+' '+fmtPct(chg)+'" style="background:'+bg
+        +';height:'+h+'px;border-radius:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,.3);cursor:default">'
+        +'<div style="font-family:monospace;font-size:'+fs+'px;font-weight:600;color:#fff;line-height:1.2">'+r.symbol+'</div>'
+        +'<div style="font-family:monospace;font-size:'+(fs-1)+'px;color:rgba(255,255,255,.85)">'+(chg>=0?'+':'')+chg.toFixed(1)+'%</div>'
+        +'</div>';
+    }).join('');
+
+    return '<div>'
+      +'<div style="font-family:monospace;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;display:flex;justify-content:space-between">'
+      +'<span>'+sName+'</span>'
+      +'<span style="color:'+(avgChg>=0?'#22b854':'#e03030')+'">'+(avgChg>=0?'+':'')+avgChg.toFixed(1)+'%</span>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:2px">'+cells+'</div>'
+      +'</div>';
+  }).join('');
 }
 </script>
 </body>
