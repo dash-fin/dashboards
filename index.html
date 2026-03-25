@@ -843,78 +843,80 @@ window.loadModule=async(name,btn)=>{
 // ── Home ──
 async function renderHome(){
   const container=document.getElementById('moduleContainer');
-  
-  // Row 1: Dolar + Sentiment
-  const row1 = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">'
-    // Dolar block
-    +'<div>'
-    +'<div class="dolar-block"><div class="block-title">Tipo de cambio</div>'
-    +'<table class="dolar-table"><thead><tr><th>Tipo</th><th>Cotizacion</th></tr></thead>'
-    +'<tbody id="dolarBody"><tr><td colspan="4" style="text-align:center;padding:14px;color:var(--text3);font-size:11px">Cargando...</td></tr></tbody>'
-    +'</table></div>'
-    // News feed debajo del dolar
-    +'<div style="margin-top:10px"><div class="sec-head" style="--hc:var(--cyan)">Breaking News</div>'
-    +'<div class="card" style="overflow:hidden">'
-    +'<div id="newsContainer" style="max-height:340px;overflow-y:auto;scrollbar-width:thin">'
-    +'<div style="padding:24px;font-size:12px;color:var(--text3);text-align:center">Cargando...</div>'
-    +'</div></div></div>'
-    +'</div>'
-    // Sentiment panel
-    +'<div style="display:flex;flex-direction:column;gap:10px">'
-    +'<div class="dolar-block"><div class="block-title">Sentimiento</div><div style="padding:14px">'
-    +'<div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">'
-    +'<div id="fngGauge" style="width:64px;height:54px;flex-shrink:0"></div>'
-    +'<div><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Fear &amp; Greed</div>'
-    +'<div style="font-size:32px;font-weight:500;font-family:monospace" id="fngValue">—</div>'
-    +'<div style="font-size:13px;font-family:monospace" id="fngLabel">—</div></div></div>'
-    +'<div style="border-top:1px solid var(--border);padding-top:12px;display:flex;justify-content:space-between">'
-    +'<div><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">VIX (VIXY)</div>'
-    +'<div style="font-size:26px;font-weight:500;font-family:monospace" id="vixValue">—</div>'
-    +'<div style="font-size:12px;font-family:monospace" id="vixLabel">—</div></div>'
-    +'<div style="text-align:right"><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">SPY P/C</div>'
-    +'<div style="font-size:26px;font-weight:500;font-family:monospace" id="pcRatioValue">—</div>'
-    +'<div style="font-size:12px;font-family:monospace" id="pcRatioLabel">—</div></div>'
-    +'</div></div></div>'
-    // Macro calendar
-    +'<div class="dolar-block"><div class="block-title">Eventos macro</div>'
-    +'<div id="macroCalendar"><div style="padding:12px;color:var(--text3);text-align:center;font-family:monospace;font-size:12px">Cargando...</div>'
-    +'</div></div>'
-    +'</div>'
-    +'</div>';
 
-  // Row 2: Heatmap S&P500
-  const row2 = '<div style="margin-bottom:14px">'
+  // Row 1: Heatmap S&P500 (full width)
+  const row1 = '<div style="margin-bottom:14px">'
     +'<div class="sec-head" style="--hc:var(--blue)">Heatmap S&P 500 — por sector</div>'
     +'<div class="card" style="overflow:hidden">'
     +'<div id="sp500Heatmap" style="padding:10px">'
     +'<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Cargando heatmap...</div>'
     +'</div></div></div>';
 
-  // Row 3: Rankings
-  const row3 = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+  // Row 2: Noticias + Sentiment + Calendario
+  const row2 = '<div style="display:grid;grid-template-columns:1fr 420px;gap:14px;margin-bottom:14px">'
+    // Noticias (izquierda)
     +'<div>'
-    +'<div class="sec-head" style="--hc:var(--blue)">Acciones</div>'
+    +'<div class="sec-head" style="--hc:var(--cyan)">Breaking News</div>'
+    +'<div class="card" style="overflow:hidden">'
+    +'<div id="newsContainer" style="max-height:380px;overflow-y:auto;scrollbar-width:thin">'
+    +'<div style="padding:24px;font-size:12px;color:var(--text3);text-align:center">Cargando...</div>'
+    +'</div></div></div>'
+    // Derecha: sentiment + calendario
+    +'<div style="display:flex;flex-direction:column;gap:10px">'
+    // Dolar
+    +'<div class="dolar-block"><div class="block-title">Tipo de cambio</div>'
+    +'<table class="dolar-table"><thead><tr><th>Tipo</th><th>Cotizacion</th></tr></thead>'
+    +'<tbody id="dolarBody"><tr><td colspan="4" style="text-align:center;padding:10px;color:var(--text3);font-size:11px">Cargando...</td></tr></tbody>'
+    +'</table></div>'
+    // Sentiment
+    +'<div class="dolar-block"><div class="block-title">Sentimiento</div><div style="padding:12px">'
+    +'<div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">'
+    +'<div id="fngGauge" style="width:64px;height:54px;flex-shrink:0"></div>'
+    +'<div><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Fear &amp; Greed</div>'
+    +'<div style="font-size:30px;font-weight:500;font-family:monospace" id="fngValue">—</div>'
+    +'<div style="font-size:12px;font-family:monospace" id="fngLabel">—</div></div></div>'
+    +'<div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between">'
+    +'<div><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">VIXY ETF</div>'
+    +'<div style="font-size:24px;font-weight:500;font-family:monospace" id="vixValue">—</div>'
+    +'<div style="font-size:11px;font-family:monospace" id="vixLabel">—</div></div>'
+    +'<div style="text-align:right"><div style="font-size:9px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">SPY P/C</div>'
+    +'<div style="font-size:24px;font-weight:500;font-family:monospace" id="pcRatioValue">—</div>'
+    +'<div style="font-size:11px;font-family:monospace" id="pcRatioLabel">—</div></div>'
+    +'</div></div></div>'
+    // Calendario
+    +'<div class="dolar-block"><div class="block-title">Eventos macro</div>'
+    +'<div id="macroCalendar"><div style="padding:12px;color:var(--text3);text-align:center;font-family:monospace;font-size:12px">Cargando...</div>'
+    +'</div></div>'
+    +'</div>'
+    +'</div>';
+
+  // Row 3: Rankings AR
+  const row3 = '<div>'
+    +'<div class="sec-head" style="--hc:var(--amber)">Mercado argentino</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">'
+    +'<div>'
+    +'<div style="font-size:10px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Acciones</div>'
     +'<div class="rank-row">'
     +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mas operadas</div></div><div id="acc-turnover"></div></div>'
     +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores subas</div></div><div id="acc-gainers"></div></div>'
     +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores bajas</div></div><div id="acc-losers"></div></div>'
     +'</div></div>'
     +'<div>'
-    +'<div class="sec-head" style="--hc:var(--purple)">CEDEARs</div>'
+    +'<div style="font-size:10px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">CEDEARs</div>'
     +'<div class="rank-row">'
     +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mas operados</div></div><div id="ced-turnover"></div></div>'
     +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores subas</div></div><div id="ced-gainers"></div></div>'
     +'<div class="rank-card"><div class="rank-head"><div class="rank-head-title">Mayores bajas</div></div><div id="ced-losers"></div></div>'
     +'</div></div>'
-    +'</div>';
+    +'</div></div>';
 
   container.innerHTML = row1 + row2 + row3;
 
   loadDolar(); loadRankings('bluechips','acc'); loadRankings('cedears','ced');
-  loadNews(); loadFearGreed(); loadMiniHeatmap(); loadMacroCalendar(); loadSP500Heatmap();
+  loadNews(); loadFearGreed(); loadMacroCalendar(); loadSP500Heatmap();
   window.moduleTimers.home=setInterval(()=>{
     loadDolar();loadRankings('bluechips','acc');loadRankings('cedears','ced');
-    loadNews();loadFearGreed();loadMiniHeatmap();loadSP500Heatmap();
+    loadNews();loadFearGreed();loadSP500Heatmap();
   },30000);
 }
 
@@ -1175,79 +1177,350 @@ function loadMacroCalendar(){
 }
 
 // ── Heatmap S&P500 por sector (tipo Finviz) ──
+let hmAllRows=[];
+let hmSelectedSector=null;
+
 async function loadSP500Heatmap(){
   const el=document.getElementById('sp500Heatmap');
   if(!el)return;
-  // Traer todas las acciones con datos válidos
   const rows=await sb('mercado_usa',
     'select=symbol,sector,last,change_pct,volume,market_cap_cat'
-    +'&sector=not.ilike.ETF*&sector=not.ilike.ADR*'
-    +'&change_pct=not.is.null&last=gt.0'
-    +'&order=volume.desc.nullslast&limit=500');
+    +'&sector=not.ilike.ETF*&sector=not.ilike.ADR*&sector=not.is.null'
+    +'&last=gt.0&order=volume.desc.nullslast&limit=600');
   if(!rows||!rows.length){
-    el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Sin datos — correr alpaca_usa.py</div>';
+    el.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px">Sin datos</div>';
     return;
   }
+  hmAllRows=rows;
+  renderHeatmap();
+}
 
-  // Color scale tipo Finviz
+function renderHeatmap(){
+  const el=document.getElementById('sp500Heatmap');
+  if(!el)return;
+
   function getColor(v){
     v=Number(v)||0;
-    if(v>=4)   return '#1a7a3a';
-    if(v>=2)   return '#1e9e4a';
-    if(v>=0.5) return '#22b854';
-    if(v>=0)   return '#1a5c2a';
-    if(v>=-0.5)return '#7a1f1f';
-    if(v>=-2)  return '#a02828';
-    if(v>=-4)  return '#c43030';
-    return '#e03030';
+    if(v>=4)   return '#0d6b35';
+    if(v>=2)   return '#12924a';
+    if(v>=0.5) return '#16b85e';
+    if(v>=0)   return '#0f5228';
+    if(v>=-0.5)return '#6b1515';
+    if(v>=-2)  return '#922020';
+    if(v>=-4)  return '#b82a2a';
+    return '#d93535';
   }
 
-  // Agrupar por sector
+  // Normalizar sectores
+  const normSector=s=>(s||'Other')
+    .replace('Consumer Discretionary','Cons. Disc.')
+    .replace('Consumer Staples','Cons. Staples')
+    .replace('Communication Services','Communication')
+    .replace('Health Care','Healthcare')
+    .replace('Real Estate','Real Estate')
+    .replace('Information Technology','Technology');
+
+  // Agrupar
   const sectorMap={};
-  rows.forEach(r=>{
-    const s=(r.sector||'Other').replace(' Services','').replace(' Discretionary','Disc.').replace(' Staples','Stpls').replace(' Care','');
+  hmAllRows.forEach(r=>{
+    const s=normSector(r.sector);
     if(!sectorMap[s])sectorMap[s]=[];
     sectorMap[s].push(r);
   });
 
-  // Ordenar sectores por cantidad de acciones (más grande primero)
-  const SECTOR_ORDER=['Technology','Financials','Healthcare','Comm.','Industrials','Energy','Consumer Disc.','Consumer Stpls','Materials','Real Estate','Utilities'];
+  const SECTOR_ORDER=['Technology','Financials','Healthcare','Communication','Industrials',
+    'Energy','Cons. Disc.','Cons. Staples','Materials','Real Estate','Utilities','Other'];
+
   const allSectors=Object.keys(sectorMap).sort((a,b)=>{
-    const ai=SECTOR_ORDER.indexOf(a), bi=SECTOR_ORDER.indexOf(b);
+    const ai=SECTOR_ORDER.indexOf(a),bi=SECTOR_ORDER.indexOf(b);
     if(ai>=0&&bi>=0)return ai-bi;
     if(ai>=0)return -1; if(bi>=0)return 1;
     return sectorMap[b].length-sectorMap[a].length;
   });
 
-  el.style.display='grid';
-  el.style.gridTemplateColumns='repeat(auto-fill,minmax(280px,1fr))';
-  el.style.gap='8px';
+  // Panel detalle sector
+  const detailPanel = hmSelectedSector
+    ? (()=>{
+        const stocks=(sectorMap[hmSelectedSector]||[]).slice(0,30);
+        const cells=stocks.map(r=>{
+          const chg=Number(r.change_pct||0);
+          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-bottom:1px solid rgba(30,37,48,.5)">'
+            +'<span style="font-family:monospace;font-size:12px;font-weight:600;color:var(--text)">'+r.symbol+'</span>'
+            +'<span style="font-family:monospace;font-size:11px;color:'+(chg>=0?'#16b85e':'#d93535')+'">'+(chg>=0?'+':'')+chg.toFixed(2)+'%</span>'
+            +'</div>';
+        }).join('');
+        return '<div style="position:fixed;top:80px;right:20px;width:220px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,.4)">'
+          +'<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)">'
+          +'<span style="font-family:monospace;font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase">'+hmSelectedSector+'</span>'
+          +'<button onclick="hmSelectedSector=null;renderHeatmap()" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:0;line-height:1">✕</button>'
+          +'</div>'
+          +'<div style="max-height:400px;overflow-y:auto">'+cells+'</div>'
+          +'</div>';
+      })()
+    : '';
 
-  el.innerHTML=allSectors.map(sName=>{
-    const stocks=sectorMap[sName].slice(0,20); // max 20 por sector
-    const avgChg=stocks.reduce((s,r)=>s+Number(r.change_pct||0),0)/stocks.length;
-    const cells=stocks.map(r=>{
+  // Heatmap grid
+  const grid=allSectors.map(sName=>{
+    const stocks=sectorMap[sName]||[];
+    const top=stocks.slice(0,15);
+    const avgChg=stocks.slice(0,20).reduce((s,r)=>s+Number(r.change_pct||0),0)/Math.min(stocks.length,20);
+    const isSelected=hmSelectedSector===sName;
+
+    const cells=top.map(r=>{
       const chg=Number(r.change_pct||0);
       const bg=getColor(chg);
       const isMega=r.market_cap_cat==='mega';
       const isLarge=r.market_cap_cat==='large';
-      const h=isMega?54:isLarge?44:36;
-      const fs=isMega?11:isLarge?10:9;
-      return '<div title="'+r.symbol+' '+fmtPct(chg)+'" style="background:'+bg
-        +';height:'+h+'px;border-radius:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(0,0,0,.3);cursor:default">'
-        +'<div style="font-family:monospace;font-size:'+fs+'px;font-weight:600;color:#fff;line-height:1.2">'+r.symbol+'</div>'
-        +'<div style="font-family:monospace;font-size:'+(fs-1)+'px;color:rgba(255,255,255,.85)">'+(chg>=0?'+':'')+chg.toFixed(1)+'%</div>'
+      const h=isMega?56:isLarge?46:38;
+      const fs=isMega?12:isLarge?10:9;
+      return '<div title="'+r.symbol+' | '+fmtPct(chg)+'" style="background:'+bg
+        +';height:'+h+'px;border-radius:2px;display:flex;flex-direction:column;align-items:center;'
+        +'justify-content:center;border:1px solid rgba(0,0,0,.25);min-width:0">'
+        +'<div style="font-family:monospace;font-size:'+fs+'px;font-weight:700;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;padding:0 2px">'+r.symbol+'</div>'
+        +'<div style="font-family:monospace;font-size:'+(fs-1)+'px;color:rgba(255,255,255,.9)">'+(chg>=0?'+':'')+chg.toFixed(1)+'%</div>'
         +'</div>';
     }).join('');
 
-    return '<div>'
-      +'<div style="font-family:monospace;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;display:flex;justify-content:space-between">'
+    const sel = 'hmSelectedSector=hmSelectedSector===this.dataset.s?null:this.dataset.s;renderHeatmap()';
+    return '<div data-s="'+sName+'" onclick="'+sel+'" '
+      +'style="cursor:pointer;padding:8px;border-radius:6px;border:1px solid '+(isSelected?'var(--green)':'rgba(30,37,48,.8)')+';'
+      +'background:'+(isSelected?'rgba(0,229,168,.05)':'transparent')+';transition:border-color .15s">'
+      +'<div style="font-family:monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;display:flex;justify-content:space-between">'
       +'<span>'+sName+'</span>'
-      +'<span style="color:'+(avgChg>=0?'#22b854':'#e03030')+'">'+(avgChg>=0?'+':'')+avgChg.toFixed(1)+'%</span>'
+      +'<span style="color:'+(avgChg>=0?'#16b85e':'#d93535')+';font-weight:600">'+(avgChg>=0?'+':'')+avgChg.toFixed(1)+'%</span>'
       +'</div>'
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:2px">'+cells+'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:2px">'+cells+'</div>'
       +'</div>';
   }).join('');
+
+  el.style.display='block';
+  el.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px;padding:4px">'
+    +grid+'</div>'+detailPanel;
+}
+</script>
+
+<!-- ── AI Chat flotante ── -->
+<div style="position:fixed;bottom:24px;right:24px;z-index:1000;display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+  <!-- Tooltip -->
+  <div id="aiTooltip" style="
+    background:var(--bg2);border:1px solid var(--green);border-radius:8px;
+    padding:8px 14px;font-family:monospace;font-size:12px;color:var(--text2);
+    white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4);
+    animation:fadeInUp .4s ease;cursor:pointer;
+  " onclick="aiToggle()">
+    Preguntame sobre el mercado ✦
+  </div>
+  <!-- Button -->
+  <div id="aiChatBtn" onclick="aiToggle()" style="
+    width:52px;height:52px;border-radius:50%;background:var(--green);color:#000;
+    border:none;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;font-size:22px;
+    box-shadow:0 4px 20px rgba(0,229,168,.35);transition:transform .15s;align-self:flex-end;
+    ">✦</div>
+</div>
+
+<style>
+@keyframes fadeInUp {
+  from { opacity:0; transform:translateY(10px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+</style>
+
+<div id="aiChatPanel" style="
+  position:fixed;bottom:88px;right:24px;width:420px;
+  background:var(--bg2);border:1px solid var(--border2);
+  border-radius:12px;z-index:1000;display:none;
+  flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5);
+  max-height:600px;
+  ">
+  <!-- Header -->
+  <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">✦</span>
+      <span style="font-family:monospace;font-size:11px;font-weight:500;color:var(--text);text-transform:uppercase;letter-spacing:1px">Asistente financiero</span>
+    </div>
+    <button onclick="aiToggle()" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0;line-height:1">✕</button>
+  </div>
+  <!-- Messages -->
+  <div id="aiMessages" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:200px;max-height:400px;scrollbar-width:thin">
+    <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;color:var(--text2);line-height:1.6">
+      Hola! Consulta datos del mercado en tiempo real.<br><br>
+      <span style="color:var(--green);cursor:pointer" onclick="aiAsk('Que acciones subieron mas de 5% hoy?')">» Acciones que subieron mas de 5%</span><br>
+      <span style="color:var(--green);cursor:pointer" onclick="aiAsk('Como estan las opciones de GGAL?')">» Opciones de GGAL</span><br>
+      <span style="color:var(--green);cursor:pointer" onclick="aiAsk('Que sectores del SP estan cayendo?')">» Sectores del S&amp;P cayendo</span><br>
+      <span style="color:var(--green);cursor:pointer" onclick="aiAsk('Resume el mercado argentino hoy')">» Resumen mercado argentino</span>
+    </div>
+  </div>
+  <!-- Input -->
+  <div style="padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0">
+    <input id="aiInput" type="text" placeholder="Pregunta sobre el mercado..."
+      style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;
+      padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text);outline:none"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiSend()}">
+    <button onclick="aiSend()" id="aiSendBtn"
+      style="background:var(--green);border:none;border-radius:6px;padding:8px 14px;
+      font-family:monospace;font-size:11px;font-weight:600;color:#000;cursor:pointer;white-space:nowrap">
+      Enviar
+    </button>
+  </div>
+</div>
+
+<script>
+// AI Chat
+let aiOpen = false;
+let aiHistory = [];
+
+window.aiToggle = () => {
+  if(!currentUser){ openAuth(); return; }
+  aiOpen = !aiOpen;
+  document.getElementById('aiChatPanel').style.display = aiOpen ? 'flex' : 'none';
+  // Hide tooltip when chat opens
+  const tip = document.getElementById('aiTooltip');
+  if(tip) tip.style.display = 'none';
+  if(aiOpen) setTimeout(()=>document.getElementById('aiInput').focus(), 100);
+};
+
+// Auto-hide tooltip after 6s
+setTimeout(()=>{
+  const tip = document.getElementById('aiTooltip');
+  if(tip) tip.style.opacity='0';
+  setTimeout(()=>{ if(tip) tip.style.display='none'; }, 500);
+}, 6000);
+
+window.aiAsk = (text) => {
+  document.getElementById('aiInput').value = text;
+  aiSend();
+};
+
+window.aiSend = async () => {
+  if(!currentUser){ openAuth(); return; }
+  const input = document.getElementById('aiInput');
+  const question = input.value.trim();
+  if(!question) return;
+
+  input.value = '';
+  const btn = document.getElementById('aiSendBtn');
+  btn.disabled = true; btn.textContent = '...';
+
+  aiAddMsg(question, 'user');
+
+  // Recopilar contexto relevante segun la pregunta
+  const ctx = await aiGetContext(question);
+
+  const systemPrompt = 'Sos un asistente financiero del mercado argentino y norteamericano. '
+    + 'Tenes acceso a datos en tiempo real. Responde conciso, en espanol, usando los datos provistos. '
+    + 'No inventes datos que no esten en el contexto. Si no tenes el dato, decilo. '
+    + 'Usa listas cuando corresponda y numeros formateados.';
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CFG.ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [
+          ...aiHistory.slice(-6),
+          { role: 'user', content: question + '\n\nContexto de mercado:\n' + ctx }
+        ]
+      })
+    });
+
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const answer = data.content?.[0]?.text || 'Sin respuesta';
+
+    aiHistory.push({role:'user', content: question});
+    aiHistory.push({role:'assistant', content: answer});
+    aiAddMsg(answer, 'assistant');
+
+  } catch(e) {
+    aiAddMsg('Error: ' + e.message, 'error');
+  }
+
+  btn.disabled = false; btn.textContent = 'Enviar';
+};
+
+function aiAddMsg(text, role) {
+  const el = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  const isUser = role === 'user';
+  const isError = role === 'error';
+  div.style.cssText = 'border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-word;'
+    + (isUser
+      ? 'background:rgba(0,229,168,.1);border:1px solid rgba(0,229,168,.2);color:var(--text);align-self:flex-end;max-width:85%'
+      : isError
+      ? 'background:rgba(255,63,94,.1);border:1px solid rgba(255,63,94,.2);color:var(--red)'
+      : 'background:var(--bg3);color:var(--text2)');
+  div.textContent = text;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function aiGetContext(question) {
+  const q = question.toLowerCase();
+  const parts = [];
+
+  // Detectar que datos son relevantes
+  const needsAR     = q.includes('argentin') || q.includes('accion') || q.includes('cedear') || q.includes('mercado') || q.includes('ggal') || q.includes('galicia');
+  const needsOpts   = q.includes('opcion') || q.includes('call') || q.includes('put') || q.includes('base') || q.includes('strike') || q.includes('iv') || q.includes('volatil');
+  const needsUSA    = q.includes('usa') || q.includes('sp') || q.includes('spy') || q.includes('nasdaq') || q.includes('sector') || q.includes('dow') || q.includes('norteam');
+  const needsDolar  = q.includes('dolar') || q.includes('mep') || q.includes('ccl') || q.includes('blue') || q.includes('cambio');
+
+  // Default: traer todo si pregunta es generica
+  const isGeneric = !needsAR && !needsOpts && !needsUSA && !needsDolar;
+
+  try {
+    const [arRows, optRows, usaRows, dolarRows] = await Promise.all([
+      (needsAR || isGeneric) ? sb('mercado',
+        'instrument_group=in.(bluechips,cedears)&settlement=eq.24hs&select=symbol,last,change,turnover,instrument_group'
+        +'&order=turnover.desc.nullslast&limit=30') : null,
+      (needsOpts) ? sb('opciones_rt',
+        'underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,volume'
+        +'&order=volume.desc.nullslast&limit=30') : null,
+      (needsUSA || isGeneric) ? sb('mercado_usa',
+        'sector=not.ilike.ETF*&select=symbol,sector,last,change_pct,volume'
+        +'&order=volume.desc.nullslast&limit=30') : null,
+      (needsDolar || isGeneric) ? sb('mercado',
+        'symbol=in.("AL30","AL30D","AL30C","GD30","GD30D")&settlement=eq.24hs&select=symbol,last,change') : null,
+    ]);
+
+    if(arRows?.length) {
+      const lines = arRows.map(r=>
+        `${r.symbol} (${r.instrument_group}): $${Number(r.last).toFixed(2)} | var: ${Number(r.change||0).toFixed(2)}% | turnover: $${Number(r.turnover||0).toLocaleString()}`
+      );
+      parts.push('=== Mercado AR (top 30 por volumen) ===\n' + lines.join('\n'));
+    }
+
+    if(optRows?.length) {
+      const lines = optRows.map(r=>
+        `${r.symbol} ${r.kind} strike:${r.strike} vto:${(r.expiration||'').slice(0,10)} last:${r.last} bid:${r.bid} ask:${r.ask} vol:${r.volume||0}`
+      );
+      parts.push('=== Opciones GGAL (top 30 por volumen) ===\n' + lines.join('\n'));
+    }
+
+    if(usaRows?.length) {
+      const lines = usaRows.map(r=>
+        `${r.symbol} (${r.sector}): $${Number(r.last||0).toFixed(2)} | var: ${Number(r.change_pct||0).toFixed(2)}%`
+      );
+      parts.push('=== Mercado USA (top 30 por volumen) ===\n' + lines.join('\n'));
+    }
+
+    if(dolarRows?.length) {
+      parts.push('=== Bonos para MEP/CCL ===\n' + dolarRows.map(r=>r.symbol+': $'+r.last).join('\n'));
+    }
+
+  } catch(e) {
+    parts.push('Error obteniendo contexto: ' + e.message);
+  }
+
+  return parts.join('\n\n') || 'Sin datos disponibles en este momento.';
 }
 </script>
 </body>
