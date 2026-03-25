@@ -694,113 +694,35 @@ function updateUserUI() {
 }
 
 // ── Auth-guarded module loader ──
-window.loadModuleAuth = (name, btn) => {
-  if (!currentUser) {
-    openAuth();
-    // Store intended module to load after login
-    window._pendingModule = { name, btn };
-    return;
+
+
+window.moduleTimers={};
+
+window.loadModule=async(name,btn)=>{
+  if(name===currentModule&&name!=='home')return;
+  Object.values(window.moduleTimers).forEach(t=>clearInterval(t));
+  window.moduleTimers={};
+  currentModule=name;
+  document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const container=document.getElementById('moduleContainer');
+  if(name==='home'){container.innerHTML='';renderHome();return;}
+  container.innerHTML=`<div class="module-loading"><div class="spinner"></div>Cargando ${name}...</div>`;
+  try{
+    const r=await fetch(`modules/${name}.html`);
+    if(!r.ok)throw new Error('Módulo no encontrado');
+    const html=await r.text();
+    container.innerHTML=html;
+    container.querySelectorAll('script').forEach(old=>{
+      const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
+    });
+  }catch(e){
+    container.innerHTML=`<div class="module-loading" style="color:var(--red)">Error: ${e.message}</div>`;
   }
-  loadModule(name, btn);
 };
 
-// ── Redirect after login ──
-sbAuth.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && window._pendingModule) {
-    const { name, btn } = window._pendingModule;
-    window._pendingModule = null;
-    setTimeout(() => loadModule(name, btn), 100);
-  }
-});
-
-// ── Also guard home module cards ──
-// (handled inline in renderHome via loadModuleAuth)
-
-// ── Global helpers ──
-window.sb = async (table, params='') => {
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token = session?.data?.session?.access_token;
-    const headers = token
-      ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token }
-      : CFG.SBH;
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {headers});
-    if(!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
-};
-window.fmtAR = (n,dec=2) => {
-  if(n==null||isNaN(n))return'—';
-  const[i,d]=Math.abs(Number(n)).toFixed(dec).split('.');
-  return(n<0?'-':'')+i.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+(d!==undefined?','+d:'');
-};
-window.fmtUSD = (n,dec=2) => {
-  if(n==null||isNaN(n))return'—';
-  const[i,d]=Math.abs(Number(n)).toFixed(dec).split('.');
-  return(n<0?'-':'')+'$'+i.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(d?'.'+d:'');
-};
-window.fmtPct = (n,dec=2) => {
-  if(n==null||isNaN(n))return'—';n=Number(n);
-  return(n>0?'+':'')+n.toFixed(dec).replace('.',',')+'%';
-};
-window.fmtM = (n) => {
-  if(!n||isNaN(n))return'—';n=Number(n);
-  if(n>=1e9)return'$'+(n/1e9).toFixed(1).replace('.',',')+'B';
-  if(n>=1e6)return'$'+(n/1e6).toFixed(1).replace('.',',')+'M';
-  if(n>=1e3)return'$'+(n/1e3).toFixed(0)+'K';
-  return'$'+fmtAR(n,0);
-};
-window.cc = (n) => { n=Number(n); return n>0?'up':n<0?'dn':'flat'; };
-window.normalizeBase = (v) => {
-  if(typeof v==='string') v=parseFloat(v.replace(/\./g,'').replace(',','.'));
-  if(isNaN(v))return 0;
-  if(v!==Math.floor(v))return v;
-  if(v>=10000&&v%10!==0)return v/10;
-  return v;
-};
-
-// ── Reloj ──
-function updateClock(){
-  const now=new Date(),p=n=>String(n).padStart(2,'0');
-  document.getElementById('clock').textContent=`${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
-  const day=now.getDay(),mins=now.getHours()*60+now.getMinutes();
-  const open=day>=1&&day<=5&&mins>=660&&mins<1020;
-  const el=document.getElementById('mktStatus');
-  el.className=(open?'mkt-open':'mkt-closed')+' mkt-badge';
-  document.getElementById('mktLabel').textContent=open?'Mercado abierto':'Mercado cerrado';
-}
-setInterval(updateClock,1000); updateClock();
-
-// ── Strip ──
-const FUTUROS_SYMS=['DLFUT','DLR','DLF','DLRMAR','DLRABR','DLRMAY','DLRJUN'];
-
-async function loadStrip(){
-  const usaSyms = ['SPY','QQQ','DIA','IWM','GLD','USO'];
-  const [usaRows, futRows] = await Promise.all([
-    sb('mercado_usa', `symbol=in.(${usaSyms.map(s=>'"'+s+'"').join(',')})&select=symbol,last,change_pct`),
-    sb('mercado', `symbol=in.(${FUTUROS_SYMS.map(s=>'"'+s+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change&order=symbol.asc&limit=5`),
-  ]);
-  const usaMap = {};
-  if(usaRows) usaRows.forEach(r=>{ usaMap[r.symbol]=r; });
-  const USA_COLORS = {SPY:'var(--green)',QQQ:'var(--blue)',DIA:'var(--text2)',IWM:'var(--purple)',GLD:'var(--amber)',USO:'var(--amber)'};
-  const USA_LABELS = {SPY:'SPY',QQQ:'QQQ',DIA:'DJI',IWM:'IWM',GLD:'Gold',USO:'WTI'};
-  const usaPart = usaSyms.map(sym=>{
-    const d = usaMap[sym];
-    const chg = d ? Number(d.change_pct) : null;
-    return`<div class="strip-item"><span class="strip-sym" style="color:${USA_COLORS[sym]||'var(--text2)'}">${USA_LABELS[sym]||sym}</span><span class="strip-val">${d&&d.last?fmtUSD(Number(d.last)):'—'}</span><span class="strip-chg ${chg!=null?cc(chg):'flat'}">${chg!=null?fmtPct(chg):'—'}</span></div>`;
-  }).join('');
-  const futMap={};if(futRows)futRows.forEach(r=>{futMap[r.symbol]=r;});
-  const futKeys=FUTUROS_SYMS.filter(s=>futMap[s]);
-  let futPart='';
-  if(futKeys.length){
-    futPart=`<div class="strip-item"><span class="strip-sym" style="font-size:8px;letter-spacing:1px;color:var(--text4)">FUT$</span></div>`;
-    futPart+=futKeys.map(s=>{const d=futMap[s],chg=Number(d.change);return`<div class="strip-item"><span class="strip-sym" style="color:var(--amber)">${d.symbol}</span><span class="strip-val">${fmtAR(d.last,2)}</span><span class="strip-chg ${cc(chg)}">${fmtPct(chg)}</span></div>`;}).join('');
-  }
-  document.getElementById('indicesStrip').innerHTML=usaPart+futPart;
-}
-
-
-async function renderHome(){
+// ── Home ──
+ function renderHome(){
   const container=document.getElementById('moduleContainer');
   container.innerHTML=`
     <div class="landing-grid">
@@ -850,17 +772,14 @@ async function renderHome(){
     </div>`;
   // Bottom section: news + sentiment + macro
   container.insertAdjacentHTML('beforeend', [
-    '<div style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start">',
-    '<div>',
-    '<div class="sec-head" style="--hc:var(--cyan)">Breaking News</div>',
-    '<div class="card" style="overflow:hidden">',
-    '<div id="newsContainer" style="max-height:400px;overflow-y:auto;scrollbar-width:thin">',
+    '<div style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start;margin-top:14px">',
+    '<div><div class="sec-head" style="--hc:var(--cyan)">Breaking News</div>',
+    '<div class="card" style="overflow:hidden"><div id="newsContainer" style="max-height:400px;overflow-y:auto;scrollbar-width:thin">',
     '<div style="padding:24px;font-size:10px;color:var(--text3);text-align:center">Cargando...</div>',
     '</div></div></div>',
     '<div style="display:flex;flex-direction:column;gap:10px">',
-    '<div class="dolar-block"><div class="block-title">Sentimiento de mercado</div>',
-    '<div style="padding:14px;display:flex;flex-direction:column;gap:10px">',
-    '<div style="display:flex;align-items:center;gap:12px">',
+    '<div class="dolar-block"><div class="block-title">Sentimiento de mercado</div><div style="padding:14px">',
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">',
     '<div id="fngGauge" style="width:54px;height:54px;flex-shrink:0"></div>',
     '<div><div style="font-size:8px;font-family:monospace;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Fear &amp; Greed</div>',
     '<div style="font-size:22px;font-weight:500;font-family:monospace" id="fngValue">—</div>',
@@ -875,15 +794,11 @@ async function renderHome(){
     '</div></div></div>',
     '<div class="dolar-block"><div class="block-title">Sectores USA</div>',
     '<div id="miniHeatmap" style="padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px">',
-    '<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">Cargando...</div>',
-    '</div></div>',
+    '<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">Cargando...</div></div></div>',
     '<div class="dolar-block"><div class="block-title">Próximos eventos macro</div>',
-    '<div id="macroCalendar" style="font-size:10px">',
-    '<div style="padding:12px;color:var(--text3);text-align:center;font-family:monospace">Cargando...</div>',
-    '</div></div>',
-    '</div></div>'
+    '<div id="macroCalendar"><div style="padding:12px;color:var(--text3);text-align:center;font-family:monospace">Cargando...</div>',
+    '</div></div></div></div>'
   ].join(''));
-
   loadDolar(); loadRankings('bluechips','acc'); loadRankings('cedears','ced');
   loadNews(); loadFearGreed(); loadMiniHeatmap(); loadMacroCalendar();
   window.moduleTimers.home=setInterval(()=>{
@@ -928,91 +843,6 @@ async function loadDolar(){
     <td>${t.venta?'$'+fmtAR(t.venta):'—'}</td>
   </tr>`).join('');
 }
-
-function renderRank(id,rows,mode){
-  const el=document.getElementById(id);if(!el)return;
-  if(!rows||!rows.length){el.innerHTML='<div class="rank-empty">Sin datos</div>';return;}
-  el.innerHTML=rows.map((r,i)=>{
-    const chg=Number(r.change),cls=cc(chg);
-    const sub=mode==='turnover'?`<div class="rank-sub">${fmtM(r.turnover)}</div>`:`<div class="rank-sub">Vol ${r.volume?fmtAR(Number(r.volume),0):'—'}</div>`;
-    return`<div class="rank-item"><div class="rank-pos">${i+1}</div><div><div class="rank-sym">${r.symbol}</div>${sub}</div><div class="rank-price">$${fmtAR(r.last,2)}</div><div class="rank-chg ${cls}">${fmtPct(chg)}</div></div>`;
-  }).join('');
-}
-async function loadRankings(group,prefix){
-  const base=`instrument_group=eq.${group}&settlement=eq.24hs&select=symbol,last,change,turnover,volume`;
-  const[top,gainers,losers]=await Promise.all([sb('mercado',base+'&order=turnover.desc.nullslast&limit=5'),sb('mercado',base+'&order=change.desc.nullslast&limit=5'),sb('mercado',base+'&order=change.asc&limit=5')]);
-  renderRank(prefix+'-turnover',top,'turnover');renderRank(prefix+'-gainers',gainers,'change');renderRank(prefix+'-losers',losers,'change');
-}
-
-// ── Admin ──
-window.adminAuthed=false;
-window.openAdmin=()=>{
-  document.getElementById('adminOverlay').classList.add('open');
-  if(!adminAuthed){document.getElementById('adminAuth').style.display='block';document.getElementById('adminUpload').style.display='none';setTimeout(()=>document.getElementById('pwInput').focus(),100);}
-};
-window.closeAdmin=()=>document.getElementById('adminOverlay').classList.remove('open');
-window.checkPw=()=>{
-  const pw=document.getElementById('pwInput').value,msg=document.getElementById('authMsg');
-  if(pw===CFG.ADMIN_PASSWORD){adminAuthed=true;document.getElementById('adminAuth').style.display='none';document.getElementById('adminUpload').style.display='block';msg.className='modal-msg';}
-  else{msg.textContent='Contraseña incorrecta';msg.className='modal-msg err';document.getElementById('pwInput').value='';}
-};
-document.getElementById('adminOverlay').addEventListener('click',e=>{if(e.target===document.getElementById('adminOverlay'))closeAdmin();});
-
-// ── Footer ──
-function updateFooter(){
-  const now=new Date(),ts=now.toLocaleDateString('es-AR')+' '+now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  document.getElementById('lastUpdate').textContent=ts;
-  document.getElementById('footerTs').textContent=ts;
-}
-setInterval(updateFooter,5000);updateFooter();
-
-// ── Feed BD — última actualización ──
-async function checkBdUpdate(){
-  try{
-    // Trae la fila con el updated_at más reciente de toda la tabla mercado
-    const rows = await sb('mercado','select=updated_at&order=updated_at.desc.nullslast&limit=1');
-    const dot = document.getElementById('bd-status-dot');
-    const lbl = document.getElementById('bd-last-update');
-    if(!rows||!rows.length||!rows[0].updated_at){
-      if(dot) dot.style.background='var(--text4)';
-      if(lbl) lbl.textContent='sin datos';
-      return;
-    }
-    const updAt = new Date(rows[0].updated_at);
-    const ahoraMs = Date.now();
-    const diffMs = ahoraMs - updAt.getTime();
-    const diffMin = Math.floor(diffMs/60000);
-    const diffSeg = Math.floor((diffMs%60000)/1000);
-
-    // Formatear label
-    let timeStr;
-    if(diffMs < 60000)       timeStr = diffSeg+'s atrás';
-    else if(diffMin < 60)    timeStr = diffMin+'m '+diffSeg+'s atrás';
-    else                     timeStr = Math.floor(diffMin/60)+'h '+( diffMin%60)+'m atrás';
-
-    // Color según antigüedad
-    let color, pulse=false;
-    if(diffMs < 60000)       { color='var(--green)';  pulse=true;  }  // < 1 min → verde pulsando
-    else if(diffMs < 300000) { color='var(--amber)';  pulse=false; }  // < 5 min → amarillo
-    else                     { color='var(--red)';    pulse=false; }  // > 5 min → rojo, feed caído
-
-    if(dot){
-      dot.style.background = color;
-      dot.style.animation = pulse ? 'pulse 2s infinite' : 'none';
-    }
-    if(lbl){
-      lbl.textContent = timeStr;
-      lbl.style.color = color;
-    }
-  }catch(e){}
-}
-checkBdUpdate();
-setInterval(checkBdUpdate, 15000); // chequear cada 15 segundos
-
-// ── Init ──
-loadStrip();setInterval(loadStrip,60000);
-loadModule('home',document.getElementById('mtab-home'));
-if(location.hash){const mod=location.hash.replace('#','');const btn=document.getElementById('mtab-'+mod);if(btn&&!btn.classList.contains('disabled'))loadModule(mod,btn);}
 
 // ── Delta One News (RSSHub) ──
 async function loadNews(){
