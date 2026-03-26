@@ -577,7 +577,7 @@ window.tickerSelect = async function(sym){
 window.CFG = {
   SB_URL: 'https://endymbpdayeidromxayb.supabase.co',
   SB_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk',
-  ANTHROPIC_KEY: localStorage.getItem('ak') || '',  // se ingresa desde el panel admin
+  ANTHROPIC_KEY: '',
   ADMIN_PASSWORD: localStorage.getItem('ap') || 'Ggal2026+',
   // ── Alertas ──────────────────────────────────
   TG_TOKEN:  'PONE_TU_TOKEN_ACA',    // ej: 123456789:AABBccDD...
@@ -1380,12 +1380,7 @@ window.aiToggle = () => {
   if(aiOpen) setTimeout(()=>document.getElementById('aiInput').focus(), 100);
 };
 
-// Auto-hide tooltip after 6s
-setTimeout(()=>{
-  const tip = document.getElementById('aiTooltip');
-  if(tip) tip.style.opacity='0';
-  setTimeout(()=>{ if(tip) tip.style.display='none'; }, 500);
-}, 6000);
+// Tooltip stays visible - only hides when chat opens
 
 window.aiAsk = (text) => {
   document.getElementById('aiInput').value = text;
@@ -1423,6 +1418,7 @@ window.aiSend = async () => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + token,
+        'apikey': CFG.SB_KEY,
       },
       body: JSON.stringify({
         system: systemPrompt,
