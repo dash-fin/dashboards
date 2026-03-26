@@ -1413,17 +1413,18 @@ window.aiSend = async () => {
     + 'Usa listas cuando corresponda y numeros formateados.';
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // Obtener token de sesion del usuario logueado
+    const session = await sbAuth.auth.getSession();
+    const token = session?.data?.session?.access_token;
+    if(!token) throw new Error('Sin sesion activa');
+
+    const resp = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/super-function', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': CFG.ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+        'Authorization': 'Bearer ' + token,
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
         system: systemPrompt,
         messages: [
           ...aiHistory.slice(-6),
@@ -1434,6 +1435,7 @@ window.aiSend = async () => {
 
     if(!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
+    if(data.error) throw new Error(data.error);
     const answer = data.content?.[0]?.text || 'Sin respuesta';
 
     aiHistory.push({role:'user', content: question});
