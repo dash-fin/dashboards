@@ -1413,7 +1413,7 @@ window.aiSend = async () => {
     const token = session?.data?.session?.access_token;
     if(!token) throw new Error('Sin sesion activa');
 
-    const resp = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/super-function', {
+    const resp = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/rapid-worker', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
