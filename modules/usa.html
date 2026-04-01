@@ -1,0 +1,660 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: USA — Mercado americano via Alpaca
+     Solapas: Mercado | Sectores | Opciones (señales P/C)
+══════════════════════════════════════════════════ -->
+
+<style>
+.usa-heatmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px}
+.hm-cell{border-radius:5px;padding:8px 6px;text-align:center;cursor:default;transition:filter .15s}
+.hm-cell:hover{filter:brightness(1.2)}
+.hm-sym{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;color:#fff;margin-bottom:3px}
+.hm-chg{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#fff}
+.hm-vol{font-family:'IBM Plex Mono',monospace;font-size:8px;color:rgba(255,255,255,.7);margin-top:2px}
+.signal-card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:14px}
+.signal-bias{width:36px;height:36px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.signal-bull{background:var(--greenDim);border:1px solid rgba(0,229,168,.3)}
+.signal-bear{background:var(--redDim);border:1px solid rgba(255,63,94,.3)}
+.signal-neutral{background:var(--bg3);border:1px solid var(--border)}
+.signal-sym{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:var(--text)}
+.signal-label{font-size:11px;color:var(--text2);margin-top:2px}
+.signal-stats{margin-left:auto;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
+.signal-pc{font-size:13px;font-weight:500}
+.pc-bull{color:var(--green)}.pc-bear{color:var(--red)}.pc-neutral{color:var(--text2)}
+</style>
+
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="ustab-mercado"  onclick="usTab('mercado',this)">Mercado</button>
+    <button class="stab"        id="ustab-sectores" onclick="usTab('sectores',this)">Sectores</button>
+    <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
+    <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="sub-tabs-meta" id="usLastUpdate">—</div>
+    <button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="usLoadAll()">↺</button>
+  </div>
+</div>
+
+<!-- ══ MERCADO ══ -->
+<div class="sub-panel active" id="uspanel-mercado">
+
+  <!-- KPIs mercado -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Subas</div><div class="kpi-val" id="us-kpi-up">—</div><div class="kpi-sub">vs total</div></div>
+    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Bajas</div><div class="kpi-val" id="us-kpi-dn">—</div><div class="kpi-sub">vs total</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Mayor suba</div><div class="kpi-val" id="us-kpi-best">—</div><div class="kpi-sub" id="us-kpi-best-pct">—</div></div>
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Mayor baja</div><div class="kpi-val" id="us-kpi-worst">—</div><div class="kpi-sub" id="us-kpi-worst-pct">—</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Símbolos</div><div class="kpi-val" id="us-kpi-total">—</div><div class="kpi-sub">en base</div></div>
+  </div>
+
+  <!-- Rankings -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px" id="usRankingsSection">
+    <div>
+      <div class="sec-head" style="--hc:var(--blue);margin-bottom:8px">
+        Más operadas
+        <select id="usRankCapFilter" onchange="usApplyRankFilter()" style="margin-left:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);outline:none">
+          <option value="all">Todos</option>
+          <option value="mega">Mega cap</option>
+          <option value="large">Large cap</option>
+          <option value="mid">Mid cap</option>
+          <option value="etf">ETFs</option>
+          <option value="ADR Argentina">ADR ARG</option>
+          <option value="ADR Brasil">ADR BRA</option>
+        </select>
+      </div>
+      <div class="rank-card"><div id="us-turnover"></div></div>
+    </div>
+    <div>
+      <div class="sec-head" style="--hc:var(--green);margin-bottom:8px">Mayores subas</div>
+      <div class="rank-card"><div id="us-gainers"></div></div>
+    </div>
+    <div>
+      <div class="sec-head" style="--hc:var(--red);margin-bottom:8px">Mayores bajas</div>
+      <div class="rank-card"><div id="us-losers"></div></div>
+    </div>
+  </div>
+
+  <!-- Screener -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Screener técnico</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap" id="usScreenerFilters">
+        <select class="sel" id="usScSector" onchange="usApplyScreener()" style="font-size:10px;padding:4px 8px">
+          <option value="">Todos los sectores</option>
+        </select>
+        <select class="sel" id="usScCap" onchange="usApplyScreener()" style="font-size:10px;padding:4px 8px">
+          <option value="">Todos los caps</option>
+          <option value="mega">Mega cap</option>
+          <option value="large">Large cap</option>
+          <option value="mid">Mid cap</option>
+          <option value="etf">ETFs</option>
+        </select>
+        <select class="sel" id="usScRSI" onchange="usApplyScreener()" style="font-size:10px;padding:4px 8px">
+          <option value="">RSI — todos</option>
+          <option value="ob">RSI sobrecomprado (&gt;70)</option>
+          <option value="os">RSI sobrevendido (&lt;30)</option>
+          <option value="mid">RSI neutro (30-70)</option>
+        </select>
+        <select class="sel" id="usScTrend" onchange="usApplyScreener()" style="font-size:10px;padding:4px 8px">
+          <option value="">Tendencia — todas</option>
+          <option value="bullish">Above SMA200 (alcista)</option>
+          <option value="bearish">Below SMA200 (bajista)</option>
+          <option value="breakout">Breakout SMA50</option>
+        </select>
+        <input class="search-input" id="usScSearch" placeholder="Buscar ticker..." oninput="usApplyScreener()" style="max-width:140px">
+        <span class="row-count" id="usScCount" style="margin-left:auto"></span>
+      </div>
+    </div>
+    <div class="table-wrap" style="max-height:400px">
+      <table>
+        <thead><tr>
+          <th class="th-left" onclick="usSort('symbol')">Ticker</th>
+          <th class="th-left" onclick="usSort('sector')">Sector</th>
+          <th onclick="usSort('last')">Precio</th>
+          <th onclick="usSort('change_pct')" class="sort-desc">Var %</th>
+          <th onclick="usSort('volume')">Volumen</th>
+          <th onclick="usSort('volume_rel')">Vol rel.</th>
+          <th onclick="usSort('rsi_14')">RSI</th>
+          <th onclick="usSort('sma_200')">SMA200</th>
+          <th>Tendencia</th>
+        </tr></thead>
+        <tbody id="usScreenerTbody">
+          <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SECTORES ══ -->
+<div class="sub-panel" id="uspanel-sectores">
+  <div class="card">
+    <div class="card-head"><div class="card-title">Heatmap sectorial — ETFs</div></div>
+    <div class="card-body">
+      <div class="usa-heatmap" id="usHeatmap"></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Mejores sectores hoy</div></div>
+      <div id="usSectorBest"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Peores sectores hoy</div></div>
+      <div id="usSectorWorst"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ OPCIONES ══ -->
+<div class="sub-panel" id="uspanel-opciones">
+
+  <!-- Señales P/C -->
+  <div class="sec-head" style="--hc:var(--purple);margin-bottom:10px">Señales Put/Call por subyacente</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="usPCFilterGroup">
+    <button class="flt on" onclick="usPCFilter('all',this)">Todos</button>
+    <button class="flt" onclick="usPCFilter('bullish',this)" data-cls="on-green">🐂 Alcistas</button>
+    <button class="flt" onclick="usPCFilter('bearish',this)" data-cls="on-red">🐻 Bajistas</button>
+    <button class="flt" onclick="usPCFilter('neutral',this)" data-cls="on-amber">↔ Neutral</button>
+  </div>
+  <div id="usSignalsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">
+    <div class="empty-state"><div class="empty-icon">📊</div><p>Cargando señales de opciones...</p></div>
+  </div>
+
+  <!-- P/C Ratio general -->
+  <div style="margin-top:16px">
+    <div class="sec-head" style="--hc:var(--blue);margin-bottom:10px">P/C Ratio — detalle por subyacente</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th class="th-left">Subyacente</th>
+            <th>Vol Calls</th>
+            <th>Vol Puts</th>
+            <th>Vol Total</th>
+            <th onclick="usPCSort('pc_ratio')" class="sort-desc">P/C Ratio</th>
+            <th>Sesgo</th>
+          </tr></thead>
+          <tbody id="usPCTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ GEX SPY ══ -->
+<div class="sub-panel" id="uspanel-gex">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">GEX Neto</div><div class="kpi-val" id="gex-neto">—</div><div class="kpi-sub" id="gex-neto-label">—</div></div>
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Call GEX</div><div class="kpi-val" id="gex-calls">—</div><div class="kpi-sub">dealers long gamma</div></div>
+    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Put GEX</div><div class="kpi-val" id="gex-puts">—</div><div class="kpi-sub">dealers short gamma</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Gamma Wall</div><div class="kpi-val" id="gex-wall">—</div><div class="kpi-sub" id="gex-wall-label">mayor concentracion</div></div>
+  </div>
+  <div id="gex-interpretation" class="card" style="margin-bottom:14px;padding:12px 16px;font-size:12px;color:var(--text2);line-height:1.7">Cargando...</div>
+  <div class="sec-head" style="--hc:var(--blue)">GEX por Strike</div>
+  <div class="card" style="margin-bottom:14px"><canvas id="gexChart" height="280"></canvas></div>
+  <div class="sec-head" style="--hc:var(--amber)">Strikes clave</div>
+  <div class="card" style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:11px">
+      <thead><tr style="border-bottom:1px solid var(--border);color:var(--text3)">
+        <th style="padding:8px;text-align:left">Strike</th>
+        <th style="padding:8px;text-align:right">Call GEX</th>
+        <th style="padding:8px;text-align:right">Put GEX</th>
+        <th style="padding:8px;text-align:right">GEX Neto</th>
+        <th style="padding:8px;text-align:right">Call OI/Vol</th>
+        <th style="padding:8px;text-align:right">Put OI/Vol</th>
+        <th style="padding:8px;text-align:center">Nivel</th>
+      </tr></thead>
+      <tbody id="gex-table-body"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--text3);font-family:monospace">Vencimiento:</span>
+    <div id="gex-exp-selector" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+  <div style="margin-top:8px;font-size:10px;color:var(--text3);font-family:monospace">* OI/Vol: open interest cuando disponible, volumen del dia como proxy cuando OI es null</div>
+</div>
+
+<script>
+(function(){
+
+// ── State ──
+let usAllData   = [];
+let usSectors   = [];
+let usSignals   = [];
+let usSortCol   = 'volume';
+let usSortDir   = -1;
+let usRankCap   = 'all';
+let usPCBias    = 'all';
+let usPCSortCol = 'pc_ratio';
+let usPCSortDir = -1;
+
+// ── Tabs ──
+window.usTab = (name, btn) => {
+  document.querySelectorAll('[id^="uspanel-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('uspanel-'+name).classList.add('active');
+  document.querySelectorAll('[id^="ustab-"]').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  if(name==='sectores') usRenderSectores();
+  if(name==='opciones') usRenderOpciones();
+};
+
+// ── Load ──
+window.usLoadAll = async () => {
+  const [rows, sectRows, sigRows] = await Promise.all([
+    sb('mercado_usa','select=symbol,sector,market_cap_cat,last,change_pct,volume,volume_rel,rsi_14,sma_20,sma_50,sma_200,above_sma20,above_sma50,above_sma200,session&order=volume.desc.nullslast&limit=600'),
+    sb('sectores_usa','select=*&order=change_pct.desc.nullslast'),
+    sb('opciones_usa_signals','select=*&order=vol_total.desc.nullslast&limit=100'),
+  ]);
+
+  if(rows) usAllData = rows;
+  if(sectRows) usSectors = sectRows;
+  if(sigRows) usSignals = sigRows;
+
+  // Update sectors dropdown
+  const sectors = [...new Set(usAllData.map(r=>r.sector).filter(Boolean))].sort();
+  const sel = document.getElementById('usScSector');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos los sectores</option>' +
+    sectors.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${s}</option>`).join('');
+
+  // KPIs
+  const withChange = usAllData.filter(r=>r.change_pct!=null);
+  const ups   = withChange.filter(r=>r.change_pct>0).length;
+  const dns   = withChange.filter(r=>r.change_pct<0).length;
+  const best  = [...withChange].sort((a,b)=>b.change_pct-a.change_pct)[0];
+  const worst = [...withChange].sort((a,b)=>a.change_pct-b.change_pct)[0];
+  document.getElementById('us-kpi-up').textContent    = ups;
+  document.getElementById('us-kpi-dn').textContent    = dns;
+  document.getElementById('us-kpi-total').textContent = usAllData.length;
+  document.getElementById('us-kpi-best').textContent  = best?.symbol || '—';
+  document.getElementById('us-kpi-best-pct').textContent = best ? fmtPct(best.change_pct) : '—';
+  document.getElementById('us-kpi-worst').textContent  = worst?.symbol || '—';
+  document.getElementById('us-kpi-worst-pct').textContent = worst ? fmtPct(worst.change_pct) : '—';
+
+  // Last update
+  const now = new Date();
+  document.getElementById('usLastUpdate').textContent =
+    'Act: '+now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+  usRenderRankings();
+  usApplyScreener();
+
+  // Render active panel
+  const activePanel = document.querySelector('[id^="uspanel-"].active')?.id?.replace('uspanel-','');
+  if(activePanel==='sectores') usRenderSectores();
+  if(activePanel==='opciones') usRenderOpciones();
+};
+
+// ── Rankings ──
+window.usApplyRankFilter = () => {
+  usRankCap = document.getElementById('usRankCapFilter').value;
+  usRenderRankings();
+};
+
+function usRenderRankings(){
+  let data = usAllData;
+  if(usRankCap && usRankCap !== 'all'){
+    if(usRankCap.startsWith('ADR')){
+      data = data.filter(r=>r.sector?.includes(usRankCap));
+    } else {
+      data = data.filter(r=>r.market_cap_cat===usRankCap);
+    }
+  }
+
+  const byVol    = [...data].filter(r=>r.volume>0).sort((a,b)=>(b.volume||0)-(a.volume||0)).slice(0,10);
+  const gainers  = [...data].filter(r=>r.change_pct!=null).sort((a,b)=>b.change_pct-a.change_pct).slice(0,10);
+  const losers   = [...data].filter(r=>r.change_pct!=null).sort((a,b)=>a.change_pct-b.change_pct).slice(0,10);
+
+  renderUSARank('us-turnover', byVol,   'volume');
+  renderUSARank('us-gainers',  gainers, 'change');
+  renderUSARank('us-losers',   losers,  'change');
+}
+
+function renderUSARank(id, rows, mode){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(!rows.length){ el.innerHTML='<div class="rank-empty">Sin datos</div>'; return; }
+  el.innerHTML = rows.map((r,i)=>{
+    const chg = Number(r.change_pct||0);
+    const cls = cc(chg);
+    const sub = mode==='volume'
+      ? `<div class="rank-sub">${r.volume ? fmtM(r.volume) : '—'} acciones</div>`
+      : `<div class="rank-sub">${r.sector||'—'}</div>`;
+    return`<div class="rank-item">
+      <div class="rank-pos">${i+1}</div>
+      <div><div class="rank-sym">${r.symbol}</div>${sub}</div>
+      <div class="rank-price">${r.last?fmtUSD(Number(r.last)):'—'}</div>
+      <div class="rank-chg ${cls}">${fmtPct(chg)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Screener ──
+window.usApplyScreener = () => {
+  const sector = document.getElementById('usScSector').value;
+  const cap    = document.getElementById('usScCap').value;
+  const rsi    = document.getElementById('usScRSI').value;
+  const trend  = document.getElementById('usScTrend').value;
+  const q      = (document.getElementById('usScSearch').value||'').toUpperCase();
+
+  let rows = usAllData.filter(r=>{
+    if(q && !r.symbol?.includes(q)) return false;
+    if(sector && r.sector !== sector) return false;
+    if(cap && r.market_cap_cat !== cap) return false;
+    if(rsi==='ob' && !(r.rsi_14>=70)) return false;
+    if(rsi==='os' && !(r.rsi_14<=30)) return false;
+    if(rsi==='mid' && !(r.rsi_14>30&&r.rsi_14<70)) return false;
+    if(trend==='bullish' && !r.above_sma200) return false;
+    if(trend==='bearish' && r.above_sma200!==false) return false;
+    if(trend==='breakout' && !r.above_sma50) return false;
+    return true;
+  });
+
+  rows.sort((a,b)=>{
+    const av=a[usSortCol]??-Infinity, bv=b[usSortCol]??-Infinity;
+    return usSortDir*((av>bv)?1:-1);
+  });
+
+  document.getElementById('usScCount').textContent = rows.length+' resultados';
+
+  const rsiColor = v => !v?'neu':v>=70?'neg':v<=30?'pos':'neu';
+  const trendBadge = r => {
+    if(r.above_sma200===true)  return '<span class="badge b-call" style="font-size:8px">▲ Alcista</span>';
+    if(r.above_sma200===false) return '<span class="badge b-put" style="font-size:8px">▼ Bajista</span>';
+    return '<span style="color:var(--text3);font-size:9px">—</span>';
+  };
+
+  document.getElementById('usScreenerTbody').innerHTML = !rows.length
+    ? '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Sin resultados</td></tr>'
+    : rows.slice(0,200).map(r=>{
+        const chg = Number(r.change_pct||0);
+        return`<tr>
+          <td class="td-left" style="color:var(--text);font-weight:500">${r.symbol}</td>
+          <td class="td-left" style="font-size:9px;color:var(--text3)">${r.sector||'—'}</td>
+          <td>${r.last?fmtUSD(Number(r.last)):'—'}</td>
+          <td class="${cc(chg)}" style="font-weight:500">${fmtPct(chg)}</td>
+          <td style="color:var(--text3)">${r.volume?fmtM(r.volume):'—'}</td>
+          <td style="color:${(r.volume_rel||0)>2?'var(--amber)':'var(--text3)'}">${r.volume_rel?Number(r.volume_rel).toFixed(1)+'x':'—'}</td>
+          <td class="${rsiColor(r.rsi_14)}">${r.rsi_14?Number(r.rsi_14).toFixed(0):'—'}</td>
+          <td style="color:var(--text3)">${r.sma_200?fmtUSD(Number(r.sma_200)):'—'}</td>
+          <td>${trendBadge(r)}</td>
+        </tr>`;
+      }).join('');
+};
+
+window.usSort = (col) => {
+  if(usSortCol===col) usSortDir*=-1; else { usSortCol=col; usSortDir=-1; }
+  usApplyScreener();
+};
+
+// ── Sectores heatmap ──
+function usRenderSectores(){
+  if(!usSectors.length){
+    document.getElementById('usHeatmap').innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><p>Sin datos de sectores</p></div>';
+    return;
+  }
+
+  const sorted = [...usSectors].filter(r=>r.change_pct!=null).sort((a,b)=>b.change_pct-a.change_pct);
+  const max = Math.max(...sorted.map(r=>Math.abs(r.change_pct||0)), 1);
+
+  document.getElementById('usHeatmap').innerHTML = sorted.map(r=>{
+    const chg = Number(r.change_pct||0);
+    const intensity = Math.min(Math.abs(chg)/max, 1);
+    const bg = chg >= 0
+      ? `rgba(0,229,168,${0.15+intensity*0.5})`
+      : `rgba(255,63,94,${0.15+intensity*0.5})`;
+    return`<div class="hm-cell" style="background:${bg};min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div class="hm-sym">${r.symbol}</div>
+      <div class="hm-chg">${fmtPct(chg)}</div>
+      <div class="hm-vol">${r.name||r.sector||''}</div>
+    </div>`;
+  }).join('');
+
+  // Best/worst
+  const best  = sorted.slice(0,5);
+  const worst = sorted.slice(-5).reverse();
+  ['usSectorBest','usSectorWorst'].forEach((id,idx)=>{
+    const list = idx===0 ? best : worst;
+    document.getElementById(id).innerHTML = list.map((r,i)=>`
+      <div class="rank-item">
+        <div class="rank-pos">${i+1}</div>
+        <div><div class="rank-sym">${r.symbol}</div><div class="rank-sub">${r.name||r.sector}</div></div>
+        <div class="rank-price">${r.last?fmtUSD(Number(r.last)):'—'}</div>
+        <div class="rank-chg ${cc(r.change_pct)}">${fmtPct(r.change_pct)}</div>
+      </div>`).join('');
+  });
+}
+
+// ── Opciones señales ──
+window.usPCFilter = (bias, btn) => {
+  usPCBias = bias;
+  document.querySelectorAll('#usPCFilterGroup .flt').forEach(b=>b.classList.remove('on','on-green','on-red','on-amber'));
+  btn.classList.add(btn.dataset.cls||'on');
+  usRenderOpciones();
+};
+
+window.usPCSort = (col) => {
+  if(usPCSortCol===col) usPCSortDir*=-1; else { usPCSortCol=col; usPCSortDir=-1; }
+  usRenderOpciones();
+};
+
+function usRenderOpciones(){
+  let data = usSignals;
+  if(usPCBias!=='all') data = data.filter(r=>r.bias===usPCBias);
+
+  const grid = document.getElementById('usSignalsGrid');
+  if(!data.length){
+    grid.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><p>Sin señales disponibles — esperá el próximo ciclo de opciones</p></div>';
+  } else {
+    grid.innerHTML = data.map(r=>{
+      const isBull = r.bias==='bullish';
+      const isBear = r.bias==='bearish';
+      const biasCls= isBull?'signal-bull':isBear?'signal-bear':'signal-neutral';
+      const biasIcon= isBull?'🐂':isBear?'🐻':'↔';
+      const pcCls  = isBull?'pc-bull':isBear?'pc-bear':'pc-neutral';
+      return`<div class="signal-card">
+        <div class="signal-bias ${biasCls}">${biasIcon}</div>
+        <div>
+          <div class="signal-sym">${r.symbol}</div>
+          <div class="signal-label">${r.label}</div>
+        </div>
+        <div class="signal-stats">
+          <div class="signal-pc ${pcCls}">${r.pc_ratio}x</div>
+          <div>Vol: ${fmtM(r.vol_total)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Tabla detalle
+  const sorted = [...usSignals].sort((a,b)=>{
+    const av=a[usPCSortCol]??-Infinity, bv=b[usPCSortCol]??-Infinity;
+    return usPCSortDir*((av>bv)?1:-1);
+  });
+
+  document.getElementById('usPCTbody').innerHTML = !sorted.length
+    ? '<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--text3)">Sin datos</td></tr>'
+    : sorted.map(r=>{
+        const isBull=r.bias==='bullish', isBear=r.bias==='bearish';
+        const pcCls = isBull?'pos':isBear?'neg':'neu';
+        const badge = isBull
+          ? '<span class="badge b-call">🐂 Alcista</span>'
+          : isBear
+          ? '<span class="badge b-put">🐻 Bajista</span>'
+          : '<span style="color:var(--text3);font-size:9px">↔ Neutral</span>';
+        return`<tr>
+          <td class="td-left" style="color:var(--text);font-weight:500">${r.symbol}</td>
+          <td style="color:var(--green)">${r.vol_calls?fmtM(r.vol_calls):'—'}</td>
+          <td style="color:var(--red)">${r.vol_puts?fmtM(r.vol_puts):'—'}</td>
+          <td style="color:var(--text2)">${fmtM(r.vol_total)}</td>
+          <td class="${pcCls}" style="font-weight:500">${r.pc_ratio}x</td>
+          <td>${badge}</td>
+        </tr>`;
+      }).join('');
+}
+
+
+// ── GEX SPY ──────────────────────────────────────────────────────
+window.window.gexAllData = [];
+window.gexSelectedExp = 'all';
+window.gexSpot = 550;
+
+window.loadGEX = async function loadGEX() {
+  document.getElementById('gex-neto').textContent = '...';
+  document.getElementById('gex-interpretation').textContent = 'Bajando datos de CBOE...';
+  try {
+    const session = await sbAuth.auth.getSession();
+    const token = session?.data?.session?.access_token;
+    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/rapid-worker', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': CFG.SB_KEY,
+      },
+      body: JSON.stringify({ mode: 'cboe', ticker: 'SPY' }),
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    if (!d.options || !d.options.length) throw new Error('Sin opciones de CBOE');
+
+    window.gexSpot = Number(d.spot) || 550;
+
+    // Filtrar opciones con OI y gamma reales, cerca del spot
+    const validRows = d.options.filter(o =>
+      Number(o.gamma) > 0 &&
+      Number(o.open_interest) > 0 &&
+      Number(o.strike) >= gexSpot * 0.80 &&
+      Number(o.strike) <= gexSpot * 1.20
+    );
+
+    if (!validRows.length) {
+      document.getElementById('gex-neto').textContent = 'Sin gamma';
+      document.getElementById('gex-interpretation').textContent = 'CBOE: ' + d.options.length + ' opciones recibidas pero sin gamma en strikes cercanos al spot $' + gexSpot.toFixed(0);
+      return;
+    }
+
+    window.gexAllData = validRows;
+    const exps = [...new Set(validRows.map(r => r.expiration))].filter(Boolean).sort();
+    const selEl = document.getElementById('gex-exp-selector');
+    selEl.innerHTML = '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px;background:var(--bg3)" onclick="gexSetExp(&quot;all&quot;,this)">Todos</button>';
+    exps.slice(0, 8).forEach(e => {
+      const label = e ? e.slice(0,10) : '?';
+      selEl.innerHTML += '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="gexSetExp(&quot;' + e + '&quot;,this)">' + label + '</button>';
+    });
+    renderGEX();
+  } catch(e) {
+    document.getElementById('gex-neto').textContent = 'Error';
+    document.getElementById('gex-interpretation').textContent = 'Error: ' + e.message;
+  }
+}
+
+window.gexSetExp = function gexSetExp(exp, btn) {
+  window.gexSelectedExp = exp;
+  document.querySelectorAll('#gex-exp-selector button').forEach(b => b.style.background = '');
+  if (btn) btn.style.background = 'var(--bg3)';
+  renderGEX();
+}
+
+window.renderGEX = async function renderGEX() {
+  const rows = window.gexSelectedExp === 'all' ? window.gexAllData : gexAllData.filter(r => r.expiration === gexSelectedExp);
+  if (!rows.length) return;
+
+  // Spot viene de CBOE directamente
+  const spot = window.gexSpot;
+
+  // Calcular GEX por strike
+  const strikeMap = {};
+  rows.forEach(r => {
+    const strike = Number(r.strike);
+    const gamma  = Number(r.gamma || 0);
+    // OI real de CBOE
+    const oi     = Number(r.open_interest || 0);
+    const gex    = gamma * oi * 100 * spot * spot / 100;
+    if (!strikeMap[strike]) strikeMap[strike] = {call_gex:0,put_gex:0,call_oi:0,put_oi:0,strike};
+    if (r.kind === 'call') { strikeMap[strike].call_gex += gex; strikeMap[strike].call_oi += oi; }
+    else                   { strikeMap[strike].put_gex  -= gex; strikeMap[strike].put_oi  += oi; }
+  });
+
+  const nearStrikes = Object.values(strikeMap)
+    .filter(s => s.strike >= spot * 0.85 && s.strike <= spot * 1.15)
+    .sort((a,b) => a.strike - b.strike);
+
+  if (!nearStrikes.length) {
+    document.getElementById('gex-interpretation').textContent = 'No hay strikes cercanos al spot ($' + spot.toFixed(0) + ')';
+    return;
+  }
+
+  const totalCallGex = nearStrikes.reduce((s,r) => s + r.call_gex, 0);
+  const totalPutGex  = nearStrikes.reduce((s,r) => s + r.put_gex, 0);
+  const netGex = totalCallGex + totalPutGex;
+  const wall = nearStrikes.reduce((best,r) =>
+    Math.abs(r.call_gex+r.put_gex) > Math.abs(best.call_gex+best.put_gex) ? r : best, nearStrikes[0]);
+
+  const fmtG = v => { const m=v/1e6; return (m>=0?'+':'')+m.toFixed(0)+'M'; };
+
+  document.getElementById('gex-neto').textContent  = fmtG(netGex);
+  document.getElementById('gex-neto').style.color  = netGex>0?'var(--green)':'var(--red)';
+  document.getElementById('gex-neto-label').textContent = netGex>0 ? 'Long Gamma' : 'Short Gamma';
+  document.getElementById('gex-calls').textContent = fmtG(totalCallGex);
+  document.getElementById('gex-puts').textContent  = fmtG(totalPutGex);
+  document.getElementById('gex-wall').textContent  = '$'+(wall.strike||0).toFixed(0);
+
+  const isLong = netGex > 0;
+  const pct = Math.abs(netGex/(Math.abs(totalCallGex)+Math.abs(totalPutGex))*100).toFixed(0);
+  document.getElementById('gex-interpretation').innerHTML = isLong
+    ? '<strong style="color:var(--green)">LONG GAMMA</strong> — Dealers con gamma positivo neto (' + pct + '% dominancia calls). El precio tiende a gravitar hacia el Gamma Wall en $' + wall.strike + '. Volatilidad comprimida, favorable para venta de opciones.'
+    : '<strong style="color:var(--red)">SHORT GAMMA</strong> — Dealers con gamma negativo neto (' + pct + '% dominancia puts). Los movimientos se amplifican en ambas direcciones. Gamma Wall en $' + wall.strike + ' como referencia clave.';
+
+  // Grafico Chart.js
+  if (typeof Chart !== 'undefined') {
+    const ctx = document.getElementById('gexChart').getContext('2d');
+    if (window._gexChart) window._gexChart.destroy();
+    window._gexChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: nearStrikes.map(s => '$'+s.strike),
+        datasets: [
+          {label:'Call GEX', data: nearStrikes.map(s=>s.call_gex/1e6), backgroundColor:'rgba(0,229,168,0.7)', borderWidth:1},
+          {label:'Put GEX',  data: nearStrikes.map(s=>s.put_gex/1e6),  backgroundColor:'rgba(255,63,94,0.7)',  borderWidth:1}
+        ]
+      },
+      options: {
+        responsive:true,
+        plugins:{legend:{labels:{color:'#9dafc5',font:{family:'IBM Plex Mono',size:10}}}},
+        scales:{
+          x:{ticks:{color:'#9dafc5',font:{size:9},maxRotation:45},grid:{color:'rgba(30,37,48,0.5)'}},
+          y:{ticks:{color:'#9dafc5',font:{size:9},callback:v=>v+'M'},grid:{color:'rgba(30,37,48,0.5)'}}
+        }
+      }
+    });
+  }
+
+  // Tabla top strikes
+  const top = nearStrikes.map(s=>({...s,net:s.call_gex+s.put_gex}))
+    .sort((a,b)=>Math.abs(b.net)-Math.abs(a.net)).slice(0,15);
+  document.getElementById('gex-table-body').innerHTML = top.map(s => {
+    const net=s.call_gex+s.put_gex;
+    const isW=s.strike===wall.strike;
+    const nivel=isW?'<span style="color:var(--amber)">Wall</span>':s.strike>spot?'<span style="color:var(--green)">Res</span>':'<span style="color:var(--red)">Sop</span>';
+    return '<tr style="border-bottom:1px solid rgba(30,37,48,0.3)'+(isW?';background:rgba(240,165,0,0.05)':'')+'">'
+      +'<td style="padding:7px 8px;font-weight:600;color:var(--text)">$'+s.strike+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:var(--green)">'+(s.call_gex/1e6).toFixed(1)+'M</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:var(--red)">'+(s.put_gex/1e6).toFixed(1)+'M</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:'+(net>0?'var(--green)':'var(--red)')+'"><strong>'+(net/1e6).toFixed(1)+'M</strong></td>'
+      +'<td style="padding:7px 8px;text-align:right;color:var(--text3)">'+s.call_oi.toLocaleString()+'</td>'
+      +'<td style="padding:7px 8px;text-align:right;color:var(--text3)">'+s.put_oi.toLocaleString()+'</td>'
+      +'<td style="padding:7px 8px;text-align:center">'+nivel+'</td></tr>';
+  }).join('');
+}
+
+// ── Init ──
+usLoadAll();
+window.moduleTimers.usa = setInterval(usLoadAll, 30000);
+
+})();
+</script>
