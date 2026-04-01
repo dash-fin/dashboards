@@ -27,6 +27,7 @@
     <button class="stab active" id="ustab-mercado"  onclick="usTab('mercado',this)">Mercado</button>
     <button class="stab"        id="ustab-sectores" onclick="usTab('sectores',this)">Sectores</button>
     <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
+    <button class="stab"        id="ustab-gex"     onclick="usTab('gex',this)">GEX SPY</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -181,6 +182,38 @@
   </div>
 </div>
 
+<!-- ══ GEX SPY ══ -->
+<div class="sub-panel" id="uspanel-gex">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">GEX Neto</div><div class="kpi-val" id="gex-neto">--</div><div class="kpi-sub" id="gex-neto-label">--</div></div>
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Call GEX</div><div class="kpi-val" id="gex-calls">--</div><div class="kpi-sub">dealers long gamma</div></div>
+    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Put GEX</div><div class="kpi-val" id="gex-puts">--</div><div class="kpi-sub">dealers short gamma</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Gamma Wall</div><div class="kpi-val" id="gex-wall">--</div><div class="kpi-sub" id="gex-wall-label">mayor concentracion</div></div>
+  </div>
+  <div id="gex-interpretation" class="card" style="margin-bottom:14px;padding:12px 16px;font-size:12px;color:var(--text2);line-height:1.7">Cargando...</div>
+  <div class="sec-head" style="--hc:var(--blue)">GEX por Strike</div>
+  <div class="card" style="margin-bottom:14px"><canvas id="gexChart" height="280"></canvas></div>
+  <div class="sec-head" style="--hc:var(--amber)">Strikes clave</div>
+  <div class="card" style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:11px">
+      <thead><tr style="border-bottom:1px solid var(--border);color:var(--text3)">
+        <th style="padding:8px;text-align:left">Strike</th>
+        <th style="padding:8px;text-align:right">Call GEX</th>
+        <th style="padding:8px;text-align:right">Put GEX</th>
+        <th style="padding:8px;text-align:right">GEX Neto</th>
+        <th style="padding:8px;text-align:right">Call OI</th>
+        <th style="padding:8px;text-align:right">Put OI</th>
+        <th style="padding:8px;text-align:center">Nivel</th>
+      </tr></thead>
+      <tbody id="gex-table-body"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--text3);font-family:monospace">Vencimiento:</span>
+    <div id="gex-exp-selector" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
 <script>
 (function(){
 
@@ -203,6 +236,7 @@ window.usTab = (name, btn) => {
   btn.classList.add('active');
   if(name==='sectores') usRenderSectores();
   if(name==='opciones') usRenderOpciones();
+  if(name==='gex' && !gexAllData.length) loadGEX();
 };
 
 // ── Load ──
@@ -458,6 +492,100 @@ function usRenderOpciones(){
           <td>${badge}</td>
         </tr>`;
       }).join('');
+}
+
+// ── GEX SPY ──
+let gexAllData = [];
+let gexSelectedExp = 'all';
+
+async function loadGEX() {
+  const rows = await window.sbAll('opciones_usa',
+    'symbol=eq.SPY&select=strike,kind,expiration,open_interest,gamma,delta,implied_vol,last&open_interest=gt.0&gamma=gt.0',
+    5000
+  );
+  if (!rows || !rows.length) {
+    document.getElementById('gex-neto').textContent = 'Sin datos';
+    return;
+  }
+  gexAllData = rows;
+  const exps = [...new Set(rows.map(r => r.expiration))].sort();
+  const selEl = document.getElementById('gex-exp-selector');
+  selEl.innerHTML = '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="gexSetExp(\'all\',this)">Todos</button>';
+  exps.slice(0, 8).forEach(e => {
+    const label = e ? e.slice(0, 10) : '?';
+    selEl.innerHTML += '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="gexSetExp(\'' + e + '\',this)">' + label + '</button>';
+  });
+  renderGEX();
+}
+
+window.gexSetExp = function(exp, btn) {
+  gexSelectedExp = exp;
+  document.querySelectorAll('#gex-exp-selector button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderGEX();
+};
+
+async function renderGEX() {
+  const rows = gexSelectedExp === 'all' ? gexAllData : gexAllData.filter(r => r.expiration === gexSelectedExp);
+  if (!rows.length) return;
+  const spotRows = await window.sb('mercado_usa', 'symbol=eq.SPY&select=last&limit=1');
+  const spot = spotRows && spotRows[0] ? Number(spotRows[0].last) : 560;
+  const strikeMap = {};
+  rows.forEach(r => {
+    const strike = Number(r.strike);
+    const gamma  = Number(r.gamma || 0);
+    const oi     = Number(r.open_interest || 0);
+    const gex    = gamma * oi * 100 * spot * spot / 100;
+    if (!strikeMap[strike]) strikeMap[strike] = { call_gex: 0, put_gex: 0, call_oi: 0, put_oi: 0, strike };
+    if (r.kind === 'call') { strikeMap[strike].call_gex += gex; strikeMap[strike].call_oi += oi; }
+    else { strikeMap[strike].put_gex -= gex; strikeMap[strike].put_oi += oi; }
+  });
+  const nearStrikes = Object.values(strikeMap).filter(s => s.strike >= spot * 0.85 && s.strike <= spot * 1.15).sort((a,b) => a.strike - b.strike);
+  const totalCallGex = nearStrikes.reduce((s, r) => s + r.call_gex, 0);
+  const totalPutGex  = nearStrikes.reduce((s, r) => s + r.put_gex, 0);
+  const netGex = totalCallGex + totalPutGex;
+  const wall = nearStrikes.reduce((best, r) => Math.abs(r.call_gex + r.put_gex) > Math.abs(best.call_gex + best.put_gex) ? r : best, nearStrikes[0] || {strike:0});
+  const fmtGex = v => { const m = v/1e6; return (m>=0?'+':'') + m.toFixed(0) + 'M'; };
+  document.getElementById('gex-neto').textContent  = fmtGex(netGex);
+  document.getElementById('gex-neto').style.color  = netGex > 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('gex-neto-label').textContent = netGex > 0 ? 'Long Gamma' : 'Short Gamma';
+  document.getElementById('gex-calls').textContent = fmtGex(totalCallGex);
+  document.getElementById('gex-puts').textContent  = fmtGex(totalPutGex);
+  document.getElementById('gex-wall').textContent  = '$' + (wall.strike || 0).toFixed(0);
+  const isLong = netGex > 0;
+  const gexPct = Math.abs(netGex / (Math.abs(totalCallGex) + Math.abs(totalPutGex)) * 100).toFixed(0);
+  document.getElementById('gex-interpretation').innerHTML = isLong
+    ? '<strong style="color:var(--green)">LONG GAMMA</strong> — Dealers con gamma positivo (' + gexPct + '% dominancia calls). El precio tiende a gravitar hacia el Gamma Wall en $' + wall.strike + '. Volatilidad comprimida, favorable para venta de vol.'
+    : '<strong style="color:var(--red)">SHORT GAMMA</strong> — Dealers con gamma negativo (' + gexPct + '% dominancia puts). Los movimientos se amplifican en ambas direcciones. Gamma Wall en $' + wall.strike + ' como referencia magnetica.';
+  if (typeof Chart !== 'undefined') {
+    const ctx = document.getElementById('gexChart').getContext('2d');
+    if (window._gexChart) window._gexChart.destroy();
+    window._gexChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: nearStrikes.map(s => '$' + s.strike),
+        datasets: [
+          { label: 'Call GEX', data: nearStrikes.map(s => s.call_gex/1e6), backgroundColor: 'rgba(0,229,168,0.7)', borderWidth: 1 },
+          { label: 'Put GEX',  data: nearStrikes.map(s => s.put_gex/1e6),  backgroundColor: 'rgba(255,63,94,0.7)',  borderWidth: 1 }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#9dafc5', font: { family: 'IBM Plex Mono', size: 10 } } } },
+        scales: {
+          x: { ticks: { color: '#9dafc5', font: { size: 9 }, maxRotation: 45 }, grid: { color: 'rgba(30,37,48,0.5)' } },
+          y: { ticks: { color: '#9dafc5', font: { size: 9 }, callback: v => v + 'M' }, grid: { color: 'rgba(30,37,48,0.5)' } }
+        }
+      }
+    });
+  }
+  const topStrikes = nearStrikes.map(s => ({...s, net: s.call_gex+s.put_gex})).sort((a,b) => Math.abs(b.net)-Math.abs(a.net)).slice(0,15);
+  document.getElementById('gex-table-body').innerHTML = topStrikes.map(s => {
+    const net = s.call_gex + s.put_gex;
+    const isW = s.strike === wall.strike;
+    const nivel = isW ? '<span style="color:var(--amber)">Wall</span>' : s.strike > spot ? '<span style="color:var(--green)">Res</span>' : '<span style="color:var(--red)">Sop</span>';
+    return '<tr style="border-bottom:1px solid rgba(30,37,48,0.3)' + (isW?';background:rgba(240,165,0,0.05)':'') + '"><td style="padding:7px 8px;font-weight:600;color:var(--text)">$' + s.strike + '</td><td style="padding:7px 8px;text-align:right;color:var(--green)">' + (s.call_gex/1e6).toFixed(1) + 'M</td><td style="padding:7px 8px;text-align:right;color:var(--red)">' + (s.put_gex/1e6).toFixed(1) + 'M</td><td style="padding:7px 8px;text-align:right;color:' + (net>0?'var(--green)':'var(--red)') + '"><strong>' + (net/1e6).toFixed(1) + 'M</strong></td><td style="padding:7px 8px;text-align:right;color:var(--text3)">' + s.call_oi.toLocaleString() + '</td><td style="padding:7px 8px;text-align:right;color:var(--text3)">' + s.put_oi.toLocaleString() + '</td><td style="padding:7px 8px;text-align:center">' + nivel + '</td></tr>';
+  }).join('');
 }
 
 // ── Init ──
