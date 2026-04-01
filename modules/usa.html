@@ -621,9 +621,9 @@ window.renderGEX = async function renderGEX() {
         labels: nearStrikes.map(s => '$'+s.strike),
         datasets: [
           {label:'Call GEX', data: nearStrikes.map(s=>s.call_gex/1e6),
-            backgroundColor:'rgba(0,229,168,0.85)', borderColor:'rgba(0,229,168,1)', borderWidth:1},
+            backgroundColor:'#00e5a8', borderColor:'rgba(0,229,168,1)', borderWidth:1},
           {label:'Put GEX',  data: nearStrikes.map(s=>s.put_gex/1e6),
-            backgroundColor:'rgba(255,63,94,0.85)',  borderColor:'rgba(255,63,94,1)',  borderWidth:1}
+            backgroundColor:'#ff3f5e',  borderColor:'rgba(255,63,94,1)',  borderWidth:1}
         ]
       },
       options: {
