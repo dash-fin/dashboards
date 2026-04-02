@@ -194,27 +194,17 @@
         </div>
       </div>
 
-      <!-- Gráfico P&L — precio GGAL + payoff horizontal -->
+      <!-- Gráfico P&L — payoff horizontal -->
       <div class="es-panel">
         <div class="es-panel-head">
-          <div class="es-panel-title">Precio GGAL + Payoff al vencimiento</div>
+          <div class="es-panel-title">Payoff al vencimiento</div>
           <div style="display:flex;gap:12px">
             <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Vencimiento</div>
             <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Teórico</div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div>Spot actual</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 180px;gap:0;padding:14px;position:relative;height:340px">
-          <!-- Canvas principal: precio histórico GGAL -->
-          <div style="position:relative;height:100%">
-            <canvas id="esPriceChart"></canvas>
-            <div style="position:absolute;top:4px;left:8px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">GGAL ADR — Precio</div>
-          </div>
-          <!-- Canvas payoff: rotado horizontalmente, eje Y compartido -->
-          <div style="position:relative;height:100%;border-left:1px solid var(--border)">
-            <canvas id="esPLChart"></canvas>
-            <div style="position:absolute;top:4px;left:8px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">P&L</div>
-          </div>
+        <div style="padding:14px;position:relative;height:480px">
+          <canvas id="esPLChart"></canvas>
         </div>
         <div style="padding:6px 14px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">
           Break evens: <span id="esBreakEvens2" style="color:var(--amber)">—</span>
@@ -947,67 +937,10 @@ window.esSugCargar = (legs) => {
   esRenderLegs(); esRecalc();
 };
 
-// ── Gráfico precio histórico GGAL ──────────────────────────────
-let esPriceChartInst = null;
-
-async function esLoadPriceChart() {
-  const rows = await window.sbAll('historico_precios',
-    'symbol=eq.GGAL&select=fecha,close&order=fecha.desc&limit=120', 200
-  );
-  if (!rows || !rows.length) return;
-  const sorted = rows.reverse();
-  const labels = sorted.map(r => r.fecha ? r.fecha.slice(5) : '');
-  const prices = sorted.map(r => Number(r.close));
-
-  const ctx = document.getElementById('esPriceChart');
-  if (!ctx) return;
-  if (esPriceChartInst) esPriceChartInst.destroy();
-
-  const priceMin = Math.min(...prices) * 0.95;
-  const priceMax = Math.max(...prices) * 1.05;
-
-  esPriceChartInst = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data: prices,
-        borderColor: 'rgba(0,229,168,0.8)',
-        borderWidth: 1.5,
-        pointRadius: 0,
-        fill: false,
-        tension: 0.1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: {
-          ticks: { color: '#9dafc5', font: { size: 8 }, maxTicksLimit: 8 },
-          grid: { color: 'rgba(30,37,48,0.5)' }
-        },
-        y: {
-          position: 'left',
-          min: priceMin,
-          max: priceMax,
-          ticks: { color: '#9dafc5', font: { family: 'IBM Plex Mono', size: 8 } },
-          grid: { color: 'rgba(30,37,48,0.5)' }
-        }
-      }
-    }
-  });
-
-  window._esPriceRange = { min: priceMin, max: priceMax };
-}
-
 // ══════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════
 esLoad();
-esLoadPriceChart();
 window.moduleTimers.estrategias = setInterval(esLoad, 15000);
 
 </script>

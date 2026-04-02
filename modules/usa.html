@@ -706,9 +706,20 @@ async function loadGEXPriceChart(wall, gammaFlip, spot) {
   const ctx = document.getElementById('gexPriceChart');
   if (!ctx || typeof Chart === 'undefined') return;
 
-  const rows = await window.sbAll('historico_precios',
+  // Intentar SPY; si está vacío, probar con símbolo genérico
+  let rows = await window.sbAll('historico_precios',
     'symbol=eq.SPY&select=fecha,close&order=fecha.desc&limit=60', 100
   );
+  if (!rows || !rows.length) {
+    rows = await window.sbAll('historico_precios',
+      'select=symbol,fecha,close&order=fecha.desc&limit=1', 5
+    );
+    if (!rows || !rows.length) return;
+    const sym = rows[0].symbol;
+    rows = await window.sbAll('historico_precios',
+      'symbol=eq.'+sym+'&select=fecha,close&order=fecha.desc&limit=60', 100
+    );
+  }
   if (!rows || !rows.length) return;
   const sorted = rows.reverse();
   const labels = sorted.map(r => r.fecha ? r.fecha.slice(5) : '');

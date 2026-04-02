@@ -10,7 +10,6 @@
     <button class="stab active" id="ostab-iamc"       onclick="oSetTab('iamc',this)">Datos IAMC</button>
     <button class="stab"         id="ostab-estrategias" onclick="oSetTab('estrategias',this)">Estrategias</button>
     <button class="stab"         id="ostab-vol"         onclick="oSetTab('vol',this)">Volatilidad & RT</button>
-    <button class="stab"         id="ostab-gex"         onclick="oSetTab('gex',this);if(!window.ggalGexData)loadGGALGex()">GEX GGAL</button>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:9px">
@@ -164,33 +163,6 @@
   <div class="empty-state" id="oVolPlaceholder"><div class="empty-icon">📉</div><p>Cargando módulo de volatilidad...</p></div>
 </div>
 
-<!-- ── PANEL: GEX GGAL ── -->
-<div class="sub-panel" id="opanel-gex">
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">GEX Neto</div><div class="kpi-val" id="ggal-gex-neto">—</div><div class="kpi-sub" id="ggal-gex-neto-label">—</div></div>
-    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Gamma Flip</div><div class="kpi-val" id="ggal-gex-flip">—</div><div class="kpi-sub" id="ggal-gex-flip-label">—</div></div>
-    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Call Wall</div><div class="kpi-val" id="ggal-gex-callwall">—</div><div class="kpi-sub">resistencia gamma</div></div>
-    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Put Wall</div><div class="kpi-val" id="ggal-gex-putwall">—</div><div class="kpi-sub">soporte gamma</div></div>
-  </div>
-  <div id="ggal-gex-interpretation" class="card" style="margin-bottom:14px;padding:12px 16px;font-size:12px;color:var(--text2);line-height:1.7">Cargando...</div>
-  <div class="sec-head" style="--hc:var(--blue)">GEX por Strike</div>
-  <div class="card" style="margin-bottom:14px"><canvas id="ggalGexChart" height="260"></canvas></div>
-  <div class="sec-head" style="--hc:var(--cyan)">Precio GGAL con niveles GEX</div>
-  <div class="card" style="margin-bottom:14px"><canvas id="ggalPriceChart" height="160"></canvas></div>
-  <div class="sec-head" style="--hc:var(--amber)">Strikes clave</div>
-  <div class="card" style="overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:11px">
-      <thead><tr style="border-bottom:1px solid var(--border);color:var(--text3)">
-        <th style="padding:8px;text-align:left">Strike</th>
-        <th style="padding:8px;text-align:right">Call GEX</th>
-        <th style="padding:8px;text-align:right">Put GEX</th>
-        <th style="padding:8px;text-align:right">GEX Neto</th>
-        <th style="padding:8px;text-align:center">Nivel</th>
-      </tr></thead>
-      <tbody id="ggal-gex-table"></tbody>
-    </table>
-  </div>
-</div>
 
 <div style="padding:10px 0;border-top:1px solid var(--border);font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;margin-top:8px">
   ⚠ Contenido meramente informativo. Datos extraídos del informe IAMC mediante IA.
@@ -550,10 +522,9 @@ function oRenderGEX(calls,puts){
         y:{stacked:true,ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>v.toFixed(1)+'M'},grid:{color:'#1e2530'}}}}});
 }
 
-// ── GEX GGAL ──────────────────────────────────────────────────
-window.ggalGexData = null;
-
-async function loadGGALGex() {
+// ── Init ──  (GEX GGAL eliminado — ver Análisis GEX en IAMC)
+/* REMOVED loadGGALGex */
+if(false) {
   document.getElementById('ggal-gex-neto').textContent = '...';
   document.getElementById('ggal-gex-interpretation').textContent = 'Cargando opciones de GGAL...';
 
@@ -689,7 +660,7 @@ async function loadGGALGex() {
       +'<td style="padding:7px 8px;text-align:right;color:'+(net>0?'var(--green)':'var(--red)')+'"><strong>'+(net/1e6).toFixed(2)+'M</strong></td>'
       +'<td style="padding:7px 8px;text-align:center">'+nivel+'</td></tr>';
   }).join('');
-}
+} // end if(false)
 
 // ── Init ──
 oLoadData();
