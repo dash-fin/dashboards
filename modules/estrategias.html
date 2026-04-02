@@ -645,35 +645,38 @@ window.esRecalc = () => {
   datasets.push({label:'Cero',data:prices.map(()=>0),borderColor:'rgba(92,112,144,0.4)',borderWidth:1,pointRadius:0,borderDash:[4,4],fill:false});
 
   // Gráfico payoff HORIZONTAL (precio en Y, P&L en X)
-  // Muestrear a ~50 puntos para que las barras sean visibles
-  const barStep = Math.max(1, Math.floor(prices.length / 50));
+  // Muestrear a ~60 puntos para que las barras sean visibles
+  const barStep = Math.max(1, Math.floor(prices.length / 60));
   const barPrices  = prices.filter((_,i) => i % barStep === 0);
-  const barPayoffs = pnlVto.filter((_,i) => i % barStep === 0);
-  const barTeoricos = pnlTeo ? pnlTeo.filter((_,i) => i % barStep === 0) : null;
+  const payoffs    = pnlVto.filter((_,i) => i % barStep === 0);
+  const teoricos   = pnlTeo ? pnlTeo.filter((_,i) => i % barStep === 0) : null;
+
+  const priceRange = window._esPriceRange || { min: barPrices[0], max: barPrices[barPrices.length-1] };
 
   if(esPLChartInst) esPLChartInst.destroy();
-  const plDatasets = [
-    {
-      label: 'Vencimiento',
-      data: barPayoffs,
-      backgroundColor: barPayoffs.map(v => v >= 0 ? 'rgba(0,229,168,0.7)' : 'rgba(255,63,94,0.7)'),
-      borderColor: barPayoffs.map(v => v >= 0 ? '#00e5a8' : '#ff3f5e'),
-      borderWidth: 1,
-      borderRadius: 2,
-    }
-  ];
-  if(barTeoricos) plDatasets.push({
-    label: 'Teórico',
-    data: barTeoricos,
-    type: 'line',
-    borderColor: 'rgba(138,43,226,0.8)',
-    borderWidth: 1.5,
-    pointRadius: 0,
-    fill: false,
-  });
   esPLChartInst = new Chart(document.getElementById('esPLChart'), {
     type: 'bar',
-    data: { labels: barPrices.map(p => '$'+fmtAR(p,0)), datasets: plDatasets },
+    data: {
+      labels: barPrices.map(p => '$'+p.toFixed(2)),
+      datasets: [
+        {
+          label: 'Vencimiento',
+          data: payoffs,
+          backgroundColor: payoffs.map(v => v >= 0 ? 'rgba(0,229,168,0.7)' : 'rgba(255,63,94,0.7)'),
+          borderColor: payoffs.map(v => v >= 0 ? '#00e5a8' : '#ff3f5e'),
+          borderWidth: 1
+        },
+        ...(teoricos ? [{
+          label: 'Teórico',
+          data: teoricos,
+          type: 'line',
+          borderColor: 'rgba(138,43,226,0.8)',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false
+        }] : [])
+      ]
+    },
     options: {
       indexAxis: 'y',
       responsive: true,
@@ -681,22 +684,16 @@ window.esRecalc = () => {
       animation: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: {
-          label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2)
-        }}
+        tooltip: { callbacks: { label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2) } }
       },
       scales: {
         y: {
-          reverse: false,
-          min: minS,
-          max: maxS,
           ticks: { display: false },
           grid: { color: 'rgba(30,37,48,0.5)' }
         },
         x: {
-          ticks: { color: '#9dafc5', font: { size: 8 },
-            callback: v => (v >= 0 ? '+' : '') + v.toFixed(0) },
-          grid: { color: 'rgba(30,37,48,0.4)' }
+          ticks: { color:'#9dafc5', font:{size:8}, callback: v => (v>=0?'+':'')+v.toFixed(0) },
+          grid: { color:'rgba(30,37,48,0.4)' }
         }
       }
     }

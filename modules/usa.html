@@ -199,6 +199,8 @@
   <div id="gex-interpretation" class="card" style="margin-bottom:14px;padding:12px 16px;font-size:12px;color:var(--text2);line-height:1.7">Cargando...</div>
   <div class="sec-head" style="--hc:var(--blue)">GEX por Strike</div>
   <div class="card" style="margin-bottom:14px"><canvas id="gexChart" height="280"></canvas></div>
+  <div class="sec-head" style="--hc:var(--cyan)">Precio SPY con niveles GEX</div>
+  <div class="card" style="margin-bottom:14px"><canvas id="gexPriceChart" height="180"></canvas></div>
   <div class="sec-head" style="--hc:var(--amber)">Strikes clave</div>
   <div class="card" style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:11px">
@@ -695,6 +697,74 @@ window.renderGEX = async function renderGEX() {
       +'<td style="padding:7px 8px;text-align:right;color:var(--text3)">'+s.put_oi.toLocaleString()+'</td>'
       +'<td style="padding:7px 8px;text-align:center">'+nivel+'</td></tr>';
   }).join('');
+
+  loadGEXPriceChart(wall.strike, gammaFlip, spot);
+}
+
+// ── Gráfico precio SPY con niveles GEX ────────────────────────
+async function loadGEXPriceChart(wall, gammaFlip, spot) {
+  const ctx = document.getElementById('gexPriceChart');
+  if (!ctx || typeof Chart === 'undefined') return;
+
+  const rows = await window.sbAll('historico_precios',
+    'symbol=eq.SPY&select=fecha,close&order=fecha.desc&limit=60', 100
+  );
+  if (!rows || !rows.length) return;
+  const sorted = rows.reverse();
+  const labels = sorted.map(r => r.fecha ? r.fecha.slice(5) : '');
+  const prices = sorted.map(r => Number(r.close));
+
+  if (window._gexPriceChart) window._gexPriceChart.destroy();
+
+  window._gexPriceChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'SPY',
+        data: prices,
+        borderColor: '#9dafc5',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: false,
+        tension: 0.1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        annotation: {
+          annotations: {
+            wallLine: {
+              type: 'line', yMin: wall, yMax: wall,
+              borderColor: '#f0a500', borderWidth: 1.5, borderDash: [4,3],
+              label: { content: '★ Wall $'+wall, display: true, position: 'end',
+                color: '#f0a500', font: { size: 9, family: 'IBM Plex Mono' } }
+            },
+            flipLine: {
+              type: 'line', yMin: gammaFlip, yMax: gammaFlip,
+              borderColor: '#00b4d8', borderWidth: 1.5, borderDash: [4,3],
+              label: { content: '⟳ Flip $'+gammaFlip, display: true, position: 'end',
+                color: '#00b4d8', font: { size: 9, family: 'IBM Plex Mono' } }
+            },
+            spotLine: {
+              type: 'line', yMin: spot, yMax: spot,
+              borderColor: '#00e5a8', borderWidth: 1, borderDash: [2,2],
+              label: { content: '● Spot $'+spot.toFixed(2), display: true, position: 'start',
+                color: '#00e5a8', font: { size: 9, family: 'IBM Plex Mono' } }
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color:'#9dafc5', font:{size:8}, maxTicksLimit:8 }, grid:{color:'rgba(30,37,48,0.5)'} },
+        y: { ticks: { color:'#9dafc5', font:{size:8}, callback: v=>'$'+v }, grid:{color:'rgba(30,37,48,0.5)'} }
+      }
+    }
+  });
 }
 
 // ── Init ──
