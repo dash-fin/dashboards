@@ -129,24 +129,22 @@
       </div>
       <div class="card">
         <div class="card-head">
-          <div class="card-title">Gamma Exposure por strike <span class="tag tag-ai">GEX</span></div>
+          <div class="card-title">GEX por Strike — Niveles clave <span class="tag tag-ai">GEX</span></div>
           <div class="legend-row" style="margin:0">
             <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Call GEX</div>
             <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Put GEX</div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>GEX neto</div>
           </div>
         </div>
-        <div class="card-body">
-          <div class="gamma-layout">
-            <div><div class="chart-wrap" style="height:300px"><canvas id="oGexChart"></canvas></div></div>
-            <div class="gamma-stats">
-              <div class="gstat"><div class="gstat-label">Net GEX total</div><div class="gstat-val" style="color:var(--purple)" id="ogs-net">—</div><div class="gstat-desc">GEX combinado de todas las posiciones</div></div>
-              <div class="gstat"><div class="gstat-label">Concentración calls</div><div class="gstat-val" style="color:var(--green)" id="ogs-callconc">—</div><div class="gstat-desc">% del OI calls en el Call Wall</div></div>
-              <div class="gstat"><div class="gstat-label">Concentración puts</div><div class="gstat-val" style="color:var(--red)" id="ogs-putconc">—</div><div class="gstat-desc">% del OI puts en el Put Wall</div></div>
-              <div class="gstat"><div class="gstat-label">Rango de anclaje</div><div class="gstat-val" style="color:var(--blue)" id="ogs-range">—</div><div class="gstat-desc">Put Wall — Call Wall</div></div>
-            </div>
-          </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;height:420px">
+          <div id="tvggal_gex" style="position:relative;border-right:1px solid var(--border2)"></div>
+          <div style="position:relative;padding:8px"><canvas id="oGexChart"></canvas></div>
         </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <div class="gstat"><div class="gstat-label">Net GEX total</div><div class="gstat-val" style="color:var(--purple)" id="ogs-net">—</div><div class="gstat-desc">GEX combinado</div></div>
+        <div class="gstat"><div class="gstat-label">Concentración calls</div><div class="gstat-val" style="color:var(--green)" id="ogs-callconc">—</div><div class="gstat-desc">% OI en Call Wall</div></div>
+        <div class="gstat"><div class="gstat-label">Concentración puts</div><div class="gstat-val" style="color:var(--red)" id="ogs-putconc">—</div><div class="gstat-desc">% OI en Put Wall</div></div>
+        <div class="gstat"><div class="gstat-label">Rango de anclaje</div><div class="gstat-val" style="color:var(--blue)" id="ogs-range">—</div><div class="gstat-desc">Put Wall — Call Wall</div></div>
       </div>
     </div>
   </div>
@@ -659,6 +657,44 @@ async function loadGGALGex() {
     };
 
     const gexCtx = document.getElementById('oGexChart');
+    // TradingView GGAL (izquierda)
+    if (!window._tvGGALGexLoaded) {
+      window._tvGGALGexLoaded = true;
+      function _createTVGGALGex() {
+        const c = document.getElementById('tvggal_gex');
+        if (!c) return;
+        c.innerHTML = '';
+        const d = document.createElement('div');
+        d.id = 'tvggal_gex_' + Date.now();
+        d.style.cssText = 'width:100%;height:100%';
+        c.appendChild(d);
+        try {
+          new window.TradingView.widget({
+            autosize:true, symbol:'BYMA:GGAL', interval:'D',
+            timezone:'America/Argentina/Buenos_Aires', theme:'dark',
+            style:'1', locale:'es', toolbar_bg:'#131c2b',
+            enable_publishing:false, hide_top_toolbar:false,
+            hide_legend:false, save_image:false, container_id:d.id
+          });
+        } catch(e) {
+          c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">No se pudo cargar TradingView</div>';
+        }
+      }
+      if (window.TradingView) {
+        _createTVGGALGex();
+      } else {
+        const sc = document.createElement('script');
+        sc.src = 'https://s3.tradingview.com/tv.js';
+        sc.onload = _createTVGGALGex;
+        sc.onerror = () => {
+          const c = document.getElementById('tvggal_gex');
+          if(c) c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">TradingView no disponible</div>';
+        };
+        document.head.appendChild(sc);
+      }
+    }
+
+    // Gráfico GEX horizontal (derecha)
     if (gexCtx && typeof Chart !== 'undefined') {
       if (window._oGexChart) window._oGexChart.destroy();
       window._oGexChart = new Chart(gexCtx, {
@@ -672,7 +708,7 @@ async function loadGGALGex() {
         },
         options:{
           indexAxis:'y',
-          responsive:true, animation:false,
+          responsive:true, maintainAspectRatio:false, animation:false,
           layout:{padding:{right:115}},
           plugins:{legend:{labels:{color:'#9dafc5',font:{family:'IBM Plex Mono',size:9}}}},
           scales:{
