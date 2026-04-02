@@ -626,8 +626,10 @@ async function loadGGALGex() {
     // Gráfico GEX por strike (igual estilo que SPY)
     const cumArr = []; let cs=0;
     for (const s of nearStrikes) { cs+=s.call_gex+s.put_gex; cumArr.push(cs); }
-    const fIdx = nearStrikes.findIndex(s=>s.strike>=gammaFlip);
-    const sIdx = nearStrikes.reduce((bi,s,i)=>Math.abs(s.strike-spot)<Math.abs(nearStrikes[bi].strike-spot)?i:bi,0);
+    const fIdx  = nearStrikes.findIndex(s=>s.strike>=gammaFlip);
+    const sIdx  = nearStrikes.reduce((bi,s,i)=>Math.abs(s.strike-spot)<Math.abs(nearStrikes[bi].strike-spot)?i:bi,0);
+    const cwIdx = nearStrikes.findIndex(s=>s.strike===callWall.strike);
+    const pwIdx = nearStrikes.findIndex(s=>s.strike===putWall.strike);
     const cBg = nearStrikes.map((_,i)=>i>=Math.max(0,fIdx)?'rgba(0,229,168,0.80)':'rgba(0,229,168,0.35)');
     const pBg = nearStrikes.map((_,i)=>i>=Math.max(0,fIdx)?'rgba(255,63,94,0.35)':'rgba(255,63,94,0.80)');
 
@@ -648,21 +650,41 @@ async function loadGGALGex() {
         const {ctx:c,chartArea,scales}=chart;
         if(!chartArea||!scales.x)return;
         try {
-          c.save(); c.textAlign='center';
+          c.save(); c.textAlign='center'; c.font='9px IBM Plex Mono';
+          // ★ Call Wall (amber)
+          if(cwIdx>=0){
+            const xw=scales.x.getPixelForValue(cwIdx);
+            c.setLineDash([6,2]); c.strokeStyle='#f0a500'; c.lineWidth=2;
+            c.beginPath(); c.moveTo(xw,chartArea.top); c.lineTo(xw,chartArea.bottom); c.stroke();
+            c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xw-38,chartArea.top,76,14);
+            c.fillStyle='#f0a500';
+            c.fillText('★ CW $'+callWall.strike.toFixed(2),xw,chartArea.top+10);
+          }
+          // ▼ Put Wall (red)
+          if(pwIdx>=0){
+            const xp=scales.x.getPixelForValue(pwIdx);
+            c.setLineDash([6,2]); c.strokeStyle='#ff3f5e'; c.lineWidth=2;
+            c.beginPath(); c.moveTo(xp,chartArea.top); c.lineTo(xp,chartArea.bottom); c.stroke();
+            c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xp-38,chartArea.top+16,76,14);
+            c.fillStyle='#ff3f5e';
+            c.fillText('▼ PW $'+putWall.strike.toFixed(2),xp,chartArea.top+26);
+          }
+          // ⟳ Flip (cyan)
           if(fIdx>=0){
             const xf=scales.x.getPixelForValue(fIdx);
             c.setLineDash([4,3]); c.strokeStyle='#00b4d8'; c.lineWidth=1.5;
             c.beginPath(); c.moveTo(xf,chartArea.top); c.lineTo(xf,chartArea.bottom); c.stroke();
-            c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xf-38,chartArea.top,76,14);
-            c.fillStyle='#00b4d8'; c.font='9px IBM Plex Mono';
-            c.fillText('⟳ Flip $'+gammaFlip.toFixed(2),xf,chartArea.top+10);
+            c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xf-38,chartArea.top+32,76,14);
+            c.fillStyle='#00b4d8';
+            c.fillText('⟳ Flip $'+gammaFlip.toFixed(2),xf,chartArea.top+42);
           }
+          // ● Spot (green)
           const xs=scales.x.getPixelForValue(sIdx);
           c.setLineDash([2,2]); c.strokeStyle='#00e5a8'; c.lineWidth=1.5;
           c.beginPath(); c.moveTo(xs,chartArea.top); c.lineTo(xs,chartArea.bottom); c.stroke();
-          c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xs-30,chartArea.top+16,60,14);
-          c.fillStyle='#00e5a8'; c.font='9px IBM Plex Mono';
-          c.fillText('● $'+spot.toFixed(2),xs,chartArea.top+26);
+          c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xs-30,chartArea.top+48,60,14);
+          c.fillStyle='#00e5a8';
+          c.fillText('● $'+spot.toFixed(2),xs,chartArea.top+58);
           c.restore();
         }catch(e){}
       }

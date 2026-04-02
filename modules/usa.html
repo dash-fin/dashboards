@@ -201,8 +201,9 @@
   <div class="card" style="margin-bottom:14px"><canvas id="gexChart" height="280"></canvas></div>
   <div class="sec-head" style="--hc:var(--cyan)">Precio SPY con niveles GEX</div>
   <div class="card" style="margin-bottom:14px">
-    <div id="tvspy_container" style="width:100%;height:280px"></div>
-    <div id="gex-level-badges" style="display:flex;gap:8px;padding:8px 14px;border-top:1px solid var(--border2);flex-wrap:wrap;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:9px"></div>
+    <div style="position:relative;height:240px;padding:4px 90px 4px 4px">
+      <canvas id="gexPriceChart"></canvas>
+    </div>
   </div>
   <div class="sec-head" style="--hc:var(--amber)">Strikes clave</div>
   <div class="card" style="overflow-x:auto">
@@ -648,10 +649,11 @@ window.renderGEX = async function renderGEX() {
     let cumSum = 0;
     for (const s of nearStrikes) { cumSum += s.call_gex + s.put_gex; cumArr.push(cumSum); }
 
-    // Índices de flip y spot
+    // Índices de flip, spot y wall
     const flipIdx = nearStrikes.findIndex(s => s.strike >= gammaFlip);
     const spotIdx = nearStrikes.reduce((bi, s, i) =>
       Math.abs(s.strike - spot) < Math.abs(nearStrikes[bi].strike - spot) ? i : bi, 0);
+    const wallIdx = nearStrikes.findIndex(s => s.strike === wall.strike);
 
     // Colores: más intenso donde domina el gamma (rojo = zona short, verde = zona long)
     const callBg = nearStrikes.map((_,i) => i >= Math.max(0,flipIdx) ? 'rgba(0,229,168,0.80)' : 'rgba(0,229,168,0.35)');
@@ -679,24 +681,29 @@ window.renderGEX = async function renderGEX() {
         try {
           c.save();
           c.textAlign = 'center';
-          // Línea flip
+          c.font = '9px IBM Plex Mono';
+          // ★ Wall (amber)
+          if (wallIdx >= 0) {
+            const xw = scales.x.getPixelForValue(wallIdx);
+            c.setLineDash([6,2]); c.strokeStyle = '#f0a500'; c.lineWidth = 2;
+            c.beginPath(); c.moveTo(xw, chartArea.top); c.lineTo(xw, chartArea.bottom); c.stroke();
+            c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(xw - 34, chartArea.top, 68, 14);
+            c.fillStyle = '#f0a500'; c.fillText('★ Wall $' + wall.strike, xw, chartArea.top + 10);
+          }
+          // ⟳ Flip (cyan)
           if (flipIdx >= 0) {
             const xf = scales.x.getPixelForValue(flipIdx);
             c.setLineDash([4,3]); c.strokeStyle = '#00b4d8'; c.lineWidth = 1.5;
             c.beginPath(); c.moveTo(xf, chartArea.top); c.lineTo(xf, chartArea.bottom); c.stroke();
-            c.fillStyle = 'rgba(0,0,0,0.6)';
-            c.fillRect(xf - 36, chartArea.top, 72, 14);
-            c.fillStyle = '#00b4d8'; c.font = '9px IBM Plex Mono';
-            c.fillText('⟳ Flip $' + gammaFlip.toFixed(0), xf, chartArea.top + 10);
+            c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(xf - 34, chartArea.top + 16, 68, 14);
+            c.fillStyle = '#00b4d8'; c.fillText('⟳ Flip $' + gammaFlip.toFixed(0), xf, chartArea.top + 26);
           }
-          // Línea spot
+          // ● Spot (green)
           const xs = scales.x.getPixelForValue(spotIdx);
           c.setLineDash([2,2]); c.strokeStyle = '#00e5a8'; c.lineWidth = 1.5;
           c.beginPath(); c.moveTo(xs, chartArea.top); c.lineTo(xs, chartArea.bottom); c.stroke();
-          c.fillStyle = 'rgba(0,0,0,0.6)';
-          c.fillRect(xs - 30, chartArea.top + 16, 60, 14);
-          c.fillStyle = '#00e5a8'; c.font = '9px IBM Plex Mono';
-          c.fillText('● $' + spot.toFixed(0), xs, chartArea.top + 26);
+          c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(xs - 26, chartArea.top + 32, 52, 14);
+          c.fillStyle = '#00e5a8'; c.fillText('● $' + spot.toFixed(0), xs, chartArea.top + 42);
           c.restore();
         } catch(e) {}
       }
@@ -760,57 +767,87 @@ window.renderGEX = async function renderGEX() {
   loadGEXPriceChart(wall.strike, gammaFlip, spot);
 }
 
-// ── Precio SPY con niveles GEX — TradingView widget ───────────
-function loadGEXPriceChart(wall, gammaFlip, spot) {
-  // Badges de niveles GEX
-  const badges = document.getElementById('gex-level-badges');
-  if (badges) {
-    badges.innerHTML =
-      '<span style="color:var(--text3)">Niveles GEX:</span>' +
-      '<span style="padding:2px 10px;border-radius:4px;border:1px solid rgba(240,165,0,0.5);color:#f0a500">★ Wall $' + wall.toFixed(0) + '</span>' +
-      '<span style="padding:2px 10px;border-radius:4px;border:1px solid rgba(0,180,216,0.5);color:#00b4d8">⟳ Flip $' + gammaFlip.toFixed(0) + '</span>' +
-      '<span style="padding:2px 10px;border-radius:4px;border:1px solid rgba(0,229,168,0.5);color:#00e5a8">● Spot $' + spot.toFixed(2) + '</span>';
+// ── Precio SPY con niveles GEX ────────────────────────────────
+async function loadGEXPriceChart(wall, gammaFlip, spot) {
+  const canvas = document.getElementById('gexPriceChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  let rows = await window.sbAll('historico_precios',
+    'symbol=eq.SPY&select=fecha,close&order=fecha.desc&limit=60', 100);
+  if (!rows || !rows.length) {
+    const first = await window.sbAll('historico_precios',
+      'select=symbol,fecha,close&order=fecha.desc&limit=1', 5);
+    if (!first || !first.length) return;
+    rows = await window.sbAll('historico_precios',
+      'symbol=eq.'+first[0].symbol+'&select=fecha,close&order=fecha.desc&limit=60', 100);
   }
+  if (!rows || !rows.length) return;
 
-  const container = document.getElementById('tvspy_container');
-  if (!container) return;
+  const sorted = rows.reverse();
+  const labels = sorted.map(r => r.fecha ? r.fecha.slice(5) : '');
+  const prices = sorted.map(r => Number(r.close));
+  const n = labels.length;
 
-  function createWidget() {
-    container.innerHTML = '';
-    const inner = document.createElement('div');
-    inner.id = 'tvspy_' + Date.now();
-    inner.style.cssText = 'width:100%;height:100%';
-    container.appendChild(inner);
-    try {
-      new window.TradingView.widget({
-        autosize: true,
-        symbol: 'AMEX:SPY',
-        interval: 'D',
-        timezone: 'America/New_York',
-        theme: 'dark',
-        style: '1',
-        locale: 'es',
-        toolbar_bg: '#131c2b',
-        enable_publishing: false,
-        hide_top_toolbar: false,
-        hide_legend: false,
-        save_image: false,
-        container_id: inner.id
-      });
-    } catch(e) {
-      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">No se pudo cargar TradingView</div>';
+  // Plugin canvas: dibuja líneas horizontales con etiquetas en borde derecho
+  const levels = [
+    { value: wall,       color: '#f0a500', label: '★ Wall  $' + wall.toFixed(0)       },
+    { value: gammaFlip,  color: '#00b4d8', label: '⟳ Flip  $' + gammaFlip.toFixed(0)  },
+    { value: spot,       color: '#00e5a8', label: '● Spot  $' + spot.toFixed(2)        }
+  ];
+  const levelPlugin = {
+    id: 'spyLevels',
+    afterDraw(chart) {
+      const {ctx:c, chartArea, scales} = chart;
+      if (!chartArea || !scales.y) return;
+      c.save();
+      c.font = '9px IBM Plex Mono';
+      c.textAlign = 'left';
+      for (const lv of levels) {
+        const y = scales.y.getPixelForValue(lv.value);
+        if (y < chartArea.top - 2 || y > chartArea.bottom + 2) continue;
+        // línea horizontal punteada
+        c.setLineDash([5,3]); c.strokeStyle = lv.color; c.lineWidth = 1.5;
+        c.beginPath(); c.moveTo(chartArea.left, y); c.lineTo(chartArea.right, y); c.stroke();
+        // etiqueta en borde derecho
+        c.setLineDash([]);
+        c.fillStyle = 'rgba(10,15,24,0.85)';
+        c.fillRect(chartArea.right + 2, y - 7, 86, 14);
+        c.fillStyle = lv.color;
+        c.fillText(lv.label, chartArea.right + 4, y + 3);
+      }
+      c.restore();
     }
-  }
+  };
 
-  if (window.TradingView) {
-    createWidget();
-  } else {
-    const s = document.createElement('script');
-    s.src = 'https://s3.tradingview.com/tv.js';
-    s.onload = createWidget;
-    s.onerror = () => { container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">TradingView no disponible</div>'; };
-    document.head.appendChild(s);
-  }
+  if (window._gexPriceChart) window._gexPriceChart.destroy();
+  window._gexPriceChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'SPY', data: prices,
+        borderColor: '#9dafc5', borderWidth: 1.5,
+        pointRadius: 0, fill: true,
+        backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+          g.addColorStop(0, 'rgba(157,175,197,0.15)');
+          g.addColorStop(1, 'rgba(157,175,197,0)');
+          return g;
+        },
+        tension: 0.2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      layout: { padding: { right: 0 } },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks:{color:'#9dafc5',font:{size:8},maxTicksLimit:8}, grid:{color:'rgba(30,37,48,0.5)'} },
+        y: { ticks:{color:'#9dafc5',font:{size:8},callback:v=>'$'+v}, grid:{color:'rgba(30,37,48,0.5)'} }
+      }
+    },
+    plugins: [levelPlugin]
+  });
 }
 
 // ── Init ──
