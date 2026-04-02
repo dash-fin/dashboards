@@ -185,8 +185,13 @@
 
 <!-- ══ GEX SPY ══ -->
 <div class="sub-panel" id="uspanel-gex">
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
     <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">GEX Neto</div><div class="kpi-val" id="gex-neto">—</div><div class="kpi-sub" id="gex-neto-label">—</div></div>
+    <div class="kpi" style="--accent:var(--amber)">
+      <div class="kpi-label">Gamma Flip</div>
+      <div class="kpi-val" id="gex-flip">—</div>
+      <div class="kpi-sub" id="gex-flip-label">nivel de transicion</div>
+    </div>
     <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Call GEX</div><div class="kpi-val" id="gex-calls">—</div><div class="kpi-sub">dealers long gamma</div></div>
     <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Put GEX</div><div class="kpi-val" id="gex-puts">—</div><div class="kpi-sub">dealers short gamma</div></div>
     <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Gamma Wall</div><div class="kpi-val" id="gex-wall">—</div><div class="kpi-sub" id="gex-wall-label">mayor concentracion</div></div>
@@ -595,11 +600,28 @@ window.renderGEX = async function renderGEX() {
   const wall = nearStrikes.reduce((best,r) =>
     Math.abs(r.call_gex+r.put_gex) > Math.abs(best.call_gex+best.put_gex) ? r : best, nearStrikes[0]);
 
+  // Calcular Gamma Flip — strike donde el GEX acumulado cambia de signo
+  const sortedByStrike = [...nearStrikes].sort((a,b) => b.strike - a.strike);
+  let cumGex = 0;
+  let gammaFlip = null;
+  for (const s of sortedByStrike) {
+    const prevCum = cumGex;
+    cumGex += s.call_gex + s.put_gex;
+    if (prevCum > 0 && cumGex <= 0 || prevCum < 0 && cumGex >= 0) {
+      gammaFlip = s.strike;
+      break;
+    }
+  }
+  if (!gammaFlip) gammaFlip = wall.strike; // fallback
+
   const fmtG = v => { const m=v/1e6; return (m>=0?'+':'')+m.toFixed(0)+'M'; };
 
   document.getElementById('gex-neto').textContent  = fmtG(netGex);
   document.getElementById('gex-neto').style.color  = netGex>0?'var(--green)':'var(--red)';
   document.getElementById('gex-neto-label').textContent = netGex>0 ? 'Long Gamma' : 'Short Gamma';
+  document.getElementById('gex-flip').textContent = '$' + (gammaFlip || 0).toFixed(0);
+  document.getElementById('gex-flip-label').textContent = spot > gammaFlip ? 'precio sobre flip' : 'precio bajo flip';
+  document.getElementById('gex-flip').style.color = spot > gammaFlip ? 'var(--green)' : 'var(--red)';
   document.getElementById('gex-calls').textContent = fmtG(totalCallGex);
   document.getElementById('gex-puts').textContent  = fmtG(totalPutGex);
   document.getElementById('gex-wall').textContent  = '$'+(wall.strike||0).toFixed(0);
@@ -615,24 +637,43 @@ window.renderGEX = async function renderGEX() {
   if (typeof Chart !== 'undefined' && canvasEl) {
     const ctx = canvasEl.getContext('2d');
     if (window._gexChart) window._gexChart.destroy();
+
+    // Normalizar al máximo absoluto para que las barras sean proporcionales
+    const maxAbs = Math.max(...nearStrikes.map(s => Math.max(Math.abs(s.call_gex), Math.abs(s.put_gex))));
+    const normalize = v => maxAbs > 0 ? v / maxAbs * 100 : 0;
+
     window._gexChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: nearStrikes.map(s => '$'+s.strike),
+        labels: nearStrikes.map(s => {
+          const isWall = s.strike === wall.strike;
+          const isFlip = s.strike === gammaFlip;
+          const isSpot = Math.abs(s.strike - spot) < 0.5;
+          return (isWall ? '★' : isFlip ? '⟳' : isSpot ? '●' : '') + '$' + s.strike;
+        }),
         datasets: [
-          {label:'Call GEX', data: nearStrikes.map(s=>s.call_gex/1e6),
-            backgroundColor:'#00e5a8', borderColor:'rgba(0,229,168,1)', borderWidth:1},
-          {label:'Put GEX',  data: nearStrikes.map(s=>s.put_gex/1e6),
-            backgroundColor:'#ff3f5e',  borderColor:'rgba(255,63,94,1)',  borderWidth:1}
+          {label:'Call GEX', data: nearStrikes.map(s=>normalize(s.call_gex)),
+            backgroundColor:'rgba(0,229,168,0.85)', borderColor:'rgba(0,229,168,1)', borderWidth:1},
+          {label:'Put GEX',  data: nearStrikes.map(s=>normalize(s.put_gex)),
+            backgroundColor:'rgba(255,63,94,0.85)',  borderColor:'rgba(255,63,94,1)',  borderWidth:1}
         ]
       },
       options: {
         responsive:true,
         animation: false,
-        plugins:{legend:{labels:{color:'#9dafc5',font:{family:'IBM Plex Mono',size:10}}}},
+        plugins:{
+          legend:{labels:{color:'#9dafc5',font:{family:'IBM Plex Mono',size:10}}},
+          tooltip:{callbacks:{
+            label: (ctx) => {
+              const s = nearStrikes[ctx.dataIndex];
+              const raw = ctx.datasetIndex === 0 ? s.call_gex : s.put_gex;
+              return ctx.dataset.label + ': ' + (raw/1e6).toFixed(1) + 'M';
+            }
+          }}
+        },
         scales:{
           x:{ticks:{color:'#9dafc5',font:{size:9},maxRotation:45},grid:{color:'rgba(30,37,48,0.5)'}},
-          y:{ticks:{color:'#9dafc5',font:{size:9},callback:v=>v+'M'},grid:{color:'rgba(30,37,48,0.5)'}}
+          y:{ticks:{color:'#9dafc5',font:{size:9},callback:v=>v+'%'},grid:{color:'rgba(30,37,48,0.5)'}}
         }
       }
     });
