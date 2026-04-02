@@ -200,7 +200,7 @@
   <div class="sec-head" style="--hc:var(--blue)">GEX por Strike</div>
   <div class="card" style="margin-bottom:14px"><canvas id="gexChart" height="280"></canvas></div>
   <div class="sec-head" style="--hc:var(--cyan)">Precio SPY con niveles GEX</div>
-  <div class="card" style="margin-bottom:14px"><canvas id="gexPriceChart" height="180"></canvas></div>
+  <div class="card" style="margin-bottom:14px"><div style="position:relative;height:200px"><canvas id="gexPriceChart"></canvas></div></div>
   <div class="sec-head" style="--hc:var(--amber)">Strikes clave</div>
   <div class="card" style="overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-family:monospace;font-size:11px">
@@ -644,20 +644,43 @@ window.renderGEX = async function renderGEX() {
     const maxAbs = Math.max(...nearStrikes.map(s => Math.max(Math.abs(s.call_gex), Math.abs(s.put_gex))));
     const normalize = v => maxAbs > 0 ? v / maxAbs * 100 : 0;
 
+    // GEX acumulado (de menor a mayor strike)
+    const cumArr = [];
+    let cumSum = 0;
+    for (const s of nearStrikes) { cumSum += s.call_gex + s.put_gex; cumArr.push(cumSum); }
+    const maxCum = Math.max(...cumArr.map(Math.abs));
+    const normCum = v => maxCum > 0 ? v / maxCum * 100 : 0;
+
+    // Índices de flip y spot en nearStrikes
+    const flipIdx = nearStrikes.findIndex(s => s.strike >= gammaFlip);
+    const spotIdx = nearStrikes.reduce((bi, s, i) => Math.abs(s.strike-spot) < Math.abs(nearStrikes[bi].strike-spot) ? i : bi, 0);
+
+    // Colores de barras: verde (sobre flip) vs rojo (bajo flip)
+    const callColors = nearStrikes.map((s,i) => i >= flipIdx ? 'rgba(0,229,168,0.85)' : 'rgba(0,229,168,0.45)');
+    const putColors  = nearStrikes.map((s,i) => i >= flipIdx ? 'rgba(255,63,94,0.45)' : 'rgba(255,63,94,0.85)');
+
+    // Anotaciones: boxes de zona + líneas verticales spot/flip
+    const annotations = {};
+    if (flipIdx >= 0) {
+      annotations.negZone = { type:'box', xMin:-0.5, xMax:flipIdx-0.5, backgroundColor:'rgba(255,63,94,0.04)', borderWidth:0 };
+      annotations.posZone = { type:'box', xMin:flipIdx-0.5, xMax:nearStrikes.length-0.5, backgroundColor:'rgba(0,229,168,0.04)', borderWidth:0 };
+      annotations.flipLine = { type:'line', xMin:flipIdx, xMax:flipIdx, borderColor:'#00b4d8', borderWidth:1.5, borderDash:[4,3],
+        label:{display:true, content:'⟳ Flip $'+gammaFlip.toFixed(0), position:'start', color:'#00b4d8', font:{size:9,family:'IBM Plex Mono'}, backgroundColor:'rgba(0,0,0,0.6)', padding:4} };
+    }
+    annotations.spotLine = { type:'line', xMin:spotIdx, xMax:spotIdx, borderColor:'#00e5a8', borderWidth:1.5, borderDash:[2,2],
+      label:{display:true, content:'● $'+spot.toFixed(0), position:'end', color:'#00e5a8', font:{size:9,family:'IBM Plex Mono'}, backgroundColor:'rgba(0,0,0,0.6)', padding:4} };
+
     window._gexChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: nearStrikes.map(s => {
-          const isWall = s.strike === wall.strike;
-          const isFlip = s.strike === gammaFlip;
-          const isSpot = Math.abs(s.strike - spot) < 0.5;
-          return (isWall ? '★' : isFlip ? '⟳' : isSpot ? '●' : '') + '$' + s.strike;
-        }),
+        labels: nearStrikes.map(s => '$' + s.strike),
         datasets: [
           {label:'Call GEX', data: nearStrikes.map(s=>normalize(s.call_gex)),
-            backgroundColor:'rgba(0,229,168,0.85)', borderColor:'rgba(0,229,168,1)', borderWidth:1},
+            backgroundColor: callColors, borderColor:'rgba(0,229,168,0.5)', borderWidth:1, order:2},
           {label:'Put GEX',  data: nearStrikes.map(s=>normalize(s.put_gex)),
-            backgroundColor:'rgba(255,63,94,0.85)',  borderColor:'rgba(255,63,94,1)',  borderWidth:1}
+            backgroundColor: putColors,  borderColor:'rgba(255,63,94,0.5)',  borderWidth:1, order:2},
+          {label:'GEX Acum.', data: cumArr.map(normCum),
+            type:'line', borderColor:'#00b4d8', borderWidth:2, pointRadius:0, fill:false, tension:0.3, order:1}
         ]
       },
       options: {
@@ -667,11 +690,15 @@ window.renderGEX = async function renderGEX() {
           legend:{labels:{color:'#9dafc5',font:{family:'IBM Plex Mono',size:10}}},
           tooltip:{callbacks:{
             label: (ctx) => {
+              if (ctx.datasetIndex === 2) {
+                return 'GEX Acum.: ' + (cumArr[ctx.dataIndex]/1e6).toFixed(1) + 'M';
+              }
               const s = nearStrikes[ctx.dataIndex];
               const raw = ctx.datasetIndex === 0 ? s.call_gex : s.put_gex;
               return ctx.dataset.label + ': ' + (raw/1e6).toFixed(1) + 'M';
             }
-          }}
+          }},
+          annotation: { annotations }
         },
         scales:{
           x:{ticks:{color:'#9dafc5',font:{size:9},maxRotation:45},grid:{color:'rgba(30,37,48,0.5)'}},
@@ -724,50 +751,50 @@ async function loadGEXPriceChart(wall, gammaFlip, spot) {
   const sorted = rows.reverse();
   const labels = sorted.map(r => r.fecha ? r.fecha.slice(5) : '');
   const prices = sorted.map(r => Number(r.close));
+  const n = labels.length;
 
   if (window._gexPriceChart) window._gexPriceChart.destroy();
 
+  // Niveles como datasets constantes — más confiable que annotation plugin
   window._gexPriceChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
-      datasets: [{
-        label: 'SPY',
-        data: prices,
-        borderColor: '#9dafc5',
-        borderWidth: 1.5,
-        pointRadius: 0,
-        fill: false,
-        tension: 0.1
-      }]
+      datasets: [
+        {
+          label: 'SPY',
+          data: prices,
+          borderColor: '#9dafc5', borderWidth: 1.5,
+          pointRadius: 0, fill: false, tension: 0.1, order: 3
+        },
+        {
+          label: '★ Wall $' + wall.toFixed(0),
+          data: Array(n).fill(wall),
+          borderColor: '#f0a500', borderWidth: 1.5, borderDash: [5,3],
+          pointRadius: 0, fill: false, order: 0
+        },
+        {
+          label: '⟳ Flip $' + gammaFlip.toFixed(0),
+          data: Array(n).fill(gammaFlip),
+          borderColor: '#00b4d8', borderWidth: 1.5, borderDash: [5,3],
+          pointRadius: 0, fill: false, order: 0
+        },
+        {
+          label: '● Spot $' + spot.toFixed(2),
+          data: Array(n).fill(spot),
+          borderColor: '#00e5a8', borderWidth: 1, borderDash: [2,2],
+          pointRadius: 0, fill: false, order: 0
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
       plugins: {
-        legend: { display: false },
-        annotation: {
-          annotations: {
-            wallLine: {
-              type: 'line', yMin: wall, yMax: wall,
-              borderColor: '#f0a500', borderWidth: 1.5, borderDash: [4,3],
-              label: { content: '★ Wall $'+wall, display: true, position: 'end',
-                color: '#f0a500', font: { size: 9, family: 'IBM Plex Mono' } }
-            },
-            flipLine: {
-              type: 'line', yMin: gammaFlip, yMax: gammaFlip,
-              borderColor: '#00b4d8', borderWidth: 1.5, borderDash: [4,3],
-              label: { content: '⟳ Flip $'+gammaFlip, display: true, position: 'end',
-                color: '#00b4d8', font: { size: 9, family: 'IBM Plex Mono' } }
-            },
-            spotLine: {
-              type: 'line', yMin: spot, yMax: spot,
-              borderColor: '#00e5a8', borderWidth: 1, borderDash: [2,2],
-              label: { content: '● Spot $'+spot.toFixed(2), display: true, position: 'start',
-                color: '#00e5a8', font: { size: 9, family: 'IBM Plex Mono' } }
-            }
-          }
+        legend: {
+          display: true,
+          labels: { color:'#9dafc5', font:{family:'IBM Plex Mono',size:9}, boxWidth:20, padding:8 }
         }
       },
       scales: {

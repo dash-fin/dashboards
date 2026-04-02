@@ -674,16 +674,31 @@ window.esRecalc = () => {
       animation: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2) } }
+        tooltip: { callbacks: { label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2) } },
+        annotation: {
+          annotations: {
+            zeroLine: { type:'line', xMin:0, xMax:0, borderColor:'rgba(255,255,255,0.25)', borderWidth:1 }
+          }
+        }
       },
       scales: {
         y: {
-          ticks: { display: false },
+          ticks: {
+            color: '#9dafc5',
+            font: { size: 8, family: 'IBM Plex Mono' },
+            callback: v => '$' + Number(v).toFixed(0),
+            maxTicksLimit: 14,
+            autoSkip: true
+          },
           grid: { color: 'rgba(30,37,48,0.5)' }
         },
         x: {
           ticks: { color:'#9dafc5', font:{size:8}, callback: v => (v>=0?'+':'')+v.toFixed(0) },
-          grid: { color:'rgba(30,37,48,0.4)' }
+          grid: { color:'rgba(30,37,48,0.4)' },
+          afterBuildTicks(axis) {
+            // Asegurar que el cero siempre esté marcado
+            if (!axis.ticks.find(t => t.value === 0)) axis.ticks.push({value:0});
+          }
         }
       }
     }
