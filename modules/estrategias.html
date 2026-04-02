@@ -194,17 +194,18 @@
         </div>
       </div>
 
-      <!-- Gráfico P&L — payoff horizontal -->
+      <!-- Gráfico: precio GGAL (TradingView) + payoff horizontal -->
       <div class="es-panel">
         <div class="es-panel-head">
-          <div class="es-panel-title">Payoff al vencimiento</div>
+          <div class="es-panel-title">Precio GGAL &amp; Payoff al vencimiento</div>
           <div style="display:flex;gap:12px">
             <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Vencimiento</div>
             <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Teórico</div>
           </div>
         </div>
-        <div style="padding:14px;position:relative;height:480px">
-          <canvas id="esPLChart"></canvas>
+        <div style="display:grid;grid-template-columns:1fr 1fr;height:440px">
+          <div id="tvggal_es" style="position:relative;border-right:1px solid var(--border2)"></div>
+          <div style="position:relative;padding:8px"><canvas id="esPLChart"></canvas></div>
         </div>
         <div style="padding:6px 14px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">
           Break evens: <span id="esBreakEvens2" style="color:var(--amber)">—</span>
@@ -643,6 +644,43 @@ window.esRecalc = () => {
 
   const priceRange = window._esPriceRange || { min: barPrices[0], max: barPrices[barPrices.length-1] };
 
+  // TradingView GGAL (solo una vez)
+  if (!window._tvGGALLoaded) {
+    window._tvGGALLoaded = true;
+    function _createTVGGAL() {
+      const c = document.getElementById('tvggal_es');
+      if (!c) return;
+      c.innerHTML = '';
+      const d = document.createElement('div');
+      d.id = 'tvggal_' + Date.now();
+      d.style.cssText = 'width:100%;height:100%';
+      c.appendChild(d);
+      try {
+        new window.TradingView.widget({
+          autosize:true, symbol:'BYMA:GGAL', interval:'D',
+          timezone:'America/Argentina/Buenos_Aires', theme:'dark',
+          style:'1', locale:'es', toolbar_bg:'#131c2b',
+          enable_publishing:false, hide_top_toolbar:false,
+          hide_legend:false, save_image:false, container_id:d.id
+        });
+      } catch(e) {
+        c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">No se pudo cargar TradingView</div>';
+      }
+    }
+    if (window.TradingView) {
+      _createTVGGAL();
+    } else {
+      const sc = document.createElement('script');
+      sc.src = 'https://s3.tradingview.com/tv.js';
+      sc.onload = _createTVGGAL;
+      sc.onerror = () => {
+        const c = document.getElementById('tvggal_es');
+        if(c) c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">TradingView no disponible</div>';
+      };
+      document.head.appendChild(sc);
+    }
+  }
+
   if(esPLChartInst) esPLChartInst.destroy();
   esPLChartInst = new Chart(document.getElementById('esPLChart'), {
     type: 'bar',
@@ -674,31 +712,17 @@ window.esRecalc = () => {
       animation: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2) } },
-        annotation: {
-          annotations: {
-            zeroLine: { type:'line', xMin:0, xMax:0, borderColor:'rgba(255,255,255,0.25)', borderWidth:1 }
-          }
-        }
+        tooltip: { callbacks: { label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2) } }
       },
       scales: {
         y: {
-          ticks: {
-            color: '#9dafc5',
-            font: { size: 8, family: 'IBM Plex Mono' },
-            callback: v => '$' + Number(v).toFixed(0),
-            maxTicksLimit: 14,
-            autoSkip: true
-          },
+          // Escala categórica: las labels ya están formateadas como '$4580.50'
+          ticks: { color:'#9dafc5', font:{size:8,family:'IBM Plex Mono'}, maxTicksLimit:14, autoSkip:true },
           grid: { color: 'rgba(30,37,48,0.5)' }
         },
         x: {
           ticks: { color:'#9dafc5', font:{size:8}, callback: v => (v>=0?'+':'')+v.toFixed(0) },
-          grid: { color:'rgba(30,37,48,0.4)' },
-          afterBuildTicks(axis) {
-            // Asegurar que el cero siempre esté marcado
-            if (!axis.ticks.find(t => t.value === 0)) axis.ticks.push({value:0});
-          }
+          grid: { color:'rgba(30,37,48,0.4)' }
         }
       }
     }

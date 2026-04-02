@@ -219,6 +219,7 @@ window.oChtab = (name, btn) => {
   document.getElementById('ochpanel-'+name).classList.add('active');
   document.querySelectorAll('[id^="chtab-"]').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
+  if (name === 'gex') loadGGALGex();
 };
 
 // ── Admin upload injection ──
@@ -520,6 +521,188 @@ function oRenderGEX(calls,puts){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}M`}}},
       scales:{x:{stacked:true,ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},maxRotation:45,autoSkip:true},grid:{color:'#1e2530'}},
         y:{stacked:true,ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>v.toFixed(1)+'M'},grid:{color:'#1e2530'}}}}});
+}
+
+// ── Análisis GEX GGAL ────────────────────────────────────────
+let _ggalGexLoaded = false;
+async function loadGGALGex() {
+  if (_ggalGexLoaded) return;
+  _ggalGexLoaded = true;
+
+  const emptyEl  = document.getElementById('oGexEmpty');
+  const contentEl = document.getElementById('oGexContent');
+  if (emptyEl) emptyEl.querySelector('p').textContent = 'Cargando opciones GGAL...';
+
+  try {
+    // Spot GGAL
+    const spotRows = await window.sb('mercado', 'symbol=eq.GGAL&select=last&limit=1');
+    const spot = spotRows && spotRows[0] ? Number(spotRows[0].last) : null;
+    if (!spot) { if(emptyEl) emptyEl.querySelector('p').textContent = 'Sin precio spot GGAL'; return; }
+
+    // Opciones RT
+    const today = new Date().toISOString().split('T')[0];
+    const rows = await window.sbAll('opciones_rt',
+      'underlying_asset=ilike.GGAL*&select=strike,kind,expiration,gamma,open_interest,last&expiration=gte.'+today+'&open_interest=gt.0',
+      3000
+    );
+    if (!rows || !rows.length) {
+      if(emptyEl) emptyEl.querySelector('p').textContent = 'Sin opciones GGAL con datos disponibles';
+      return;
+    }
+
+    // GEX por strike
+    const strikeMap = {};
+    rows.forEach(r => {
+      const strike = Number(r.strike);
+      const gamma  = Number(r.gamma || 0);
+      const oi     = Number(r.open_interest || 0);
+      if (!gamma || !oi) return;
+      const gex = gamma * oi * 100 * spot * spot / 100;
+      if (!strikeMap[strike]) strikeMap[strike] = {strike, call_gex:0, put_gex:0, call_oi:0, put_oi:0};
+      if (r.kind === 'call') { strikeMap[strike].call_gex += gex;  strikeMap[strike].call_oi += oi; }
+      else                   { strikeMap[strike].put_gex  -= gex;  strikeMap[strike].put_oi  += oi; }
+    });
+
+    const nearStrikes = Object.values(strikeMap)
+      .filter(s => s.strike >= spot*0.75 && s.strike <= spot*1.25)
+      .sort((a,b) => a.strike - b.strike);
+
+    if (!nearStrikes.length) {
+      if(emptyEl) emptyEl.querySelector('p').textContent = 'Sin strikes cercanos al spot ($'+spot.toFixed(2)+')';
+      return;
+    }
+
+    const totalCallGex = nearStrikes.reduce((s,r) => s+r.call_gex, 0);
+    const totalPutGex  = nearStrikes.reduce((s,r) => s+r.put_gex, 0);
+    const netGex = totalCallGex + totalPutGex;
+
+    const wall     = nearStrikes.reduce((b,r) => Math.abs(r.call_gex+r.put_gex) > Math.abs(b.call_gex+b.put_gex) ? r : b, nearStrikes[0]);
+    const callWall = nearStrikes.filter(s=>s.strike>spot).sort((a,b)=>b.call_gex-a.call_gex)[0] || wall;
+    const putWall  = nearStrikes.filter(s=>s.strike<spot).sort((a,b)=>a.put_gex-b.put_gex)[0]  || wall;
+
+    // Gamma flip
+    const desc = [...nearStrikes].sort((a,b) => b.strike-a.strike);
+    let cum=0, gammaFlip=null;
+    for (const s of desc) {
+      const prev=cum; cum+=s.call_gex+s.put_gex;
+      if ((prev>0&&cum<=0)||(prev<0&&cum>=0)) { gammaFlip=s.strike; break; }
+    }
+    if (!gammaFlip) gammaFlip = wall.strike;
+
+    // Max pain (simplificado)
+    const allCoi = nearStrikes.reduce((s,r)=>s+r.call_oi,0);
+    const allPoi = nearStrikes.reduce((s,r)=>s+r.put_oi,0);
+
+    // Poblar KPIs
+    const fmtG = v => { const m=v/1e6; return (m>=0?'+':'')+m.toFixed(2)+'M'; };
+    document.getElementById('og-flip').textContent       = '$' + gammaFlip.toFixed(2);
+    document.getElementById('og-flip').style.color       = spot > gammaFlip ? 'var(--green)' : 'var(--red)';
+    document.getElementById('og-flip-pos').textContent   = spot > gammaFlip ? 'Precio sobre flip — Long Gamma' : 'Precio bajo flip — Short Gamma';
+    document.getElementById('og-callwall').textContent   = '$' + callWall.strike.toFixed(2);
+    document.getElementById('og-callwall-oi').textContent = callWall.call_oi.toLocaleString() + ' contratos';
+    document.getElementById('og-putwall').textContent    = '$' + putWall.strike.toFixed(2);
+    document.getElementById('og-putwall-oi').textContent  = putWall.put_oi.toLocaleString() + ' contratos';
+    document.getElementById('og-pain').textContent       = '$' + wall.strike.toFixed(2);
+    document.getElementById('og-pain-loss').textContent  = 'Referencia: mayor concentración GEX';
+    document.getElementById('og-gex-calls').textContent  = fmtG(totalCallGex);
+    document.getElementById('og-gex-puts').textContent   = fmtG(totalPutGex);
+    document.getElementById('ogs-net').textContent       = fmtG(netGex);
+    document.getElementById('ogs-net').style.color       = netGex>0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('ogs-callconc').textContent  = allCoi ? ((callWall.call_oi/allCoi)*100).toFixed(0)+'%' : '—';
+    document.getElementById('ogs-putconc').textContent   = allPoi ? ((putWall.put_oi/allPoi)*100).toFixed(0)+'%'  : '—';
+    document.getElementById('ogs-range').textContent     = '$'+putWall.strike.toFixed(0)+' — $'+callWall.strike.toFixed(0);
+
+    // Regime card
+    const rc = document.getElementById('oRegimeCard');
+    if (rc) {
+      rc.className = 'regime-card ' + (netGex>0 ? 'regime-positive' : 'regime-negative');
+      document.getElementById('oRegimeIcon').textContent  = netGex>0 ? '📈' : '📉';
+      document.getElementById('oRegimeTitle').textContent = netGex>0 ? 'Long Gamma' : 'Short Gamma';
+      document.getElementById('oRegimeDesc').textContent  = netGex>0
+        ? 'Dealers estabilizan el mercado — Volatilidad comprimida.'
+        : 'Dealers amplifican movimientos — Mayor volatilidad esperada.';
+    }
+
+    // Gráfico GEX por strike (igual estilo que SPY)
+    const cumArr = []; let cs=0;
+    for (const s of nearStrikes) { cs+=s.call_gex+s.put_gex; cumArr.push(cs); }
+    const fIdx = nearStrikes.findIndex(s=>s.strike>=gammaFlip);
+    const sIdx = nearStrikes.reduce((bi,s,i)=>Math.abs(s.strike-spot)<Math.abs(nearStrikes[bi].strike-spot)?i:bi,0);
+    const cBg = nearStrikes.map((_,i)=>i>=Math.max(0,fIdx)?'rgba(0,229,168,0.80)':'rgba(0,229,168,0.35)');
+    const pBg = nearStrikes.map((_,i)=>i>=Math.max(0,fIdx)?'rgba(255,63,94,0.35)':'rgba(255,63,94,0.80)');
+
+    const gexBgPl = {
+      id:'ggalBg',
+      beforeDraw(chart) {
+        const {ctx:c,chartArea,scales}=chart;
+        if(!chartArea||!scales.x||fIdx<0)return;
+        try {
+          const xf=scales.x.getPixelForValue(Math.max(0,fIdx-0.5));
+          c.save();
+          c.fillStyle='rgba(255,63,94,0.06)'; c.fillRect(chartArea.left,chartArea.top,xf-chartArea.left,chartArea.bottom-chartArea.top);
+          c.fillStyle='rgba(0,229,168,0.06)'; c.fillRect(xf,chartArea.top,chartArea.right-xf,chartArea.bottom-chartArea.top);
+          c.restore();
+        }catch(e){}
+      },
+      afterDraw(chart) {
+        const {ctx:c,chartArea,scales}=chart;
+        if(!chartArea||!scales.x)return;
+        try {
+          c.save(); c.textAlign='center';
+          if(fIdx>=0){
+            const xf=scales.x.getPixelForValue(fIdx);
+            c.setLineDash([4,3]); c.strokeStyle='#00b4d8'; c.lineWidth=1.5;
+            c.beginPath(); c.moveTo(xf,chartArea.top); c.lineTo(xf,chartArea.bottom); c.stroke();
+            c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xf-38,chartArea.top,76,14);
+            c.fillStyle='#00b4d8'; c.font='9px IBM Plex Mono';
+            c.fillText('⟳ Flip $'+gammaFlip.toFixed(2),xf,chartArea.top+10);
+          }
+          const xs=scales.x.getPixelForValue(sIdx);
+          c.setLineDash([2,2]); c.strokeStyle='#00e5a8'; c.lineWidth=1.5;
+          c.beginPath(); c.moveTo(xs,chartArea.top); c.lineTo(xs,chartArea.bottom); c.stroke();
+          c.fillStyle='rgba(0,0,0,0.7)'; c.fillRect(xs-30,chartArea.top+16,60,14);
+          c.fillStyle='#00e5a8'; c.font='9px IBM Plex Mono';
+          c.fillText('● $'+spot.toFixed(2),xs,chartArea.top+26);
+          c.restore();
+        }catch(e){}
+      }
+    };
+
+    const gexCtx = document.getElementById('oGexChart');
+    if (gexCtx && typeof Chart !== 'undefined') {
+      if (window._oGexChart) window._oGexChart.destroy();
+      window._oGexChart = new Chart(gexCtx, {
+        type: 'bar',
+        data: {
+          labels: nearStrikes.map(s=>'$'+s.strike.toFixed(2)),
+          datasets: [
+            {label:'Call GEX', data:nearStrikes.map(s=>s.call_gex/1e6), backgroundColor:cBg, borderWidth:1, order:2},
+            {label:'Put GEX',  data:nearStrikes.map(s=>s.put_gex/1e6),  backgroundColor:pBg, borderWidth:1, order:2},
+            {label:'GEX Acum.',data:cumArr.map(v=>v/1e6),
+              type:'line',borderColor:'#60b3d8',borderWidth:2,pointRadius:0,fill:false,tension:0.3,order:1,yAxisID:'y2'}
+          ]
+        },
+        options:{
+          responsive:true, animation:false,
+          plugins:{legend:{labels:{color:'#9dafc5',font:{family:'IBM Plex Mono',size:9}}}},
+          scales:{
+            x:{ticks:{color:'#9dafc5',font:{size:8},maxRotation:45,autoSkip:true},grid:{color:'rgba(30,37,48,0.5)'}},
+            y:{ticks:{color:'#9dafc5',font:{size:8},callback:v=>v+'M'},grid:{color:'rgba(30,37,48,0.5)'}},
+            y2:{position:'right',ticks:{color:'#4a6580',font:{size:8},callback:v=>v+'M'},grid:{drawOnChartArea:false}}
+          }
+        },
+        plugins:[gexBgPl]
+      });
+    }
+
+    // Mostrar contenido
+    if (emptyEl)  emptyEl.style.display  = 'none';
+    if (contentEl) { contentEl.style.display = 'flex'; contentEl.style.flexDirection = 'column'; }
+
+  } catch(e) {
+    _ggalGexLoaded = false;
+    if(emptyEl) emptyEl.querySelector('p').textContent = 'Error al cargar: ' + e.message;
+  }
 }
 
 // ── Init ──
