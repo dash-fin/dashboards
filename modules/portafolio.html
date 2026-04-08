@@ -1,0 +1,410 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: PORTAFOLIO
+     Tabs: Resumen (donut + KPIs) | Posiciones (tabla P&L)
+     Fórmula: usd_invertido = (precio_compra_ars × cantidad) / mep_compra
+              usd_actual    = (precio_actual_ars  × cantidad) / mep_actual
+              ganancia      = usd_actual - usd_invertido
+══════════════════════════════════════════════════ -->
+
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="pftab-resumen"    onclick="pfTab('resumen',this)">Resumen</button>
+    <button class="stab"        id="pftab-posiciones" onclick="pfTab('posiciones',this)">Posiciones</button>
+  </div>
+  <div class="sub-tabs-meta" style="display:flex;align-items:center;gap:8px">
+    <span style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace">USUARIO:</span>
+    <select id="pfUserSel" onchange="pfLoadAll()" style="background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;cursor:pointer">
+      <option value="esperonjuanmanuel@gmail.com">Juan M. Esperon</option>
+    </select>
+    <span id="pfMeta" style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
+  </div>
+</div>
+
+<!-- ── PANEL: RESUMEN ── -->
+<div class="sub-panel active" id="pfpanel-resumen">
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
+    <div class="kpi" style="--accent:var(--blue)">
+      <div class="kpi-label">Invertido</div>
+      <div class="kpi-val" id="pfk-invested">—</div>
+      <div class="kpi-sub">USD total</div>
+    </div>
+    <div class="kpi" style="--accent:var(--green)">
+      <div class="kpi-label">Valuación actual</div>
+      <div class="kpi-val" id="pfk-actual">—</div>
+      <div class="kpi-sub">USD a precios hoy</div>
+    </div>
+    <div class="kpi" id="pfk-gain-box" style="--accent:var(--amber)">
+      <div class="kpi-label">Ganancia / Pérdida</div>
+      <div class="kpi-val" id="pfk-gain">—</div>
+      <div class="kpi-sub" id="pfk-gain-pct">—</div>
+    </div>
+    <div class="kpi" style="--accent:var(--purple)">
+      <div class="kpi-label">MEP actual</div>
+      <div class="kpi-val" id="pfk-mep">—</div>
+      <div class="kpi-sub">AL30 ARS ÷ AL30D</div>
+    </div>
+    <div class="kpi" style="--accent:var(--blue)">
+      <div class="kpi-label">Posiciones</div>
+      <div class="kpi-val" id="pfk-pos">—</div>
+      <div class="kpi-sub" id="pfk-pos-sub">activas</div>
+    </div>
+  </div>
+
+  <!-- Donut + Tabla de allocación -->
+  <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
+
+    <!-- Donut -->
+    <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Distribución del portafolio</div>
+      <div style="position:relative;width:220px;height:220px">
+        <canvas id="pfDonutCanvas" width="220" height="220"></canvas>
+        <div id="pfDonutCenter" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:1px">TOTAL USD</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:var(--text)" id="pfDonutTotal">—</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px" id="pfDonutGain">—</div>
+        </div>
+      </div>
+      <!-- Leyenda -->
+      <div id="pfLegend" style="display:flex;flex-direction:column;gap:6px;width:100%"></div>
+    </div>
+
+    <!-- Tabla por tipo -->
+    <div class="card">
+      <div class="card-head" style="font-size:10px">Por tipo de instrumento</div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th class="th-left">Tipo</th>
+            <th>Invertido USD</th>
+            <th>Actual USD</th>
+            <th>% portafolio</th>
+            <th>Ganancia USD</th>
+            <th>Var %</th>
+          </tr></thead>
+          <tbody id="pfAllocTbody">
+            <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── PANEL: POSICIONES ── -->
+<div class="sub-panel" id="pfpanel-posiciones">
+  <div class="card">
+    <div class="toolbar">
+      <div style="display:flex;gap:3px" id="pfTipoFilter">
+        <button class="flt on"  onclick="pfSetFilter('all',this)">Todos</button>
+        <button class="flt"     onclick="pfSetFilter('CEDEAR',this)">CEDEARs</button>
+        <button class="flt"     onclick="pfSetFilter('BONO_SOBERANO',this)">Bonos Sob.</button>
+        <button class="flt"     onclick="pfSetFilter('DOLAR_LINKED',this)">Dólar Linked</button>
+      </div>
+      <span class="row-count" id="pfPosCount">0 posiciones</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Ticker</th>
+          <th>Tipo</th>
+          <th>Fecha</th>
+          <th>Cantidad</th>
+          <th>P. Compra ARS</th>
+          <th>MEP compra</th>
+          <th>Invertido USD</th>
+          <th>Actual USD</th>
+          <th>Ganancia USD</th>
+          <th>Var %</th>
+        </tr></thead>
+        <tbody id="pfPosTbody">
+          <tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+// ── Constantes ──────────────────────────────────────────
+const TIPO_LABEL = {
+  CEDEAR:        'CEDEARs',
+  BONO_SOBERANO: 'Bonos Soberanos',
+  DOLAR_LINKED:  'Dólar Linked',
+  BONO_CER:      'Bonos CER',
+  BONO_DUAL:     'Bonos Duales',
+  ACCION:        'Acciones',
+};
+const TIPO_COLOR = {
+  CEDEAR:        '#00b4d8',
+  BONO_SOBERANO: '#00e5a8',
+  DOLAR_LINKED:  '#f0a500',
+  BONO_CER:      '#b39dff',
+  BONO_DUAL:     '#ff3f5e',
+  ACCION:        '#4da6ff',
+};
+
+// ── Estado ──────────────────────────────────────────────
+let pfPositions = [];
+let pfPrices    = {};
+let pfMep       = null;
+let pfFilter    = 'all';
+let pfChart     = null;
+
+// ── Sub-tabs ─────────────────────────────────────────────
+window.pfTab = (name, btn) => {
+  document.querySelectorAll('[id^="pfpanel-"]').forEach(p => p.classList.remove('active'));
+  document.getElementById('pfpanel-' + name).classList.add('active');
+  document.querySelectorAll('[id^="pftab-"]').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+// ── Carga de datos ───────────────────────────────────────
+window.pfLoadAll = async () => {
+  const email = document.getElementById('pfUserSel').value;
+  document.getElementById('pfMeta').textContent = 'Cargando...';
+
+  try {
+    // 1. Posiciones + MEP en paralelo
+    const [posData, mepData] = await Promise.all([
+      sb('portafolio', `user_email=eq.${encodeURIComponent(email)}&activo=eq.true&order=tipo,ticker_ars`),
+      sb('mercado',    'symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last'),
+    ]);
+
+    pfPositions = posData || [];
+
+    // MEP actual
+    const al30  = (mepData || []).find(r => r.symbol === 'AL30');
+    const al30d = (mepData || []).find(r => r.symbol === 'AL30D');
+    pfMep = (al30 && al30d && al30d.last > 0) ? (al30.last / al30d.last) : null;
+    document.getElementById('pfk-mep').textContent =
+      pfMep ? '$' + Math.round(pfMep).toLocaleString('es-AR') : '—';
+
+    // 2. Precios actuales de todos los tickers ARS
+    const tickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
+    if (tickers.length) {
+      const qs = tickers.map(t => `"${t}"`).join(',');
+      const priceRows = await sb('mercado', `symbol=in.(${qs})&settlement=eq.24hs&select=symbol,last,change`);
+      pfPrices = {};
+      (priceRows || []).forEach(r => { pfPrices[r.symbol] = r; });
+    }
+
+    document.getElementById('pfMeta').textContent =
+      `${pfPositions.length} posiciones · ${new Date().toLocaleTimeString('es-AR')}`;
+
+    pfRender();
+
+  } catch (e) {
+    document.getElementById('pfMeta').textContent = 'Error al cargar';
+    console.error('[portafolio]', e);
+  }
+};
+
+// ── Cálculo por posición ─────────────────────────────────
+function pfCalc(pos) {
+  const precioActual  = pfPrices[pos.ticker_ars]?.last ?? null;
+  const usdInvertido  = pos.mep_compra > 0
+    ? (pos.precio_compra_ars * pos.cantidad) / pos.mep_compra
+    : null;
+  const usdActual     = (pfMep && precioActual != null)
+    ? (precioActual * pos.cantidad) / pfMep
+    : null;
+  const ganancia      = (usdInvertido != null && usdActual != null)
+    ? usdActual - usdInvertido
+    : null;
+  const pct           = (ganancia != null && usdInvertido > 0)
+    ? ganancia / usdInvertido
+    : null;
+  return { ...pos, precioActual, usdInvertido, usdActual, ganancia, pct };
+}
+
+// ── Render principal ─────────────────────────────────────
+function pfRender() {
+  const calced = pfPositions.map(pfCalc);
+
+  const totalInv = calced.reduce((s, p) => s + (p.usdInvertido || 0), 0);
+  const totalAct = calced.reduce((s, p) => s + (p.usdActual    || 0), 0);
+  const totalGan = totalAct - totalInv;
+  const totalPct = totalInv > 0 ? totalGan / totalInv : null;
+
+  // KPIs
+  const fmt = v => 'U$S ' + Math.round(v).toLocaleString('es-AR');
+  document.getElementById('pfk-invested').textContent = fmt(totalInv);
+  document.getElementById('pfk-actual').textContent   = fmt(totalAct);
+
+  const gainEl  = document.getElementById('pfk-gain');
+  const gainPct = document.getElementById('pfk-gain-pct');
+  const gainBox = document.getElementById('pfk-gain-box');
+  const sign    = totalGan >= 0 ? '+' : '';
+  gainEl.textContent  = sign + fmt(totalGan);
+  gainPct.textContent = totalPct != null ? (sign + (totalPct * 100).toFixed(2) + '%') : '—';
+  gainBox.style.setProperty('--accent', totalGan >= 0 ? 'var(--green)' : 'var(--red)');
+
+  document.getElementById('pfk-pos').textContent     = pfPositions.length;
+  document.getElementById('pfk-pos-sub').textContent = [...new Set(pfPositions.map(p => p.ticker_ars))].length + ' tickers · ' + [...new Set(pfPositions.map(p => p.tipo))].length + ' tipos';
+
+  // Agrupar por tipo
+  const byTipo = {};
+  calced.forEach(p => {
+    if (!byTipo[p.tipo]) byTipo[p.tipo] = { inv: 0, act: 0 };
+    byTipo[p.tipo].inv += p.usdInvertido || 0;
+    byTipo[p.tipo].act += p.usdActual    || 0;
+  });
+
+  pfRenderDonut(byTipo, totalAct, totalGan);
+  pfRenderAlloc(byTipo, totalAct);
+  pfRenderPositions(calced);
+}
+
+// ── Donut ────────────────────────────────────────────────
+function pfRenderDonut(byTipo, totalAct, totalGan) {
+  // Centro del donut
+  document.getElementById('pfDonutTotal').textContent = 'U$S ' + Math.round(totalAct).toLocaleString('es-AR');
+  const ganEl = document.getElementById('pfDonutGain');
+  const sign  = totalGan >= 0 ? '+' : '';
+  ganEl.textContent  = sign + 'U$S ' + Math.round(totalGan).toLocaleString('es-AR');
+  ganEl.style.color  = totalGan >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const tipos   = Object.keys(byTipo).filter(t => byTipo[t].act > 0).sort((a,b) => byTipo[b].act - byTipo[a].act);
+  const labels  = tipos.map(t => TIPO_LABEL[t] || t);
+  const data    = tipos.map(t => byTipo[t].act);
+  const colors  = tipos.map(t => TIPO_COLOR[t] || '#888');
+
+  const ctx = document.getElementById('pfDonutCanvas');
+  if (!ctx) return;
+  if (pfChart) { pfChart.destroy(); pfChart = null; }
+
+  pfChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor:      colors,
+        borderColor:          '#0d1117',
+        borderWidth:          4,
+        hoverBorderWidth:     5,
+        hoverOffset:          6,
+      }]
+    },
+    options: {
+      responsive:   false,
+      cutout:       '74%',
+      animation:    { duration: 600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = totalAct > 0 ? (ctx.raw / totalAct * 100).toFixed(1) : 0;
+              return ` U$S ${Math.round(ctx.raw).toLocaleString('es-AR')} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Leyenda manual
+  const legend = document.getElementById('pfLegend');
+  legend.innerHTML = tipos.map(t => {
+    const d   = byTipo[t];
+    const pct = totalAct > 0 ? (d.act / totalAct * 100).toFixed(1) : 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:10px;height:10px;border-radius:2px;background:${TIPO_COLOR[t]||'#888'};flex-shrink:0"></span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2)">${TIPO_LABEL[t]||t}</span>
+      </div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Tabla de allocación ───────────────────────────────────
+function pfRenderAlloc(byTipo, totalAct) {
+  const tbody = document.getElementById('pfAllocTbody');
+  const tipos = Object.keys(byTipo).sort((a, b) => byTipo[b].act - byTipo[a].act);
+
+  if (!tipos.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Sin datos</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = tipos.map(tipo => {
+    const d   = byTipo[tipo];
+    const gan = d.act - d.inv;
+    const pct = totalAct > 0 ? (d.act / totalAct * 100).toFixed(1) : 0;
+    const gc  = gan >= 0 ? 'var(--green)' : 'var(--red)';
+    const gs  = gan >= 0 ? '+' : '';
+    const gp  = d.inv > 0 ? (gs + (gan / d.inv * 100).toFixed(1) + '%') : '—';
+    return `<tr>
+      <td class="th-left">
+        <div style="display:flex;align-items:center;gap:7px">
+          <span style="width:9px;height:9px;border-radius:2px;background:${TIPO_COLOR[tipo]||'#888'};flex-shrink:0"></span>
+          ${TIPO_LABEL[tipo] || tipo}
+        </div>
+      </td>
+      <td>U$S ${Math.round(d.inv).toLocaleString('es-AR')}</td>
+      <td>U$S ${Math.round(d.act).toLocaleString('es-AR')}</td>
+      <td>${pct}%</td>
+      <td style="color:${gc}">${gs}U$S ${Math.abs(Math.round(gan)).toLocaleString('es-AR')}</td>
+      <td style="color:${gc}">${gp}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Tabla de posiciones ───────────────────────────────────
+function pfRenderPositions(calced) {
+  const rows = pfFilter === 'all' ? calced : calced.filter(p => p.tipo === pfFilter);
+  document.getElementById('pfPosCount').textContent = `${rows.length} posición${rows.length !== 1 ? 'es' : ''}`;
+
+  const tbody = document.getElementById('pfPosTbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Sin posiciones</td></tr>';
+    return;
+  }
+
+  const fmtArs = v => '$' + Number(v).toLocaleString('es-AR', { maximumFractionDigits: 0 });
+  const fmtUsd = v => v != null ? 'U$S ' + Math.abs(Math.round(v)).toLocaleString('es-AR') : '—';
+
+  tbody.innerHTML = rows.map(p => {
+    const gc    = (p.ganancia || 0) >= 0 ? 'var(--green)' : 'var(--red)';
+    const gs    = (p.ganancia || 0) >= 0 ? '+' : '−';
+    const fecha = p.fecha_compra ? new Date(p.fecha_compra + 'T00:00:00').toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
+    const pctTxt = p.pct != null ? ((p.pct >= 0 ? '+' : '') + (p.pct * 100).toFixed(1) + '%') : '—';
+
+    return `<tr>
+      <td class="th-left">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${TIPO_COLOR[p.tipo]||'#888'};margin-right:5px;vertical-align:middle"></span>
+        <b>${p.ticker_ars}</b>
+      </td>
+      <td style="font-size:10px;color:var(--text3)">${TIPO_LABEL[p.tipo]||p.tipo}</td>
+      <td>${fecha}</td>
+      <td>${Number(p.cantidad).toLocaleString('es-AR')}</td>
+      <td>${fmtArs(p.precio_compra_ars)}</td>
+      <td style="color:var(--text3)">$${Math.round(p.mep_compra).toLocaleString('es-AR')}</td>
+      <td>${fmtUsd(p.usdInvertido)}</td>
+      <td>${fmtUsd(p.usdActual)}</td>
+      <td style="color:${gc}">${p.ganancia != null ? (gs + fmtUsd(p.ganancia)) : '—'}</td>
+      <td style="color:${gc}">${pctTxt}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Filtro de tipo ────────────────────────────────────────
+window.pfSetFilter = (f, btn) => {
+  pfFilter = f;
+  document.querySelectorAll('#pfTipoFilter .flt').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  pfRenderPositions(pfPositions.map(pfCalc));
+};
+
+// ── Init ─────────────────────────────────────────────────
+pfLoadAll();
+
+})();
+</script>
