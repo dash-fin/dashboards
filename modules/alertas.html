@@ -47,9 +47,10 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
     <button class="stab"        id="alstab-nueva"     onclick="alTab('nueva',this)">+ Nueva</button>
     <button class="stab"        id="alstab-historial" onclick="alTab('historial',this)">Historial</button>
   </div>
-  <div id="al-engine-status" style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+  <div id="al-engine-status" style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
     <span id="al-rt-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
     <span id="al-rt-label">Conectando...</span>
+    <span id="al-no-canal-badge" style="display:none;background:rgba(240,165,0,.15);color:var(--amber);border:1px solid rgba(240,165,0,.3);border-radius:3px;padding:2px 8px;font-size:8px;letter-spacing:.5px">⚠ Sin canal — alertas no se enviarán</span>
   </div>
 </div>
 
@@ -941,6 +942,8 @@ function alKpiUpdate(){
     return new Date(a.last_fired).toDateString()===today ? s+1 : s;
   }, 0);
   set('al-kpi-hoy', hoyCount);
+  const badge = document.getElementById('al-no-canal-badge');
+  if(badge) badge.style.display = (!AL.cfg.canal || AL.cfg.canal === 'ninguno') ? 'inline-block' : 'none';
 }
 
 // ─────────────────────────────────────────────

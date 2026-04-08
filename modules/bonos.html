@@ -392,7 +392,7 @@ function updateKpis(){
 // ──────────────────────────────────────────────
 // GRÁFICOS
 // ──────────────────────────────────────────────
-const COLORES={lecap:'#00e5a8',boncap:'#4da6ff',dual:'#b39dff',fijo:'#f0a500'};
+const COLORES={lecap:'#00e5a8',boncap:'#00b4d8',dual:'#f0a500',fijo:'#ff3f5e'};
 const LABELS={lecap:'LECAP',boncap:'BONCAP',dual:'Duales',fijo:'Tasa fija'};
 const CHART_OPTS={
   responsive:true, maintainAspectRatio:false,
@@ -433,7 +433,7 @@ function renderCurva(){
     })),
     backgroundColor: COLORES[tipo],
     borderColor: COLORES[tipo],
-    pointRadius: 9,
+    pointRadius: 4,
     pointHoverRadius: 12,
     type: 'scatter',
   })).filter(d=>d.data.length>0);

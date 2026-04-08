@@ -33,7 +33,7 @@
     <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Put/Call ratio</div><div class="kpi-val" id="ok-ratio">—</div><div class="kpi-sub" id="ok-sent">—</div></div>
     <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">OI Total</div><div class="kpi-val" id="ok-oi">—</div><div class="kpi-sub">calls + puts</div></div>
     <div class="kpi" style="--accent:var(--cyan)"><div class="kpi-label">Var. día ant.</div><div class="kpi-val" id="ok-var">—</div><div class="kpi-sub">suma neta</div></div>
-    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Net GEX</div><div class="kpi-val" id="ok-gex">—</div><div class="kpi-sub" id="ok-regime">—</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">OI Neto (calls-puts)</div><div class="kpi-val" id="ok-gex">—</div><div class="kpi-sub" id="ok-regime">—</div></div>
   </div>
 
   <!-- Charts tabs -->
@@ -379,7 +379,7 @@ function oRenderAll(d){
   document.getElementById('ok-oi').textContent=fmtM(callOI+putOI);
   document.getElementById('ok-var').textContent=(sumVar>=0?'+':'')+fmtM(sumVar);
   document.getElementById('ok-gex').textContent=fmtM(netGex);
-  document.getElementById('ok-regime').textContent=netGex>0?'Long gamma':'Short gamma';
+  document.getElementById('ok-regime').textContent=netGex>0?'Call dominance':'Put dominance';
   oRenderCharts(calls,puts);
   oRenderTable(opts);
   oRenderGEX(calls,puts);

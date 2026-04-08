@@ -460,7 +460,7 @@ window.vRerender = () => {
   vUpdateKPIs();
   if (vActiveTab === 'sonrisa') vRenderSonrisa();
   else if (vActiveTab === 'surface') vRenderTerm();
-  else if (vActiveTab === 'monitor') { vMonApply(); chainRender(); }
+  else if (vActiveTab === 'monitor') { try { vMonApply(); } catch(e) { console.log('vMonApply skipped:', e.message); } chainRender(); }
 };
 
 // ── SONRISA ──

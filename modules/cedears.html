@@ -239,8 +239,12 @@ async function csLoadRankings(){
     if(!rows||!rows.length){el.innerHTML='<div class="rank-empty">Sin datos</div>';return;}
     el.innerHTML=rows.map((r,i)=>{
       const chg=Number(r.change),cls=cc(chg);
-      const sub=mode==='turnover'?`<div class="rank-sub">${fmtM(r.turnover)}</div>`:`<div class="rank-sub">Vol ${r.volume?fmtAR(Number(r.volume),0):'—'}</div>`;
-      return`<div class="rank-item"><div class="rank-pos">${i+1}</div><div><div class="rank-sym">${r.symbol}</div>${sub}</div><div class="rank-price">$${fmtAR(r.last,2)}</div><div class="rank-chg ${cls}">${fmtPct(chg)}</div></div>`;
+      const volStr = r.volume ? fmtAR(Number(r.volume),0)+' lám' : '—';
+      const turnStr = fmtM(r.turnover);
+      const subExtra = mode==='turnover'
+        ? `<div class="rank-sub">${turnStr} <span style="color:var(--text4);font-size:8px">· ${volStr}</span></div>`
+        : `<div class="rank-sub">Vol ${volStr} <span style="color:var(--text4);font-size:8px">· ${turnStr}</span></div>`;
+      return`<div class="rank-item"><div class="rank-pos">${i+1}</div><div><div class="rank-sym">${r.symbol}</div>${subExtra}</div><div class="rank-price">$${fmtAR(r.last,2)}</div><div class="rank-chg ${cls}">${fmtPct(chg)}</div></div>`;
     }).join('');
   });
 }

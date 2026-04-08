@@ -351,14 +351,22 @@ window.esTab = (name, btn) => {
 // LOAD DATA
 // ══════════════════════════════════════════════════
 async function esLoad(){
-  const [optRows, spotRows] = await Promise.all([
+  const [optRows, spotRows, caucRows] = await Promise.all([
     sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0,ask.gt.0)&order=strike.asc&limit=500'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
+    sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=symbol,last&limit=5'),
   ]);
   if(spotRows?.length){
     esSpotVal = Number(spotRows[0].last);
     document.getElementById('esSpotDisplay').textContent = '$'+fmtAR(esSpotVal);
     document.getElementById('esSpotInput').value = esSpotVal;
+  }
+  if(caucRows?.length){
+    const caucTna = caucRows.reduce((s,r)=>s+Number(r.last||0),0)/caucRows.length;
+    if(caucTna>0){
+      const tasaEl = document.getElementById('esTasa');
+      if(tasaEl && !tasaEl.dataset.userEdited) tasaEl.value = caucTna.toFixed(2);
+    }
   }
   if(optRows?.length){
     esOptsData = optRows.map(o=>({
@@ -927,7 +935,14 @@ window.esSugGen = () => {
   const grid=document.getElementById('esSugGrid');
   grid.style.display='flex';
 
-  grid.innerHTML=sugs.map(strat=>{
+  // Agrupar por categoría
+  const CATS = [
+    {key:'dir',   label:'Direccionales',   ids:['call','put','scall','sput']},
+    {key:'spread',label:'Spreads',          ids:['bullcs','bearps']},
+    {key:'vol',   label:'Volatilidad',      ids:['straddle','strangle','backsp']},
+    {key:'neut',  label:'Neutras / Cobertura', ids:['butterfly','icondor','collar']},
+  ];
+  function buildSugCard(strat){
     const legs=strat.legs.map(leg=>{
       const off=leg.offset||0;
       const idx=Math.max(0,Math.min(strikes.length-1,atmIdx+off));
@@ -936,15 +951,10 @@ window.esSugGen = () => {
       return{...leg,strike,vto:opt?.vto||vtoNearest,prima:opt?.mid||0};
     });
     const costoNeto=legs.reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0);
-    // Calcular IV de las patas para ver si está "barato"
-    const ivs=legs.map(l=>{
-      const T=calcT(l.vto);
-      return l.prima>0?ivBS(l.prima,esSpotVal,l.strike,T,0.70,l.kind==='call'?'call':'put'):esIVATM;
-    });
+    const ivs=legs.map(l=>{const T=calcT(l.vto);return l.prima>0?ivBS(l.prima,esSpotVal,l.strike,T,0.70,l.kind==='call'?'call':'put'):esIVATM;});
     const avgIV=ivs.reduce((s,v)=>s+v,0)/ivs.length;
     const ivVsAtm=((avgIV-esIVATM)/esIVATM)*100;
     const cheap=costoNeto>=0&&ivVsAtm<-5;
-
     return`<div class="card">
       <div class="card-head">
         <div class="card-title">${strat.icon} ${strat.label}</div>
@@ -967,7 +977,16 @@ window.esSugGen = () => {
         </button>
       </div>
     </div>`;
-  }).join('');
+  }
+  const sugsById = Object.fromEntries(sugs.map(s=>[s.id,s]));
+  let html = '';
+  CATS.forEach(cat=>{
+    const catSugs = cat.ids.filter(id=>sugsById[id]).map(id=>sugsById[id]);
+    if(!catSugs.length) return;
+    html += `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:500;padding:4px 0 8px;border-bottom:1px solid var(--border);margin-bottom:8px">${cat.label}</div>`;
+    html += catSugs.map(buildSugCard).join('');
+  });
+  grid.innerHTML = html;
 };
 
 window.esSugCargar = (legs) => {
