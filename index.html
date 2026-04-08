@@ -761,6 +761,52 @@ window.sbAll = async (table, params='', maxRows=10000) => {
     return all;
   } catch { return null; }
 };
+// ── Helpers de escritura (INSERT / PATCH / DELETE) ──
+window.sbInsert = async (table, body, params='') => {
+  try {
+    const session = await sbAuth.auth.getSession();
+    const token   = session?.data?.session?.access_token;
+    const headers = {
+      ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    };
+    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {
+      method: 'POST', headers, body: JSON.stringify(body),
+    });
+    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
+    return await r.json();
+  } catch(e) { throw e; }
+};
+window.sbPatch = async (table, filter, body) => {
+  try {
+    const session = await sbAuth.auth.getSession();
+    const token   = session?.data?.session?.access_token;
+    const headers = {
+      ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    };
+    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, {
+      method: 'PATCH', headers, body: JSON.stringify(body),
+    });
+    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
+    return true;
+  } catch(e) { throw e; }
+};
+window.sbDelete = async (table, filter) => {
+  try {
+    const session = await sbAuth.auth.getSession();
+    const token   = session?.data?.session?.access_token;
+    const headers = token
+      ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token }
+      : CFG.SBH;
+    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers });
+    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
+    return true;
+  } catch(e) { throw e; }
+};
+
 window.fmtAR = (n,dec=2) => {
   if(n==null||isNaN(n))return'—';
   const[i,d]=Math.abs(Number(n)).toFixed(dec).split('.');
