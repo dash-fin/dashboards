@@ -1640,8 +1640,65 @@ async function aiGetContext(question) {
     || q.includes('barato') || q.includes('caro') || q.includes('rendimiento');
   const needsOpts = q.includes('opcion') || q.includes('call') || q.includes('put')
     || q.includes('strike') || q.includes('base') || q.includes('volatil');
+  const needsPortfolio = q.includes('portafolio') || q.includes('cartera')
+    || q.includes('posicion') || q.includes('inversion') || q.includes('tengo comprado')
+    || q.includes('mis acciones') || q.includes('mis bonos') || q.includes('mis cedears');
 
   try {
+    // ── Portafolio del usuario ──
+    if(needsPortfolio && currentUser?.email) {
+      aiAddMsg('Cargando tu portafolio...', 'info');
+      try {
+        const [pfData, mepData] = await Promise.all([
+          sb('portafolio', 'user_email=eq.'+encodeURIComponent(currentUser.email)+'&activo=eq.true&select=tipo,ticker_ars,ticker_adr,fecha_compra,cantidad,precio_compra_ars,mep_compra,precio_adr_compra,ratio_cedear,stop_loss'),
+          sb('mercado', 'symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last'),
+        ]);
+        if(pfData?.length) {
+          const al30  = mepData?.find(r=>r.symbol==='AL30');
+          const al30d = mepData?.find(r=>r.symbol==='AL30D');
+          const mep   = (al30 && al30d && al30d.last>0) ? al30.last/al30d.last : null;
+
+          // precios actuales de los tickers del portafolio
+          const tickers = [...new Set(pfData.map(p=>p.ticker_ars))];
+          const prRows  = await sb('mercado', 'symbol=in.('+tickers.map(t=>'"'+t+'"').join(',')+')'
+            +'&settlement=eq.24hs&select=symbol,last,change');
+          const prices  = {};
+          (prRows||[]).forEach(r=>{ prices[r.symbol]=r; });
+
+          const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
+          let totInv=0, totAct=0;
+          const lineas = pfData.map(p => {
+            const factor = BONOS.includes(p.tipo) ? 100 : 1;
+            const pa     = prices[p.ticker_ars]?.last ?? null;
+            const usdInv = p.mep_compra>0 ? (p.precio_compra_ars*p.cantidad)/(factor*p.mep_compra) : null;
+            const usdAct = (mep && pa!=null) ? (pa*p.cantidad)/(factor*mep) : null;
+            const gan    = (usdInv!=null && usdAct!=null) ? usdAct-usdInv : null;
+            const pct    = (gan!=null && usdInv>0) ? (gan/usdInv*100).toFixed(1) : null;
+            if(usdInv) totInv += usdInv;
+            if(usdAct) totAct += usdAct;
+            const varDia = prices[p.ticker_ars]?.change;
+            return p.ticker_ars+'('+p.tipo+')'
+              +' cant:'+p.cantidad
+              +' compra:$'+p.precio_compra_ars+' MEP_c:'+Math.round(p.mep_compra)
+              +(pa!=null?' actual:$'+pa:'')
+              +(varDia!=null?' var_hoy:'+Number(varDia).toFixed(2)+'%':'')
+              +(p.precio_adr_compra?' ADR_compra:'+p.precio_adr_compra:'')
+              +(usdInv!=null?' USD_inv:'+Math.round(usdInv):'')
+              +(usdAct!=null?' USD_act:'+Math.round(usdAct):'')
+              +(gan!=null?' gan:'+(gan>=0?'+':'')+Math.round(gan)+' ('+pct+'%)':'');
+          });
+          const totGan = totAct-totInv;
+          const resumen = 'PORTAFOLIO de '+currentUser.email
+            +'\nMEP actual: $'+Math.round(mep||0)
+            +'\nTotal invertido: U$S '+Math.round(totInv)
+            +' | Valor actual: U$S '+Math.round(totAct)
+            +' | Ganancia: '+(totGan>=0?'+':'')+'U$S '+Math.round(totGan)
+            +' ('+(totInv>0?((totGan/totInv)*100).toFixed(1):0)+'%)'
+            +'\n\nPosiciones:\n'+lineas.join('\n');
+          parts.push('=== Portafolio personal ===\n'+resumen);
+        }
+      } catch(e) { console.warn('Portfolio context error:', e); }
+    }
     // ── Historial de un ticker especifico desde Supabase ──
     if(isHistorical && ticker) {
       aiAddMsg('Analizando historial de ' + ticker + '...', 'info');
