@@ -111,10 +111,6 @@
     <button class="stab"        id="pftab-posiciones" onclick="pfTab('posiciones',this)">Posiciones</button>
   </div>
   <div class="sub-tabs-meta" style="display:flex;align-items:center;gap:8px">
-    <span style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace">USUARIO:</span>
-    <select id="pfUserSel" onchange="pfLoadAll()" style="background:var(--bg2);border:1px solid var(--border2);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 8px;border-radius:4px;cursor:pointer">
-      <option value="esperonjuanmanuel@gmail.com">Juan M. Esperon</option>
-    </select>
     <span id="pfMeta" style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
   </div>
 </div>
@@ -201,23 +197,31 @@
       <span class="row-count" id="pfPosCount">0 posiciones</span>
       <button class="btn-prim" style="margin-left:auto;font-size:10px;padding:4px 12px" onclick="pfModalOpen()">+ Nueva posición</button>
     </div>
-    <div class="table-wrap">
-      <table>
+    <div class="table-wrap" style="overflow-x:auto">
+      <table style="min-width:1400px">
         <thead><tr>
           <th class="th-left">Ticker</th>
           <th>Tipo</th>
           <th>Fecha</th>
-          <th>Cantidad</th>
-          <th>P. Compra ARS</th>
-          <th>MEP compra</th>
+          <th>Cant.</th>
+          <th>P. Compra $</th>
+          <th>P. Actual $</th>
+          <th style="color:var(--text3)">Var $</th>
+          <th style="border-left:1px solid var(--border2)">ADR</th>
+          <th>P. Entrada</th>
+          <th>P. ADR</th>
+          <th style="color:var(--text3)">Var ADR</th>
+          <th>Gan. ADR</th>
+          <th style="color:var(--text3)">% ADR</th>
+          <th style="border-left:1px solid var(--border2)">MEP compra</th>
           <th>Invertido USD</th>
           <th>Actual USD</th>
-          <th>Ganancia USD</th>
-          <th>Var %</th>
+          <th>Ganancia</th>
+          <th>%</th>
           <th></th>
         </tr></thead>
         <tbody id="pfPosTbody">
-          <tr><td colspan="11" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
+          <tr><td colspan="19" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -240,7 +244,7 @@ const TIPO_COLOR = {
 };
 
 // ── Estado ──────────────────────────────────────────────
-let pfPositions = [], pfPrices = {}, pfMep = null, pfFilter = 'all', pfChart = null;
+let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfMep = null, pfFilter = 'all', pfChart = null;
 let pfEditId = null;  // null = nueva posición, uuid = editar existente
 
 // ── Sub-tabs ─────────────────────────────────────────────
@@ -251,9 +255,27 @@ window.pfTab = (name, btn) => {
   btn.classList.add('active');
 };
 
+// ── Yahoo Finance fallback ───────────────────────────────
+async function pfFetchYahoo(symbols) {
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}&fields=regularMarketPrice,regularMarketChangePercent`;
+  const res  = await fetch(url);
+  if(!res.ok) throw new Error('Yahoo HTTP ' + res.status);
+  const data = await res.json();
+  const out  = {};
+  (data?.quoteResponse?.result || []).forEach(q => {
+    out[q.symbol] = {
+      symbol:     q.symbol,
+      last:       q.regularMarketPrice       ?? null,
+      change_pct: q.regularMarketChangePercent ?? null,
+    };
+  });
+  return out;
+}
+
 // ── Carga de datos ───────────────────────────────────────
 window.pfLoadAll = async () => {
-  const email = document.getElementById('pfUserSel').value;
+  const email = window.currentUser?.email;
+  if(!email) { document.getElementById('pfMeta').textContent = 'Sin sesión'; return; }
   document.getElementById('pfMeta').textContent = 'Cargando...';
   try {
     const [posData, mepData] = await Promise.all([
@@ -271,13 +293,34 @@ window.pfLoadAll = async () => {
     const hint = document.getElementById('pfmMepHint');
     if(hint && pfMep) hint.textContent = `MEP actual: $${Math.round(pfMep).toLocaleString('es-AR')}`;
 
-    const tickers = [...new Set(pfPositions.map(p=>p.ticker_ars))];
+    const tickers    = [...new Set(pfPositions.map(p=>p.ticker_ars))];
+    const adrTickers = [...new Set(pfPositions.map(p=>p.ticker_adr).filter(Boolean))];
+    const fetches = [];
     if(tickers.length) {
       const qs = tickers.map(t=>`"${t}"`).join(',');
-      const pr = await sb('mercado',`symbol=in.(${qs})&settlement=eq.24hs&select=symbol,last,change`);
-      pfPrices = {};
-      (pr||[]).forEach(r=>{ pfPrices[r.symbol]=r; });
+      fetches.push(sb('mercado', `symbol=in.(${qs})&settlement=eq.24hs&select=symbol,last,change`));
+    } else { fetches.push(Promise.resolve([])); }
+    if(adrTickers.length) {
+      const qs = adrTickers.map(t=>`"${t}"`).join(',');
+      fetches.push(sb('mercado_usa', `symbol=in.(${qs})&select=symbol,last,change_pct`));
+    } else { fetches.push(Promise.resolve([])); }
+    const [prLocal, prAdr] = await Promise.all(fetches);
+    pfPrices = {};
+    (prLocal||[]).forEach(r=>{ pfPrices[r.symbol]=r; });
+    pfAdrPrices = {};
+    (prAdr||[]).forEach(r=>{ pfAdrPrices[r.symbol]=r; });
+
+    // Fallback Yahoo Finance para tickers ADR no encontrados en mercado_usa
+    const missing = adrTickers.filter(t => !pfAdrPrices[t]);
+    if(missing.length) {
+      try {
+        const yahooData = await pfFetchYahoo(missing);
+        Object.assign(pfAdrPrices, yahooData);
+      } catch(e) {
+        console.warn('[portafolio] Yahoo fallback falló:', e.message);
+      }
     }
+
     document.getElementById('pfMeta').textContent =
       `${pfPositions.length} posiciones · ${new Date().toLocaleTimeString('es-AR')}`;
     pfRender();
@@ -289,12 +332,25 @@ window.pfLoadAll = async () => {
 
 // ── Cálculo P&L por posición ─────────────────────────────
 function pfCalc(pos) {
-  const precioActual = pfPrices[pos.ticker_ars]?.last ?? null;
-  const usdInv  = pos.mep_compra>0 ? (pos.precio_compra_ars*pos.cantidad)/pos.mep_compra : null;
-  const usdAct  = (pfMep && precioActual!=null) ? (precioActual*pos.cantidad)/pfMep : null;
+  // Bonos y Dólar Linked: precio en ARS es por cada 100 VN (nominales)
+  const esBono  = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
+  const factor  = esBono ? 100 : 1;
+
+  const precioActual  = pfPrices[pos.ticker_ars]?.last ?? null;
+  const changeLocal   = pfPrices[pos.ticker_ars]?.change ?? null;
+  const adrActual     = pos.ticker_adr ? (pfAdrPrices[pos.ticker_adr]?.last ?? null) : null;
+  const adrChangePct  = pos.ticker_adr ? (pfAdrPrices[pos.ticker_adr]?.change_pct ?? null) : null;
+
+  const usdInv  = pos.mep_compra>0 ? (pos.precio_compra_ars*pos.cantidad)/(factor*pos.mep_compra) : null;
+  const usdAct  = (pfMep && precioActual!=null) ? (precioActual*pos.cantidad)/(factor*pfMep) : null;
   const gan     = (usdInv!=null && usdAct!=null) ? usdAct-usdInv : null;
   const pct     = (gan!=null && usdInv>0) ? gan/usdInv : null;
-  return {...pos, precioActual, usdInv, usdAct, gan, pct};
+
+  // P&L vía ADR (solo CEDEARs/Acciones)
+  const adrInv  = pos.precio_adr_compra ?? null;
+  const adrGan  = (adrInv!=null && adrActual!=null) ? adrActual - adrInv : null;
+  const adrPct  = (adrGan!=null && adrInv>0) ? adrGan/adrInv : null;
+  return {...pos, precioActual, changeLocal, adrActual, adrChangePct, usdInv, usdAct, gan, pct, adrInv, adrGan, adrPct};
 }
 
 // ── Render principal ─────────────────────────────────────
@@ -399,16 +455,24 @@ function pfRenderPositions(calced) {
   const rows = pfFilter==='all' ? calced : calced.filter(p=>p.tipo===pfFilter);
   document.getElementById('pfPosCount').textContent = `${rows.length} posición${rows.length!==1?'es':''}`;
   const tbody = document.getElementById('pfPosTbody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">Sin posiciones</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="19" style="text-align:center;padding:24px;color:var(--text3)">Sin posiciones</td></tr>';return;}
 
-  const fmtArs = v=>'$'+Number(v).toLocaleString('es-AR',{maximumFractionDigits:0});
-  const fmtUsd = v=>v!=null?'U$S '+Math.abs(Math.round(v)).toLocaleString('es-AR'):'—';
+  const fmtArs  = v => '$'+Number(v).toLocaleString('es-AR',{maximumFractionDigits:0});
+  const fmtUsd  = v => v!=null ? 'U$S '+Math.abs(Math.round(v)).toLocaleString('es-AR') : '—';
+  const fmtAdr  = v => v!=null ? 'U$S '+Number(v).toFixed(2) : '—';
+  const fmtVar  = (v, isPct=false) => {
+    if(v==null) return '<span style="color:var(--text3)">—</span>';
+    const pos = v>=0; const s=pos?'+':'';
+    const txt = isPct ? s+(v*100).toFixed(2)+'%' : s+'$'+Math.abs(v).toLocaleString('es-AR',{maximumFractionDigits:0});
+    return `<span style="color:${pos?'var(--green)':'var(--red)'}">${txt}</span>`;
+  };
 
   tbody.innerHTML = rows.map(p=>{
-    const gc   = (p.gan||0)>=0?'var(--green)':'var(--red)';
-    const gs   = (p.gan||0)>=0?'+':'−';
+    const gc    = (p.gan||0)>=0 ? 'var(--green)' : 'var(--red)';
+    const gs    = (p.gan||0)>=0 ? '+' : '−';
     const fecha = p.fecha_compra ? new Date(p.fecha_compra+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
-    const pctTxt = p.pct!=null?((p.pct>=0?'+':'')+(p.pct*100).toFixed(1)+'%'):'—';
+    const pctTxt = p.pct!=null ? ((p.pct>=0?'+':'')+(p.pct*100).toFixed(1)+'%') : '—';
+    const precioActualTxt = p.precioActual!=null ? fmtArs(p.precioActual) : '—';
     return `<tr>
       <td class="th-left">
         <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${TIPO_COLOR[p.tipo]||'#888'};margin-right:5px;vertical-align:middle"></span>
@@ -418,7 +482,15 @@ function pfRenderPositions(calced) {
       <td>${fecha}</td>
       <td>${Number(p.cantidad).toLocaleString('es-AR')}</td>
       <td>${fmtArs(p.precio_compra_ars)}</td>
-      <td style="color:var(--text3)">$${Math.round(p.mep_compra).toLocaleString('es-AR')}</td>
+      <td>${precioActualTxt}</td>
+      <td>${fmtVar(p.changeLocal)}</td>
+      <td style="border-left:1px solid var(--border2);color:var(--text2)">${p.ticker_adr||'—'}</td>
+      <td>${fmtAdr(p.adrInv)}</td>
+      <td>${fmtAdr(p.adrActual)}</td>
+      <td>${fmtVar(p.adrChangePct, true)}</td>
+      <td style="color:${p.adrGan!=null?(p.adrGan>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${p.adrGan!=null?((p.adrGan>=0?'+':'')+fmtAdr(p.adrGan)):'—'}</td>
+      <td style="color:${p.adrPct!=null?(p.adrPct>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${p.adrPct!=null?((p.adrPct>=0?'+':'')+(p.adrPct*100).toFixed(1)+'%'):'—'}</td>
+      <td style="border-left:1px solid var(--border2);color:var(--text3)">$${Math.round(p.mep_compra).toLocaleString('es-AR')}</td>
       <td>${fmtUsd(p.usdInv)}</td>
       <td>${fmtUsd(p.usdAct)}</td>
       <td style="color:${gc}">${p.gan!=null?(gs+fmtUsd(p.gan)):'—'}</td>
@@ -506,7 +578,7 @@ window.pfModalSave = async () => {
   if(!n('pfmPrecioArs'))   { pfShowMsg('error','Ingresá el precio de compra ARS'); return; }
   if(!n('pfmMepCompra'))   { pfShowMsg('error','Ingresá el MEP al momento de compra'); return; }
 
-  const email = document.getElementById('pfUserSel').value;
+  const email = window.currentUser?.email;
   const body  = {
     user_email:       email,
     tipo:             g('pfmTipo'),

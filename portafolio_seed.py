@@ -85,13 +85,22 @@ def insert(rows):
         "Content-Type":  "application/json",
         "Prefer":        "return=minimal",
     })
-    with urllib.request.urlopen(req, context=ctx) as r:
-        return r.status
+    try:
+        with urllib.request.urlopen(req, context=ctx) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8')
+        print(f"\n[ERROR] HTTP {e.code}: {e.reason}")
+        print(f"[DETALLE] {error_body}")
+        raise
 
 if __name__ == "__main__":
     print(f"Insertando {len(POSITIONS)} posiciones para {USER}...")
-    # Limpiar None antes de enviar (PostgREST ignora null pero es más limpio)
-    clean = [{k: v for k, v in p.items() if v is not None} for p in POSITIONS]
-    status = insert(clean)
+    # PostgREST exige que todos los objetos del array tengan las mismas claves
+    ALL_KEYS = ['user_email','tipo','ticker_ars','ticker_usd','ticker_adr',
+                'fecha_compra','cantidad','precio_compra_ars','mep_compra',
+                'precio_adr_compra','ratio_cedear','stop_loss','notas','activo']
+    normalized = [{**{k: p.get(k, None) for k in ALL_KEYS}, 'activo': True} for p in POSITIONS]
+    status = insert(normalized)
     print(f"OK — HTTP {status}")
-    print("Listo. Abrí el dashboard y clickeá 💼 Portafolio.")
+    print("Listo. Abri el dashboard y clickea Portafolio.")
