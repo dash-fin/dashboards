@@ -130,7 +130,7 @@
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px">
+  <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:16px">
     <div class="kpi" style="--accent:var(--blue)">
       <div class="kpi-label">Invertido</div>
       <div class="kpi-val" id="pfk-invested">—</div>
@@ -150,6 +150,16 @@
       <div class="kpi-label">Variación hoy</div>
       <div class="kpi-val" id="pfk-daily">—</div>
       <div class="kpi-sub" id="pfk-daily-pct">variación diaria USD</div>
+    </div>
+    <div class="kpi" id="pfk-wtd-box" style="--accent:var(--text4)">
+      <div class="kpi-label">WTD</div>
+      <div class="kpi-val" id="pfk-wtd" style="font-size:13px">—</div>
+      <div class="kpi-sub" id="pfk-wtd-sub">cargando...</div>
+    </div>
+    <div class="kpi" id="pfk-ytd-box" style="--accent:var(--text4)">
+      <div class="kpi-label">YTD</div>
+      <div class="kpi-val" id="pfk-ytd" style="font-size:13px">—</div>
+      <div class="kpi-sub" id="pfk-ytd-sub">cargando...</div>
     </div>
     <div class="kpi" style="--accent:var(--purple)">
       <div class="kpi-label">MEP actual</div>
@@ -249,6 +259,7 @@ const TIPO_COLOR = {
 
 // ── Estado ──────────────────────────────────────────────
 let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfMep = null, pfFilter = 'all', pfChart = null;
+let pfRefCloses = {}; // { ticker: { wtd: number|null, ytd: number|null } }
 let pfSort = { col: null, dir: 1 };
 const PF_COLS = [
   { id:'ticker',     label:'Ticker',        sortKey: p=>p.ticker_ars,             def:true  },
@@ -353,6 +364,7 @@ window.pfLoadAll = async () => {
     document.getElementById('pfMeta').textContent =
       `${pfPositions.length} posiciones · ${new Date().toLocaleTimeString('es-AR')}`;
     pfRender();
+    pfLoadHistory(); // WTD/YTD — async, no bloquea el render principal
   } catch(e) {
     document.getElementById('pfMeta').textContent = 'Error al cargar';
     console.error('[portafolio]', e);
@@ -752,6 +764,160 @@ window.pfDelete = async (id, ticker) => {
     alert('Error al eliminar: ' + e.message);
   }
 };
+
+// ── WTD / YTD ────────────────────────────────────────────────────
+
+// Fechas de referencia: viernes anterior al lunes de esta semana (WTD)
+// y 31/12 del año pasado (YTD).
+function pfGetRefDates() {
+  const today = new Date();
+  const year  = today.getFullYear();
+  const ytd   = `${year - 1}-12-31`;
+
+  // Lunes de esta semana
+  const day = today.getDay(); // 0=Dom
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  const thisMonday = new Date(today);
+  thisMonday.setDate(today.getDate() - daysSinceMonday);
+  // Viernes anterior = lunes - 3 días
+  const refFriday = new Date(thisMonday);
+  refFriday.setDate(thisMonday.getDate() - 3);
+  const wtd = refFriday.toISOString().split('T')[0];
+
+  return { ytd, wtd };
+}
+
+async function pfLoadHistory() {
+  if (!pfPositions.length) return;
+
+  const { ytd, wtd } = pfGetRefDates();
+  const dates = [ytd, wtd];
+
+  const localTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
+  const adrTickers   = [...new Set(pfPositions.map(p => p.ticker_adr).filter(Boolean))];
+
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+
+  await Promise.all([
+
+    // ── Local ARS vía Rava (Edge Function) ─────────────────
+    (async () => {
+      if (!localTickers.length) return;
+      try {
+        const session = await window.sbAuth?.auth?.getSession();
+        const token   = session?.data?.session?.access_token || SB_KEY;
+        const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': 'Bearer ' + token,
+            'apikey':        SB_KEY,
+          },
+          body: JSON.stringify({ mode: 'rava-history', symbols: localTickers, dates }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        for (const sym of localTickers) {
+          if (!pfRefCloses[sym]) pfRefCloses[sym] = {};
+          pfRefCloses[sym].ytd = data[sym]?.[ytd] ?? null;
+          pfRefCloses[sym].wtd = data[sym]?.[wtd] ?? null;
+        }
+      } catch(e) { console.warn('[portafolio] rava-history:', e.message); }
+    })(),
+
+    // ── ADR USD vía historico_precios (Supabase) ────────────
+    (async () => {
+      if (!adrTickers.length) return;
+      try {
+        const qs      = adrTickers.map(t => `"${t}"`).join(',');
+        // Traer rango amplio: desde 7 días antes del YTD hasta WTD
+        const ytdFrom = `${parseInt(ytd.split('-')[0]) - 1}-12-24`;
+        const rows    = await sb('historico_precios',
+          `symbol=in.(${qs})&fecha=gte.${ytdFrom}&fecha=lte.${wtd}&select=symbol,fecha,close&order=symbol,fecha.desc`
+        );
+        for (const sym of adrTickers) {
+          const symRows = (rows || []).filter(r => r.symbol === sym);
+          const ytdRow  = symRows.find(r => r.fecha <= ytd);
+          const wtdRow  = symRows.find(r => r.fecha <= wtd);
+          if (!pfRefCloses[sym]) pfRefCloses[sym] = {};
+          pfRefCloses[sym].ytd = ytdRow?.close ?? null;
+          pfRefCloses[sym].wtd = wtdRow?.close ?? null;
+        }
+      } catch(e) { console.warn('[portafolio] historico_precios:', e.message); }
+    })(),
+
+  ]);
+
+  pfRenderPeriodKPIs();
+}
+
+function pfRenderPeriodKPIs() {
+  const calced = pfPositions.map(pfCalc);
+
+  let wtdNum = 0, wtdDen = 0, ytdNum = 0, ytdDen = 0;
+
+  for (const p of calced) {
+    if (p.usdAct == null) continue;
+
+    // Para CEDEARs/acciones con ADR: usar precio ADR en USD
+    // Para bonos/ONs sin ADR: usar precio ARS local (% return es el mismo)
+    let priceCurrent, symRef;
+    if (p.ticker_adr && pfAdrPrices[p.ticker_adr]?.last != null) {
+      priceCurrent = pfAdrPrices[p.ticker_adr].last;
+      symRef       = p.ticker_adr;
+    } else {
+      priceCurrent = pfPrices[p.ticker_ars]?.last ?? null;
+      symRef       = p.ticker_ars;
+    }
+    if (priceCurrent == null) continue;
+
+    const ref = pfRefCloses[symRef];
+    if (!ref) continue;
+
+    if (ref.wtd != null && ref.wtd > 0) {
+      const ret = (priceCurrent - ref.wtd) / ref.wtd;
+      wtdNum += p.usdAct * ret;
+      wtdDen += p.usdAct;
+    }
+    if (ref.ytd != null && ref.ytd > 0) {
+      const ret = (priceCurrent - ref.ytd) / ref.ytd;
+      ytdNum += p.usdAct * ret;
+      ytdDen += p.usdAct;
+    }
+  }
+
+  const wtdPct = wtdDen > 0 ? wtdNum / wtdDen : null;
+  const ytdPct = ytdDen > 0 ? ytdNum / ytdDen : null;
+  // wtdNum/ytdNum = cambio aproximado en USD del portafolio en el período
+  const wtdUsd = wtdDen > 0 ? wtdNum : null;
+  const ytdUsd = ytdDen > 0 ? ytdNum : null;
+
+  function setPeriodKpi(pfx, pct, usd, label) {
+    const valEl = document.getElementById(`pfk-${pfx}`);
+    const subEl = document.getElementById(`pfk-${pfx}-sub`);
+    const box   = document.getElementById(`pfk-${pfx}-box`);
+    if (!valEl) return;
+    if (pct == null) {
+      valEl.textContent = '—';
+      valEl.style.color = '';
+      if (subEl) subEl.textContent = 'sin datos';
+      return;
+    }
+    const pos  = pct >= 0;
+    const s    = pos ? '+' : '';
+    const col  = pos ? 'var(--green)' : 'var(--red)';
+    valEl.textContent = s + (pct * 100).toFixed(2) + '%';
+    valEl.style.color = col;
+    if (box) box.style.setProperty('--accent', col);
+    if (subEl && usd != null) {
+      const us = Math.abs(Math.round(usd)).toLocaleString('es-AR');
+      subEl.textContent = (pos ? '+' : '−') + ' U$S ' + us + ' ' + label;
+    }
+  }
+
+  setPeriodKpi('wtd', wtdPct, wtdUsd, 'esta semana');
+  setPeriodKpi('ytd', ytdPct, ytdUsd, 'este año');
+}
 
 // ── Init — cargar y arrancar auto-refresh ─────────────────
 pfLoadAll();
