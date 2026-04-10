@@ -118,7 +118,19 @@
 <!-- ── PANEL: RESUMEN ─────────────────────────────── -->
 <div class="sub-panel active" id="pfpanel-resumen">
 
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
+  <!-- Destacados del día -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px" id="pfDestacados">
+    <div class="card" style="padding:14px 16px;border-left:3px solid var(--green)">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">⬆ Mejor posición hoy</div>
+      <div id="pfBest" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">—</div>
+    </div>
+    <div class="card" style="padding:14px 16px;border-left:3px solid var(--red)">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">⬇ Peor posición hoy</div>
+      <div id="pfWorst" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">—</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px">
     <div class="kpi" style="--accent:var(--blue)">
       <div class="kpi-label">Invertido</div>
       <div class="kpi-val" id="pfk-invested">—</div>
@@ -133,6 +145,11 @@
       <div class="kpi-label">Ganancia / Pérdida</div>
       <div class="kpi-val" id="pfk-gain">—</div>
       <div class="kpi-sub" id="pfk-gain-pct">—</div>
+    </div>
+    <div class="kpi" id="pfk-daily-box" style="--accent:var(--cyan)">
+      <div class="kpi-label">Variación hoy</div>
+      <div class="kpi-val" id="pfk-daily">—</div>
+      <div class="kpi-sub" id="pfk-daily-pct">variación diaria USD</div>
     </div>
     <div class="kpi" style="--accent:var(--purple)">
       <div class="kpi-label">MEP actual</div>
@@ -240,7 +257,7 @@ const PF_COLS = [
   { id:'cantidad',   label:'Cant.',         sortKey: p=>p.cantidad,               def:true  },
   { id:'pcompra',    label:'P. Compra $',   sortKey: p=>p.precio_compra_ars,      def:true  },
   { id:'pactual',    label:'P. Actual $',   sortKey: p=>p.precioActual??-Infinity,def:true  },
-  { id:'varlocal',   label:'Var $',         sortKey: p=>p.changeLocal??-Infinity, def:true  },
+  { id:'varlocal',   label:'Var %',         sortKey: p=>p.changeLocal??-Infinity, def:true  },
   { id:'adr',        label:'ADR',           sortKey: p=>p.ticker_adr||'',         def:true  },
   { id:'adrentrada', label:'P. Entrada ADR',sortKey: p=>p.adrInv??-Infinity,      def:true  },
   { id:'adrprecio',  label:'P. ADR',        sortKey: p=>p.adrActual??-Infinity,   def:true  },
@@ -254,7 +271,7 @@ const PF_COLS = [
   { id:'pct',        label:'%',             sortKey: p=>p.pct??-Infinity,         def:true  },
 ];
 let pfColVis = Object.fromEntries(PF_COLS.map(c=>[c.id, c.def]));
-let pfEditId = null;  // null = nueva posición, uuid = editar existente
+let pfEditId = null;
 
 // ── Sub-tabs ─────────────────────────────────────────────
 window.pfTab = (name, btn) => {
@@ -303,7 +320,6 @@ window.pfLoadAll = async () => {
     pfMep = (al30 && al30d && al30d.last>0) ? al30.last/al30d.last : null;
     document.getElementById('pfk-mep').textContent = pfMep ? '$'+Math.round(pfMep).toLocaleString('es-AR') : '—';
 
-    // Auto-fill MEP en modal si está abierto
     const hint = document.getElementById('pfmMepHint');
     if(hint && pfMep) hint.textContent = `MEP actual: $${Math.round(pfMep).toLocaleString('es-AR')}`;
 
@@ -324,7 +340,6 @@ window.pfLoadAll = async () => {
     pfAdrPrices = {};
     (prAdr||[]).forEach(r=>{ pfAdrPrices[r.symbol]=r; });
 
-    // Fallback Yahoo Finance para tickers ADR no encontrados en mercado_usa
     const missing = adrTickers.filter(t => !pfAdrPrices[t]);
     if(missing.length) {
       try {
@@ -346,7 +361,6 @@ window.pfLoadAll = async () => {
 
 // ── Cálculo P&L por posición ─────────────────────────────
 function pfCalc(pos) {
-  // Bonos y Dólar Linked: precio en ARS es por cada 100 VN (nominales)
   const esBono  = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
   const factor  = esBono ? 100 : 1;
 
@@ -360,7 +374,6 @@ function pfCalc(pos) {
   const gan     = (usdInv!=null && usdAct!=null) ? usdAct-usdInv : null;
   const pct     = (gan!=null && usdInv>0) ? gan/usdInv : null;
 
-  // P&L vía ADR (solo CEDEARs/Acciones)
   const adrInv  = pos.precio_adr_compra ?? null;
   const adrGan  = (adrInv!=null && adrActual!=null) ? adrActual - adrInv : null;
   const adrPct  = (adrGan!=null && adrInv>0) ? adrGan/adrInv : null;
@@ -375,6 +388,15 @@ function pfRender() {
   const totGan = totAct - totInv;
   const totPct = totInv>0 ? totGan/totInv : null;
 
+  // Variación diaria del portafolio
+  const varDiariaUSD = calced.reduce((s, p) => {
+    if (p.usdAct != null && p.changeLocal != null) {
+      return s + (p.usdAct * Number(p.changeLocal) / 100);
+    }
+    return s;
+  }, 0);
+  const varDiariaPct = totAct > 0 ? (varDiariaUSD / totAct) * 100 : null;
+
   const fmt = v => 'U$S '+Math.round(v).toLocaleString('es-AR');
   document.getElementById('pfk-invested').textContent = fmt(totInv);
   document.getElementById('pfk-actual').textContent   = fmt(totAct);
@@ -383,9 +405,38 @@ function pfRender() {
   document.getElementById('pfk-gain').textContent     = sign+fmt(totGan);
   document.getElementById('pfk-gain-pct').textContent = totPct!=null?(sign+(totPct*100).toFixed(2)+'%'):'—';
   document.getElementById('pfk-gain-box').style.setProperty('--accent', totGan>=0?'var(--green)':'var(--red)');
+
+  // KPI variación diaria
+  const varSign  = varDiariaUSD >= 0 ? '+' : '';
+  const varColor = varDiariaUSD >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('pfk-daily').textContent = varSign + 'U$S ' + Math.abs(Math.round(varDiariaUSD)).toLocaleString('es-AR');
+  document.getElementById('pfk-daily').style.color = varColor;
+  document.getElementById('pfk-daily-pct').textContent = varDiariaPct != null ? (varSign + varDiariaPct.toFixed(2) + '%') : 'variación diaria USD';
+  document.getElementById('pfk-daily-pct').style.color = varColor;
+  document.getElementById('pfk-daily-box').style.setProperty('--accent', varColor);
+
   document.getElementById('pfk-pos').textContent      = pfPositions.length;
   document.getElementById('pfk-pos-sub').textContent  =
     [...new Set(pfPositions.map(p=>p.ticker_ars))].length+' tickers';
+
+  // Destacados del día
+  const withChange = calced.filter(p => p.changeLocal != null);
+  if (withChange.length) {
+    const best  = withChange.reduce((a, b) => Number(b.changeLocal) > Number(a.changeLocal) ? b : a);
+    const worst = withChange.reduce((a, b) => Number(b.changeLocal) < Number(a.changeLocal) ? b : a);
+    const fmtD = (p) => {
+      const chg = Number(p.changeLocal);
+      const s   = chg >= 0 ? '+' : '';
+      const col = chg >= 0 ? 'var(--green)' : 'var(--red)';
+      return `<span style="font-weight:600">${p.ticker_ars}</span>`
+        + ` <span style="color:${col}">${s}${chg.toFixed(2)}%</span>`
+        + (p.usdAct != null ? ` <span style="color:var(--text3);font-size:11px">· U$S ${Math.round(p.usdAct).toLocaleString('es-AR')}</span>` : '');
+    };
+    const bestEl  = document.getElementById('pfBest');
+    const worstEl = document.getElementById('pfWorst');
+    if (bestEl)  bestEl.innerHTML  = fmtD(best);
+    if (worstEl) worstEl.innerHTML = fmtD(worst);
+  }
 
   const byTipo = {};
   calced.forEach(p => {
@@ -468,7 +519,6 @@ function pfRenderAlloc(byTipo, totAct) {
 window.pfToggleColPanel = () => {
   const p = document.getElementById('pfColPanel');
   if(p.style.display==='none') {
-    // Renderizar checkboxes
     document.getElementById('pfColCheckboxes').innerHTML = PF_COLS.map(c=>
       `<label style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;font-size:11px;color:var(--text2)">
         <input type="checkbox" ${pfColVis[c.id]?'checked':''} onchange="pfToggleCol('${c.id}',this.checked)" style="cursor:pointer">
@@ -499,7 +549,6 @@ window.pfSortBy = (colId) => {
 function pfRenderPositions(calced) {
   let rows = pfFilter==='all' ? calced : calced.filter(p=>p.tipo===pfFilter);
 
-  // Sort
   if(pfSort.col) {
     const col = PF_COLS.find(c=>c.id===pfSort.col);
     if(col) rows = [...rows].sort((a,b) => {
@@ -510,7 +559,6 @@ function pfRenderPositions(calced) {
 
   document.getElementById('pfPosCount').textContent = `${rows.length} posición${rows.length!==1?'es':''}`;
 
-  // Rebuild header con columnas visibles
   const visibleCols = PF_COLS.filter(c=>pfColVis[c.id]);
   const arrowFor = id => pfSort.col===id ? (pfSort.dir===1?'▲':'▼') : '';
   const borderIds = ['adr','mep'];
@@ -529,14 +577,17 @@ function pfRenderPositions(calced) {
   const fmtArs = v => '$'+Number(v).toLocaleString('es-AR',{maximumFractionDigits:0});
   const fmtUsd = v => v!=null ? 'U$S '+Math.abs(Math.round(v)).toLocaleString('es-AR') : '—';
   const fmtAdr = v => v!=null ? 'U$S '+Number(v).toFixed(2) : '—';
+
+  // FIX: fmtVar — change ya viene como % (ej 1.30), no multiplicar por 100
   const fmtVar = (v, isPct=false) => {
     if(v==null) return '<span style="color:var(--text3)">—</span>';
     const pos=v>=0, s=pos?'+':'';
-    const txt = isPct ? s+(v*100).toFixed(2)+'%' : s+'$'+Math.abs(v).toLocaleString('es-AR',{maximumFractionDigits:0});
+    const txt = isPct
+      ? s+Number(v).toFixed(2)+'%'
+      : s+'$'+Math.abs(v).toLocaleString('es-AR',{maximumFractionDigits:0});
     return `<span style="color:${pos?'var(--green)':'var(--red)'}">${txt}</span>`;
   };
 
-  // Mapa de celda por col.id
   const cell = (p, id) => {
     const gc  = (p.gan||0)>=0?'var(--green)':'var(--red)';
     const gs  = (p.gan||0)>=0?'+':'−';
@@ -549,7 +600,7 @@ function pfRenderPositions(calced) {
       case 'cantidad':  return `<td>${Number(p.cantidad).toLocaleString('es-AR')}</td>`;
       case 'pcompra':   return `<td>${fmtArs(p.precio_compra_ars)}</td>`;
       case 'pactual':   return `<td>${p.precioActual!=null?fmtArs(p.precioActual):'—'}</td>`;
-      case 'varlocal':  return `<td>${fmtVar(p.changeLocal)}</td>`;
+      case 'varlocal':  return `<td>${fmtVar(p.changeLocal, true)}</td>`;
       case 'adr':       return `<td style="${border}color:var(--text2)">${p.ticker_adr||'—'}</td>`;
       case 'adrentrada':return `<td>${fmtAdr(p.adrInv)}</td>`;
       case 'adrprecio': return `<td>${fmtAdr(p.adrActual)}</td>`;
@@ -589,7 +640,6 @@ window.pfModalOpen = (id) => {
   document.getElementById('pfmMsg').style.display = 'none';
 
   if(id) {
-    // Pre-llenar con datos existentes
     const pos = pfPositions.find(p=>p.id===id);
     if(!pos) return;
     document.getElementById('pfmTipo').value        = pos.tipo;
@@ -605,13 +655,11 @@ window.pfModalOpen = (id) => {
     document.getElementById('pfmStopLoss').value    = pos.stop_loss||'';
     document.getElementById('pfmNotas').value        = pos.notas||'';
   } else {
-    // Limpiar y pre-llenar MEP actual
     ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmNotas'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('pfmTipo').value = 'CEDEAR';
     document.getElementById('pfmFecha').value = new Date().toISOString().slice(0,10);
     if(pfMep) document.getElementById('pfmMepCompra').value = Math.round(pfMep);
   }
-  // Hint MEP
   if(pfMep) document.getElementById('pfmMepHint').textContent = `MEP actual: $${Math.round(pfMep).toLocaleString('es-AR')}`;
   pfModalTipoChange();
   document.getElementById('pfModalOverlay').style.display = 'flex';
@@ -638,7 +686,6 @@ window.pfModalTipoChange = () => {
 
 // ── Modal: guardar ────────────────────────────────────────
 window.pfModalSave = async () => {
-  const msg = document.getElementById('pfmMsg');
   const btn = document.getElementById('pfmSaveBtn');
 
   const g = id => document.getElementById(id).value.trim();
@@ -666,7 +713,6 @@ window.pfModalSave = async () => {
     notas:            g('pfmNotas') || null,
     activo:           true,
   };
-  // Limpiar nulls
   Object.keys(body).forEach(k=>{ if(body[k]===null||body[k]==='') delete body[k]; });
 
   btn.disabled = true;
@@ -707,8 +753,10 @@ window.pfDelete = async (id, ticker) => {
   }
 };
 
-// ── Init ─────────────────────────────────────────────────
+// ── Init — cargar y arrancar auto-refresh ─────────────────
 pfLoadAll();
+window.moduleTimers = window.moduleTimers || {};
+window.moduleTimers.portafolio = setInterval(pfLoadAll, 30000);
 
 })();
 </script>
