@@ -189,45 +189,45 @@
       <div id="pfLegend" style="display:flex;flex-direction:column;gap:6px;width:100%"></div>
     </div>
 
-    <!-- Tabla allocación -->
-    <div class="card">
-      <div class="card-head" style="font-size:10px">Por tipo de instrumento</div>
-      <div style="overflow-x:auto">
-        <table>
-          <thead><tr>
-            <th class="th-left">Tipo</th>
-            <th>Invertido USD</th>
-            <th>Actual USD</th>
-            <th>% portafolio</th>
-            <th>Ganancia USD</th>
-            <th>Var %</th>
-          </tr></thead>
-          <tbody id="pfAllocTbody">
-            <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
-          </tbody>
-        </table>
+    <!-- Columna derecha: alloc + gráficos apilados -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-head" style="font-size:10px">Por tipo de instrumento</div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th class="th-left">Tipo</th>
+              <th>Invertido USD</th>
+              <th>Actual USD</th>
+              <th>% portafolio</th>
+              <th>Ganancia USD</th>
+              <th>Var %</th>
+            </tr></thead>
+            <tbody id="pfAllocTbody">
+              <tr><td colspan="6" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ── Gráficos YTD ──────────────────────────────────── -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
-    <div class="card" style="padding:18px 20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Portafolio YTD · USD</span>
-        <span id="pfChartPortfolioStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+      <div class="card" style="padding:18px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Portafolio YTD · USD</span>
+          <span id="pfChartPortfolioStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+        </div>
+        <div style="position:relative;height:240px">
+          <canvas id="pfChartPortfolio"></canvas>
+        </div>
       </div>
-      <div style="position:relative;height:210px">
-        <canvas id="pfChartPortfolio"></canvas>
-      </div>
-    </div>
-    <div class="card" style="padding:18px 20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker YTD · % USD</span>
-        <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
-      </div>
-      <div style="position:relative;height:210px">
-        <canvas id="pfChartTickers"></canvas>
+
+      <div class="card" style="padding:18px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker YTD · % USD</span>
+          <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+        </div>
+        <div style="position:relative;height:240px">
+          <canvas id="pfChartTickers"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -1025,7 +1025,7 @@ function pfRenderCharts() {
   if (ctx1) {
     if (pfLineChart1) pfLineChart1.destroy();
     const g1 = ctx1.getContext('2d');
-    const grad = g1.createLinearGradient(0, 0, 0, 210);
+    const grad = g1.createLinearGradient(0, 0, 0, 240);
     grad.addColorStop(0, 'rgba(0,180,216,0.22)');
     grad.addColorStop(1, 'rgba(0,180,216,0.01)');
     pfLineChart1 = new Chart(ctx1, {
