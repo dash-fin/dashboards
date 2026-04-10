@@ -153,12 +153,30 @@
     </div>
     <div class="kpi" id="pfk-wtd-box" style="--accent:var(--text4)">
       <div class="kpi-label">WTD</div>
-      <div class="kpi-val" id="pfk-wtd" style="font-size:13px">—</div>
+      <div style="display:flex;flex-direction:column;gap:3px;margin:4px 0 2px">
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span id="pfk-wtd-adr" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
+          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ADR</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span id="pfk-wtd-ars" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
+          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ARS</span>
+        </div>
+      </div>
       <div class="kpi-sub" id="pfk-wtd-sub">cargando...</div>
     </div>
     <div class="kpi" id="pfk-ytd-box" style="--accent:var(--text4)">
       <div class="kpi-label">YTD</div>
-      <div class="kpi-val" id="pfk-ytd" style="font-size:13px">—</div>
+      <div style="display:flex;flex-direction:column;gap:3px;margin:4px 0 2px">
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span id="pfk-ytd-adr" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
+          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ADR</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span id="pfk-ytd-ars" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
+          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ARS</span>
+        </div>
+      </div>
       <div class="kpi-sub" id="pfk-ytd-sub">cargando...</div>
     </div>
     <div class="kpi" style="--accent:var(--purple)">
@@ -854,69 +872,72 @@ async function pfLoadHistory() {
 function pfRenderPeriodKPIs() {
   const calced = pfPositions.map(pfCalc);
 
-  let wtdNum = 0, wtdDen = 0, ytdNum = 0, ytdDen = 0;
+  // Dos cálculos independientes por período:
+  //   ADR  → solo posiciones con ticker_adr, usa precio ADR en USD
+  //   ARS  → todas las posiciones, usa precio local en ARS
+  // Ambos ponderados por usdAct (valor actual en USD)
+  let wtdNA=0,wtdDA=0, ytdNA=0,ytdDA=0; // ADR
+  let wtdNL=0,wtdDL=0, ytdNL=0,ytdDL=0; // local ARS
 
   for (const p of calced) {
     if (p.usdAct == null) continue;
 
-    // Para CEDEARs/acciones con ADR: usar precio ADR en USD
-    // Para bonos/ONs sin ADR: usar precio ARS local (% return es el mismo)
-    let priceCurrent, symRef;
+    // ── ADR (USD) ─────────────────────────────────────────
     if (p.ticker_adr && pfAdrPrices[p.ticker_adr]?.last != null) {
-      priceCurrent = pfAdrPrices[p.ticker_adr].last;
-      symRef       = p.ticker_adr;
-    } else {
-      priceCurrent = pfPrices[p.ticker_ars]?.last ?? null;
-      symRef       = p.ticker_ars;
+      const cur = pfAdrPrices[p.ticker_adr].last;
+      const ref = pfRefCloses[p.ticker_adr];
+      if (ref?.wtd > 0) { const r=(cur-ref.wtd)/ref.wtd; wtdNA+=p.usdAct*r; wtdDA+=p.usdAct; }
+      if (ref?.ytd > 0) { const r=(cur-ref.ytd)/ref.ytd; ytdNA+=p.usdAct*r; ytdDA+=p.usdAct; }
     }
-    if (priceCurrent == null) continue;
 
-    const ref = pfRefCloses[symRef];
-    if (!ref) continue;
-
-    if (ref.wtd != null && ref.wtd > 0) {
-      const ret = (priceCurrent - ref.wtd) / ref.wtd;
-      wtdNum += p.usdAct * ret;
-      wtdDen += p.usdAct;
-    }
-    if (ref.ytd != null && ref.ytd > 0) {
-      const ret = (priceCurrent - ref.ytd) / ref.ytd;
-      ytdNum += p.usdAct * ret;
-      ytdDen += p.usdAct;
+    // ── Local ARS ─────────────────────────────────────────
+    const curArs = pfPrices[p.ticker_ars]?.last ?? null;
+    if (curArs != null) {
+      const ref = pfRefCloses[p.ticker_ars];
+      if (ref?.wtd > 0) { const r=(curArs-ref.wtd)/ref.wtd; wtdNL+=p.usdAct*r; wtdDL+=p.usdAct; }
+      if (ref?.ytd > 0) { const r=(curArs-ref.ytd)/ref.ytd; ytdNL+=p.usdAct*r; ytdDL+=p.usdAct; }
     }
   }
 
-  const wtdPct = wtdDen > 0 ? wtdNum / wtdDen : null;
-  const ytdPct = ytdDen > 0 ? ytdNum / ytdDen : null;
-  // wtdNum/ytdNum = cambio aproximado en USD del portafolio en el período
-  const wtdUsd = wtdDen > 0 ? wtdNum : null;
-  const ytdUsd = ytdDen > 0 ? ytdNum : null;
+  const R = (n,d) => d>0 ? n/d : null;
+  const wtdAdr = R(wtdNA,wtdDA), ytdAdr = R(ytdNA,ytdDA);
+  const wtdArs = R(wtdNL,wtdDL), ytdArs = R(ytdNL,ytdDL);
+  // USD change ≈ numerador del retorno ponderado
+  const wtdUsd = wtdDA>0 ? wtdNA : null;
+  const ytdUsd = ytdDA>0 ? ytdNA : null;
 
-  function setPeriodKpi(pfx, pct, usd, label) {
-    const valEl = document.getElementById(`pfk-${pfx}`);
+  function fmtPct(pct) {
+    if (pct == null) return { txt: '—', col: '' };
+    const pos = pct >= 0;
+    return { txt: (pos?'+':'') + (pct*100).toFixed(2)+'%', col: pos?'var(--green)':'var(--red)' };
+  }
+
+  function setPeriodCard(pfx, pctAdr, pctArs, usd) {
+    const adrEl = document.getElementById(`pfk-${pfx}-adr`);
+    const arsEl = document.getElementById(`pfk-${pfx}-ars`);
     const subEl = document.getElementById(`pfk-${pfx}-sub`);
     const box   = document.getElementById(`pfk-${pfx}-box`);
-    if (!valEl) return;
-    if (pct == null) {
-      valEl.textContent = '—';
-      valEl.style.color = '';
-      if (subEl) subEl.textContent = 'sin datos';
-      return;
-    }
-    const pos  = pct >= 0;
-    const s    = pos ? '+' : '';
-    const col  = pos ? 'var(--green)' : 'var(--red)';
-    valEl.textContent = s + (pct * 100).toFixed(2) + '%';
-    valEl.style.color = col;
-    if (box) box.style.setProperty('--accent', col);
-    if (subEl && usd != null) {
-      const us = Math.abs(Math.round(usd)).toLocaleString('es-AR');
-      subEl.textContent = (pos ? '+' : '−') + ' U$S ' + us + ' ' + label;
+
+    const fa = fmtPct(pctAdr), fl = fmtPct(pctArs);
+    if (adrEl) { adrEl.textContent = fa.txt; adrEl.style.color = fa.col; }
+    if (arsEl) { arsEl.textContent = fl.txt; arsEl.style.color = fl.col; }
+
+    const mainPct = pctAdr ?? pctArs;
+    if (box && mainPct != null)
+      box.style.setProperty('--accent', mainPct>=0 ? 'var(--green)' : 'var(--red)');
+
+    if (subEl) {
+      if (usd != null) {
+        const us = Math.abs(Math.round(usd)).toLocaleString('es-AR');
+        subEl.textContent = (usd>=0?'+':'−') + ' U$S ' + us;
+      } else {
+        subEl.textContent = 'sin datos';
+      }
     }
   }
 
-  setPeriodKpi('wtd', wtdPct, wtdUsd, 'esta semana');
-  setPeriodKpi('ytd', ytdPct, ytdUsd, 'este año');
+  setPeriodCard('wtd', wtdAdr, wtdArs, wtdUsd);
+  setPeriodCard('ytd', ytdAdr, ytdArs, ytdUsd);
 }
 
 // ── Init — cargar y arrancar auto-refresh ─────────────────
