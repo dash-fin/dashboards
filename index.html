@@ -352,8 +352,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
       <button class="mtab"        id="mtab-alertas"  onclick="loadModuleAuth('alertas',this)">🔔 Alertas</button>
       <button class="mtab"          id="mtab-usa"      onclick="loadModuleAuth('usa',this)"><span class="mtab-dot" style="background:var(--blue)"></span>USA</button>
       <button class="mtab disabled" id="mtab-acciones">Acciones <span class="mtab-badge">pronto</span></button>
-      <button class="mtab"        id="mtab-bonos"        onclick="loadModuleAuth('bonos',this)">📐 Renta Fija</button>
-      <button class="mtab"        id="mtab-portafolio"   onclick="loadModuleAuth('portafolio',this)">💼 Portafolio</button>
+      <button class="mtab"        id="mtab-bonos"     onclick="loadModuleAuth('bonos',this)">📐 Renta Fija</button>
       <button class="mtab disabled" id="mtab-futuros">Futuros <span class="mtab-badge">pronto</span></button>
     </div>
   </div>
@@ -366,6 +365,11 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
         <span style="display:flex;align-items:center;gap:5px">
           <span id="bd-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
           <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">Feed BD: <span id="bd-last-update" style="color:var(--text3)">—</span></span>
+        </span>
+        <span style="color:var(--border2)">|</span>
+        <span style="display:flex;align-items:center;gap:5px">
+          <span id="bd-usa-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">Feed USA: <span id="bd-usa-update" style="color:var(--text3)">—</span></span>
         </span>
         <span style="color:var(--border2)">|</span>
         <span>Act: <span id="footerTs" style="color:var(--text3)">—</span></span>
@@ -426,12 +430,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
       <div id="adminAuth">
         <div class="modal-section">
           <div class="field-label">Contraseña</div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <input class="field-input" type="password" id="pwInput" placeholder="Ingresá la contraseña..." onkeydown="if(event.key==='Enter')checkPw()" style="flex:1">
-            <button onclick="togglePwVisibility()" type="button" id="pwEyeBtn" title="Mostrar/ocultar" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:5px 8px;cursor:pointer;color:var(--text3);display:flex;align-items:center;flex-shrink:0">
-              <svg id="pwEyeIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-          </div>
+          <input class="field-input" type="password" id="pwInput" placeholder="Ingresá la contraseña..." onkeydown="if(event.key==='Enter')checkPw()">
         </div>
         <button class="btn btn-green" onclick="checkPw()">Ingresar</button>
         <div class="modal-msg" id="authMsg"></div>
@@ -761,52 +760,6 @@ window.sbAll = async (table, params='', maxRows=10000) => {
     return all;
   } catch { return null; }
 };
-// ── Helpers de escritura (INSERT / PATCH / DELETE) ──
-window.sbInsert = async (table, body, params='') => {
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token   = session?.data?.session?.access_token;
-    const headers = {
-      ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-    };
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {
-      method: 'POST', headers, body: JSON.stringify(body),
-    });
-    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
-    return await r.json();
-  } catch(e) { throw e; }
-};
-window.sbPatch = async (table, filter, body) => {
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token   = session?.data?.session?.access_token;
-    const headers = {
-      ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal',
-    };
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, {
-      method: 'PATCH', headers, body: JSON.stringify(body),
-    });
-    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
-    return true;
-  } catch(e) { throw e; }
-};
-window.sbDelete = async (table, filter) => {
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token   = session?.data?.session?.access_token;
-    const headers = token
-      ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token }
-      : CFG.SBH;
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers });
-    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
-    return true;
-  } catch(e) { throw e; }
-};
-
 window.fmtAR = (n,dec=2) => {
   if(n==null||isNaN(n))return'—';
   const[i,d]=Math.abs(Number(n)).toFixed(dec).split('.');
@@ -1069,17 +1022,6 @@ window.openAdmin=()=>{
   if(!adminAuthed){document.getElementById('adminAuth').style.display='block';document.getElementById('adminUpload').style.display='none';setTimeout(()=>document.getElementById('pwInput').focus(),100);}
 };
 window.closeAdmin=()=>document.getElementById('adminOverlay').classList.remove('open');
-window.togglePwVisibility=()=>{
-  const inp=document.getElementById('pwInput');
-  const icon=document.getElementById('pwEyeIcon');
-  if(inp.type==='password'){
-    inp.type='text';
-    icon.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
-  }else{
-    inp.type='password';
-    icon.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
-  }
-};
 window.checkPw=()=>{
   const pw=document.getElementById('pwInput').value,msg=document.getElementById('authMsg');
   if(pw===CFG.ADMIN_PASSWORD){adminAuthed=true;document.getElementById('adminAuth').style.display='none';document.getElementById('adminUpload').style.display='block';msg.className='modal-msg';}
@@ -1137,6 +1079,35 @@ async function checkBdUpdate(){
 }
 checkBdUpdate();
 setInterval(checkBdUpdate, 15000); // chequear cada 15 segundos
+
+async function checkUsaUpdate(){
+  try{
+    const rows = await sb('mercado_usa','select=updated_at&order=updated_at.desc.nullslast&limit=1');
+    const dot = document.getElementById('bd-usa-dot');
+    const lbl = document.getElementById('bd-usa-update');
+    if(!rows||!rows.length||!rows[0].updated_at){
+      if(dot) dot.style.background='var(--text4)';
+      if(lbl) lbl.textContent='sin datos';
+      return;
+    }
+    const updAt  = new Date(rows[0].updated_at);
+    const diffMs = Date.now() - updAt.getTime();
+    const diffMin = Math.floor(diffMs/60000);
+    const diffSeg = Math.floor((diffMs%60000)/1000);
+    let timeStr;
+    if(diffMs < 60000)     timeStr = diffSeg+'s atrás';
+    else if(diffMin < 60)  timeStr = diffMin+'m '+diffSeg+'s atrás';
+    else                   timeStr = Math.floor(diffMin/60)+'h '+(diffMin%60)+'m atrás';
+    let color, pulse=false;
+    if(diffMs < 120000)      { color='var(--green)'; pulse=true;  }
+    else if(diffMs < 600000) { color='var(--amber)'; pulse=false; }
+    else                     { color='var(--red)';   pulse=false; }
+    if(dot){ dot.style.background=color; dot.style.animation=pulse?'pulse 2s infinite':'none'; }
+    if(lbl){ lbl.textContent=timeStr; lbl.style.color=color; }
+  }catch(e){}
+}
+checkUsaUpdate();
+setInterval(checkUsaUpdate, 30000);
 
 // ── Init ──
 loadStrip();setInterval(loadStrip,60000);
@@ -1640,65 +1611,8 @@ async function aiGetContext(question) {
     || q.includes('barato') || q.includes('caro') || q.includes('rendimiento');
   const needsOpts = q.includes('opcion') || q.includes('call') || q.includes('put')
     || q.includes('strike') || q.includes('base') || q.includes('volatil');
-  const needsPortfolio = q.includes('portafolio') || q.includes('cartera')
-    || q.includes('posicion') || q.includes('inversion') || q.includes('tengo comprado')
-    || q.includes('mis acciones') || q.includes('mis bonos') || q.includes('mis cedears');
 
   try {
-    // ── Portafolio del usuario ──
-    if(needsPortfolio && currentUser?.email) {
-      aiAddMsg('Cargando tu portafolio...', 'info');
-      try {
-        const [pfData, mepData] = await Promise.all([
-          sb('portafolio', 'user_email=eq.'+encodeURIComponent(currentUser.email)+'&activo=eq.true&select=tipo,ticker_ars,ticker_adr,fecha_compra,cantidad,precio_compra_ars,mep_compra,precio_adr_compra,ratio_cedear,stop_loss'),
-          sb('mercado', 'symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last'),
-        ]);
-        if(pfData?.length) {
-          const al30  = mepData?.find(r=>r.symbol==='AL30');
-          const al30d = mepData?.find(r=>r.symbol==='AL30D');
-          const mep   = (al30 && al30d && al30d.last>0) ? al30.last/al30d.last : null;
-
-          // precios actuales de los tickers del portafolio
-          const tickers = [...new Set(pfData.map(p=>p.ticker_ars))];
-          const prRows  = await sb('mercado', 'symbol=in.('+tickers.map(t=>'"'+t+'"').join(',')+')'
-            +'&settlement=eq.24hs&select=symbol,last,change');
-          const prices  = {};
-          (prRows||[]).forEach(r=>{ prices[r.symbol]=r; });
-
-          const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
-          let totInv=0, totAct=0;
-          const lineas = pfData.map(p => {
-            const factor = BONOS.includes(p.tipo) ? 100 : 1;
-            const pa     = prices[p.ticker_ars]?.last ?? null;
-            const usdInv = p.mep_compra>0 ? (p.precio_compra_ars*p.cantidad)/(factor*p.mep_compra) : null;
-            const usdAct = (mep && pa!=null) ? (pa*p.cantidad)/(factor*mep) : null;
-            const gan    = (usdInv!=null && usdAct!=null) ? usdAct-usdInv : null;
-            const pct    = (gan!=null && usdInv>0) ? (gan/usdInv*100).toFixed(1) : null;
-            if(usdInv) totInv += usdInv;
-            if(usdAct) totAct += usdAct;
-            const varDia = prices[p.ticker_ars]?.change;
-            return p.ticker_ars+'('+p.tipo+')'
-              +' cant:'+p.cantidad
-              +' compra:$'+p.precio_compra_ars+' MEP_c:'+Math.round(p.mep_compra)
-              +(pa!=null?' actual:$'+pa:'')
-              +(varDia!=null?' var_hoy:'+Number(varDia).toFixed(2)+'%':'')
-              +(p.precio_adr_compra?' ADR_compra:'+p.precio_adr_compra:'')
-              +(usdInv!=null?' USD_inv:'+Math.round(usdInv):'')
-              +(usdAct!=null?' USD_act:'+Math.round(usdAct):'')
-              +(gan!=null?' gan:'+(gan>=0?'+':'')+Math.round(gan)+' ('+pct+'%)':'');
-          });
-          const totGan = totAct-totInv;
-          const resumen = 'PORTAFOLIO de '+currentUser.email
-            +'\nMEP actual: $'+Math.round(mep||0)
-            +'\nTotal invertido: U$S '+Math.round(totInv)
-            +' | Valor actual: U$S '+Math.round(totAct)
-            +' | Ganancia: '+(totGan>=0?'+':'')+'U$S '+Math.round(totGan)
-            +' ('+(totInv>0?((totGan/totInv)*100).toFixed(1):0)+'%)'
-            +'\n\nPosiciones:\n'+lineas.join('\n');
-          parts.push('=== Portafolio personal ===\n'+resumen);
-        }
-      } catch(e) { console.warn('Portfolio context error:', e); }
-    }
     // ── Historial de un ticker especifico desde Supabase ──
     if(isHistorical && ticker) {
       aiAddMsg('Analizando historial de ' + ticker + '...', 'info');
