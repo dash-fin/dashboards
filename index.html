@@ -911,7 +911,7 @@ window.loadModule=async(name,btn)=>{
   if(name==='home'){container.innerHTML='';renderHome();return;}
   container.innerHTML=`<div class="module-loading"><div class="spinner"></div>Cargando ${name}...</div>`;
   try{
-    const r=await fetch(`modules/${name}.html`);
+    const r=await fetch(`modules/${name}.html?v=${Date.now()}`);
     if(!r.ok)throw new Error('Módulo no encontrado');
     const html=await r.text();
     container.innerHTML=html;
