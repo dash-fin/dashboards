@@ -153,30 +153,12 @@
     </div>
     <div class="kpi" id="pfk-wtd-box" style="--accent:var(--text4)">
       <div class="kpi-label">WTD</div>
-      <div style="display:flex;flex-direction:column;gap:3px;margin:4px 0 2px">
-        <div style="display:flex;align-items:baseline;gap:4px">
-          <span id="pfk-wtd-adr" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
-          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ADR</span>
-        </div>
-        <div style="display:flex;align-items:baseline;gap:4px">
-          <span id="pfk-wtd-ars" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
-          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ARS</span>
-        </div>
-      </div>
+      <div class="kpi-val" id="pfk-wtd" style="font-size:13px">—</div>
       <div class="kpi-sub" id="pfk-wtd-sub">cargando...</div>
     </div>
     <div class="kpi" id="pfk-ytd-box" style="--accent:var(--text4)">
       <div class="kpi-label">YTD</div>
-      <div style="display:flex;flex-direction:column;gap:3px;margin:4px 0 2px">
-        <div style="display:flex;align-items:baseline;gap:4px">
-          <span id="pfk-ytd-adr" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
-          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ADR</span>
-        </div>
-        <div style="display:flex;align-items:baseline;gap:4px">
-          <span id="pfk-ytd-ars" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">—</span>
-          <span style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace">ARS</span>
-        </div>
-      </div>
+      <div class="kpi-val" id="pfk-ytd" style="font-size:13px">—</div>
       <div class="kpi-sub" id="pfk-ytd-sub">cargando...</div>
     </div>
     <div class="kpi" style="--accent:var(--purple)">
@@ -277,7 +259,8 @@ const TIPO_COLOR = {
 
 // ── Estado ──────────────────────────────────────────────
 let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfMep = null, pfFilter = 'all', pfChart = null;
-let pfRefCloses = {}; // { ticker: { wtd: number|null, ytd: number|null } }
+let pfRefCloses = {}; // { ticker_ars: { wtd: number|null, ytd: number|null } }
+let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de referencia
 let pfSort = { col: null, dir: 1 };
 const PF_COLS = [
   { id:'ticker',     label:'Ticker',        sortKey: p=>p.ticker_ars,             def:true  },
@@ -811,139 +794,104 @@ async function pfLoadHistory() {
   const { ytd, wtd } = pfGetRefDates();
   const dates = [ytd, wtd];
 
-  const localTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
-  const adrTickers   = [...new Set(pfPositions.map(p => p.ticker_adr).filter(Boolean))];
-
-  console.log('[pf-history] fechas ref → wtd:', wtd, 'ytd:', ytd);
-  console.log('[pf-history] local:', localTickers, '| adr:', adrTickers);
+  // Tickers ARS del portafolio + AL30 y AL30D para calcular MEP histórico
+  const portfolioTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
+  const symbols = [...new Set([...portfolioTickers, 'AL30', 'AL30D'])];
 
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 
-  await Promise.all([
+  try {
+    const session = await window.sbAuth?.auth?.getSession();
+    const token   = session?.data?.session?.access_token || SB_KEY;
+    const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SB_KEY },
+      body: JSON.stringify({ mode: 'rava-history', symbols, dates }),
+    });
+    if (!res.ok) { console.warn('[pf-history] error HTTP', res.status, await res.text()); return; }
+    const data = await res.json();
 
-    // ── Local ARS vía Rava (Edge Function) ─────────────────
-    (async () => {
-      if (!localTickers.length) return;
-      try {
-        const session = await window.sbAuth?.auth?.getSession();
-        const token   = session?.data?.session?.access_token || SB_KEY;
-        const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
-          method: 'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': 'Bearer ' + token,
-            'apikey':        SB_KEY,
-          },
-          body: JSON.stringify({ mode: 'rava-history', symbols: localTickers, dates }),
-        });
-        console.log('[pf-history] rava HTTP', res.status);
-        if (!res.ok) { console.warn('[pf-history] rava error body:', await res.text()); return; }
-        const data = await res.json();
-        console.log('[pf-history] rava data:', data);
-        for (const sym of localTickers) {
-          if (!pfRefCloses[sym]) pfRefCloses[sym] = {};
-          pfRefCloses[sym].ytd = data[sym]?.[ytd] ?? null;
-          pfRefCloses[sym].wtd = data[sym]?.[wtd] ?? null;
-        }
-      } catch(e) { console.warn('[pf-history] rava-history:', e.message); }
-    })(),
+    // Guardar cierres ARS de cada ticker del portafolio
+    pfRefCloses = {};
+    for (const sym of portfolioTickers) {
+      pfRefCloses[sym] = { ytd: data[sym]?.[ytd] ?? null, wtd: data[sym]?.[wtd] ?? null };
+    }
 
-    // ── ADR USD vía historico_precios (Supabase) ────────────
-    (async () => {
-      if (!adrTickers.length) return;
-      try {
-        const qs      = adrTickers.map(t => `"${t}"`).join(',');
-        const ytdFrom = `${parseInt(ytd.split('-')[0]) - 1}-12-24`;
-        const rows    = await sb('historico_precios',
-          `symbol=in.(${qs})&fecha=gte.${ytdFrom}&fecha=lte.${wtd}&select=symbol,fecha,close&order=fecha.desc`
-        );
-        console.log('[pf-history] historico_precios rows:', rows?.length, rows?.[0]);
-        for (const sym of adrTickers) {
-          const symRows = (rows || []).filter(r => r.symbol === sym);
-          const ytdRow  = symRows.find(r => r.fecha <= ytd);
-          const wtdRow  = symRows.find(r => r.fecha <= wtd);
-          if (!pfRefCloses[sym]) pfRefCloses[sym] = {};
-          pfRefCloses[sym].ytd = ytdRow?.close ?? null;
-          pfRefCloses[sym].wtd = wtdRow?.close ?? null;
-        }
-        console.log('[pf-history] pfRefCloses post-adr:', JSON.stringify(pfRefCloses));
-      } catch(e) { console.warn('[pf-history] historico_precios:', e.message); }
-    })(),
-
-  ]);
+    // Calcular MEP de referencia = AL30_ARS / AL30D_USD en cada fecha
+    const al30ytd  = data['AL30']?.[ ytd] ?? null;
+    const al30dytd = data['AL30D']?.[ytd] ?? null;
+    const al30wtd  = data['AL30']?.[ wtd] ?? null;
+    const al30dwtd = data['AL30D']?.[wtd] ?? null;
+    pfMepRef = {
+      ytd: (al30ytd && al30dytd && al30dytd > 0) ? al30ytd / al30dytd : null,
+      wtd: (al30wtd && al30dwtd && al30dwtd > 0) ? al30wtd / al30dwtd : null,
+    };
+    console.log('[pf-history] MEP ref → ytd:', pfMepRef.ytd, 'wtd:', pfMepRef.wtd);
+  } catch(e) { console.warn('[pf-history]', e.message); }
 
   pfRenderPeriodKPIs();
 }
 
 function pfRenderPeriodKPIs() {
-  const calced = pfPositions.map(pfCalc);
+  // Rendimiento USD real = (precio_ARS_hoy / MEP_hoy) vs (precio_ARS_ref / MEP_ref)
+  // Aplica a TODOS los activos — CEDEARs, bonos, ONs.
+  // Ponderado por usdAct de cada posición.
+  if (!pfMep) return; // necesitamos MEP actual
 
-  // Dos cálculos independientes por período:
-  //   ADR  → solo posiciones con ticker_adr, usa precio ADR en USD
-  //   ARS  → todas las posiciones, usa precio local en ARS
-  // Ambos ponderados por usdAct (valor actual en USD)
-  let wtdNA=0,wtdDA=0, ytdNA=0,ytdDA=0; // ADR
-  let wtdNL=0,wtdDL=0, ytdNL=0,ytdDL=0; // local ARS
+  const calced = pfPositions.map(pfCalc);
+  let wtdN=0, wtdD=0, ytdN=0, ytdD=0;
 
   for (const p of calced) {
     if (p.usdAct == null) continue;
+    const pricHoy = pfPrices[p.ticker_ars]?.last ?? null;
+    if (pricHoy == null) continue;
+    const ref = pfRefCloses[p.ticker_ars];
+    if (!ref) continue;
 
-    // ── ADR (USD) ─────────────────────────────────────────
-    if (p.ticker_adr && pfAdrPrices[p.ticker_adr]?.last != null) {
-      const cur = pfAdrPrices[p.ticker_adr].last;
-      const ref = pfRefCloses[p.ticker_adr];
-      if (ref?.wtd > 0) { const r=(cur-ref.wtd)/ref.wtd; wtdNA+=p.usdAct*r; wtdDA+=p.usdAct; }
-      if (ref?.ytd > 0) { const r=(cur-ref.ytd)/ref.ytd; ytdNA+=p.usdAct*r; ytdDA+=p.usdAct; }
+    // USD hoy por unidad = precio_ARS / MEP (factor se cancela en el retorno)
+    const usdHoy = pricHoy / pfMep;
+
+    if (ref.wtd != null && ref.wtd > 0 && pfMepRef.wtd != null && pfMepRef.wtd > 0) {
+      const usdRef = ref.wtd / pfMepRef.wtd;
+      const ret    = usdHoy / usdRef - 1;
+      wtdN += p.usdAct * ret;
+      wtdD += p.usdAct;
     }
-
-    // ── Local ARS ─────────────────────────────────────────
-    const curArs = pfPrices[p.ticker_ars]?.last ?? null;
-    if (curArs != null) {
-      const ref = pfRefCloses[p.ticker_ars];
-      if (ref?.wtd > 0) { const r=(curArs-ref.wtd)/ref.wtd; wtdNL+=p.usdAct*r; wtdDL+=p.usdAct; }
-      if (ref?.ytd > 0) { const r=(curArs-ref.ytd)/ref.ytd; ytdNL+=p.usdAct*r; ytdDL+=p.usdAct; }
+    if (ref.ytd != null && ref.ytd > 0 && pfMepRef.ytd != null && pfMepRef.ytd > 0) {
+      const usdRef = ref.ytd / pfMepRef.ytd;
+      const ret    = usdHoy / usdRef - 1;
+      ytdN += p.usdAct * ret;
+      ytdD += p.usdAct;
     }
   }
 
-  const R = (n,d) => d>0 ? n/d : null;
-  const wtdAdr = R(wtdNA,wtdDA), ytdAdr = R(ytdNA,ytdDA);
-  const wtdArs = R(wtdNL,wtdDL), ytdArs = R(ytdNL,ytdDL);
-  // USD change ≈ numerador del retorno ponderado
-  const wtdUsd = wtdDA>0 ? wtdNA : null;
-  const ytdUsd = ytdDA>0 ? ytdNA : null;
+  const wtdPct = wtdD > 0 ? wtdN / wtdD : null;
+  const ytdPct = ytdD > 0 ? ytdN / ytdD : null;
+  // wtdN ≈ cambio en USD del portafolio en el período
+  const totAct = calced.reduce((s,p) => s+(p.usdAct||0), 0);
 
-  function fmtPct(pct) {
-    if (pct == null) return { txt: '—', col: '' };
-    const pos = pct >= 0;
-    return { txt: (pos?'+':'') + (pct*100).toFixed(2)+'%', col: pos?'var(--green)':'var(--red)' };
-  }
-
-  function setPeriodCard(pfx, pctAdr, pctArs, usd) {
-    const adrEl = document.getElementById(`pfk-${pfx}-adr`);
-    const arsEl = document.getElementById(`pfk-${pfx}-ars`);
+  function setPeriodKpi(pfx, pct) {
+    const valEl = document.getElementById(`pfk-${pfx}`);
     const subEl = document.getElementById(`pfk-${pfx}-sub`);
     const box   = document.getElementById(`pfk-${pfx}-box`);
-
-    const fa = fmtPct(pctAdr), fl = fmtPct(pctArs);
-    if (adrEl) { adrEl.textContent = fa.txt; adrEl.style.color = fa.col; }
-    if (arsEl) { arsEl.textContent = fl.txt; arsEl.style.color = fl.col; }
-
-    const mainPct = pctAdr ?? pctArs;
-    if (box && mainPct != null)
-      box.style.setProperty('--accent', mainPct>=0 ? 'var(--green)' : 'var(--red)');
-
+    if (!valEl) return;
+    if (pct == null) {
+      valEl.textContent = '—'; valEl.style.color = '';
+      if (subEl) subEl.textContent = 'sin datos';
+      return;
+    }
+    const pos = pct >= 0, col = pos ? 'var(--green)' : 'var(--red)';
+    valEl.textContent = (pos?'+':'') + (pct*100).toFixed(2) + '%';
+    valEl.style.color = col;
+    if (box) box.style.setProperty('--accent', col);
     if (subEl) {
-      if (usd != null) {
-        const us = Math.abs(Math.round(usd)).toLocaleString('es-AR');
-        subEl.textContent = (usd>=0?'+':'−') + ' U$S ' + us;
-      } else {
-        subEl.textContent = 'sin datos';
-      }
+      const usd = Math.abs(Math.round(totAct * pct)).toLocaleString('es-AR');
+      subEl.textContent = (pos?'+':'−') + ' U$S ' + usd + ' MEP';
     }
   }
 
-  setPeriodCard('wtd', wtdAdr, wtdArs, wtdUsd);
-  setPeriodCard('ytd', ytdAdr, ytdArs, ytdUsd);
+  setPeriodKpi('wtd', wtdPct);
+  setPeriodKpi('ytd', ytdPct);
 }
 
 // ── Init — cargar y arrancar auto-refresh ─────────────────
