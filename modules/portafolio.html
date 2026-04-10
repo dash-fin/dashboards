@@ -814,6 +814,9 @@ async function pfLoadHistory() {
   const localTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
   const adrTickers   = [...new Set(pfPositions.map(p => p.ticker_adr).filter(Boolean))];
 
+  console.log('[pf-history] fechas ref → wtd:', wtd, 'ytd:', ytd);
+  console.log('[pf-history] local:', localTickers, '| adr:', adrTickers);
+
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 
   await Promise.all([
@@ -833,14 +836,16 @@ async function pfLoadHistory() {
           },
           body: JSON.stringify({ mode: 'rava-history', symbols: localTickers, dates }),
         });
-        if (!res.ok) return;
+        console.log('[pf-history] rava HTTP', res.status);
+        if (!res.ok) { console.warn('[pf-history] rava error body:', await res.text()); return; }
         const data = await res.json();
+        console.log('[pf-history] rava data:', data);
         for (const sym of localTickers) {
           if (!pfRefCloses[sym]) pfRefCloses[sym] = {};
           pfRefCloses[sym].ytd = data[sym]?.[ytd] ?? null;
           pfRefCloses[sym].wtd = data[sym]?.[wtd] ?? null;
         }
-      } catch(e) { console.warn('[portafolio] rava-history:', e.message); }
+      } catch(e) { console.warn('[pf-history] rava-history:', e.message); }
     })(),
 
     // ── ADR USD vía historico_precios (Supabase) ────────────
@@ -848,11 +853,11 @@ async function pfLoadHistory() {
       if (!adrTickers.length) return;
       try {
         const qs      = adrTickers.map(t => `"${t}"`).join(',');
-        // Traer rango amplio: desde 7 días antes del YTD hasta WTD
         const ytdFrom = `${parseInt(ytd.split('-')[0]) - 1}-12-24`;
         const rows    = await sb('historico_precios',
-          `symbol=in.(${qs})&fecha=gte.${ytdFrom}&fecha=lte.${wtd}&select=symbol,fecha,close&order=symbol,fecha.desc`
+          `symbol=in.(${qs})&fecha=gte.${ytdFrom}&fecha=lte.${wtd}&select=symbol,fecha,close&order=fecha.desc`
         );
+        console.log('[pf-history] historico_precios rows:', rows?.length, rows?.[0]);
         for (const sym of adrTickers) {
           const symRows = (rows || []).filter(r => r.symbol === sym);
           const ytdRow  = symRows.find(r => r.fecha <= ytd);
@@ -861,7 +866,8 @@ async function pfLoadHistory() {
           pfRefCloses[sym].ytd = ytdRow?.close ?? null;
           pfRefCloses[sym].wtd = wtdRow?.close ?? null;
         }
-      } catch(e) { console.warn('[portafolio] historico_precios:', e.message); }
+        console.log('[pf-history] pfRefCloses post-adr:', JSON.stringify(pfRefCloses));
+      } catch(e) { console.warn('[pf-history] historico_precios:', e.message); }
     })(),
 
   ]);
