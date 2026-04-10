@@ -112,6 +112,18 @@ serve(async (req) => {
       });
     }
 
+    // ── Modo 3: serie completa vía Rava (para gráficos YTD) ─
+    if (mode === "rava-series") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+      const result: Record<string, Array<{fecha: string; cierre: number}>> = {};
+      await Promise.all(symbols.map(async (sym) => {
+        result[sym] = await fetchRavaHistory(sym);
+      }));
+      return new Response(JSON.stringify(result), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Modo 1: precios actuales vía Yahoo ──────────────────
     if (!symbols?.length) throw new Error("symbols requerido");
 

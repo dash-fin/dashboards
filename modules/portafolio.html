@@ -209,6 +209,28 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Gráficos YTD ──────────────────────────────────── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+    <div class="card" style="padding:18px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Portafolio YTD · USD</span>
+        <span id="pfChartPortfolioStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+      </div>
+      <div style="position:relative;height:210px">
+        <canvas id="pfChartPortfolio"></canvas>
+      </div>
+    </div>
+    <div class="card" style="padding:18px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker YTD · % USD</span>
+        <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+      </div>
+      <div style="position:relative;height:210px">
+        <canvas id="pfChartTickers"></canvas>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── PANEL: POSICIONES ──────────────────────────── -->
@@ -261,7 +283,20 @@ const TIPO_COLOR = {
 let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfMep = null, pfFilter = 'all', pfChart = null;
 let pfRefCloses = {}; // { ticker_ars: { wtd: number|null, ytd: number|null } }
 let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de referencia
+let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
+let pfLineChart1 = null, pfLineChart2 = null;
 let pfSort = { col: null, dir: 1 };
+
+// Último cierre (arr ordenado ASC por fecha) cuya fecha <= date
+function closestBefore(arr, date) {
+  let lo = 0, hi = arr.length - 1, result = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid].fecha <= date) { result = arr[mid].cierre; lo = mid + 1; }
+    else hi = mid - 1;
+  }
+  return result;
+}
 const PF_COLS = [
   { id:'ticker',     label:'Ticker',        sortKey: p=>p.ticker_ars,             def:true  },
   { id:'tipo',       label:'Tipo',          sortKey: p=>p.tipo,                   def:true  },
@@ -792,9 +827,6 @@ async function pfLoadHistory() {
   if (!pfPositions.length) return;
 
   const { ytd, wtd } = pfGetRefDates();
-  const dates = [ytd, wtd];
-
-  // Tickers ARS del portafolio + AL30 y AL30D para calcular MEP histórico
   const portfolioTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
   const symbols = [...new Set([...portfolioTickers, 'AL30', 'AL30D'])];
 
@@ -806,30 +838,40 @@ async function pfLoadHistory() {
     const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SB_KEY },
-      body: JSON.stringify({ mode: 'rava-history', symbols, dates }),
+      body: JSON.stringify({ mode: 'rava-series', symbols }),
     });
     if (!res.ok) { console.warn('[pf-history] error HTTP', res.status, await res.text()); return; }
     const data = await res.json();
+    if (data.error) { console.warn('[pf-history]', data.error); return; }
+    pfSeriesData = data;
 
-    // Guardar cierres ARS de cada ticker del portafolio
-    pfRefCloses = {};
-    for (const sym of portfolioTickers) {
-      pfRefCloses[sym] = { ytd: data[sym]?.[ytd] ?? null, wtd: data[sym]?.[wtd] ?? null };
+    // Pre-ordenar cada serie
+    const sorted = {};
+    for (const sym of Object.keys(data)) {
+      sorted[sym] = [...(data[sym] || [])].sort((a,b) => a.fecha.localeCompare(b.fecha));
     }
 
-    // Calcular MEP de referencia = AL30_ARS / AL30D_USD en cada fecha
-    const al30ytd  = data['AL30']?.[ ytd] ?? null;
-    const al30dytd = data['AL30D']?.[ytd] ?? null;
-    const al30wtd  = data['AL30']?.[ wtd] ?? null;
-    const al30dwtd = data['AL30D']?.[wtd] ?? null;
-    pfMepRef = {
-      ytd: (al30ytd && al30dytd && al30dytd > 0) ? al30ytd / al30dytd : null,
-      wtd: (al30wtd && al30dwtd && al30dwtd > 0) ? al30wtd / al30dwtd : null,
+    const al30s  = sorted['AL30']  || [];
+    const al30ds = sorted['AL30D'] || [];
+
+    const mepAt = (date) => {
+      const a = closestBefore(al30s, date);
+      const d = closestBefore(al30ds, date);
+      return (a && d && d > 0) ? a / d : null;
     };
+
+    // Cierres de referencia para KPIs WTD/YTD
+    pfRefCloses = {};
+    for (const sym of portfolioTickers) {
+      const arr = sorted[sym] || [];
+      pfRefCloses[sym] = { ytd: closestBefore(arr, ytd), wtd: closestBefore(arr, wtd) };
+    }
+    pfMepRef = { ytd: mepAt(ytd), wtd: mepAt(wtd) };
     console.log('[pf-history] MEP ref → ytd:', pfMepRef.ytd, 'wtd:', pfMepRef.wtd);
-  } catch(e) { console.warn('[pf-history]', e.message); }
+  } catch(e) { console.warn('[pf-history]', e.message); return; }
 
   pfRenderPeriodKPIs();
+  pfRenderCharts();
 }
 
 function pfRenderPeriodKPIs() {
@@ -892,6 +934,221 @@ function pfRenderPeriodKPIs() {
 
   setPeriodKpi('wtd', wtdPct);
   setPeriodKpi('ytd', ytdPct);
+}
+
+// ── Gráficos YTD ─────────────────────────────────────────
+function pfRenderCharts() {
+  if (!pfSeriesData || !Object.keys(pfSeriesData).length) return;
+
+  const now      = new Date();
+  const today    = now.toISOString().split('T')[0];
+  const ytdStart = `${now.getFullYear()}-01-01`;
+  const ytdRef   = `${now.getFullYear()-1}-12-31`;
+
+  // Ordenar todas las series
+  const sorted = {};
+  for (const sym of Object.keys(pfSeriesData)) {
+    sorted[sym] = [...(pfSeriesData[sym] || [])].sort((a,b) => a.fecha.localeCompare(b.fecha));
+  }
+
+  const al30s  = sorted['AL30']  || [];
+  const al30ds = sorted['AL30D'] || [];
+
+  // MEP por fecha (usando las fechas de AL30 como ancla)
+  const mepByDate = {};
+  for (const r of al30s) {
+    const d = closestBefore(al30ds, r.fecha);
+    if (d && d > 0) mepByDate[r.fecha] = r.cierre / d;
+  }
+
+  // Eje temporal: fechas de AL30 dentro del año actual
+  const chartDates = al30s.map(r => r.fecha).filter(d => d >= ytdStart && d <= today);
+  const setStatus = (id, txt) => { const el=document.getElementById(id); if(el) el.textContent=txt; };
+
+  if (chartDates.length < 5) {
+    setStatus('pfChartPortfolioStatus', 'sin datos');
+    setStatus('pfChartTickersStatus',   'sin datos');
+    return;
+  }
+  setStatus('pfChartPortfolioStatus', `${chartDates.length} días`);
+  setStatus('pfChartTickersStatus',   `${chartDates.length} días`);
+
+  const labelDates = chartDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
+
+  const baseOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    animation: { duration: 500 },
+    plugins: { legend: { display: false } },
+    scales: {
+      x: {
+        ticks: { color: '#555', font: { family: "'IBM Plex Mono'", size: 8 }, maxTicksLimit: 8, maxRotation: 0 },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        border: { display: false },
+      },
+      y: {
+        ticks: { color: '#555', font: { family: "'IBM Plex Mono'", size: 8 } },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+        border: { display: false },
+      },
+    },
+  };
+
+  const tooltipBase = {
+    backgroundColor: 'rgba(13,17,23,0.95)',
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    titleColor: '#555',
+    bodyColor: '#ddd',
+    titleFont: { family: "'IBM Plex Mono'", size: 8 },
+    bodyFont:  { family: "'IBM Plex Mono'", size: 10 },
+  };
+
+  // ── Chart 1: Portafolio total USD ───────────────────────
+  const portfolioValues = chartDates.map(date => {
+    const mep = mepByDate[date];
+    if (!mep) return null;
+    let total = 0;
+    for (const pos of pfPositions) {
+      const arr = sorted[pos.ticker_ars];
+      if (!arr) continue;
+      const price = closestBefore(arr, date);
+      if (price == null) continue;
+      const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
+      total += (price * pos.cantidad) / ((esBono ? 100 : 1) * mep);
+    }
+    return Math.round(total);
+  });
+
+  const ctx1 = document.getElementById('pfChartPortfolio');
+  if (ctx1) {
+    if (pfLineChart1) pfLineChart1.destroy();
+    const g1 = ctx1.getContext('2d');
+    const grad = g1.createLinearGradient(0, 0, 0, 210);
+    grad.addColorStop(0, 'rgba(0,180,216,0.22)');
+    grad.addColorStop(1, 'rgba(0,180,216,0.01)');
+    pfLineChart1 = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: labelDates,
+        datasets: [{
+          data: portfolioValues,
+          borderColor: '#00b4d8',
+          backgroundColor: grad,
+          fill: true,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: '#00b4d8',
+          tension: 0.35,
+          spanGaps: true,
+        }],
+      },
+      options: {
+        ...baseOpts,
+        plugins: {
+          ...baseOpts.plugins,
+          tooltip: {
+            ...tooltipBase,
+            callbacks: {
+              title: ([ctx]) => chartDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
+              label: ctx => ` U$S ${ctx.raw != null ? Math.round(ctx.raw).toLocaleString('es-AR') : '—'}`,
+            },
+          },
+        },
+        scales: {
+          ...baseOpts.scales,
+          y: {
+            ...baseOpts.scales.y,
+            ticks: {
+              ...baseOpts.scales.y.ticks,
+              callback: v => 'U$S ' + (Math.abs(v) >= 1000 ? Math.round(v/1000)+'k' : Math.round(v)),
+            },
+          },
+        },
+      },
+    });
+  }
+
+  // ── Chart 2: % de retorno por ticker ────────────────────
+  const portfolioTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
+  const PALETTE = ['#00b4d8','#00e5a8','#f0a500','#b39dff','#ff6b9d','#4da6ff','#ff9a3c','#7fffd4','#c8a2c8','#ff3f5e','#ffd700','#a8e063'];
+
+  const mepRefYtd = (() => {
+    const a = closestBefore(al30s, ytdRef);
+    const d = closestBefore(al30ds, ytdRef);
+    return (a && d && d > 0) ? a / d : null;
+  })();
+
+  const tickerDatasets = portfolioTickers.map((ticker, i) => {
+    const arr = sorted[ticker] || [];
+    const basePrice = closestBefore(arr, ytdRef);
+    if (!basePrice || !mepRefYtd) return null;
+    const baseUsd = basePrice / mepRefYtd;
+    const values = chartDates.map(date => {
+      const mep = mepByDate[date];
+      const price = closestBefore(arr, date);
+      if (!mep || price == null || baseUsd <= 0) return null;
+      return +((price / mep / baseUsd - 1) * 100).toFixed(2);
+    });
+    return {
+      label: ticker,
+      data: values,
+      borderColor: PALETTE[i % PALETTE.length],
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      pointRadius: 0,
+      pointHoverRadius: 3,
+      pointHoverBackgroundColor: PALETTE[i % PALETTE.length],
+      tension: 0.35,
+      spanGaps: true,
+    };
+  }).filter(Boolean);
+
+  const ctx2 = document.getElementById('pfChartTickers');
+  if (ctx2) {
+    if (pfLineChart2) pfLineChart2.destroy();
+    pfLineChart2 = new Chart(ctx2, {
+      type: 'line',
+      data: { labels: labelDates, datasets: tickerDatasets },
+      options: {
+        ...baseOpts,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              color: '#555',
+              font: { family: "'IBM Plex Mono'", size: 8 },
+              boxWidth: 20,
+              boxHeight: 1,
+              padding: 10,
+              usePointStyle: false,
+            },
+          },
+          tooltip: {
+            ...tooltipBase,
+            callbacks: {
+              title: ([ctx]) => chartDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.raw != null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw.toFixed(2) + '%' : '—'}`,
+            },
+          },
+        },
+        scales: {
+          ...baseOpts.scales,
+          y: {
+            ...baseOpts.scales.y,
+            ticks: {
+              ...baseOpts.scales.y.ticks,
+              callback: v => (v >= 0 ? '+' : '') + v.toFixed(0) + '%',
+            },
+          },
+        },
+        layout: { padding: { bottom: 0 } },
+      },
+    });
+  }
 }
 
 // ── Init — cargar y arrancar auto-refresh ─────────────────
