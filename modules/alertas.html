@@ -1,46 +1,3 @@
-<!-- ══════════════════════════════════════════════════
-     MÓDULO: ALERTAS v2
-     Persistencia: Supabase (tablas alertas + alertas_historial)
-     Tiempo real:  Supabase Realtime (channel mercado)
-     Canales:      WhatsApp (Callmebot) + Telegram
-══════════════════════════════════════════════════ -->
-
-<!-- SQL que necesitás correr UNA VEZ en Supabase SQL Editor:
-
-CREATE TABLE IF NOT EXISTS alertas (
-  id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL,
-  ticker      TEXT NOT NULL,
-  tipo        TEXT NOT NULL,
-  params      JSONB NOT NULL DEFAULT '{}',
-  activa      BOOLEAN NOT NULL DEFAULT true,
-  cooldown    INTEGER NOT NULL DEFAULT 1800,
-  mensaje     TEXT DEFAULT '',
-  fired_count INTEGER NOT NULL DEFAULT 0,
-  last_fired  TIMESTAMPTZ,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS alertas_historial (
-  id          BIGSERIAL PRIMARY KEY,
-  user_id     TEXT NOT NULL,
-  alerta_id   TEXT NOT NULL,
-  ticker      TEXT NOT NULL,
-  tipo        TEXT NOT NULL,
-  cond_desc   TEXT,
-  precio      NUMERIC,
-  canal       TEXT,
-  estado      TEXT,
-  fired_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-ALTER TABLE alertas          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE alertas_historial ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "user_own_alertas"     ON alertas           FOR ALL USING (user_id = auth.uid()::text);
-CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id = auth.uid()::text);
--->
-
 <div class="sub-tabs-row">
   <div class="sub-tabs">
     <button class="stab active" id="alstab-activas"   onclick="alTab('activas',this)">Activas</button>
@@ -54,7 +11,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
   </div>
 </div>
 
-<!-- ════ PANEL: ACTIVAS ════ -->
 <div class="sub-panel active" id="alpanel-activas">
 
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
@@ -133,7 +89,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
   </div>
 </div>
 
-<!-- ════ PANEL: NUEVA ALERTA ════ -->
 <div class="sub-panel" id="alpanel-nueva">
   <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
 
@@ -156,7 +111,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
           </div>
         </div>
 
-        <!-- PRECIO -->
         <div id="al-cond-precio" class="al-cond-panel">
           <div class="al-label">Condición</div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -171,7 +125,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
           </div>
         </div>
 
-        <!-- MEDIAS -->
         <div id="al-cond-ma" class="al-cond-panel" style="display:none">
           <div class="al-label">Parámetros</div>
           <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
@@ -188,7 +141,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
           <div style="font-size:10px;color:var(--text3);margin-top:4px">Requiere tabla <code style="color:var(--blue)">mercado_history</code> con al menos <strong id="al-ma-req" style="color:var(--text2)">50</strong> velas.</div>
         </div>
 
-        <!-- VARIACIÓN -->
         <div id="al-cond-variacion" class="al-cond-panel" style="display:none">
           <div class="al-label">Condición</div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -202,7 +154,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
           </div>
         </div>
 
-        <!-- VOLUMEN -->
         <div id="al-cond-volumen" class="al-cond-panel" style="display:none">
           <div class="al-label">Turnover supera</div>
           <div style="display:flex;gap:8px;align-items:center">
@@ -255,7 +206,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
   </div>
 </div>
 
-<!-- ════ PANEL: HISTORIAL ════ -->
 <div class="sub-panel" id="alpanel-historial">
   <div class="card">
     <div class="card-head">
@@ -284,7 +234,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
 </div>
 
 
-<!-- ════ ESTILOS ════ -->
 <style>
 .al-field{display:flex;flex-direction:column;gap:4px}
 .al-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:500}
@@ -294,7 +243,6 @@ CREATE POLICY "user_own_historial"   ON alertas_historial FOR ALL USING (user_id
 .al-rt-pulse{animation:pulse 1.5s infinite}
 </style>
 
-<!-- ════ JAVASCRIPT ════ -->
 <script>
 (function(){
 'use strict';
@@ -357,9 +305,27 @@ async function sbDelete(table, params){
 // ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
+async function alCargarPreciosIniciales() {
+  try {
+    const rows = await window.sb('mercado', 'select=symbol,last'); 
+    if (rows && rows.length > 0) {
+      rows.forEach(r => {
+        const sym = (r.symbol || '').replace(/_24hs|_ci|_48hs/i, '').toUpperCase().trim();
+        if (sym && r.last) {
+          AL.prevPrices[sym] = Number(r.last);
+        }
+      });
+      alRenderActivas(); 
+    }
+  } catch (e) {
+    console.error("Error al cargar precios iniciales:", e);
+  }
+}
+
 async function alInit(){
   alCfgCargarLocal();
   await alCargarAlertas();
+  await alCargarPreciosIniciales(); 
   await alCargarHistorial();
   alKpiUpdate();
   alRtConnect();
@@ -380,18 +346,15 @@ window.alTab = function(id, btn){
 };
 
 // ─────────────────────────────────────────────
-// SUPABASE REALTIME — el corazón del módulo
+// SUPABASE REALTIME
 // ─────────────────────────────────────────────
 function alRtConnect(){
-  // Desconectar si ya había una conexión
   if(AL.rtChannel){
     try{ AL.rtChannel.unsubscribe(); }catch(e){}
   }
 
   alRtStatus('connecting');
 
-  // Nos suscribimos a cambios en la tabla mercado
-  // Cada UPDATE de precio llega como evento en tiempo real
   AL.rtChannel = window.sbAuth
     .channel('mercado-alertas')
     .on('postgres_changes', {
@@ -413,12 +376,10 @@ function alRtConnect(){
     });
 }
 
-// Llega cada vez que cambia una fila en la tabla mercado
 async function alOnMercadoUpdate(payload){
   const row = payload.new;
   if(!row) return;
 
-  // Normalizar symbol — puede venir como "GGAL" o "GGAL_24hs" etc
   const symRaw = row.symbol || '';
   const sym = symRaw.replace(/_24hs|_ci|_48hs/i,'').toUpperCase().trim();
   const cur = Number(row.last);
@@ -426,13 +387,11 @@ async function alOnMercadoUpdate(payload){
 
   const ts = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
 
-  // Actualizar KPI último evento
   const krtEl = document.getElementById('al-kpi-rt');
   if(krtEl) krtEl.textContent = sym + ' ' + ts.slice(0,5);
 
   alLog(`📡 ${sym} → $${fmtAR(cur,2)} | var: ${Number(row.change||0).toFixed(2)}%`, 'text3');
 
-  // Evaluar alertas activas para este ticker
   const alertasDelTicker = AL.alerts.filter(a => {
     if(!a.activa) return false;
     const at = (a.ticker||'').replace(/_24hs|_ci|_48hs/i,'').toUpperCase().trim();
@@ -472,7 +431,6 @@ async function alOnMercadoUpdate(payload){
       if(cooldownMs > 0 && (ahora - lastFiredMs) < cooldownMs){
         const restMin = Math.round((cooldownMs - (ahora - lastFiredMs)) / 60000);
         alLog(`⏳ ${sym}: en cooldown (${restMin}min restantes).`, 'amber');
-        // Aún así actualizar prevPrices para no re-disparar
         AL.prevPrices[sym] = cur;
         continue;
       }
@@ -507,11 +465,12 @@ async function alOnMercadoUpdate(payload){
       });
 
       alKpiUpdate();
-      alRenderActivas();
     }
   }
 
+  // ACTULIZACIÓN EN VIVO DE LA TABLA
   AL.prevPrices[sym] = cur;
+  alRenderActivas(); 
 }
 
 function alRtStatus(status){
@@ -538,10 +497,8 @@ function evalPrecio(a, cur, prev){
   const val = a.params.valor;
   const dir = a.params.dir;
   let ok = false;
-  // gt/lt: disparan solo cuando CRUZAN el nivel (necesitan precio anterior)
-  // Si no hay previo, guardar y esperar el siguiente tick
-  if(dir === 'gt')       ok = prev !== undefined && prev < val  && cur >= val;  // cruce hacia arriba
-  if(dir === 'lt')       ok = prev !== undefined && prev > val  && cur <= val;  // cruce hacia abajo
+  if(dir === 'gt')       ok = prev !== undefined && prev < val  && cur >= val;
+  if(dir === 'lt')       ok = prev !== undefined && prev > val  && cur <= val;
   if(dir === 'cross_up') ok = prev !== undefined && prev < val  && cur >= val;
   if(dir === 'cross_dn') ok = prev !== undefined && prev > val  && cur <= val;
   const labels = {
@@ -838,7 +795,6 @@ window.alSetTipo = function(tipo, btn){
   btn.className = 'flt ' + (clsMap[tipo]||'on') + ' on';
   document.querySelectorAll('.al-cond-panel').forEach(p => p.style.display='none');
   document.getElementById('al-cond-'+tipo).style.display='flex';
-  // Mostrar cooldown solo para variacion y volumen
   const cdWrap = document.getElementById('al-cooldown-wrap');
   if(cdWrap) cdWrap.style.display = (tipo==='variacion'||tipo==='volumen') ? 'flex' : 'none';
   alFormPreview();
@@ -880,7 +836,7 @@ window.alLimpiarForm = function(){
 };
 
 // ─────────────────────────────────────────────
-// CONFIG CANAL — lee de window.CFG (hardcodeado en index.html)
+// CONFIG CANAL
 // ─────────────────────────────────────────────
 function alCfgCargarLocal(){
   AL.cfg = {
@@ -900,9 +856,6 @@ window.alTestCanal = async function(canal){
   const ok = canal==='wa' ? await alEnviarWA(msg) : await alEnviarTG(msg);
   alLog(ok ? `✅ Test ${canal.toUpperCase()} enviado — revisá tu teléfono.` : `❌ Test ${canal.toUpperCase()} falló — verificá credenciales en CFG.`, ok?'green':'red');
 };
-
-
-
 
 function alCfgUI(){
   const hasWa = !!(AL.cfg.waNum && AL.cfg.waKey);
@@ -936,7 +889,6 @@ function alKpiUpdate(){
   set('al-kpi-tickers', tickers);
   set('al-kpi-canal', canal);
   set('al-kpi-canal-sub', canalSub);
-  // hoy: contar desde historial cargado (aproximado, la fuente real es Supabase)
   const hoyCount = AL.alerts.reduce((s,a) => {
     if(!a.last_fired) return s;
     return new Date(a.last_fired).toDateString()===today ? s+1 : s;
@@ -957,7 +909,7 @@ function alLog(msg, color){
   const line = document.createElement('span');
   line.style.color = colors[color]||'var(--text2)';
   line.textContent = `[${ts}] ${msg}`;
-  el.prepend(line);   // más nuevo arriba
+  el.prepend(line);
   while(el.children.length > 80) el.removeChild(el.lastChild);
 }
 
