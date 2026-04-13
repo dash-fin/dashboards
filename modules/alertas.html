@@ -258,7 +258,7 @@
 // ─────────────────────────────────────────────
 const AL = {
   alerts: [],
-  prevPrices: {},   // sym → precio anterior (para detección de cruce)
+  prevPrices: {},   // sym → precio anterior
   prevMAs: {},      // sym → {fast, slow}
   tipoActual: 'precio',
   filtroTipo: 'all',
@@ -276,7 +276,7 @@ function alUserId(){
 }
 
 // ─────────────────────────────────────────────
-// SUPABASE HELPERS
+// SUPABASE HELPERS PROPIOS DE LA ESCRITURA
 // ─────────────────────────────────────────────
 async function sbHeaders(){
   const session = await window.sbAuth.auth.getSession();
@@ -317,11 +317,11 @@ async function sbDelete(table, params){
 // ─────────────────────────────────────────────
 async function alCargarPreciosIniciales() {
   try {
-    const h = await sbHeaders();
-    // Usamos fetch nativo para evitar límites bajos del helper window.sb (traemos hasta 4000 símbolos)
-    const res = await fetch(`${CFG.SB_URL}/rest/v1/mercado?select=symbol,last&limit=4000`, { headers: h });
-    if(res.ok) {
-      const rows = await res.json();
+    // CLAVE: Usamos la función sbAll que tenés en index.html que pagina automáticamente.
+    // Además pedimos SOLO los settlement=24hs para no mezclar precios.
+    const rows = await window.sbAll('mercado', 'settlement=eq.24hs&select=symbol,last');
+    
+    if (rows && rows.length > 0) {
       rows.forEach(r => {
         const sym = alCleanTicker(r.symbol);
         if (sym && r.last != null) {
@@ -329,11 +329,9 @@ async function alCargarPreciosIniciales() {
         }
       });
       alRenderActivas(); 
-    } else {
-      console.error("Error al cargar mercado inicial:", res.status);
     }
   } catch (e) {
-    console.error("Excepción cargando precios:", e);
+    console.error("Excepción cargando precios iniciales:", e);
   }
 }
 
@@ -393,7 +391,8 @@ function alRtConnect(){
 
 async function alOnMercadoUpdate(payload){
   const row = payload.new;
-  if(!row) return;
+  // Solo consideramos los ticks que vienen del plazo normal (24hs) para no tener saltos de precio irreales
+  if(!row || row.settlement !== '24hs') return;
 
   const sym = alCleanTicker(row.symbol);
   const cur = Number(row.last);
@@ -410,7 +409,7 @@ async function alOnMercadoUpdate(payload){
     return at === sym;
   });
 
-  // SIEMPRE actualizamos memoria y forzamos repintado visual (incluso si la alerta no disparó o si es nueva)
+  // Mantenemos la memoria siempre actualizada
   AL.prevPrices[sym] = cur;
 
   if(!alertasDelTicker.length){
@@ -426,10 +425,7 @@ async function alOnMercadoUpdate(payload){
     let condDesc  = '';
 
     if(alerta.tipo === 'precio'){
-      // Usamos el valor anterior real, PERO acá cur ya está pisado en prevPrices, así que 
-      // si necesitamos "cruce", en el próximo tick evaluará. Para evaluar ESTE tick, pasamos cur como val.
-      const prev = cur; // Simplificación temporal, evalPrecio manejará la condición de límite
-      [disparado, condDesc] = evalPrecio(alerta, cur, cur); // Se ajustó evalPrecio para funcionar "live"
+      [disparado, condDesc] = evalPrecio(alerta, cur, cur);
     } else if(alerta.tipo === 'ma'){
       [disparado, condDesc] = await evalMA(alerta, sym);
     } else if(alerta.tipo === 'variacion'){
@@ -510,7 +506,6 @@ function evalPrecio(a, cur, prev){
   const dir = a.params.dir;
   let ok = false;
   
-  // Como cambiamos a modo live, evaluamos "tocar" el precio sin importar el prev
   if(dir === 'gt' || dir === 'cross_up') ok = cur >= val;
   if(dir === 'lt' || dir === 'cross_dn') ok = cur <= val;
 
@@ -767,7 +762,6 @@ window.alRenderActivas = function(){
     const cd = (a.params?.cooldown||a.cooldown||0);
     const cdLabel = cd===0?'sin límite':cd>=3600?Math.round(cd/3600)+'h':Math.round(cd/60)+'min';
     
-    // Acá también usamos el limpiador estricto
     const cleanTicker = alCleanTicker(a.ticker);
     const curPrice = AL.prevPrices[cleanTicker] !== undefined ? '$' + fmtAR(AL.prevPrices[cleanTicker],2) : '—';
     
@@ -993,7 +987,6 @@ window.alTickerSearch = async function(q){
   res.innerHTML = '<div style="padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3)">Buscando...</div>';
   
   _alTickerTimer = setTimeout(async () => {
-    // Busca en la tabla mercado usando el helper global de index.html
     const rows = await window.sb('mercado', `symbol=ilike.${encodeURIComponent(q)}*&settlement=eq.24hs&select=symbol,last,change&order=turnover.desc.nullslast&limit=8`);
     
     if(!rows || !rows.length){
@@ -1005,7 +998,7 @@ window.alTickerSearch = async function(q){
       const chg = Number(r.change || 0);
       const cls = chg > 0 ? 'var(--green)' : chg < 0 ? 'var(--red)' : 'var(--text3)';
       const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
-      const cleanSym = alCleanTicker(r.symbol); // Limpiamos el ticker
+      const cleanSym = alCleanTicker(r.symbol); 
       
       return `<div onclick="alTickerSelect('${cleanSym}')" style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-bottom:1px solid rgba(30,37,48,.5);font-family:'IBM Plex Mono',monospace;transition:background .1s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
         <span style="font-size:12px;font-weight:500;color:var(--text)">${cleanSym}</span>
@@ -1020,7 +1013,7 @@ window.alTickerSelect = function(sym){
   const input = document.getElementById('al-f-ticker');
   input.value = sym;
   document.getElementById('al-ticker-results').style.display = 'none';
-  alFormPreview(); // Actualizamos la vista previa del mensaje con el nuevo ticker
+  alFormPreview(); 
 };
 
 window.alTickerHideResults = function(){
