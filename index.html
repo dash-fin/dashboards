@@ -365,7 +365,12 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
       <span style="display:flex;align-items:center;gap:8px">
         <span style="display:flex;align-items:center;gap:5px">
           <span id="bd-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">Feed BD: <span id="bd-last-update" style="color:var(--text3)">—</span></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">Mercado local: <span id="bd-last-update" style="color:var(--text3)">—</span></span>
+        </span>
+        <span style="color:var(--border2)">|</span>
+        <span style="display:flex;align-items:center;gap:5px">
+          <span id="usa-status-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">Mercado USA: <span id="usa-last-update" style="color:var(--text3)">—</span></span>
         </span>
         <span style="color:var(--border2)">|</span>
         <span>Act: <span id="footerTs" style="color:var(--text3)">—</span></span>
@@ -906,7 +911,7 @@ window.loadModule=async(name,btn)=>{
   if(name==='home'){container.innerHTML='';renderHome();return;}
   container.innerHTML=`<div class="module-loading"><div class="spinner"></div>Cargando ${name}...</div>`;
   try{
-    const r=await fetch(`modules/${name}.html`);
+    const r=await fetch(`modules/${name}.html?v=${Date.now()}`);
     if(!r.ok)throw new Error('Módulo no encontrado');
     const html=await r.text();
     container.innerHTML=html;
@@ -1137,6 +1142,36 @@ async function checkBdUpdate(){
 }
 checkBdUpdate();
 setInterval(checkBdUpdate, 15000); // chequear cada 15 segundos
+
+// ── Feed USA — última actualización mercado_usa ──
+async function checkUsaUpdate(){
+  try{
+    const rows = await sb('mercado_usa','select=updated_at&order=updated_at.desc.nullslast&limit=1');
+    const dot = document.getElementById('usa-status-dot');
+    const lbl = document.getElementById('usa-last-update');
+    if(!rows||!rows.length||!rows[0].updated_at){
+      if(dot) dot.style.background='var(--text4)';
+      if(lbl) lbl.textContent='sin datos';
+      return;
+    }
+    const updAt = new Date(rows[0].updated_at);
+    const diffMs = Date.now() - updAt.getTime();
+    const diffMin = Math.floor(diffMs/60000);
+    const diffSeg = Math.floor((diffMs%60000)/1000);
+    let timeStr;
+    if(diffMs < 60000)       timeStr = diffSeg+'s atrás';
+    else if(diffMin < 60)    timeStr = diffMin+'m '+diffSeg+'s atrás';
+    else                     timeStr = Math.floor(diffMin/60)+'h '+(diffMin%60)+'m atrás';
+    let color, pulse=false;
+    if(diffMs < 60000)       { color='var(--green)'; pulse=true;  }
+    else if(diffMs < 300000) { color='var(--amber)'; pulse=false; }
+    else                     { color='var(--red)';   pulse=false; }
+    if(dot){ dot.style.background=color; dot.style.animation=pulse?'pulse 2s infinite':'none'; }
+    if(lbl){ lbl.textContent=timeStr; lbl.style.color=color; }
+  }catch(e){}
+}
+checkUsaUpdate();
+setInterval(checkUsaUpdate, 15000);
 
 // ── Init ──
 loadStrip();setInterval(loadStrip,60000);
