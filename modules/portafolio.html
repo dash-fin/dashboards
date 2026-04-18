@@ -104,11 +104,83 @@
   </div>
 </div>
 
+<!-- ── Modal: Cerrar posición ─────────────────────────── -->
+<div id="pfCloseOverlay" onclick="if(event.target.id==='pfCloseOverlay')pfCloseHide()"
+  style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);
+  backdrop-filter:blur(3px);align-items:center;justify-content:center">
+  <div class="modal" style="max-width:480px;width:100%;margin:20px" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <span class="modal-title" id="pfCloseTitle">Cerrar posición</span>
+      <button class="modal-close" onclick="pfCloseHide()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pfCloseSummary" style="background:var(--bg3);border-radius:6px;padding:12px 14px;
+        margin-bottom:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+        color:var(--text2);line-height:1.8"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <div class="field-label">Fecha de venta</div>
+          <input class="field-input" id="pfcFecha" type="date">
+        </div>
+        <div>
+          <div class="field-label">Precio de venta ARS</div>
+          <input class="field-input" id="pfcPrecioSalida" type="number" step="any"
+            placeholder="0.00" oninput="pfCloseCalc()">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <div class="field-label">MEP al momento de venta</div>
+          <input class="field-input" id="pfcMepSalida" type="number" step="any"
+            placeholder="0.00" oninput="pfCloseCalc()">
+          <div id="pfcMepHint" style="font-size:9px;color:var(--text3);margin-top:3px;
+            font-family:'IBM Plex Mono',monospace"></div>
+        </div>
+        <div>
+          <div class="field-label">Precio ADR venta (opcional)</div>
+          <input class="field-input" id="pfcPrecioAdrSalida" type="number" step="any" placeholder="0.00">
+        </div>
+      </div>
+      <div id="pfClosePreview" style="display:none;border-radius:6px;padding:14px 16px;
+        margin-bottom:16px;border:1px solid">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);
+          text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Preview P&L</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div>
+            <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Invertido</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:14px" id="pfcPrevInv">—</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Retorno</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:14px" id="pfcPrevRet">—</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Ganancia</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600" id="pfcPrevGan">—</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Notas (opcional)</div>
+        <input class="field-input" id="pfcNotas" type="text"
+          placeholder="ej. Take profit / Stop loss / Rebalanceo">
+      </div>
+      <div id="pfcMsg" style="display:none;font-size:10px;font-family:'IBM Plex Mono',monospace;
+        padding:8px 12px;border-radius:5px;margin-top:12px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn-outline" onclick="pfCloseHide()">Cancelar</button>
+        <button class="btn-prim" id="pfcSaveBtn" onclick="pfCloseSave()">Registrar cierre</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Sub-tabs ──────────────────────────────────── -->
 <div class="sub-tabs-row">
   <div class="sub-tabs">
     <button class="stab active" id="pftab-resumen"    onclick="pfTab('resumen',this)">Resumen</button>
     <button class="stab"        id="pftab-posiciones" onclick="pfTab('posiciones',this)">Posiciones</button>
+    <button class="stab"        id="pftab-historial"  onclick="pfTab('historial',this)">Historial</button>
   </div>
   <div class="sub-tabs-meta" style="display:flex;align-items:center;gap:8px">
     <span id="pfMeta" style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
@@ -235,6 +307,7 @@
 
 <!-- ── PANEL: POSICIONES ──────────────────────────── -->
 <div class="sub-panel" id="pfpanel-posiciones">
+
   <div class="card">
     <div class="toolbar">
       <div style="display:flex;gap:3px" id="pfTipoFilter">
@@ -264,6 +337,37 @@
   </div>
 </div>
 
+<!-- ── PANEL: HISTORIAL ───────────────────────────── -->
+<div class="sub-panel" id="pfpanel-historial">
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Operaciones cerradas</span>
+      <span id="pfHistStats" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th>Apertura</th>
+          <th>Cierre</th>
+          <th>Cantidad</th>
+          <th>P. Entrada</th>
+          <th>P. Salida</th>
+          <th>Invertido USD</th>
+          <th>Retorno USD</th>
+          <th>Ganancia USD</th>
+          <th>%</th>
+          <th class="th-left">Notas</th>
+        </tr></thead>
+        <tbody id="pfHistTbody">
+          <tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 
@@ -286,6 +390,7 @@ let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de refer
 let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
 let pfLineChart1 = null, pfLineChart2 = null;
 let pfSort = { col: null, dir: 1 };
+let pfGanRealizada = 0;
 
 // Último cierre (arr ordenado ASC por fecha) cuya fecha <= date
 function closestBefore(arr, date) {
@@ -326,6 +431,7 @@ window.pfTab = (name, btn) => {
   document.getElementById('pfpanel-' + name).classList.add('active');
   document.querySelectorAll('[id^="pftab-"]').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
+  if(name === 'historial') pfLoadHistorial();
 };
 
 // ── Yahoo Finance fallback (via Edge Function) ───────────
@@ -361,6 +467,12 @@ window.pfLoadAll = async () => {
       sb('mercado',    'symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last'),
     ]);
     pfPositions = posData || [];
+
+    // Ganancia realizada (trades cerrados) — cachear para KPI
+    try {
+      const tradeRows = await sb('trades', `user_email=eq.${encodeURIComponent(email)}&select=ganancia_usd`);
+      pfGanRealizada = (tradeRows||[]).reduce((s,r) => s+(r.ganancia_usd||0), 0);
+    } catch(e) { pfGanRealizada = 0; }
 
     const al30  = (mepData||[]).find(r=>r.symbol==='AL30');
     const al30d = (mepData||[]).find(r=>r.symbol==='AL30D');
@@ -449,10 +561,15 @@ function pfRender() {
   document.getElementById('pfk-invested').textContent = fmt(totInv);
   document.getElementById('pfk-actual').textContent   = fmt(totAct);
 
-  const sign = totGan>=0?'+':'';
-  document.getElementById('pfk-gain').textContent     = sign+fmt(totGan);
-  document.getElementById('pfk-gain-pct').textContent = totPct!=null?(sign+(totPct*100).toFixed(2)+'%'):'—';
-  document.getElementById('pfk-gain-box').style.setProperty('--accent', totGan>=0?'var(--green)':'var(--red)');
+  const ganTotal    = totGan + pfGanRealizada;
+  const ganTotalPct = totInv > 0 ? ganTotal / totInv : null;
+  const sign = ganTotal>=0?'+':'';
+  document.getElementById('pfk-gain').textContent     = sign+fmt(ganTotal);
+  document.getElementById('pfk-gain-pct').textContent = ganTotalPct!=null?(sign+(ganTotalPct*100).toFixed(2)+'%'):'—';
+  document.getElementById('pfk-gain-box').style.setProperty('--accent', ganTotal>=0?'var(--green)':'var(--red)');
+  document.getElementById('pfk-gain').title =
+    `No realizada: ${totGan>=0?'+':''}U$S ${Math.round(totGan).toLocaleString('es-AR')}\n`
+    + `Realizada: ${pfGanRealizada>=0?'+':''}U$S ${Math.round(pfGanRealizada).toLocaleString('es-AR')}`;
 
   // KPI variación diaria
   const varSign  = varDiariaUSD >= 0 ? '+' : '';
@@ -668,6 +785,7 @@ function pfRenderPositions(calced) {
     '<tr>' + visibleCols.map(c=>cell(p,c.id)).join('') +
     `<td>
       <button onclick="pfModalOpen('${p.id}')" title="Editar" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text3)'">✎</button>
+      <button onclick="pfCloseModal('${p.id}')" title="Cerrar posición" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text3)'">⊠</button>
       <button onclick="pfDelete('${p.id}','${p.ticker_ars}')" title="Eliminar" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
     </td></tr>`
   ).join('');
@@ -800,6 +918,186 @@ window.pfDelete = async (id, ticker) => {
     alert('Error al eliminar: ' + e.message);
   }
 };
+
+// ── Cerrar posición ───────────────────────────────────────────────
+let pfCloseId = null;
+
+window.pfCloseModal = (id) => {
+  pfCloseId = id;
+  const pos = pfPositions.find(p => p.id === id);
+  if(!pos) return;
+  const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
+  const factor = esBono ? 100 : 1;
+  const usdInv = pos.mep_compra > 0
+    ? (pos.precio_compra_ars * pos.cantidad) / (factor * pos.mep_compra) : null;
+
+  document.getElementById('pfCloseTitle').textContent = `Cerrar — ${pos.ticker_ars}`;
+  document.getElementById('pfcFecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pfcPrecioSalida').value = '';
+  document.getElementById('pfcPrecioAdrSalida').value = '';
+  document.getElementById('pfcNotas').value = '';
+  document.getElementById('pfcMsg').style.display = 'none';
+  document.getElementById('pfClosePreview').style.display = 'none';
+
+  if(pfMep) {
+    document.getElementById('pfcMepSalida').value = Math.round(pfMep);
+    document.getElementById('pfcMepHint').textContent = `MEP actual: $${Math.round(pfMep).toLocaleString('es-AR')}`;
+  }
+
+  const precioActual = pfPrices[pos.ticker_ars]?.last;
+  document.getElementById('pfCloseSummary').innerHTML =
+    `<b>${pos.ticker_ars}</b> · ${TIPO_LABEL[pos.tipo]||pos.tipo}<br>`
+    + `Cant: ${Number(pos.cantidad).toLocaleString('es-AR')} · `
+    + `Entrada: $${Number(pos.precio_compra_ars).toLocaleString('es-AR')} · `
+    + `MEP entrada: $${Math.round(pos.mep_compra).toLocaleString('es-AR')}<br>`
+    + `Invertido: U$S ${usdInv ? Math.round(usdInv).toLocaleString('es-AR') : '—'}`
+    + (precioActual ? ` · Precio actual: $${Number(precioActual).toLocaleString('es-AR')}` : '');
+
+  document.getElementById('pfCloseOverlay').style.display = 'flex';
+};
+
+window.pfCloseHide = () => {
+  document.getElementById('pfCloseOverlay').style.display = 'none';
+  pfCloseId = null;
+};
+
+window.pfCloseCalc = () => {
+  const pos = pfPositions.find(p => p.id === pfCloseId);
+  if(!pos) return;
+  const precioSalida = parseFloat(document.getElementById('pfcPrecioSalida').value);
+  const mepSalida    = parseFloat(document.getElementById('pfcMepSalida').value);
+  if(!precioSalida || !mepSalida) {
+    document.getElementById('pfClosePreview').style.display = 'none';
+    return;
+  }
+  const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
+  const factor = esBono ? 100 : 1;
+  const usdInv = pos.mep_compra > 0
+    ? (pos.precio_compra_ars * pos.cantidad) / (factor * pos.mep_compra) : 0;
+  const usdRet = (precioSalida * pos.cantidad) / (factor * mepSalida);
+  const gan    = usdRet - usdInv;
+  const pct    = usdInv > 0 ? (gan / usdInv * 100) : 0;
+  const color  = gan >= 0 ? 'var(--green)' : 'var(--red)';
+  const s      = gan >= 0 ? '+' : '';
+
+  const prev = document.getElementById('pfClosePreview');
+  prev.style.display = 'block';
+  prev.style.background  = gan >= 0 ? 'rgba(0,229,168,.06)' : 'rgba(255,63,94,.06)';
+  prev.style.borderColor = gan >= 0 ? 'rgba(0,229,168,.3)'  : 'rgba(255,63,94,.3)';
+  document.getElementById('pfcPrevInv').textContent = `U$S ${Math.round(usdInv).toLocaleString('es-AR')}`;
+  document.getElementById('pfcPrevRet').textContent = `U$S ${Math.round(usdRet).toLocaleString('es-AR')}`;
+  document.getElementById('pfcPrevGan').innerHTML =
+    `<span style="color:${color}">${s}U$S ${Math.abs(Math.round(gan)).toLocaleString('es-AR')} (${s}${pct.toFixed(1)}%)</span>`;
+};
+
+window.pfCloseSave = async () => {
+  const pos = pfPositions.find(p => p.id === pfCloseId);
+  if(!pos) return;
+  const fechaCierre  = document.getElementById('pfcFecha').value;
+  const precioSalida = parseFloat(document.getElementById('pfcPrecioSalida').value);
+  const mepSalida    = parseFloat(document.getElementById('pfcMepSalida').value);
+  const precioAdrS   = parseFloat(document.getElementById('pfcPrecioAdrSalida').value) || null;
+  const notas        = document.getElementById('pfcNotas').value.trim() || null;
+  const btn          = document.getElementById('pfcSaveBtn');
+
+  if(!fechaCierre)  { pfCloseMsgShow('error','Ingresá la fecha de venta'); return; }
+  if(!precioSalida) { pfCloseMsgShow('error','Ingresá el precio de venta'); return; }
+  if(!mepSalida)    { pfCloseMsgShow('error','Ingresá el MEP de venta'); return; }
+
+  const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
+  const factor = esBono ? 100 : 1;
+  const usdInv = pos.mep_compra > 0
+    ? (pos.precio_compra_ars * pos.cantidad) / (factor * pos.mep_compra) : 0;
+  const usdRet = (precioSalida * pos.cantidad) / (factor * mepSalida);
+  const gan    = usdRet - usdInv;
+  const pct    = usdInv > 0 ? (gan / usdInv * 100) : 0;
+
+  const trade = {
+    user_email:         window.currentUser.email,
+    tipo:               pos.tipo,
+    ticker_ars:         pos.ticker_ars,
+    ticker_adr:         pos.ticker_adr  || null,
+    ticker_usd:         pos.ticker_usd  || null,
+    fecha_apertura:     pos.fecha_compra || null,
+    cantidad:           pos.cantidad,
+    precio_entrada_ars: pos.precio_compra_ars,
+    mep_entrada:        pos.mep_compra,
+    precio_adr_entrada: pos.precio_adr_compra || null,
+    fecha_cierre:       fechaCierre,
+    precio_salida_ars:  precioSalida,
+    mep_salida:         mepSalida,
+    precio_adr_salida:  precioAdrS,
+    usd_invertido:      Math.round(usdInv * 100) / 100,
+    usd_retorno:        Math.round(usdRet * 100) / 100,
+    ganancia_usd:       Math.round(gan * 100) / 100,
+    ganancia_pct:       Math.round(pct * 100) / 100,
+    notas,
+  };
+
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try {
+    await sbInsert('trades', trade);
+    await sbPatch('portafolio', `id=eq.${pfCloseId}`, { activo: false });
+    pfCloseHide();
+    await pfLoadAll();
+  } catch(e) {
+    pfCloseMsgShow('error', e.message || 'Error al guardar');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Registrar cierre';
+  }
+};
+
+function pfCloseMsgShow(type, text) {
+  const el = document.getElementById('pfcMsg');
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.background = type==='error' ? 'var(--redDim)'   : 'var(--greenDim)';
+  el.style.color      = type==='error' ? 'var(--red)'      : 'var(--green)';
+  el.style.border     = `1px solid ${type==='error'?'rgba(255,63,94,.3)':'rgba(0,229,168,.3)'}`;
+}
+
+// ── Historial de trades ───────────────────────────────────────────
+async function pfLoadHistorial() {
+  const email = window.currentUser?.email;
+  if(!email) return;
+  const rows = await sb('trades',
+    `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`);
+  const tbody   = document.getElementById('pfHistTbody');
+  const statsEl = document.getElementById('pfHistStats');
+  if(!tbody) return;
+  if(!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Sin operaciones cerradas aún</td></tr>';
+    if(statsEl) statsEl.textContent = '';
+    return;
+  }
+  const totGan = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0);
+  const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length;
+  const s      = totGan>=0?'+':'';
+  const color  = totGan>=0?'var(--green)':'var(--red)';
+  if(statsEl) statsEl.innerHTML =
+    `${rows.length} trades · Win rate: ${((wins/rows.length)*100).toFixed(0)}% · `
+    + `Total realizado: <span style="color:${color};font-weight:500">${s}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
+
+  const fmtD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+  tbody.innerHTML = rows.map(r => {
+    const gan  = r.ganancia_usd||0, pct = r.ganancia_pct||0;
+    const gc   = gan>=0?'var(--green)':'var(--red)', gs = gan>=0?'+':'';
+    return `<tr>
+      <td class="th-left"><b>${r.ticker_ars}</b>${r.ticker_adr?` <span style="color:var(--text3);font-size:10px">/ ${r.ticker_adr}</span>`:''}</td>
+      <td class="th-left" style="font-size:10px;color:var(--text3)">${TIPO_LABEL[r.tipo]||r.tipo}</td>
+      <td>${fmtD(r.fecha_apertura)}</td>
+      <td>${fmtD(r.fecha_cierre)}</td>
+      <td>${Number(r.cantidad).toLocaleString('es-AR')}</td>
+      <td>$${Number(r.precio_entrada_ars).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
+      <td>$${Number(r.precio_salida_ars).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
+      <td>U$S ${Math.round(r.usd_invertido||0).toLocaleString('es-AR')}</td>
+      <td>U$S ${Math.round(r.usd_retorno||0).toLocaleString('es-AR')}</td>
+      <td style="color:${gc};font-weight:500">${gs}U$S ${Math.abs(Math.round(gan)).toLocaleString('es-AR')}</td>
+      <td style="color:${gc}">${gs}${Math.abs(pct).toFixed(1)}%</td>
+      <td class="th-left" style="font-size:10px;color:var(--text3)">${r.notas||'—'}</td>
+    </tr>`;
+  }).join('');
+}
 
 // ── WTD / YTD ────────────────────────────────────────────────────
 
