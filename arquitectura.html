@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arquitectura — Dashboard Financiero</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0e1a2b;color:#e8f0fa;padding:32px 20px 80px;min-height:100vh}
+
+/* ── Header ── */
+.page-header{text-align:center;margin-bottom:36px}
+.page-header h1{font-size:23px;font-weight:900;color:#48aaff;letter-spacing:-.5px}
+.page-header p{font-size:13px;color:#7a9ec0;margin-top:6px}
+.stats-bar{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin-top:18px}
+.stat-pill{background:#132236;border:1px solid #1e3a5a;border-radius:20px;padding:5px 15px;font-size:11.5px;font-weight:600;color:#7a9ec0}
+.stat-pill strong{color:#48aaff}
+
+/* ── Diagram ── */
+.diagram{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:0}
+
+/* ── Connector ── */
+.connector{display:flex;flex-direction:column;align-items:center;padding:4px 0}
+.connector-line{width:2px;height:20px;background:linear-gradient(#2a4870,#1e3a5a)}
+.connector-head{width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid #2a4870}
+.connector-y{height:44px;position:relative}
+.connector-y svg{width:100%;height:100%}
+
+/* ── Layer boxes ── */
+.layer-user{background:linear-gradient(135deg,#132236,#1a2e48);border:2px solid #1e3a5a;border-radius:16px;padding:20px 28px;display:flex;align-items:center;gap:24px}
+.layer-web{background:#132236;border:2px solid #48aaff;border-radius:16px;padding:22px 28px}
+.layer-sources{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.layer-backend{background:linear-gradient(135deg,#1a0e2e,#2a1848);border:2px solid #b090ff;border-radius:16px;padding:22px 28px}
+.layer-db{background:#0a0e18;border:2px solid #1e2d48;border-radius:16px;padding:22px 28px}
+.layer-notif{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.layer-infra{background:#0d1f1a;border:2px solid #00d084;border-radius:16px;padding:18px 24px;display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+
+/* ── Source / Notif boxes ── */
+.src-box{background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px}
+.src-box.yahoo{border-color:rgba(72,170,255,.4)}
+.src-box.rava{border-color:rgba(0,208,132,.4)}
+.src-box.python{border-color:rgba(240,176,32,.4)}
+.notif-box{background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px}
+.notif-box.wa{border-color:rgba(0,208,132,.5)}
+.notif-box.tg{border-color:rgba(72,170,255,.5)}
+
+/* ── Chips ── */
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.chip{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px}
+.ch-blue{background:rgba(72,170,255,.12);color:#48aaff;border:1px solid rgba(72,170,255,.25)}
+.ch-green{background:rgba(0,208,132,.1);color:#00d084;border:1px solid rgba(0,208,132,.25)}
+.ch-amber{background:rgba(240,176,32,.1);color:#f0b020;border:1px solid rgba(240,176,32,.25)}
+.ch-purple{background:rgba(176,144,255,.1);color:#b090ff;border:1px solid rgba(176,144,255,.25)}
+.ch-red{background:rgba(255,68,85,.1);color:#ff4455;border:1px solid rgba(255,68,85,.25)}
+.ch-gray{background:rgba(255,255,255,.06);color:#b8d0ec;border:1px solid rgba(255,255,255,.1)}
+.ch-cyan{background:rgba(0,216,232,.1);color:#00d8e8;border:1px solid rgba(0,216,232,.25)}
+
+/* ── Backend cols ── */
+.backend-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.b-col{background:rgba(176,144,255,.08);border:1px solid rgba(176,144,255,.2);border-radius:10px;padding:12px 10px;text-align:center}
+.b-col-icon{font-size:22px}
+.b-col-name{font-weight:800;font-size:12px;margin-top:5px;color:#e8f0fa}
+.b-col-sub{font-size:10px;color:#7a9ec0;margin-top:3px;line-height:1.5}
+
+/* ── DB tables ── */
+.db-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:14px}
+.db-table{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:11px 13px}
+.db-table-name{font-weight:700;font-size:11.5px;color:#48aaff;margin-bottom:5px}
+.db-table-cols{font-size:9.5px;color:rgba(255,255,255,.45);line-height:1.75;font-family:'Courier New',monospace}
+.db-note{font-size:9px;color:#b090ff;margin-top:3px}
+
+/* ── Modules grid ── */
+.modules-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.mod-card{background:rgba(72,170,255,.07);border:1px solid rgba(72,170,255,.2);border-radius:9px;padding:10px 12px}
+.mod-icon{font-size:18px}
+.mod-name{font-size:11px;font-weight:700;color:#48aaff;margin-top:4px}
+.mod-sub{font-size:9.5px;color:#7a9ec0;margin-top:3px;line-height:1.4}
+
+/* ── Themes ── */
+.themes-row{display:flex;gap:6px;margin-top:12px;align-items:center}
+.theme-dot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2);cursor:default;title:''}
+.theme-label{font-size:10px;color:#7a9ec0;margin-left:2px}
+
+/* ── Flows ── */
+.flows-section{max-width:1080px;margin:32px auto 0}
+.flows-title{font-size:15px;font-weight:800;color:#e8f0fa;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.flows-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.flow-card{background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px;border-left:4px solid #48aaff}
+.flow-card.green{border-left-color:#00d084}
+.flow-card.purple{border-left-color:#b090ff}
+.flow-card.amber{border-left-color:#f0b020}
+.flow-card.red{border-left-color:#ff4455}
+.flow-card.cyan{border-left-color:#00d8e8}
+.flow-title{font-size:13px;font-weight:700;margin-bottom:10px}
+.flow-step{display:flex;align-items:flex-start;gap:7px;margin-bottom:6px;font-size:12px;color:#7a9ec0;line-height:1.4}
+.flow-dot{width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;background:rgba(72,170,255,.15);color:#48aaff}
+.flow-card.green .flow-dot{background:rgba(0,208,132,.12);color:#00d084}
+.flow-card.purple .flow-dot{background:rgba(176,144,255,.12);color:#b090ff}
+.flow-card.amber .flow-dot{background:rgba(240,176,32,.12);color:#f0b020}
+.flow-card.red .flow-dot{background:rgba(255,68,85,.1);color:#ff4455}
+.flow-card.cyan .flow-dot{background:rgba(0,216,232,.1);color:#00d8e8}
+code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-family:'Courier New',monospace;font-size:10px;color:#b8d0ec}
+
+/* ── Rules ── */
+.rules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.rule-card{background:#132236;border:1px solid #1e3a5a;border-radius:10px;padding:16px}
+.rule-title{font-size:12.5px;font-weight:700;margin-bottom:8px}
+.rule-body{font-size:11.5px;color:#7a9ec0;line-height:1.7}
+
+/* ── Legend ── */
+.legend{max-width:1080px;margin:24px auto 0;display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding-top:20px;border-top:1px solid #1e3a5a}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11.5px;color:#7a9ec0}
+.leg-dot{width:11px;height:11px;border-radius:3px}
+
+/* ── Responsive ── */
+@media(max-width:700px){
+  .layer-sources,.layer-notif,.modules-grid{grid-template-columns:1fr}
+  .backend-grid{grid-template-columns:1fr}
+  .modules-grid{grid-template-columns:1fr 1fr}
+  .flows-grid{grid-template-columns:1fr}
+}
+
+/* ── Sec label ── */
+.sec-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#4a6e90;margin-bottom:10px}
+.sec-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sec-icon{font-size:26px}
+.sec-title{font-size:15px;font-weight:800}
+.sec-sub{font-size:11px;color:#7a9ec0;margin-top:2px}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="page-header">
+  <h1>📈 Dashboard Financiero — Arquitectura del Sistema</h1>
+  <p>Análisis de mercado ARS/USD · CEDEARs · Renta fija · Portafolio personal · Abril 2026</p>
+  <div class="stats-bar">
+    <div class="stat-pill"><strong>8</strong> módulos</div>
+    <div class="stat-pill"><strong>5</strong> tablas DB</div>
+    <div class="stat-pill"><strong>1</strong> Edge Function</div>
+    <div class="stat-pill"><strong>2</strong> canales de alerta</div>
+    <div class="stat-pill"><strong>4</strong> temas de color</div>
+    <div class="stat-pill"><strong>2</strong> fuentes externas de datos</div>
+  </div>
+</div>
+
+<div class="diagram">
+
+  <!-- USUARIO -->
+  <div class="layer-user">
+    <div>
+      <div class="sec-label">👤 Usuario</div>
+      <div style="font-size:18px;font-weight:800;color:#e8f0fa">Cristian — Inversor personal</div>
+      <div style="font-size:12px;color:#7a9ec0;margin-top:4px">elyagui@gmail.com · Uso personal, sin multiusuario</div>
+    </div>
+    <div style="margin-left:auto;text-align:center">
+      <div style="font-size:30px">💻</div>
+      <div style="font-size:11px;color:#7a9ec0;margin-top:3px">Navegador web<br>PC (WSL)</div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div><div class="connector-head"></div></div>
+
+  <!-- WEB APP -->
+  <div class="layer-web">
+    <div class="sec-row">
+      <div class="sec-icon">🌐</div>
+      <div>
+        <div class="sec-title" style="color:#48aaff">Web App — Single Page + Módulos dinámicos</div>
+        <div class="sec-sub">dash-fin.github.io/dashboards · HTML/JS puro · ES Modules via CDN · Chart.js 4 · IBM Plex</div>
+      </div>
+    </div>
+
+    <div class="modules-grid">
+      <div class="mod-card">
+        <div class="mod-icon">📊</div>
+        <div class="mod-name">Dashboard</div>
+        <div class="mod-sub">Overview general · KPIs del portafolio · Resumen del día</div>
+      </div>
+      <div class="mod-card" style="border-color:rgba(0,208,132,.3)">
+        <div class="mod-icon">💼</div>
+        <div class="mod-name" style="color:#00d084">Portafolio</div>
+        <div class="mod-sub">CRUD posiciones · Donut chart · Valuación ARS + USD · Tabs: Resumen | Posiciones</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🏷️</div>
+        <div class="mod-name">CEDEARs</div>
+        <div class="mod-sub">MEP implícito · Rankings · Tabla general · Spreads vs AL30</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">📄</div>
+        <div class="mod-name">Bonos ARS</div>
+        <div class="mod-sub">Curva TEM/TEA · Tabla general · Arbitrajes Realtime · TAMAR ref.</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🇺🇸</div>
+        <div class="mod-name">USA (USD)</div>
+        <div class="mod-sub">Precios en tiempo real · Yahoo Finance via Edge Function</div>
+      </div>
+      <div class="mod-card" style="border-color:rgba(255,68,85,.3)">
+        <div class="mod-icon">🔔</div>
+        <div class="mod-name" style="color:#ff4455">Alertas</div>
+        <div class="mod-sub">CRUD alertas · Realtime WebSocket · Historial · Config WhatsApp/Telegram</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">📉</div>
+        <div class="mod-name">Volatilidad</div>
+        <div class="mod-sub">Vol. histórica · Comparativas · Charts</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🎯</div>
+        <div class="mod-name">Opciones / Estrat.</div>
+        <div class="mod-sub">Opciones IAMC (PDF via Claude AI) · Estrategias de cobertura</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;padding-top:12px;border-top:1px solid #1e3a5a;display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#4a6e90;margin-bottom:6px;letter-spacing:.6px">4 Temas de color</div>
+        <div class="themes-row">
+          <div class="theme-dot" style="background:#1a2e48;border-color:#48aaff" title="Default (azul marino)"></div>
+          <div class="theme-dot" style="background:#131820;border-color:#323d50" title="Oscuro (negro puro)"></div>
+          <div class="theme-dot" style="background:#f0f4f8;border-color:#b8c2d8" title="Claro"></div>
+          <div class="theme-dot" style="background:#2a2015;border-color:#5a4835" title="Sepia (sesiones largas)"></div>
+          <div class="theme-label">Default · Oscuro · Claro · Sepia</div>
+        </div>
+      </div>
+      <div style="margin-left:auto">
+        <div class="chips">
+          <span class="chip ch-gray">Chart.js 4.4.1</span>
+          <span class="chip ch-gray">chartjs-plugin-annotation</span>
+          <span class="chip ch-gray">Supabase JS v2 CDN</span>
+          <span class="chip ch-gray">IBM Plex Mono/Sans</span>
+          <span class="chip ch-gray">Sin build step</span>
+          <span class="chip ch-gray">localStorage (tema/config)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Y connector — split up to 3 sources -->
+  <div class="connector-y">
+    <svg viewBox="0 0 1080 44" preserveAspectRatio="none">
+      <line x1="180" y1="0" x2="180" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="540" y1="0" x2="540" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="900" y1="0" x2="900" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="180" y1="22" x2="900" y2="22" stroke="#2a4870" stroke-width="2"/>
+    </svg>
+  </div>
+
+  <!-- FUENTES DE DATOS -->
+  <div class="layer-sources">
+
+    <div class="src-box yahoo">
+      <div class="sec-row" style="margin-bottom:6px">
+        <div class="sec-icon" style="font-size:22px">📡</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#48aaff">Yahoo Finance</div>
+          <div style="font-size:10px;color:#7a9ec0">Precios USD en tiempo real</div>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip ch-blue">Via Edge Function</span>
+        <span class="chip ch-blue">Crumb auth automático</span>
+        <span class="chip ch-blue">CORS proxy (Deno)</span>
+      </div>
+      <div style="font-size:10px;color:#4a6e90;margin-top:10px;line-height:1.6">
+        Símbolos: tickers USD de CEDEARs<br>
+        POST → Edge Function → Yahoo v8 API<br>
+        Devuelve: last, change_pct
+      </div>
+    </div>
+
+    <div class="src-box rava">
+      <div class="sec-row" style="margin-bottom:6px">
+        <div class="sec-icon" style="font-size:22px">🇦🇷</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#00d084">Rava Bursátil</div>
+          <div style="font-size:10px;color:#7a9ec0">Histórico de cierres ARS</div>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip ch-green">Via Edge Function</span>
+        <span class="chip ch-green">Modo rava-history</span>
+        <span class="chip ch-green">Múltiples fechas/tickers</span>
+      </div>
+      <div style="font-size:10px;color:#4a6e90;margin-top:10px;line-height:1.6">
+        Cierres históricos locales ARS<br>
+        Input: symbols + dates array<br>
+        Output: <code style="background:rgba(0,0,0,.3);color:#b8d0ec">{'{'} "AL30": {'{'} "fecha": precio {'}'} {'}'}</code>
+      </div>
+    </div>
+
+    <div class="src-box python">
+      <div class="sec-row" style="margin-bottom:6px">
+        <div class="sec-icon" style="font-size:22px">🐍</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#f0b020">Scripts Python</div>
+          <div style="font-size:10px;color:#7a9ec0">Actualización de precios ARS</div>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip ch-amber">Ejecutado manualmente</span>
+        <span class="chip ch-amber">supabase-py client</span>
+        <span class="chip ch-amber">Claude AI (opciones)</span>
+      </div>
+      <div style="font-size:10px;color:#4a6e90;margin-top:10px;line-height:1.6">
+        <code style="background:rgba(0,0,0,.3);color:#b8d0ec">scripts/</code> — actualiza tabla <code style="background:rgba(0,0,0,.3);color:#b8d0ec">mercado</code><br>
+        <code style="background:rgba(0,0,0,.3);color:#b8d0ec">process_iamc.py</code> — descarga PDF IAMC,<br>
+        parsea con Claude API → tabla opciones
+      </div>
+    </div>
+
+  </div>
+
+  <!-- merge arrow → Supabase -->
+  <div class="connector-y">
+    <svg viewBox="0 0 1080 44" preserveAspectRatio="none">
+      <line x1="180" y1="0" x2="180" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="540" y1="0" x2="540" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="900" y1="0" x2="900" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="180" y1="22" x2="900" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="540" y1="22" x2="540" y2="44" stroke="#4a3090" stroke-width="2"/>
+      <polygon points="533,40 547,40 540,48" fill="#4a3090"/>
+    </svg>
+  </div>
+
+  <!-- BACKEND -->
+  <div class="layer-backend">
+    <div class="sec-row">
+      <div class="sec-icon">☁️</div>
+      <div>
+        <div class="sec-title" style="color:#b090ff">Supabase — Backend as a Service</div>
+        <div class="sec-sub">endymbpdayeidromxayb.supabase.co · PostgreSQL + Auth + Realtime + Edge Functions</div>
+      </div>
+      <div style="margin-left:auto"><span class="chip ch-purple">BaaS + Deno runtime</span></div>
+    </div>
+    <div class="backend-grid">
+      <div class="b-col">
+        <div class="b-col-icon">🗄️</div>
+        <div class="b-col-name">PostgreSQL</div>
+        <div class="b-col-sub">5 tablas · Sin RLS crítico<br>Anon key en frontend<br>Service key en scripts</div>
+      </div>
+      <div class="b-col">
+        <div class="b-col-icon">⚡</div>
+        <div class="b-col-name">Realtime</div>
+        <div class="b-col-sub">WebSocket a tabla <code style="background:rgba(0,0,0,.3);font-size:9px">mercado</code><br>Escucha cambios INSERT/UPDATE<br>Dispara evaluación de alertas</div>
+      </div>
+      <div class="b-col">
+        <div class="b-col-icon">🔧</div>
+        <div class="b-col-name">Edge Function</div>
+        <div class="b-col-sub">Deno · <code style="background:rgba(0,0,0,.3);font-size:9px">yahoo-prices</code><br>JWT verification OFF<br>Proxy Yahoo + Rava histórico</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div><div class="connector-head"></div></div>
+
+  <!-- DATABASE -->
+  <div class="layer-db">
+    <div class="sec-row">
+      <div class="sec-icon">🗄️</div>
+      <div>
+        <div class="sec-title" style="color:#48aaff">Base de Datos — 5 Tablas</div>
+        <div class="sec-sub">PostgreSQL · Actualización de precios vía scripts Python · Lectura vía Supabase JS client</div>
+      </div>
+    </div>
+    <div class="db-grid">
+
+      <div class="db-table">
+        <div class="db-table-name">📊 mercado</div>
+        <div class="db-table-cols">
+          id · symbol · nombre<br>
+          precio_ars · precio_usd<br>
+          variacion_pct · volumen<br>
+          tipo · mercado<br>
+          updated_at
+        </div>
+        <div class="db-note">🔴 Fuente de Realtime<br>→ Alertas se disparan aquí</div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-name">🇺🇸 mercado_usa</div>
+        <div class="db-table-cols">
+          id · symbol<br>
+          precio_usd<br>
+          variacion_pct<br>
+          nombre · updated_at
+        </div>
+        <div class="db-note">Actualizado via<br>Yahoo Finance + Edge Fn</div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-name">💼 portafolio</div>
+        <div class="db-table-cols">
+          id · tipo<br>
+          ticker_ars · ticker_usd<br>
+          cantidad · precio_compra_ars<br>
+          mep_compra<br>
+          fecha_compra · notas
+        </div>
+        <div class="db-note">CRUD desde módulo Portafolio<br>seed via portafolio_seed.py</div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-name">🔔 alertas</div>
+        <div class="db-table-cols">
+          id · symbol<br>
+          condicion (precio &gt; X)<br>
+          canal (wa / tg)<br>
+          activa · creada_at
+        </div>
+        <div class="db-note">Evaluadas en Realtime<br>cuando mercado cambia</div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-name">📋 alertas_historial</div>
+        <div class="db-table-cols">
+          id · alerta_id (FK)<br>
+          precio_disparo<br>
+          canal · mensaje<br>
+          disparada_at
+        </div>
+        <div class="db-note">Log de notificaciones<br>enviadas</div>
+      </div>
+
+    </div>
+
+    <div style="margin-top:14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#4a6e90;margin-bottom:8px;letter-spacing:.6px">Nota especial — Factor /100</div>
+    <div style="font-size:11px;color:#7a9ec0;background:rgba(240,176,32,.06);border:1px solid rgba(240,176,32,.2);border-radius:6px;padding:8px 12px">
+      Los bonos soberanos, dólar-linked, bonos CER y bonos duales cotizan en centavos → se aplica <code style="background:rgba(0,0,0,.3)">/ 100</code> al calcular valores en portafolio.
+      Las acciones y CEDEARs usan precio directo. La lógica está en el módulo Portafolio en JS.
+    </div>
+  </div>
+
+  <!-- split arrow → 2 notif channels -->
+  <div class="connector-y">
+    <svg viewBox="0 0 1080 44" preserveAspectRatio="none">
+      <line x1="540" y1="0" x2="540" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="270" y1="22" x2="810" y2="22" stroke="#2a4870" stroke-width="2"/>
+      <line x1="270" y1="22" x2="270" y2="44" stroke="#2a4870" stroke-width="2"/>
+      <line x1="810" y1="22" x2="810" y2="44" stroke="#2a4870" stroke-width="2"/>
+    </svg>
+  </div>
+
+  <!-- NOTIFICACIONES -->
+  <div class="layer-notif">
+    <div class="notif-box wa">
+      <div class="sec-row" style="margin-bottom:8px">
+        <div style="font-size:26px">📱</div>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#00d084">WhatsApp — CallMeBot</div>
+          <div style="font-size:10px;color:#7a9ec0">Alertas de precio vía API gratuita</div>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip ch-green">callmebot.com API</span>
+        <span class="chip ch-green">Config: waNum + waKey</span>
+        <span class="chip ch-green">GET request desde browser</span>
+      </div>
+      <div style="font-size:10px;color:#4a6e90;margin-top:10px;line-height:1.6">
+        Cuando Realtime detecta precio cruzando umbral → fetch a CallMeBot API → mensaje en WA
+      </div>
+    </div>
+
+    <div class="notif-box tg">
+      <div class="sec-row" style="margin-bottom:8px">
+        <div style="font-size:26px">✈️</div>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#48aaff">Telegram Bot</div>
+          <div style="font-size:10px;color:#7a9ec0">Alertas de precio vía Bot API</div>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip ch-blue">api.telegram.org</span>
+        <span class="chip ch-blue">Config: tgToken + tgChatId</span>
+        <span class="chip ch-blue">sendMessage endpoint</span>
+      </div>
+      <div style="font-size:10px;color:#4a6e90;margin-top:10px;line-height:1.6">
+        Misma lógica que WA. El usuario configura cuál canal usar por alerta.
+      </div>
+    </div>
+  </div>
+
+  <div class="connector"><div class="connector-line"></div><div class="connector-head"></div></div>
+
+  <!-- INFRAESTRUCTURA -->
+  <div class="layer-infra">
+    <div>
+      <div style="font-size:28px">🐙</div>
+      <div style="font-weight:800;font-size:14px;color:#00d084;margin-top:6px">GitHub Pages</div>
+      <div style="font-size:11px;color:#7a9ec0">dash-fin/dashboards · branch main</div>
+    </div>
+    <div style="width:1px;height:50px;background:#1e3a5a"></div>
+    <div style="font-size:12px;color:#4a6e90;line-height:1.8">
+      Push a <code>main</code> → deploy automático<br>
+      Sin build step (archivos raw)<br>
+      CDN global · HTTPS automático
+    </div>
+    <div style="margin-left:auto">
+      <div style="background:rgba(0,208,132,.08);border:1px solid rgba(0,208,132,.2);border-radius:8px;padding:10px 14px;font-size:10px;font-family:'Courier New',monospace;color:#7a9ec0;line-height:1.8">
+        git add .<br>
+        git commit -m "..."<br>
+        git push origin main<br>
+        <span style="color:#00d084">→ Live en ~60 segundos</span>
+      </div>
+    </div>
+    <div style="margin-left:auto">
+      <div style="font-size:10px;color:#4a6e90;margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">URL pública</div>
+      <div style="font-size:12px;color:#48aaff">dash-fin.github.io/dashboards</div>
+      <div class="chips" style="margin-top:8px">
+        <span class="chip ch-green">Token PAT en CLAUDE.md</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── FLUJOS DE DATOS ── -->
+<div class="flows-section">
+  <div class="flows-title">⚡ Flujos de datos principales</div>
+  <div class="flows-grid">
+
+    <div class="flow-card">
+      <div class="flow-title" style="color:#48aaff">📊 Actualización de precios ARS</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Script Python en <code>scripts/</code> fetchea precios del mercado local</div>
+      <div class="flow-step"><div class="flow-dot">2</div>Upsert en tabla <code>mercado</code> vía Supabase Python client (service key)</div>
+      <div class="flow-step"><div class="flow-dot">3</div>Supabase Realtime emite evento INSERT/UPDATE por WebSocket</div>
+      <div class="flow-step"><div class="flow-dot">4</div>Browser recibe el evento → actualiza UI sin reload</div>
+      <div class="flow-step"><div class="flow-dot">5</div>Se evalúan todas las alertas activas contra nuevo precio</div>
+    </div>
+
+    <div class="flow-card red">
+      <div class="flow-title" style="color:#ff4455">🔔 Disparo de alerta de precio</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Realtime notifica cambio de precio en <code>mercado</code></div>
+      <div class="flow-step"><div class="flow-dot">2</div>JS evalúa condición: <code>precio &gt; umbral</code> o <code>precio &lt; umbral</code></div>
+      <div class="flow-step"><div class="flow-dot">3</div>Si se cumple → POST a CallMeBot (WA) o Telegram Bot API</div>
+      <div class="flow-step"><div class="flow-dot">4</div>Registra en <code>alertas_historial</code> con precio y canal</div>
+      <div class="flow-step"><div class="flow-dot">5</div>Log visible en tab "Historial" del módulo Alertas</div>
+    </div>
+
+    <div class="flow-card green">
+      <div class="flow-title" style="color:#00d084">💼 Valuación del portafolio</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Lee posiciones de tabla <code>portafolio</code></div>
+      <div class="flow-step"><div class="flow-dot">2</div>Cruza con precios de <code>mercado</code> (ARS) y <code>mercado_usa</code> (USD)</div>
+      <div class="flow-step"><div class="flow-dot">3</div>Calcula valor USD: <code>precio_ars × qty / mep_actual</code></div>
+      <div class="flow-step"><div class="flow-dot">4</div>Bonos: aplica factor <code>/100</code> (cotizan en centavos)</div>
+      <div class="flow-step"><div class="flow-dot">5</div>Donut chart + tabla con PnL por posición</div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-title" style="color:#48aaff">🏷️ MEP implícito CEDEAR</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Fetch tickers ARS desde <code>mercado</code> y USD desde <code>mercado_usa</code></div>
+      <div class="flow-step"><div class="flow-dot">2</div>MEP implícito = <code>precio_ars / precio_usd</code> (ticker con D)</div>
+      <div class="flow-step"><div class="flow-dot">3</div>Spread = MEP_impl − MEP_AL30 (referencia del día)</div>
+      <div class="flow-step"><div class="flow-dot">4</div>Rankings: baratos (spread &lt; 0) vs caros (spread &gt; 0)</div>
+      <div class="flow-step"><div class="flow-dot">5</div>Actualización automática vía Realtime</div>
+    </div>
+
+    <div class="flow-card amber">
+      <div class="flow-title" style="color:#f0b020">🐍 Opciones IAMC (Claude AI)</div>
+      <div class="flow-step"><div class="flow-dot">1</div><code>process_iamc.py</code> descarga PDF de opciones de IAMC</div>
+      <div class="flow-step"><div class="flow-dot">2</div>Envía PDF a Claude API (Anthropic) para parseo inteligente</div>
+      <div class="flow-step"><div class="flow-dot">3</div>Claude extrae: ticker, strike, vencimiento, prima, tipo</div>
+      <div class="flow-step"><div class="flow-dot">4</div>Upsert en Supabase → disponible en módulo Opciones</div>
+    </div>
+
+    <div class="flow-card cyan">
+      <div class="flow-title" style="color:#00d8e8">📡 Precios USD en tiempo real</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Módulo USA hace POST a Edge Function <code>yahoo-prices</code></div>
+      <div class="flow-step"><div class="flow-dot">2</div>Edge Function en Deno autentica crumb de Yahoo Finance</div>
+      <div class="flow-step"><div class="flow-dot">3</div>Fetchea precios para array de símbolos en 1 request</div>
+      <div class="flow-step"><div class="flow-dot">4</div>Retorna <code>last, change_pct</code> → UI se actualiza</div>
+      <div class="flow-step"><div class="flow-dot">5</div>Histórico ARS vía Rava (modo <code>rava-history</code>)</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── REGLAS TÉCNICAS ── -->
+<div class="flows-section" style="margin-top:28px">
+  <div class="flows-title">⚙️ Reglas técnicas clave</div>
+  <div class="rules-grid">
+    <div class="rule-card">
+      <div class="rule-title" style="color:#48aaff">📐 Factor /100 en bonos</div>
+      <div class="rule-body">Bono Soberano, Dólar Linked, Bono CER y Bono Dual cotizan en centavos en el mercado ARS. Para calcular valor real: <code>precio / 100</code>. CEDEARs y Acciones usan precio directo.</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-title" style="color:#f0b020">💰 Cálculo MEP portafolio</div>
+      <div class="rule-body">Valor USD de posición = <code>(precio_ars × cantidad) / mep</code>. Se puede usar MEP de compra histórico (<code>mep_compra</code>) o MEP actual del día (AL30 ARS÷USD) para ver ganancia/pérdida.</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-title" style="color:#ff4455">⚡ Realtime — cómo funciona</div>
+      <div class="rule-body">El browser se conecta vía WebSocket a Supabase Realtime y suscribe al canal de la tabla <code>mercado</code>. Cada cambio llega sin polling. La evaluación de alertas ocurre inmediatamente en el browser.</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-title" style="color:#00d084">🔐 Claves de acceso</div>
+      <div class="rule-body">Frontend usa <strong>anon key</strong> (pública, ok para lectura). Scripts Python usan <strong>service role key</strong> para writes masivos sin restricciones de RLS. Edge Function tiene JWT verification desactivado.</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-title" style="color:#b090ff">🎨 Sistema de temas</div>
+      <div class="rule-body">4 temas via <code>data-theme</code> en <code>&lt;html&gt;</code>. Variables CSS: <code>--bg</code>, <code>--text</code>, <code>--green</code>, etc. Tema persiste en <code>localStorage</code>. IBM Plex Mono para valores numéricos.</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-title" style="color:#00d8e8">📁 Estructura del proyecto</div>
+      <div class="rule-body"><code>index.html</code> — shell único carga módulos dinámicamente<br><code>modules/*.html</code> — 8 módulos con HTML + JS inline<br><code>scripts/*.py</code> — actualización de datos<br>Sin carpeta <code>src/</code>, sin <code>node_modules</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LEGEND ── -->
+<div class="legend">
+  <div class="leg-item"><div class="leg-dot" style="background:#48aaff"></div>Web App + módulos</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#f0b020"></div>Fuentes de datos externas</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#b090ff"></div>Backend Supabase</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#0a0e18;border:1px solid #1e2d48"></div>Base de datos PostgreSQL</div>
+  <div class="leg-item"><div class="leg-dot" style="background:#00d084"></div>Notificaciones + Infra</div>
+  <div style="margin-left:auto;font-size:11px;color:#4a6e90">Generado: Abril 2026 · Usuario único · Sin TypeScript · Sin bundler · Sin framework</div>
+</div>
+
+</body>
+</html>
