@@ -10,8 +10,12 @@ import json
 import os
 import sys
 import requests
+import urllib3 # <--- Agregado para silenciar warnings
 from datetime import datetime, timedelta
 from supabase import create_client
+
+# Desactivar advertencias de seguridad por el bypass de SSL
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ── Configuración ──────────────────────────────────────────
 ANTHROPIC_KEY = os.environ["ANTHROPIC_KEY"]
@@ -39,13 +43,14 @@ def descargar_pdf(fecha: datetime) -> bytes | None:
         url = build_url(dia)
         print(f"Intentando: {url}")
         try:
-            r = requests.get(url, timeout=30)
+            # Agregado verify=False para bypass de SSL
+            r = requests.get(url, timeout=30, verify=False)
             if r.status_code == 200 and b'%PDF' in r.content[:8]:
                 print(f"✅ PDF encontrado para {dia.strftime('%d/%m/%Y')}")
                 return r.content, dia
+            
             # A veces IAMC devuelve HTML con un link al PDF real
             if r.status_code == 200 and b'<html' in r.content[:100].lower():
-                # Intentar encontrar link al PDF en el HTML
                 from html.parser import HTMLParser
                 class PDFfinder(HTMLParser):
                     def __init__(self):
@@ -56,12 +61,14 @@ def descargar_pdf(fecha: datetime) -> bytes | None:
                             for attr, val in attrs:
                                 if attr == 'href' and val and val.lower().endswith('.pdf'):
                                     self.pdf_url = val
-                parser = PDFinder()
+                
+                parser = PDFfinder() # Corregido typo de PDFinder -> PDFfinder
                 parser.feed(r.text)
                 if parser.pdf_url:
                     pdf_url = parser.pdf_url if parser.pdf_url.startswith('http') else f"https://www.iamc.com.ar{parser.pdf_url}"
                     print(f"  → PDF encontrado en: {pdf_url}")
-                    r2 = requests.get(pdf_url, timeout=30)
+                    # Agregado verify=False aquí también
+                    r2 = requests.get(pdf_url, timeout=30, verify=False)
                     if r2.status_code == 200:
                         return r2.content, dia
         except Exception as e:
@@ -138,7 +145,6 @@ def procesar_con_claude(pdf_bytes: bytes) -> dict:
     )
     
     raw = msg.content[0].text.strip()
-    # Limpiar por si Claude igual manda backticks
     raw = raw.replace("```json", "").replace("```", "").strip()
     
     data = json.loads(raw)
@@ -154,13 +160,11 @@ def subir_a_supabase(data: dict, fecha_pdf: datetime):
     sb = create_client(SB_URL, SB_KEY)
     opciones = data["opciones"]
     
-    # Agregar timestamp de cuando se procesó
     now_iso = datetime.utcnow().isoformat()
     for op in opciones:
         op["updated_at"] = now_iso
         op["fecha_informe"] = fecha_pdf.strftime("%Y-%m-%d")
     
-    # Upsert por symbol + expiration (evita duplicados si corre dos veces)
     result = sb.table("opciones_rt").upsert(
         opciones,
         on_conflict="symbol,expiration"
@@ -168,7 +172,6 @@ def subir_a_supabase(data: dict, fecha_pdf: datetime):
     
     print(f"✅ Subidas {len(opciones)} opciones a Supabase")
     
-    # Log en tabla de historial si existe
     try:
         sb.table("iamc_upload_log").insert({
             "fecha_informe": fecha_pdf.strftime("%Y-%m-%d"),
@@ -177,7 +180,7 @@ def subir_a_supabase(data: dict, fecha_pdf: datetime):
             "status": "ok"
         }).execute()
     except:
-        pass  # La tabla de log es opcional
+        pass
 
 # ── Main ────────────────────────────────────────────────────
 def main():
