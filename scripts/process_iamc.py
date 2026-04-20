@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-process_iamc.py — Edición "Future-Proof" Abril 2026
-1. Detecta dinámicamente el modelo Sonnet más reciente (evita errores 404).
-2. Descarga PDF de IAMC con bypass de SSL.
-3. Extrae opciones de GGAL y sube a Supabase (tabla opciones_iamc).
+process_iamc.py — Versión Final Robusta (Abril 2026)
+- Auto-detección de modelo Sonnet (evita Error 404)
+- Bypass SSL para IAMC
+- Extracción de JSON blindada (ignora texto extra de la IA)
+- Upsert en tabla 'opciones_iamc'
 """
 
 import anthropic
@@ -17,8 +18,8 @@ import re
 from datetime import datetime, timedelta
 from supabase import create_client
 
-# ── Configuración ──────────────────────────────────────────────
-# Silenciar advertencias de certificados inseguros
+# ── Configuración de Seguridad ─────────────────────────────────
+# Silenciar advertencias de certificados (necesario para la web del IAMC)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_KEY")
@@ -27,32 +28,25 @@ SB_KEY        = os.environ.get("SB_KEY")
 TARGET_TABLE  = "opciones_iamc"
 
 def obtener_modelo_actual(client):
-    """
-    Lista los modelos disponibles en tu cuenta y selecciona el Sonnet más nuevo.
-    Esto evita que el script falle cuando Anthropic retira versiones viejas.
-    """
+    """Detecta dinámicamente el modelo Sonnet más reciente en la cuenta."""
     try:
         models = client.models.list()
-        # Filtramos los que contienen 'sonnet' y no son 'deprecated' en el nombre
+        # Filtramos modelos que contengan 'sonnet' y los ordenamos (el más nuevo primero)
         disponibles = sorted(
             [m.id for m in models.data if "sonnet" in m.id.lower()],
             reverse=True
         )
         if disponibles:
-            # Priorizamos el alias '-latest' si existe, sino el primero de la lista
+            # Preferimos el alias 'latest' si existe, sino el más nuevo de la lista
             latests = [m for m in disponibles if "latest" in m]
-            seleccionado = latests[0] if latests else disponibles[0]
-            print(f"🔍 Modelo detectado automáticamente: {seleccionado}")
-            return seleccionado
+            return latests[0] if latests else disponibles[0]
     except Exception as e:
-        print(f"⚠️ No se pudo listar modelos dinámicamente: {e}")
-    
-    # Fallback por si la API de listado falla
-    return "claude-3-5-sonnet-latest"
+        print(f"⚠️ Error listando modelos: {e}")
+    return "claude-3-5-sonnet-latest" # Fallback de seguridad
 
-# ── Descarga de Archivos ───────────────────────────────────────
+# ── Descarga del PDF ───────────────────────────────────────────
 def descargar_pdf(fecha: datetime):
-    """Intenta descargar el PDF de los últimos 5 días hábiles."""
+    """Busca el PDF en IAMC manejando SSL y redirecciones."""
     for i in range(6):
         dia = fecha - timedelta(days=i)
         if dia.weekday() >= 5: continue
@@ -60,12 +54,13 @@ def descargar_pdf(fecha: datetime):
         url = f"https://www.iamc.com.ar/Informe/AnexoOpciones{dia.strftime('%d%m%Y')}/"
         print(f"Intentando: {url}")
         try:
+            # verify=False para bypass de SSL
             r = requests.get(url, timeout=30, verify=False)
             
             if r.status_code == 200 and b'%PDF' in r.content[:8]:
+                print(f"✅ PDF encontrado directamente para el {dia.strftime('%d/%m/%Y')}")
                 return r.content, dia
             
-            # Manejo de la redirección HTML típica de IAMC
             if r.status_code == 200 and b'<html' in r.content[:100].lower():
                 from html.parser import HTMLParser
                 class PDFfinder(HTMLParser):
@@ -82,28 +77,25 @@ def descargar_pdf(fecha: datetime):
                 parser.feed(r.text)
                 if parser.pdf_url:
                     pdf_url = parser.pdf_url if parser.pdf_url.startswith('http') else f"https://www.iamc.com.ar{parser.pdf_url}"
-                    print(f"  → Siguiendo link: {pdf_url}")
+                    print(f"  → Siguiendo redirección: {pdf_url}")
                     r2 = requests.get(pdf_url, timeout=30, verify=False)
                     if r2.status_code == 200:
                         return r2.content, dia
         except Exception as e:
-            print(f"  ❌ Error en intento {dia.strftime('%d/%m')}: {e}")
+            print(f"  ❌ Fallo en intento {dia.strftime('%d/%m')}: {e}")
             
     return None, None
 
-# ── Extracción con Claude ──────────────────────────────────────
+# ── Procesamiento con Claude ───────────────────────────────────
 def procesar_con_claude(pdf_bytes: bytes) -> dict:
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    
-    # Selección dinámica de modelo
     modelo_a_usar = obtener_modelo_actual(client)
     
     pdf_b64 = base64.standard_b64encode(pdf_bytes).decode()
-    
     print(f"Enviando PDF a Claude ({modelo_a_usar})...")
     
-    prompt = """Extraé todas las filas de opciones de GGAL del PDF.
-    Respondé exclusivamente en JSON con este formato:
+    prompt = """Extraé todas las filas de opciones de GGAL del PDF. 
+    Ignorá otros activos. Generá un JSON puro con este formato:
     {"opciones": [{"symbol": "...", "kind": "...", "strike": 0.0, "expiration": "YYYY-MM-DD", "open_interest": 0, "volume": 0, "last": 0.0, "bid": 0.0, "ask": 0.0, "settlement": "24hs", "underlying_asset": "GGAL"}]}"""
 
     msg = client.messages.create(
@@ -125,15 +117,30 @@ def procesar_con_claude(pdf_bytes: bytes) -> dict:
         }]
     )
     
-    raw = msg.content[0].text.strip()
-    raw = re.sub(r'```json\n?|```', '', raw) # Limpieza de markdown
-    return json.loads(raw)
+    raw_content = msg.content[0].text.strip()
+    
+    # --- EXTRACCIÓN DE JSON SEGURA ---
+    try:
+        # Buscamos el inicio y fin real del objeto JSON por si la IA agregó texto extra
+        start_idx = raw_content.find('{')
+        end_idx = raw_content.rfind('}') + 1
+        
+        if start_idx == -1 or end_idx == 0:
+            print(f"DEBUG - Respuesta cruda de Claude:\n{raw_content}")
+            raise ValueError("No se encontró un bloque JSON válido en la respuesta.")
+            
+        json_str = raw_content[start_idx:end_idx]
+        return json.loads(json_str)
+    except Exception as e:
+        print(f"❌ Error al parsear respuesta de Claude: {e}")
+        print(f"Contenido recibido (primeros 300 caracteres): {raw_content[:300]}")
+        raise
 
-# ── Carga a Base de Datos ──────────────────────────────────────
+# ── Carga a Supabase ───────────────────────────────────────────
 def subir_a_supabase(data: dict, fecha_pdf: datetime):
     opciones = data.get("opciones", [])
     if not opciones:
-        print("⚠️ No hay opciones para subir.")
+        print("⚠️ No hay datos para subir.")
         return
     
     sb = create_client(SB_URL, SB_KEY)
@@ -143,40 +150,39 @@ def subir_a_supabase(data: dict, fecha_pdf: datetime):
         op["updated_at"] = now_iso
         op["fecha_informe"] = fecha_pdf.strftime("%Y-%m-%d")
     
-    print(f"Subiendo {len(opciones)} filas a {TARGET_TABLE}...")
+    print(f"Subiendo {len(opciones)} registros a '{TARGET_TABLE}'...")
     
-    # Usamos upsert con la restricción de unicidad definida en SQL
     try:
+        # Upsert basado en la restricción UNIQUE (symbol, expiration)
         sb.table(TARGET_TABLE).upsert(
             opciones,
             on_conflict="symbol,expiration"
         ).execute()
-        print("✅ Sincronización exitosa.")
+        print("✅ Base de datos actualizada correctamente.")
     except Exception as e:
-        print(f"❌ Error en Supabase: {e}")
+        print(f"❌ Error en Supabase Upsert: {e}")
         sys.exit(1)
 
 # ── Main ───────────────────────────────────────────────────────
 def main():
-    print(f"🚀 Iniciando Proceso — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🚀 Iniciando Sincronización IAMC — {datetime.now().strftime('%H:%M:%S')}")
     
     if not all([ANTHROPIC_KEY, SB_URL, SB_KEY]):
-        print("❌ Faltan variables de entorno.")
+        print("❌ Error: Faltan secretos en las variables de entorno.")
         sys.exit(1)
 
-    # 1. Obtener PDF
+    # 1. Obtener Archivo
     pdf_bytes, fecha_pdf = descargar_pdf(datetime.now())
     if not pdf_bytes:
-        print("❌ No se encontró ningún PDF reciente.")
+        print("❌ No se pudo localizar el PDF de los últimos días hábiles.")
         sys.exit(1)
     
-    # 2. IA Parsing
+    # 2. IA Extract
     try:
         data = procesar_con_claude(pdf_bytes)
-        print(f"✅ Se extrajeron {len(data['opciones'])} opciones.")
-    except Exception as e:
-        print(f"❌ Error en Claude: {e}")
-        sys.exit(1)
+        print(f"✅ Se obtuvieron {len(data['opciones'])} opciones.")
+    except Exception:
+        sys.exit(1) # Error detallado ya impreso en la función
     
     # 3. DB Upload
     subir_a_supabase(data, fecha_pdf)
