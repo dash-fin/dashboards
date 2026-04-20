@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-process_iamc.py — Edición Ultra-Robusta (Abril 2026)
-- Auto-detección de modelo Sonnet 4.x
-- Bypass SSL IAMC
-- Prompt optimizado para evitar errores de formato JSON (Decimales con punto)
-- Limpieza de respuesta para JSONs largos
+process_iamc.py — Edición "Tanque" (Abril 2026)
+- Auto-detección de Sonnet 4.x
+- Bypass SSL
+- Reparador de sintaxis JSON (comas faltantes y decimales latinos)
+- Minificación de prompt para ahorrar tokens
 """
 
 import anthropic
@@ -18,7 +18,7 @@ import re
 from datetime import datetime, timedelta
 from supabase import create_client
 
-# ── Seguridad ──────────────────────────────────────────────────
+# ── Configuración ──────────────────────────────────────────────
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_KEY")
@@ -52,7 +52,7 @@ def descargar_pdf(fecha: datetime):
                     def __init__(self):
                         super().__init__(); self.pdf_url = None
                     def handle_starttag(self, tag, attrs):
-                        if tag == 'a':
+                        if tag == 'a' and not self.pdf_url:
                             for attr, val in attrs:
                                 if attr == 'href' and val.lower().endswith('.pdf'): self.pdf_url = val
                 parser = PDFfinder()
@@ -64,7 +64,7 @@ def descargar_pdf(fecha: datetime):
         except: pass
     return None, None
 
-# ── IA Parsing ────────────────────────────────────────────────
+# ── IA Parsing con Reparación Automática ───────────────────────
 def procesar_con_claude(pdf_bytes: bytes) -> dict:
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     modelo = obtener_modelo_actual(client)
@@ -72,15 +72,14 @@ def procesar_con_claude(pdf_bytes: bytes) -> dict:
     
     print(f"Enviando PDF a Claude ({modelo})...")
     
-    # Prompt ultra-específico para evitar errores de formato latino
-    prompt = """Extraé TODAS las filas de opciones de GGAL del PDF. 
-    REGLAS CRÍTICAS:
-    1. Usá PUNTO (.) para decimales. NUNCA uses coma (,).
-    2. NO uses separadores de miles (ej: usá 1500.50 y NO 1.500,50).
-    3. Si un valor no existe, usá null.
-    4. Devolvé un JSON compacto.
+    prompt = """Extraé TODAS las opciones de GGAL del PDF. 
+    REGLAS DE FORMATO (ESTRICTO):
+    1. PUNTO para decimales (ej: 1500.50). NUNCA comas.
+    2. SIN separadores de miles.
+    3. Asegurá la COMA entre objetos del array.
+    4. Respondé SOLO el JSON minificado (sin espacios ni saltos de línea).
     
-    Formato: {"opciones": [{"symbol": "...", "kind": "CALL/PUT", "strike": 0.0, "expiration": "YYYY-MM-DD", "open_interest": 0, "volume": 0, "last": 0.0, "bid": 0.0, "ask": 0.0, "settlement": "24hs", "underlying_asset": "GGAL"}]}"""
+    Esquema: {"opciones": [{"symbol": "...", "kind": "CALL/PUT", "strike": 0.0, "expiration": "YYYY-MM-DD", "open_interest": 0, "volume": 0, "last": 0.0, "bid": 0.0, "ask": 0.0, "settlement": "24hs", "underlying_asset": "GGAL"}]}"""
 
     msg = client.messages.create(
         model=modelo,
@@ -94,30 +93,34 @@ def procesar_con_claude(pdf_bytes: bytes) -> dict:
     raw = msg.content[0].text.strip()
     
     try:
-        # Extraer JSON buscando llaves por si hay texto extra o basura
+        # 1. Extraer solo el bloque de llaves
         start = raw.find('{')
         end = raw.rfind('}') + 1
         if start == -1: raise ValueError("No se detectó JSON")
+        json_str = raw[start:end]
         
-        json_clean = raw[start:end]
-        # Eliminar posibles comas decimales que la IA haya filtrado por error (parche de seguridad)
-        # Solo lo hace si detecta un patrón de número mal formado como "strike": 123,45
-        json_clean = re.sub(r'(\d+),(\d+)', r'\1.\2', json_clean)
+        # 2. PARCHE QUIRÚRGICO A: Fix comas decimales latinas que se hayan filtrado
+        json_str = re.sub(r'(\d+),(\d+)', r'\1.\2', json_str)
         
-        return json.loads(json_clean)
+        # 3. PARCHE QUIRÚRGICO B: Fix objetos pegados sin coma -> } {  por  }, {
+        # Esto soluciona el error "Expecting ',' delimiter"
+        json_str = re.sub(r'}\s*{', '}, {', json_str)
+
+        return json.loads(json_str)
     except Exception as e:
-        print(f"❌ Error de parsing: {e}")
-        # Imprimimos la zona del error para debug
+        print(f"❌ Error crítico de parsing: {e}")
+        # Mostrar contexto del error para ver qué carácter molestó
         match = re.search(r'char (\d+)', str(e))
         if match:
             pos = int(match.group(1))
-            print(f"Contexto del error: ...{json_clean[max(0, pos-40):pos+40]}...")
+            print(f"Contexto: ...{json_str[max(0, pos-50):pos+50]}...")
         raise
 
-# ── Carga ─────────────────────────────────────────────────────
+# ── Supabase ───────────────────────────────────────────────────
 def subir_a_supabase(data: dict, fecha_pdf: datetime):
     opciones = data.get("opciones", [])
-    if not opciones: return
+    if not opciones: 
+        print("⚠️ No hay datos."); return
     
     sb = create_client(SB_URL, SB_KEY)
     now = datetime.utcnow().isoformat()
@@ -125,9 +128,13 @@ def subir_a_supabase(data: dict, fecha_pdf: datetime):
         op["updated_at"] = now
         op["fecha_informe"] = fecha_pdf.strftime("%Y-%m-%d")
     
-    print(f"Sincronizando {len(opciones)} registros...")
-    sb.table(TARGET_TABLE).upsert(opciones, on_conflict="symbol,expiration").execute()
-    print("✅ Completado.")
+    print(f"Subiendo {len(opciones)} registros a '{TARGET_TABLE}'...")
+    try:
+        sb.table(TARGET_TABLE).upsert(opciones, on_conflict="symbol,expiration").execute()
+        print("✅ ¡Sincronización Exitosa!")
+    except Exception as e:
+        print(f"❌ Error Supabase: {e}")
+        sys.exit(1)
 
 def main():
     print(f"🚀 Inicio Sincro — {datetime.now().strftime('%H:%M:%S')}")
@@ -138,7 +145,7 @@ def main():
     try:
         data = procesar_con_claude(pdf)
         subir_a_supabase(data, fecha)
-    except Exception as e:
+    except:
         sys.exit(1)
 
 if __name__ == "__main__":
