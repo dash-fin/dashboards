@@ -1,226 +1,204 @@
 <div class="sub-tabs-row">
   <div class="sub-tabs">
     <button class="stab active" id="ostab-iamc" onclick="oSetTab('iamc',this)">Datos IAMC</button>
-    <button class="stab" id="ostab-estrategias" onclick="oSetTab('estrategias',this)">Estrategias</button>
-    <button class="stab" id="ostab-vol" onclick="oSetTab('vol',this)">Volatilidad & RT</button>
+    <button class="stab" id="ostab-gex" onclick="oSetTab('gex',this); oLoadGex()">Análisis Gamma</button>
   </div>
-  <div style="display:flex;gap:8px;align-items:center">
-    <div style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:9px">
-      <span style="color:var(--text3)">Informe:</span>
-      <span id="oTabMeta" style="color:var(--amber);font-weight:500">—</span>
-      <span id="oFechaAge" style="color:var(--text4)"></span>
-    </div>
-    <span style="color:var(--border2)">|</span>
-    <div class="sub-tabs-meta" id="oDateMeta" style="color:var(--text3)">—</div>
+  
+  <div style="display:flex; gap:12px; align-items:center">
+     <div class="filter-group">
+        <label>Ejercicio:</label>
+        <select id="oSelectVto" onchange="oApplyFilters()"><option value="all">Todos</option></select>
+     </div>
+     <div class="sub-tabs-meta" id="oDateMeta">—</div>
   </div>
 </div>
 
 <div class="sub-panel active" id="opanel-iamc">
-  <div class="kpi-row" id="oKpiRow">
-    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">OI Calls</div><div class="kpi-val" id="ok-calls">—</div><div class="kpi-sub">contratos</div></div>
-    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">OI Puts</div><div class="kpi-val" id="ok-puts">—</div><div class="kpi-sub">contratos</div></div>
-    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Put/Call ratio</div><div class="kpi-val" id="ok-ratio">—</div><div class="kpi-sub" id="ok-sent">—</div></div>
-    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">OI Total</div><div class="kpi-val" id="ok-oi">—</div><div class="kpi-sub">suma neta</div></div>
-    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">OI Neto (C-P)</div><div class="kpi-val" id="ok-gex">—</div><div class="kpi-sub" id="ok-regime">—</div></div>
+  
+  <div class="gamma-kpi-row" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:15px">
+    <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Gamma Flip</div><div class="g-val" id="gk-flip">—</div></div>
+    <div class="g-card" style="--c:var(--green)"><div class="g-lab">Call Wall</div><div class="g-val" id="gk-cwall">—</div></div>
+    <div class="g-card" style="--c:var(--red)"><div class="g-lab">Put Wall</div><div class="g-val" id="gk-pwall">—</div></div>
+    <div class="g-card" style="--c:var(--blue)"><div class="g-lab">Max Pain</div><div class="g-val" id="gk-pain">—</div></div>
   </div>
 
-  <div class="sub-tabs-row" style="margin-top:10px">
-    <div class="tabs" style="display:flex;gap:1px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:3px;width:fit-content">
-      <button class="stab active" id="chtab-graficos" onclick="oChtab('graficos',this)">Gráficos</button>
-      <button class="stab" id="chtab-tabla" onclick="oChtab('tabla',this)">Tabla</button>
+  <div class="card" style="margin-bottom:15px">
+    <div class="card-head"><div class="card-title">Interés Abierto — Cubierto vs Descubierto (Calls vs Puts)</div></div>
+    <div class="card-body">
+      <div class="chart-wrap" style="height:350px"><canvas id="oMainChart"></canvas></div>
     </div>
   </div>
 
-  <div id="ochpanel-graficos" class="sub-panel active">
-    <div id="oChartsContent" style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
-      <div class="charts-grid">
-        <div class="card"><div class="card-head"><div class="card-title">Calls GGAL — OI por Strike</div></div><div class="card-body"><div class="chart-wrap" style="height:220px"><canvas id="oCchart"></canvas></div></div></div>
-        <div class="card"><div class="card-head"><div class="card-title">Puts GGAL — OI por Strike</div></div><div class="card-body"><div class="chart-wrap" style="height:220px"><canvas id="oPchart"></canvas></div></div></div>
-      </div>
-      <div class="card">
-        <div class="card-head"><div class="card-title">Distribución por Cobertura (Total Mercado)</div></div>
-        <div class="card-body">
-          <div class="charts-grid">
-            <div style="text-align:center"><div class="c-label">CALLS</div><div class="chart-wrap" style="height:180px"><canvas id="oCoverCallChart"></canvas></div></div>
-            <div style="text-align:center"><div class="c-label">PUTS</div><div class="chart-wrap" style="height:180px"><canvas id="oCoverPutChart"></canvas></div></div>
-          </div>
-        </div>
-      </div>
+  <div class="card">
+    <div class="toolbar">
+      <input class="search-input" placeholder="Buscar base..." id="oSearchQ" oninput="oApplyFilters()">
+      <span class="row-count" id="oRowCount">0 filas</span>
     </div>
-  </div>
-
-  <div id="ochpanel-tabla" class="sub-panel">
-    <div class="card" style="margin-top:10px">
-      <div class="toolbar">
-        <div style="display:flex;gap:3px">
-          <button class="flt on" id="btn-f-all" onclick="oSetType('all',this)">Todos</button>
-          <button class="flt" onclick="oSetType('call',this)">Calls</button>
-          <button class="flt" onclick="oSetType('put',this)">Puts</button>
-        </div>
-        <input class="search-input" placeholder="Buscar base..." id="oSearchQ" oninput="oApplyFilters()">
-        <span class="row-count" id="oRowCount">0 filas</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th class="th-left">Tipo</th>
-            <th class="th-left">Vencimiento</th>
-            <th onclick="oSort('base')">Base</th>
-            <th>Cubierto</th>
-            <th>Descubierto</th>
-            <th>Total OI</th>
-            <th>Var. Día</th>
-          </tr></thead>
-          <tbody id="oTbody"></tbody>
-        </table>
-      </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Base</th>
+          <th>Tipo</th>
+          <th>Vto</th>
+          <th>Cubierto</th>
+          <th>Descubierto</th>
+          <th>Total OI</th>
+          <th>Var. Día</th>
+        </tr></thead>
+        <tbody id="oTbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-let oAllRows=[], oTypeF='all', oSortCol='base', oSortDir=1;
-let oCharts={};
+let oAllRows=[], oCharts={};
 
 async function oLoadData(){
   try {
-    // Consulta a la nueva tabla relacional
     const rows = await sb('opciones_iamc', 'select=*&order=strike.asc');
     if(!rows || !rows.length) return;
 
-    // Mapeo de datos para compatibilidad con el dashboard
     oAllRows = rows.map(r => ({
       tipo: r.kind.toLowerCase(),
       vencimiento: r.expiration,
       base: Number(r.strike),
       cubierto: Number(r.cubierto || 0),
       descubierto: Number(r.descubierto || 0),
-      opuesto: Number(r.opuesto || 0),
-      cruce: Number(r.cruce || 0),
       total: Number(r.open_interest || 0),
-      var_dia: Number(r.volume || 0)
+      volume: Number(r.volume || 0)
     }));
 
-    const data = { fecha: rows[0].fecha_informe, opciones: oAllRows };
-    oRenderAll(data);
+    // Cargar selector de vencimientos
+    const vtos = [...new Set(oAllRows.map(r => r.vencimiento))].sort();
+    const sel = document.getElementById('oSelectVto');
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="all">Todos los ejercicios</option>';
+    vtos.forEach(v => sel.innerHTML += `<option value="${v}">${v}</option>`);
+    sel.value = currentVal === "" ? vtos[0] : currentVal;
 
-    // Metadata de actualización
-    const upd = new Date(rows[0].updated_at);
-    document.getElementById('oTabMeta').textContent = data.fecha || '—';
-    document.getElementById('oDateMeta').textContent = 'Act. ' + upd.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-    
-    if(data.fecha){
-        const fInf = new Date(data.fecha);
-        const diff = Math.floor((Date.now() - fInf.getTime()) / 86400000);
-        const ageEl = document.getElementById('oFechaAge');
-        if(ageEl) {
-            ageEl.textContent = diff <= 0 ? '(hoy)' : (diff === 1 ? '(ayer)' : `(hace ${diff}d)`);
-            ageEl.style.color = diff <= 0 ? 'var(--green)' : 'var(--amber)';
-        }
-    }
-  } catch(e) { console.error("Error Dashboard:", e); }
-}
-
-function oRenderAll(d){
-    const opts = d.opciones;
-    const calls = opts.filter(o => o.tipo==='call');
-    const puts = opts.filter(o => o.tipo==='put');
-    const cOI = calls.reduce((s,o) => s+o.total, 0);
-    const pOI = puts.reduce((s,o) => s+o.total, 0);
-
-    document.getElementById('ok-calls').textContent = fmtM(cOI);
-    document.getElementById('ok-puts').textContent = fmtM(pOI);
-    document.getElementById('ok-ratio').textContent = cOI>0 ? (pOI/cOI).toFixed(2) : '—';
-    document.getElementById('ok-sent').textContent = (pOI/cOI) > 1.2 ? 'Bajista' : (pOI/cOI) < 0.8 ? 'Alcista' : 'Neutral';
-    document.getElementById('ok-oi').textContent = fmtM(cOI+pOI);
-    document.getElementById('ok-gex').textContent = fmtM(cOI - pOI);
-    document.getElementById('ok-regime').textContent = (cOI - pOI) > 0 ? 'Call Dominance' : 'Put Dominance';
-
-    oRenderCharts(calls, puts);
     oApplyFilters();
-}
-
-function oByBase(arr){
-    const m={}; arr.forEach(o=>{ m[o.base]=(m[o.base]||0)+o.total; });
-    const s=Object.entries(m).sort((a,b)=>Number(a[0])-Number(b[0]));
-    return {labels: s.map(e=>'$'+e[0]), vals: s.map(e=>e[1])};
-}
-
-function oRenderCharts(calls, puts){
-    const cd = oByBase(calls), pd = oByBase(puts);
-    const cfg = (l,v,c) => ({
-        type:'bar', data:{labels:l, datasets:[{data:v, backgroundColor:c+'44', borderColor:c, borderWidth:1, borderRadius:4}]},
-        options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{grid:{color:'#1e2530'},ticks:{font:{size:9}}},x:{grid:{display:false},ticks:{font:{size:8},maxRotation:45}}}}
-    });
-
-    if(oCharts.c) oCharts.c.destroy(); oCharts.c = new Chart(document.getElementById('oCchart'), cfg(cd.labels, cd.vals, '#00e5a8'));
-    if(oCharts.p) oCharts.p.destroy(); oCharts.p = new Chart(document.getElementById('oPchart'), cfg(pd.labels, pd.vals, '#ff3f5e'));
-
-    // Cobertura
-    const ck=['cubierto','descubierto','opuesto','cruce'], cl=['Cubierto','Descubierto','Opuesto','Cruce'], cols=['#4da6ff','#f0a500','#b39dff','#00d4e8'];
-    const dCfg = (arr) => ({
-        type:'doughnut', data:{labels:cl, datasets:[{data:ck.map(k=>arr.reduce((s,o)=>s+o[k],0)), backgroundColor:cols, borderWidth:0}]},
-        options:{responsive:true, maintainAspectRatio:false, cutout:'70%', plugins:{legend:{position:'right', labels:{color:'#9dafc5', boxWidth:8, font:{size:9, family:'IBM Plex Mono'}}}}}
-    });
-
-    if(oCharts.cc) oCharts.cc.destroy(); oCharts.cc = new Chart(document.getElementById('oCoverCallChart'), dCfg(calls));
-    if(oCharts.pc) oCharts.pc.destroy(); oCharts.pc = new Chart(document.getElementById('oCoverPutChart'), dCfg(puts));
+    
+    // Meta info
+    document.getElementById('oDateMeta').textContent = 'Act. ' + new Date(rows[0].updated_at).toLocaleTimeString();
+  } catch(e) { console.error(e); }
 }
 
 window.oApplyFilters = () => {
+    const vtoF = document.getElementById('oSelectVto').value;
     const q = document.getElementById('oSearchQ').value.toLowerCase();
-    let rows = oAllRows.filter(r => {
-        if(oTypeF!=='all' && r.tipo!==oTypeF) return false;
+    
+    let filtered = oAllRows.filter(r => {
+        if(vtoF !== 'all' && r.vencimiento !== vtoF) return false;
         if(q && !r.base.toString().includes(q)) return false;
         return true;
     });
+
+    renderGammaStats(filtered);
+    renderMainChart(filtered);
+    renderTable(filtered);
+};
+
+// ── Lógica de Muros Gamma (Simplificada por OI) ──
+function renderGammaStats(data) {
+    if(!data.length) return;
+    const calls = data.filter(r => r.tipo === 'call');
+    const puts = data.filter(r => r.tipo === 'put');
+
+    const cWall = calls.reduce((max, r) => r.total > max.total ? r : max, calls[0] || {base:0});
+    const pWall = puts.reduce((max, r) => r.total > max.total ? r : max, puts[0] || {base:0});
     
+    // Gamma Flip estimado (donde el OI neto cambia)
+    const bases = [...new Set(data.map(r => r.base))].sort((a,b)=>a-b);
+    let flip = bases[0];
+    for(let b of bases){
+        let net = data.filter(r => r.base === b).reduce((s,r) => s + (r.tipo==='call' ? r.total : -r.total), 0);
+        if(Math.abs(net) < 100000) { flip = b; break; }
+    }
+
+    document.getElementById('gk-flip').textContent = '$' + flip;
+    document.getElementById('gk-cwall').textContent = '$' + cWall.base;
+    document.getElementById('gk-pwall').textContent = '$' + pWall.base;
+    document.getElementById('gk-pain').textContent = '$' + flip; // Placeholder Max Pain
+}
+
+// ── Gráfico Stacked Mirror ──
+function renderMainChart(data) {
+    const ctx = document.getElementById('oMainChart');
+    const bases = [...new Set(data.map(r => r.base))].sort((a,b)=>a-b);
+    
+    const datasets = [
+        { label: 'Call Cubierto', data: [], backgroundColor: '#00e5a8aa', stack: 'c' },
+        { label: 'Call Descubierto', data: [], backgroundColor: '#00e5a8', stack: 'c' },
+        { label: 'Put Cubierto', data: [], backgroundColor: '#ff3f5eaa', stack: 'p' },
+        { label: 'Put Descubierto', data: [], backgroundColor: '#ff3f5e', stack: 'p' }
+    ];
+
+    bases.forEach(b => {
+        const c = data.find(r => r.base === b && r.tipo === 'call') || {cubierto:0, descubierto:0};
+        const p = data.find(r => r.base === b && r.tipo === 'put') || {cubierto:0, descubierto:0};
+        datasets[0].data.push(c.cubierto);
+        datasets[1].data.push(c.descubierto);
+        datasets[2].data.push(-p.cubierto);    // Negativo para ir abajo
+        datasets[3].data.push(-p.descubierto); // Negativo para ir abajo
+    });
+
+    if(oCharts.main) oCharts.main.destroy();
+    oCharts.main = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: bases.map(b => '$'+b), datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, grid: { display: false } },
+                y: { 
+                    stacked: true, 
+                    grid: { color: '#1e2530' },
+                    ticks: { callback: v => fmtM(Math.abs(v)) } // Mostrar valores absolutos
+                }
+            },
+            plugins: {
+                legend: { position: 'top', labels: { boxWidth: 10, font: { size: 9 } } },
+                tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtM(Math.abs(ctx.raw))}` } }
+            }
+        }
+    });
+}
+
+function renderTable(rows) {
     document.getElementById('oTbody').innerHTML = rows.map(r => `
         <tr>
-            <td class="td-left"><span class="badge ${r.tipo==='call'?'b-call':'b-put'}">${r.tipo}</span></td>
-            <td class="td-left" style="color:var(--text3)">${r.vencimiento}</td>
-            <td style="color:var(--amber); font-weight:500">$${r.base}</td>
+            <td style="color:var(--amber); font-weight:bold">$${r.base}</td>
+            <td><span class="badge ${r.tipo==='call'?'b-call':'b-put'}">${r.tipo}</span></td>
+            <td>${r.vencimiento}</td>
             <td>${fmtM(r.cubierto)}</td>
             <td>${fmtM(r.descubierto)}</td>
-            <td style="font-weight:600; color:var(--text)">${fmtM(r.total)}</td>
-            <td style="color:${r.var_dia >= 0 ? 'var(--green)' : 'var(--red)'}">${r.var_dia > 0 ? '+' : ''}${fmtM(r.var_dia)}</td>
+            <td style="background:var(--bg2)">${fmtM(r.total)}</td>
+            <td style="color:${r.volume >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtM(r.volume)}</td>
         </tr>
     `).join('');
     document.getElementById('oRowCount').textContent = rows.length + ' filas';
-};
-
-window.oSetType = (t,btn) => { 
-    oTypeF=t; 
-    document.querySelectorAll('#opanel-iamc .flt').forEach(b=>b.classList.remove('on'));
-    btn.classList.add('on');
-    oApplyFilters(); 
-};
+}
 
 window.oSetTab = (n,b) => {
-    document.querySelectorAll('[id^="opanel-"]').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
     document.getElementById('opanel-'+n).classList.add('active');
-    document.querySelectorAll('[id^="ostab-"]').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
     b.classList.add('active');
-};
+}
 
-window.oChtab = (n,b) => {
-    document.querySelectorAll('[id^="ochpanel-"]').forEach(p=>p.classList.remove('active'));
-    document.getElementById('ochpanel-'+n).classList.add('active');
-    document.querySelectorAll('[id^="chtab-"]').forEach(t=>t.classList.remove('active'));
-    b.classList.add('active');
-};
-
-// Iniciar carga
 oLoadData();
 })();
 </script>
 
 <style>
-.c-label { font-size:8px; font-family:'IBM Plex Mono',monospace; color:var(--text4); letter-spacing:1px; margin-bottom:5px; }
-.badge { padding:2px 5px; border-radius:3px; font-size:9px; font-weight:700; text-transform:uppercase; }
-.b-call { background:#00e5a815; color:#00e5a8; }
-.b-put { background:#ff3f5e15; color:#ff3f5e; }
-.flt.on { border-color:var(--amber); color:var(--amber); background:var(--bg3); }
-.td-left { text-align: left !important; }
+.gamma-kpi-row .g-card { background: var(--bg2); border-left: 3px solid var(--c); padding: 10px; border-radius: 4px; }
+.g-lab { font-size: 9px; color: var(--text3); text-transform: uppercase; margin-bottom: 4px; }
+.g-val { font-size: 16px; font-weight: bold; font-family: 'IBM Plex Mono', monospace; color: var(--text); }
+.filter-group { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text3); }
+.filter-group select { background: var(--bg2); border: 1px solid var(--border2); color: var(--text); padding: 3px 8px; border-radius: 4px; font-size: 11px; }
+.badge { padding: 2px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.b-call { background: #00e5a815; color: #00e5a8; }
+.b-put { background: #ff3f5e15; color: #ff3f5e; }
 </style>
