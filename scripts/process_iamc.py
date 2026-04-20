@@ -108,7 +108,7 @@ def procesar_con_claude(pdf_bytes: bytes) -> dict:
     
     print("Enviando PDF a Claude (modelo 3.7-latest)...")
     msg = client.messages.create(
-        model="claude-3-7-sonnet-latest", # Alias para la versión más reciente en 2026
+        model="claude-4-sonnet-latest", # Alias para la versión más reciente en 2026
         max_tokens=8192,
         messages=[{
             "role": "user",
