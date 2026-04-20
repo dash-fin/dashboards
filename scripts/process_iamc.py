@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
 """
 process_iamc.py
-Descarga el PDF de opciones de IAMC, lo procesa con Claude
-y sube los datos a la tabla 'opciones_iamc'.
+Descarga el PDF de opciones de IAMC, lo procesa con Claude 3.7
+y sube los datos a la tabla 'opciones_iamc' en Supabase.
 """
 
 import anthropic
@@ -14,31 +15,46 @@ import urllib3
 from datetime import datetime, timedelta
 from supabase import create_client
 
-# Desactivar advertencias de SSL por el bypass
+# ── Configuración y Seguridad ──────────────────────────────
+# Desactivar advertencias de SSL por el bypass necesario para IAMC
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# ── Configuración ──────────────────────────────────────────
-ANTHROPIC_KEY = os.environ["ANTHROPIC_KEY"]
-SB_URL        = os.environ["SB_URL"]
-SB_KEY        = os.environ["SB_KEY"]
-TARGET_TABLE  = "opciones_iamc" # <--- Cambiado a la nueva tabla
+ANTHROPIC_KEY = os.environ.get("ANTHROPIC_KEY")
+SB_URL        = os.environ.get("SB_URL")
+SB_KEY        = os.environ.get("SB_KEY")
+TARGET_TABLE  = "opciones_iamc"
 
-# ── Construir URL del PDF ───────────────────────────────────
+# Validar que las keys existan
+if not all([ANTHROPIC_KEY, SB_URL, SB_KEY]):
+    print("❌ Error: Faltan variables de entorno (ANTHROPIC_KEY, SB_URL o SB_KEY)")
+    sys.exit(1)
+
+# ── Funciones de Descarga ──────────────────────────────────
 def build_url(fecha: datetime) -> str:
+    """IAMC usa formato: AnexoOpcionesDDMMYYYY"""
     return f"https://www.iamc.com.ar/Informe/AnexoOpciones{fecha.strftime('%d%m%Y')}/"
 
-def descargar_pdf(fecha: datetime) -> bytes | None:
-    for i in range(5):
+def descargar_pdf(fecha: datetime) -> tuple[bytes, datetime] or tuple[None, None]:
+    """
+    Busca el PDF del día. Si no está, retrocede hasta 5 días (findes/feriados).
+    Incluye bypass de SSL y manejo de redirecciones HTML de IAMC.
+    """
+    for i in range(6):
         dia = fecha - timedelta(days=i)
-        if dia.weekday() >= 5: continue
+        if dia.weekday() >= 5: continue # Saltar Sábado y Domingo
+        
         url = build_url(dia)
         print(f"Intentando: {url}")
         try:
+            # verify=False para ignorar el error de certificado SSL del IAMC
             r = requests.get(url, timeout=30, verify=False)
+            
+            # Caso 1: Es el PDF directo
             if r.status_code == 200 and b'%PDF' in r.content[:8]:
                 print(f"✅ PDF encontrado para {dia.strftime('%d/%m/%Y')}")
                 return r.content, dia
             
+            # Caso 2: Es un HTML que contiene el link al PDF (común en IAMC)
             if r.status_code == 200 and b'<html' in r.content[:100].lower():
                 from html.parser import HTMLParser
                 class PDFfinder(HTMLParser):
@@ -55,19 +71,20 @@ def descargar_pdf(fecha: datetime) -> bytes | None:
                 parser.feed(r.text)
                 if parser.pdf_url:
                     pdf_url = parser.pdf_url if parser.pdf_url.startswith('http') else f"https://www.iamc.com.ar{parser.pdf_url}"
-                    print(f"  → PDF encontrado en: {pdf_url}")
+                    print(f"  → Redirección encontrada: {pdf_url}")
                     r2 = requests.get(pdf_url, timeout=30, verify=False)
                     if r2.status_code == 200:
                         return r2.content, dia
         except Exception as e:
-            print(f"  Error: {e}")
+            print(f"  ⚠️ Error en intento {dia.strftime('%d/%m')}: {e}")
+            
     return None, None
 
-# ── Prompt para Claude ──────────────────────────────────────
+# ── Lógica de Claude ───────────────────────────────────────
 PROMPT = """Extraé TODAS las filas de opciones de GGAL del PDF adjunto. 
-Respondé SOLO JSON con este formato:
+Buscá la tabla de 'Opciones' y filtrá solo las de Grupo Financiero Galicia (GGAL).
+Respondé SOLO con un objeto JSON que tenga este formato:
 {
-  "fecha": "YYYY-MM-DD",
   "opciones": [
     {
       "symbol": "GFGC43747A",
@@ -85,79 +102,86 @@ Respondé SOLO JSON con este formato:
   ]
 }"""
 
-# ── Procesar con Claude ─────────────────────────────────────
 def procesar_con_claude(pdf_bytes: bytes) -> dict:
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
     pdf_b64 = base64.standard_b64encode(pdf_bytes).decode()
     
-    print("Enviando PDF a Claude...")
+    print("Enviando PDF a Claude (modelo 3.7-latest)...")
     msg = client.messages.create(
-        model="claude-3-5-sonnet-20240620", # Usando un modelo balanceado
-        max_tokens=8000,
+        model="claude-3-7-sonnet-latest", # Alias para la versión más reciente en 2026
+        max_tokens=8192,
         messages=[{
             "role": "user",
             "content": [
-                { "type": "document", "source": { "type": "base64", "media_type": "application/pdf", "data": pdf_b64 } },
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": pdf_b64
+                    }
+                },
                 { "type": "text", "text": PROMPT }
             ]
         }]
     )
     
     raw = msg.content[0].text.strip()
+    # Limpiar posibles markdowns
     raw = raw.replace("```json", "").replace("```", "").strip()
-    data = json.loads(raw)
-    print(f"✅ Claude extrajo {len(data.get('opciones', []))} opciones")
-    return data
+    return json.loads(raw)
 
-# ── Subir a Supabase ────────────────────────────────────────
+# ── Supabase ───────────────────────────────────────────────
 def subir_a_supabase(data: dict, fecha_pdf: datetime):
-    if not data.get("opciones"):
-        print("⚠️ Sin opciones para subir")
+    opciones = data.get("opciones", [])
+    if not opciones:
+        print("⚠️ No se extrajeron opciones para procesar.")
         return
     
     sb = create_client(SB_URL, SB_KEY)
-    opciones = data["opciones"]
-    
     now_iso = datetime.utcnow().isoformat()
+    
+    # Preparar datos con metadatos de control
     for op in opciones:
         op["updated_at"] = now_iso
         op["fecha_informe"] = fecha_pdf.strftime("%Y-%m-%d")
     
-    # Upsert usando la nueva tabla y el constraint de símbolo+vencimiento
-    result = sb.table(TARGET_TABLE).upsert(
-        opciones,
-        on_conflict="symbol,expiration"
-    ).execute()
+    print(f"Subiendo {len(opciones)} filas a la tabla {TARGET_TABLE}...")
     
-    print(f"✅ Subidas {len(opciones)} opciones a la tabla {TARGET_TABLE}")
-    
+    # Upsert: Inserta nuevas o actualiza existentes basándose en symbol+expiration
     try:
-        sb.table("iamc_upload_log").insert({
-            "fecha_informe": fecha_pdf.strftime("%Y-%m-%d"),
-            "opciones_count": len(opciones),
-            "processed_at": now_iso,
-            "status": "ok"
-        }).execute()
+        sb.table(TARGET_TABLE).upsert(
+            opciones,
+            on_conflict="symbol,expiration"
+        ).execute()
+        print("✅ Datos sincronizados correctamente.")
     except Exception as e:
-        print(f"⚠️ No se pudo guardar el log: {e}")
+        print(f"❌ Error al subir a Supabase: {e}")
+        sys.exit(1)
 
-# ── Main ────────────────────────────────────────────────────
+# ── Ejecución Principal ─────────────────────────────────────
 def main():
-    hoy = datetime.now()
-    print(f"🚀 Iniciando proceso IAMC — {hoy.strftime('%d/%m/%Y %H:%M')}")
+    inicio = datetime.now()
+    print(f"🚀 Proceso IAMC Iniciado — {inicio.strftime('%Y-%m-%d %H:%M:%S')}")
     
-    pdf_bytes, fecha_pdf = descargar_pdf(hoy)
+    # 1. Obtener el archivo
+    pdf_bytes, fecha_pdf = descargar_pdf(inicio)
     if not pdf_bytes:
-        print("❌ No se pudo descargar el PDF")
+        print("❌ Fallaron todos los intentos de descarga.")
         sys.exit(1)
     
-    data = procesar_con_claude(pdf_bytes)
-    if not data.get("opciones"):
-        print("❌ Sin datos extraídos")
+    # 2. IA Extraction
+    try:
+        data = procesar_con_claude(pdf_bytes)
+        print(f"✅ Claude procesó {len(data.get('opciones', []))} instrumentos.")
+    except Exception as e:
+        print(f"❌ Error en la API de Anthropic: {e}")
         sys.exit(1)
     
+    # 3. DB Sync
     subir_a_supabase(data, fecha_pdf)
-    print("✅ Proceso completado exitosamente")
+    
+    print(f"🏁 Fin del proceso. Tiempo total: {datetime.now() - inicio}")
 
 if __name__ == "__main__":
     main()
