@@ -1,7 +1,8 @@
 <div class="sub-tabs-row">
   <div class="sub-tabs">
     <button class="stab active" id="ostab-iamc" onclick="oSetTab('iamc',this)">Distribución OI</button>
-    <button class="stab" id="ostab-gex" onclick="oSetTab('gex',this)">Niveles Gamma (OI)</button>
+    <button class="stab" id="ostab-gex" onclick="oSetTab('gex',this)">Análisis Gamma</button>
+    <button class="stab" id="ostab-tabla" onclick="oSetTab('tabla',this)">Tabla Detalle</button>
   </div>
   
   <div style="display:flex; gap:12px; align-items:center">
@@ -14,30 +15,28 @@
 </div>
 
 <div class="sub-panel active" id="opanel-iamc">
-  
-  <div class="card" style="margin-bottom:15px">
-    <div class="card-head">
-        <div class="card-title">CALLS: Desglose de Interés Abierto por Base</div>
-        <div class="legend-row">
-            <div class="legend-item"><div class="legend-dot" style="background:#00e5a8"></div>Descubierto</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#00e5a866"></div>Cubierto</div>
-        </div>
+  <div class="charts-grid" style="grid-template-columns: 1fr; gap:15px; margin-top:10px;">
+    
+    <div class="card">
+      <div class="card-head">
+          <div class="card-title">CALLS: Interés Abierto (Cubierto vs Descubierto)</div>
+          <div class="legend-row">
+              <div class="legend-item"><div class="legend-dot" style="background:#00e5a8"></div>Descubierto</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#00e5a866"></div>Cubierto</div>
+          </div>
+      </div>
+      <div class="card-body"><div class="chart-wrap" style="height:250px"><canvas id="oChartCalls"></canvas></div></div>
     </div>
-    <div class="card-body">
-      <div class="chart-wrap" style="height:250px"><canvas id="oChartCalls"></canvas></div>
-    </div>
-  </div>
 
-  <div class="card" style="margin-bottom:15px">
-    <div class="card-head">
-        <div class="card-title">PUTS: Desglose de Interés Abierto por Base</div>
-        <div class="legend-row">
-            <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e"></div>Descubierto</div>
-            <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e66"></div>Cubierto</div>
-        </div>
-    </div>
-    <div class="card-body">
-      <div class="chart-wrap" style="height:250px"><canvas id="oChartPuts"></canvas></div>
+    <div class="card">
+      <div class="card-head">
+          <div class="card-title">PUTS: Interés Abierto (Cubierto vs Descubierto)</div>
+          <div class="legend-row">
+              <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e"></div>Descubierto</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e66"></div>Cubierto</div>
+          </div>
+      </div>
+      <div class="card-body"><div class="chart-wrap" style="height:250px"><canvas id="oChartPuts"></canvas></div></div>
     </div>
   </div>
 </div>
@@ -45,78 +44,161 @@
 <div class="sub-panel" id="opanel-gex">
   <div class="gamma-grid">
     <div class="g-card" style="--c:var(--green)">
-        <div class="g-lab">Call Wall (Resistencia)</div>
+        <div class="g-lab">Call Wall</div>
         <div class="g-val" id="gk-cwall">—</div>
-        <div class="g-desc">Strike con mayor OI en Calls.</div>
     </div>
     <div class="g-card" style="--c:var(--red)">
-        <div class="g-lab">Put Wall (Soporte)</div>
+        <div class="g-lab">Put Wall</div>
         <div class="g-val" id="gk-pwall">—</div>
-        <div class="g-desc">Strike con mayor OI en Puts.</div>
     </div>
     <div class="g-card" style="--c:var(--amber)">
-        <div class="g-lab">Gamma Flip (Punto de Equilibrio)</div>
+        <div class="g-lab">Gamma Flip</div>
         <div class="g-val" id="gk-flip">—</div>
-        <div class="g-desc">Donde el OI de Calls y Puts se iguala.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:15px">
+    <div class="card-head">
+        <div class="card-title">Net Exposure Profile (GEX Proxy)</div>
+        <div class="card-desc">Diferencia neta de OI multiplicada por Strike (Exposición Monetaria)</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap" style="height:320px"><canvas id="oChartGex"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="sub-panel" id="opanel-tabla">
+  <div class="card" style="margin-top:10px">
+    <div class="toolbar">
+      <input class="search-input" placeholder="Buscar base..." id="oSearchQ" oninput="oApplyFilters()">
+      <span class="row-count" id="oRowCount">0 filas</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left" onclick="oSort('base')">Base</th>
+          <th>Tipo</th>
+          <th>Cubierto</th>
+          <th>Descubierto</th>
+          <th>Total OI</th>
+          <th>Var. Día</th>
+        </tr></thead>
+        <tbody id="oTbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-let oAllRows=[], oCharts={};
+let oAllRows=[], oCharts={}, oSortDir=1;
 
 async function oLoadData(){
   try {
-    const rows = await sb('opciones_iamc', 'select=*&order=strike.asc');
+    const rows = await sb('opciones_iamc', 'select=*');
     if(!rows || !rows.length) return;
 
+    // Mapeo con parseFloat para asegurar orden numérico
     oAllRows = rows.map(r => ({
       tipo: r.kind.toLowerCase(),
       vencimiento: r.expiration,
-      base: Number(r.strike),
-      cubierto: Number(r.cubierto || 0),
-      descubierto: Number(r.descubierto || 0),
-      total: Number(r.open_interest || 0)
+      base: parseFloat(r.strike),
+      cubierto: parseInt(r.cubierto || 0),
+      descubierto: parseInt(r.descubierto || 0),
+      total: parseInt(r.open_interest || 0),
+      volume: parseInt(r.volume || 0),
+      updated_at: r.updated_at
     }));
 
-    // Cargar select de vencimientos y forzar el primero disponible para no mezclar
-    const vtos = [...new Set(oAllRows.map(r => r.vencimiento))].sort();
+    // Cargar select de vencimientos (solo una vez o si cambia)
     const sel = document.getElementById('oSelectVto');
-    if(sel.options.length <= 1) {
-        vtos.forEach(v => sel.innerHTML += `<option value="${v}">${v}</option>`);
+    const vtos = [...new Set(oAllRows.map(r => r.vencimiento))].sort();
+    
+    if(sel.options.length === 0) {
+        vtos.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v; opt.textContent = v;
+            sel.appendChild(opt);
+        });
     }
 
     oApplyFilters();
     document.getElementById('oDateMeta').textContent = 'Act. ' + new Date(rows[0].updated_at).toLocaleTimeString();
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error("Error en LoadData:", e); }
 }
 
 window.oApplyFilters = () => {
     const vtoF = document.getElementById('oSelectVto').value;
+    const q = document.getElementById('oSearchQ').value.toLowerCase();
+    
+    // Filtrar por vencimiento y búsqueda
     let filtered = oAllRows.filter(r => r.vencimiento === vtoF);
+    if(q) filtered = filtered.filter(r => r.base.toString().includes(q));
+
+    // ORDENAR NUMÉRICAMENTE antes de graficar
+    filtered.sort((a, b) => a.base - b.base);
 
     renderStackedChart(filtered, 'call', 'oChartCalls', '#00e5a8');
     renderStackedChart(filtered, 'put', 'oChartPuts', '#ff3f5e');
+    renderGexChart(filtered);
     renderGammaLevels(filtered);
+    renderTable(filtered);
 };
 
 function renderStackedChart(data, tipo, canvasId, color) {
     const items = data.filter(r => r.tipo === tipo);
-    const bases = items.map(r => '$' + r.base);
+    const labels = items.map(r => '$' + r.base);
     
     const datasets = [
-        { label: 'Cubierto', data: items.map(r => r.cubierto), backgroundColor: color + '66' },
-        { label: 'Descubierto', data: items.map(r => r.descubierto), backgroundColor: color }
+        { label: 'Cubierto', data: items.map(r => r.cubierto), backgroundColor: color + '66', borderRadius: 2 },
+        { label: 'Descubierto', data: items.map(r => r.descubierto), backgroundColor: color, borderRadius: 2 }
     ];
 
     if(oCharts[canvasId]) oCharts[canvasId].destroy();
     oCharts[canvasId] = new Chart(document.getElementById(canvasId), {
         type: 'bar',
-        data: { labels: bases, datasets },
+        data: { labels, datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
-            scales: { x: { stacked: true }, y: { stacked: true, ticks: { callback: v => fmtM(v) } } },
+            scales: { 
+                x: { stacked: true, grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45 } }, 
+                y: { stacked: true, grid: { color: '#1e2530' }, ticks: { font: { size: 9 }, callback: v => fmtM(v) } } 
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderGexChart(data) {
+    const bases = [...new Set(data.map(r => r.base))].sort((a,b) => a-b);
+    
+    // GEX Proxy = (Call_OI - Put_OI) * Strike
+    const gexData = bases.map(b => {
+        const c = data.find(r => r.base === b && r.tipo === 'call')?.total || 0;
+        const p = data.find(r => r.base === b && r.tipo === 'put')?.total || 0;
+        return (c - p) * b;
+    });
+
+    if(oCharts.gex) oCharts.gex.destroy();
+    oCharts.gex = new Chart(document.getElementById('oChartGex'), {
+        type: 'bar',
+        data: {
+            labels: bases.map(b => '$' + b),
+            datasets: [{
+                data: gexData,
+                backgroundColor: gexData.map(v => v >= 0 ? '#00e5a8aa' : '#ff3f5eaa'),
+                borderColor: gexData.map(v => v >= 0 ? '#00e5a8' : '#ff3f5e'),
+                borderWidth: 1,
+                borderRadius: 3
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: {
+                y: { grid: { color: '#1e2530' }, ticks: { callback: v => fmtM(v) } },
+                x: { grid: { display: false }, ticks: { font: { size: 9 }, maxRotation: 45 } }
+            },
             plugins: { legend: { display: false } }
         }
     });
@@ -129,19 +211,34 @@ function renderGammaLevels(data) {
     const cw = calls.reduce((a, b) => (a.total > b.total ? a : b), {base:'—'});
     const pw = puts.reduce((a, b) => (a.total > b.total ? a : b), {base:'—'});
     
-    // Estimación Flip: Strike donde la diferencia es menor
+    // Gamma Flip: Strike donde la exposición neta cruza el cero
     let flip = '—';
-    let minDiff = Infinity;
-    const bases = [...new Set(data.map(r => r.base))];
+    let minNet = Infinity;
+    const bases = [...new Set(data.map(r => r.base))].sort((a,b)=>a-b);
     bases.forEach(b => {
         const c = data.find(r => r.base === b && r.tipo === 'call')?.total || 0;
         const p = data.find(r => r.base === b && r.tipo === 'put')?.total || 0;
-        if(Math.abs(c-p) < minDiff) { minDiff = Math.abs(c-p); flip = b; }
+        const net = Math.abs(c - p);
+        if(net < minNet) { minNet = net; flip = b; }
     });
 
     document.getElementById('gk-cwall').textContent = '$' + cw.base;
     document.getElementById('gk-pwall').textContent = '$' + pw.base;
     document.getElementById('gk-flip').textContent = '$' + flip;
+}
+
+function renderTable(rows) {
+    document.getElementById('oTbody').innerHTML = rows.map(r => `
+        <tr>
+            <td style="color:var(--amber); font-weight:bold">$${r.base}</td>
+            <td><span class="badge ${r.tipo==='call'?'b-call':'b-put'}">${r.tipo}</span></td>
+            <td>${fmtM(r.cubierto)}</td>
+            <td>${fmtM(r.descubierto)}</td>
+            <td style="background:var(--bg2)">${fmtM(r.total)}</td>
+            <td style="color:${r.volume >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtM(r.volume)}</td>
+        </tr>
+    `).join('');
+    document.getElementById('oRowCount').textContent = rows.length + ' filas';
 }
 
 window.oSetTab = (n, b) => {
@@ -156,12 +253,21 @@ oLoadData();
 </script>
 
 <style>
-.gamma-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
-.g-card { background: var(--bg2); border-top: 4px solid var(--c); padding: 20px; border-radius: 8px; text-align: center; }
-.g-lab { font-size: 10px; color: var(--text3); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
-.g-val { font-size: 24px; font-weight: 800; color: var(--text); font-family: 'IBM Plex Mono'; }
-.g-desc { font-size: 10px; color: var(--text4); margin-top: 8px; }
-.legend-row { display: flex; gap: 10px; font-size: 10px; }
+.charts-grid { display: grid; gap: 15px; }
+.gamma-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; }
+.g-card { background: var(--bg2); border-top: 4px solid var(--c); padding: 15px; border-radius: 6px; text-align: center; }
+.g-lab { font-size: 9px; color: var(--text3); text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px; }
+.g-val { font-size: 20px; font-weight: 800; color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+.g-desc { font-size: 9px; color: var(--text4); margin-top: 5px; }
+
+.legend-row { display: flex; gap: 10px; font-size: 9px; }
 .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
-.filter-group select { background: var(--bg2); border: 1px solid var(--border2); color: var(--text); padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+
+.filter-group { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text3); }
+.filter-group select { background: var(--bg2); border: 1px solid var(--border2); color: var(--text); padding: 3px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+
+.badge { padding: 2px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.b-call { background: #00e5a815; color: #00e5a8; }
+.b-put { background: #ff3f5e15; color: #ff3f5e; }
+.card-desc { font-size: 9px; color: var(--text4); margin-top: -5px; margin-bottom: 10px; }
 </style>
