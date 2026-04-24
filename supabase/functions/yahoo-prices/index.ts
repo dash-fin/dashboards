@@ -71,8 +71,15 @@ async function fetchRavaHistory(sym: string): Promise<Array<{fecha: string; cier
       body: body.toString(),
     });
     if (!resp.ok) return [];
-    const data = await resp.json() as { body?: Array<{fecha: string; cierre: number}> };
-    return (data?.body ?? []).filter(r => r.fecha && r.cierre > 0);
+    const data = await resp.json();
+    const rows: Array<{fecha: string; cierre: number}> =
+      Array.isArray(data)               ? data :
+      Array.isArray(data?.body)         ? data.body :
+      Array.isArray(data?.data)         ? data.data :
+      Array.isArray(data?.historicos)   ? data.historicos :
+      Array.isArray(data?.cotizaciones) ? data.cotizaciones :
+      [];
+    return rows.filter(r => r.fecha && r.cierre > 0);
   } catch {
     return [];
   }
@@ -128,7 +135,7 @@ serve(async (req) => {
     if (!symbols?.length) throw new Error("symbols requerido");
 
     const { crumb, cookie } = await getYahooCrumb();
-    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}&crumb=${encodeURIComponent(crumb)}&fields=regularMarketPrice,regularMarketChangePercent`;
+    const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}&crumb=${encodeURIComponent(crumb)}&fields=regularMarketPrice,regularMarketChangePercent,beta`;
 
     const resp = await fetch(url, {
       headers: { "User-Agent": UA, "Cookie": cookie },
@@ -140,6 +147,7 @@ serve(async (req) => {
       symbol:     q.symbol,
       last:       q.regularMarketPrice          ?? null,
       change_pct: q.regularMarketChangePercent  ?? null,
+      beta:       q.beta                        ?? null,
     }));
 
     return new Response(JSON.stringify(result), {

@@ -233,6 +233,11 @@
       <div class="kpi-val" id="pfk-ytd" style="font-size:13px">—</div>
       <div class="kpi-sub" id="pfk-ytd-sub">cargando...</div>
     </div>
+    <div class="kpi" id="pfk-beta-box" style="--accent:var(--orange)">
+      <div class="kpi-label">Beta cartera</div>
+      <div class="kpi-val" id="pfk-beta" style="font-size:13px">—</div>
+      <div class="kpi-sub" id="pfk-beta-sub">vs S&amp;P 500</div>
+    </div>
     <div class="kpi" style="--accent:var(--purple)">
       <div class="kpi-label">MEP actual</div>
       <div class="kpi-val" id="pfk-mep">—</div>
@@ -388,6 +393,7 @@ let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfMep = null, pfFilter = 
 let pfRefCloses = {}; // { ticker_ars: { wtd: number|null, ytd: number|null } }
 let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de referencia
 let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
+let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart1 = null, pfLineChart2 = null;
 let pfSort = { col: null, dir: 1 };
 let pfGanRealizada = 0;
@@ -416,6 +422,7 @@ const PF_COLS = [
   { id:'adrvar',     label:'Var ADR',       sortKey: p=>p.adrChangePct??-Infinity,def:true  },
   { id:'adrgan',     label:'Gan. ADR',      sortKey: p=>p.adrGan??-Infinity,      def:true  },
   { id:'adrpct',     label:'% ADR',         sortKey: p=>p.adrPct??-Infinity,      def:true  },
+  { id:'beta',       label:'Beta',          sortKey: p=>p.betaAdr??-Infinity,     def:true  },
   { id:'mep',        label:'MEP compra',    sortKey: p=>p.mep_compra,             def:false },
   { id:'inversion',  label:'Invertido USD', sortKey: p=>p.usdInv??-Infinity,      def:true  },
   { id:'actual',     label:'Actual USD',    sortKey: p=>p.usdAct??-Infinity,      def:true  },
@@ -499,13 +506,20 @@ window.pfLoadAll = async () => {
     pfAdrPrices = {};
     (prAdr||[]).forEach(r=>{ pfAdrPrices[r.symbol]=r; });
 
-    const missing = adrTickers.filter(t => !pfAdrPrices[t]);
-    if(missing.length) {
+    // Siempre buscar en Yahoo para obtener betas (mercado_usa no las tiene)
+    if(adrTickers.length) {
       try {
-        const yahooData = await pfFetchYahoo(missing);
-        Object.assign(pfAdrPrices, yahooData);
+        const yahooData = await pfFetchYahoo(adrTickers);
+        pfBetas = {};
+        Object.entries(yahooData).forEach(([sym, d]) => {
+          if(d.beta != null) pfBetas[sym] = d.beta;
+        });
+        // Usar Yahoo también para llenar precios que no están en mercado_usa
+        adrTickers.filter(t => !pfAdrPrices[t]).forEach(t => {
+          if(yahooData[t]) pfAdrPrices[t] = yahooData[t];
+        });
       } catch(e) {
-        console.warn('[portafolio] Yahoo fallback falló:', e.message);
+        console.warn('[portafolio] Yahoo falló:', e.message);
       }
     }
 
@@ -537,7 +551,8 @@ function pfCalc(pos) {
   const adrInv  = pos.precio_adr_compra ?? null;
   const adrGan  = (adrInv!=null && adrActual!=null) ? adrActual - adrInv : null;
   const adrPct  = (adrGan!=null && adrInv>0) ? adrGan/adrInv : null;
-  return {...pos, precioActual, changeLocal, adrActual, adrChangePct, usdInv, usdAct, gan, pct, adrInv, adrGan, adrPct};
+  const betaAdr = pos.ticker_adr ? (pfBetas[pos.ticker_adr] ?? null) : null;
+  return {...pos, precioActual, changeLocal, adrActual, adrChangePct, usdInv, usdAct, gan, pct, adrInv, adrGan, adrPct, betaAdr};
 }
 
 // ── Render principal ─────────────────────────────────────
@@ -583,6 +598,22 @@ function pfRender() {
   document.getElementById('pfk-pos').textContent      = pfPositions.length;
   document.getElementById('pfk-pos-sub').textContent  =
     [...new Set(pfPositions.map(p=>p.ticker_ars))].length+' tickers';
+
+  // Beta ponderada por valor de mercado
+  let betaNum = 0, betaDen = 0;
+  calced.forEach(p => {
+    if (p.betaAdr != null && p.usdAct != null && p.usdAct > 0) {
+      betaNum += p.betaAdr * p.usdAct;
+      betaDen += p.usdAct;
+    }
+  });
+  const pfBetaVal = betaDen > 0 ? betaNum / betaDen : null;
+  const betaEl    = document.getElementById('pfk-beta');
+  const betaSubEl = document.getElementById('pfk-beta-sub');
+  if (betaEl) betaEl.textContent = pfBetaVal != null ? pfBetaVal.toFixed(2) : '—';
+  if (betaSubEl) betaSubEl.textContent = pfBetaVal != null
+    ? (pfBetaVal > 1.2 ? 'alta volatilidad' : pfBetaVal < 0.8 ? 'baja volatilidad' : 'moderada')
+    : 'sin datos ADR';
 
   // Destacados del día
   const withChange = calced.filter(p => p.changeLocal != null);
@@ -772,6 +803,7 @@ function pfRenderPositions(calced) {
       case 'adrvar':    return `<td>${fmtVar(p.adrChangePct, true)}</td>`;
       case 'adrgan':    return `<td style="color:${p.adrGan!=null?(p.adrGan>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${p.adrGan!=null?((p.adrGan>=0?'+':'')+fmtAdr(p.adrGan)):'—'}</td>`;
       case 'adrpct':    return `<td style="color:${p.adrPct!=null?(p.adrPct>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${p.adrPct!=null?((p.adrPct>=0?'+':'')+(p.adrPct*100).toFixed(1)+'%'):'—'}</td>`;
+      case 'beta':      return `<td>${p.betaAdr!=null?`<span style="color:${p.betaAdr>1.2?'var(--orange)':p.betaAdr<0.8?'var(--cyan)':'var(--text2)'}">${p.betaAdr.toFixed(2)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`;
       case 'mep':       return `<td style="${border}color:var(--text3)">$${Math.round(p.mep_compra).toLocaleString('es-AR')}</td>`;
       case 'inversion': return `<td>${fmtUsd(p.usdInv)}</td>`;
       case 'actual':    return `<td>${fmtUsd(p.usdAct)}</td>`;
@@ -1130,6 +1162,17 @@ async function pfLoadHistory() {
 
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 
+  const setHistErr = (msg) => {
+    ['wtd','ytd'].forEach(pfx => {
+      const sub = document.getElementById(`pfk-${pfx}-sub`);
+      if (sub) sub.textContent = msg;
+    });
+    const c1 = document.getElementById('pfChartPortfolioStatus');
+    const c2 = document.getElementById('pfChartTickersStatus');
+    if (c1) c1.textContent = msg;
+    if (c2) c2.textContent = msg;
+  };
+
   try {
     const session = await window.sbAuth?.auth?.getSession();
     const token   = session?.data?.session?.access_token || SB_KEY;
@@ -1138,9 +1181,9 @@ async function pfLoadHistory() {
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SB_KEY },
       body: JSON.stringify({ mode: 'rava-series', symbols }),
     });
-    if (!res.ok) { console.warn('[pf-history] error HTTP', res.status, await res.text()); return; }
+    if (!res.ok) { console.warn('[pf-history] error HTTP', res.status, await res.text()); setHistErr('sin conexión'); return; }
     const data = await res.json();
-    if (data.error) { console.warn('[pf-history]', data.error); return; }
+    if (data.error) { console.warn('[pf-history]', data.error); setHistErr('API error'); return; }
     pfSeriesData = data;
 
     // Pre-ordenar cada serie
@@ -1166,7 +1209,7 @@ async function pfLoadHistory() {
     }
     pfMepRef = { ytd: mepAt(ytd), wtd: mepAt(wtd) };
     console.log('[pf-history] MEP ref → ytd:', pfMepRef.ytd, 'wtd:', pfMepRef.wtd);
-  } catch(e) { console.warn('[pf-history]', e.message); return; }
+  } catch(e) { console.warn('[pf-history]', e.message); setHistErr('error'); return; }
 
   pfRenderPeriodKPIs();
   pfRenderCharts();
