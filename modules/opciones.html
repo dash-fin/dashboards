@@ -42,7 +42,6 @@
 <!-- ── Panel 2: Análisis Gamma ───────────────────────────────── -->
 <div class="sub-panel" id="opanel-gex">
 
-  <!-- KPIs fila 1: contexto de mercado -->
   <div class="gamma-grid" style="grid-template-columns:repeat(4,1fr); margin-top:10px">
     <div class="g-card" style="--c:var(--amber)">
       <div class="g-lab">Spot GGAL</div>
@@ -62,7 +61,6 @@
     </div>
   </div>
 
-  <!-- KPIs fila 2: niveles clave -->
   <div class="gamma-grid" style="grid-template-columns:repeat(5,1fr); margin-top:8px">
     <div class="g-card" style="--c:var(--green)">
       <div class="g-lab">Call Wall</div>
@@ -86,60 +84,28 @@
     </div>
   </div>
 
-  <!-- Gráfico de precio GGAL estilo TradingView -->
+  <!-- Chart GGAL ARS -->
   <div class="card" style="margin-top:12px">
     <div class="card-head">
-      <div class="card-title">GGAL — Precio histórico con niveles gamma</div>
-      <div class="card-desc">Fuente: Rava Bursátil · Líneas de referencia según exposición gamma neta</div>
+      <div class="card-title">GGAL BCBA — precio histórico con niveles gamma (ARS)</div>
+      <div class="card-desc">Rava Bursátil · Líneas de referencia según exposición gamma neta</div>
     </div>
-    <div class="card-body">
-      <div id="oGgalPriceChart" style="height:300px; width:100%"></div>
-      <div id="oGgalPriceStatus" style="display:none; text-align:center; color:var(--text3); font-size:11px; padding:20px">Cargando histórico GGAL...</div>
-    </div>
-  </div>
-
-  <!-- GEX Profile horizontal -->
-  <div class="card" style="margin-top:10px">
-    <div class="card-head">
-      <div class="card-title">Net GEX Profile — GGAL BCBA</div>
-      <div class="card-desc">GEX Proxy = (Call OI − Put OI) × Strike · Verde = soporte gamma · Rojo = amplificación</div>
-    </div>
-    <div class="card-body">
-      <div class="chart-wrap" id="oGexWrap" style="height:420px"><canvas id="oChartGex"></canvas></div>
+    <div class="card-body" style="padding-bottom:0">
+      <div id="oChartArs" style="height:300px; width:100%"></div>
     </div>
   </div>
 
-  <!-- Equivalente ADR en USD (usando CCL) -->
+  <!-- Chart GGAL ADR USD -->
   <div class="card" style="margin-top:10px">
     <div class="card-head" style="display:flex; justify-content:space-between; align-items:baseline">
-      <div class="card-title">Niveles equivalentes — GGAL ADR (USD)</div>
-      <div class="card-desc" id="gadr-ccl-note" style="margin:0">CCL: —</div>
+      <div class="card-title">GGAL ADR — precio histórico con niveles gamma (USD)</div>
+      <div class="card-desc" id="gadr-ccl-note" style="margin:0; color:var(--cyan)">CCL: —</div>
     </div>
-    <div class="card-body">
-      <div class="gamma-grid" style="grid-template-columns:repeat(5,1fr)">
-        <div class="g-card" style="--c:var(--green)">
-          <div class="g-lab">Call Wall</div>
-          <div class="g-val" id="gadr-cwall" style="font-size:15px">—</div>
-        </div>
-        <div class="g-card" style="--c:#4af0c0">
-          <div class="g-lab">+GEX Magnet</div>
-          <div class="g-val" id="gadr-magpos" style="font-size:15px">—</div>
-        </div>
-        <div class="g-card" style="--c:var(--amber)">
-          <div class="g-lab">Gamma Flip</div>
-          <div class="g-val" id="gadr-flip" style="font-size:15px">—</div>
-        </div>
-        <div class="g-card" style="--c:#f06080">
-          <div class="g-lab">-GEX Magnet</div>
-          <div class="g-val" id="gadr-magneg" style="font-size:15px">—</div>
-        </div>
-        <div class="g-card" style="--c:var(--red)">
-          <div class="g-lab">Put Wall</div>
-          <div class="g-val" id="gadr-pwall" style="font-size:15px">—</div>
-        </div>
-      </div>
+    <div class="card-body" style="padding-bottom:0">
+      <div id="oChartAdr" style="height:300px; width:100%"></div>
     </div>
   </div>
+
 </div>
 
 <!-- ── Panel 3: Tabla ────────────────────────────────────────── -->
@@ -168,78 +134,100 @@
 <script>
 (function(){
 
-// ── Carga dinámica de Lightweight Charts ──────────────────────
-function loadLWC() {
+// ── Lightweight Charts (TradingView) carga dinámica ───────────
+function loadLWC(){
     return new Promise(resolve => {
         if(window.LightweightCharts){ resolve(); return; }
         const s = document.createElement('script');
         s.src = 'https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
-        s.onload = resolve;
-        s.onerror = resolve; // falla silenciosa
+        s.onload = resolve; s.onerror = resolve;
         document.head.appendChild(s);
     });
 }
 
-// ── Estado del módulo ─────────────────────────────────────────
-let oAllRows=[], oFiltered=[], oCharts={}, oSortDir=1, oSortKey='base';
-let oSpotGGAL=null, oCCL=null, oGgalHistory=[], oLevels={};
+// ── Estado ────────────────────────────────────────────────────
+let oAllRows=[], oFiltered=[], oBarCharts={}, oLWCharts={};
+let oSortDir=1, oSortKey='base';
+let oSpotGGAL=null, oCCL=null;
+let oGgalHistory=[], oAdrHistory=[];
+let oLevels={ callWall:null, putWall:null, flip:null, magPos:null, magNeg:null };
 
-const SB_URL = 'https://endymbpdayeidromxayb.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+const EDGE = 'https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices';
+const SBKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 
 // ── Carga inicial ─────────────────────────────────────────────
 async function oLoadData(){
   try {
-    const [rows, mercRows, ravaResp] = await Promise.all([
+    const [rows, mercRows, rava] = await Promise.all([
       sb('opciones_iamc', 'select=*'),
       sb('mercado', 'select=symbol,last,settlement&symbol=in.(GGAL,AL30,AL30C)&settlement=eq.24hs').catch(()=>[]),
-      fetch(`${SB_URL}/functions/v1/yahoo-prices`, {
+      fetch(EDGE, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SB_KEY, 'apikey':SB_KEY },
-        body: JSON.stringify({ mode:'rava-series', symbols:['GGAL'] })
-      }).then(r=>r.ok?r.json():{}).catch(()=>{}),
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SBKEY, 'apikey':SBKEY },
+        body: JSON.stringify({ mode:'rava-series', symbols:['GGAL','AL30','AL30C'] })
+      }).then(r=>r.ok?r.json():{}).catch(()=>({})),
       loadLWC()
     ]);
 
     if(!rows?.length) return;
 
-    // Strike como entero redondeado para evitar decimales flotantes
+    // parseFloat preserva decimales (ej: 5548.7); filtramos bases inválidas
     oAllRows = rows.map(r => ({
-      tipo: r.kind.toLowerCase(),
+      tipo:        r.kind.toLowerCase(),
       vencimiento: r.expiration,
-      base: Math.round(Number(r.strike)),
-      cubierto:    Math.round(Number(r.cubierto    || 0)),
-      descubierto: Math.round(Number(r.descubierto || 0)),
-      total:       Math.round(Number(r.open_interest || 0)),
-      volume:      Math.round(Number(r.volume      || 0)),
-      updated_at: r.updated_at
-    }));
+      base:        parseFloat(r.strike),
+      cubierto:    Number(r.cubierto    || 0),
+      descubierto: Number(r.descubierto || 0),
+      total:       Number(r.open_interest || 0),
+      volume:      Number(r.volume      || 0),
+      updated_at:  r.updated_at
+    })).filter(r => r.base > 0 && isFinite(r.base));
 
     // Spot GGAL y CCL = AL30_ARS / AL30C_USD
-    const ggalRow  = (mercRows||[]).find(r => r.symbol === 'GGAL');
-    const al30Row  = (mercRows||[]).find(r => r.symbol === 'AL30');
-    const al30cRow = (mercRows||[]).find(r => r.symbol === 'AL30C');
-    if(ggalRow?.last)  oSpotGGAL = Number(ggalRow.last);
-    if(al30Row?.last && al30cRow?.last && Number(al30cRow.last) > 0)
-      oCCL = Number(al30Row.last) / Number(al30cRow.last);
+    const m = (mercRows||[]);
+    const ggalR  = m.find(r=>r.symbol==='GGAL');
+    const al30R  = m.find(r=>r.symbol==='AL30');
+    const al30cR = m.find(r=>r.symbol==='AL30C');
+    if(ggalR?.last)  oSpotGGAL = Number(ggalR.last);
+    if(al30R?.last && al30cR?.last && Number(al30cR.last)>0)
+      oCCL = Number(al30R.last) / Number(al30cR.last);
 
-    // Histórico GGAL para price chart
-    oGgalHistory = (ravaResp?.GGAL || [])
-      .filter(r => r.fecha && r.cierre > 0)
-      .sort((a,b) => a.fecha.localeCompare(b.fecha));
+    // Histórico GGAL y CCL por fecha
+    const ggalH  = ((rava||{}).GGAL  ||[]).filter(r=>r.fecha&&r.cierre>0).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const al30H  = ((rava||{}).AL30  ||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const al30cH = ((rava||{}).AL30C ||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+    const al30ByDate  = Object.fromEntries(al30H.map(r=>[r.fecha, r.cierre]));
+    const al30cByDate = Object.fromEntries(al30cH.map(r=>[r.fecha, r.cierre]));
+
+    oGgalHistory = ggalH;
+
+    // ADR histórico: GGAL_ARS / CCL_fecha (o CCL actual si falta ese día)
+    oAdrHistory = ggalH.map(r => {
+      const a = al30ByDate[r.fecha], c = al30cByDate[r.fecha];
+      const cclT = (a && c && c>0) ? a/c : oCCL;
+      if(!cclT||cclT<=0) return null;
+      return {
+        fecha:    r.fecha,
+        apertura: (r.apertura||r.cierre) / cclT,
+        maximo:   (r.maximo  ||r.cierre) / cclT,
+        minimo:   (r.minimo  ||r.cierre) / cclT,
+        cierre:   r.cierre / cclT,
+      };
+    }).filter(Boolean);
 
     // Selector de vencimientos
     const sel = document.getElementById('oSelectVto');
-    const vtos = [...new Set(oAllRows.map(r => r.vencimiento))].sort();
-    if(sel.options.length === 0)
-      vtos.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+    const vtos = [...new Set(oAllRows.map(r=>r.vencimiento))].sort();
+    if(!sel.options.length)
+      vtos.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
 
     oApplyFilters();
-    document.getElementById('oDateMeta').textContent = 'Act. ' + new Date(rows[0].updated_at).toLocaleTimeString();
+    document.getElementById('oDateMeta').textContent = 'Act. '+new Date(rows[0].updated_at).toLocaleTimeString();
   } catch(e){ console.error('[opciones]', e); }
 }
 
-// ── Filtros y render ──────────────────────────────────────────
+// ── Filtros ───────────────────────────────────────────────────
 window.oApplyFilters = () => {
   const vtoF = document.getElementById('oSelectVto').value;
   const q    = document.getElementById('oSearchQ').value.toLowerCase();
@@ -247,26 +235,33 @@ window.oApplyFilters = () => {
   let filtered = oAllRows.filter(r => r.vencimiento === vtoF);
   if(q) filtered = filtered.filter(r => String(r.base).includes(q));
 
-  // Orden numérico explícito (siempre ascendente por base)
-  filtered = filtered.slice().sort((a,b) => a.base - b.base);
+  // Orden numérico garantizado (sort devuelve negativo si a<b)
+  filtered = filtered.slice().sort((a,b) => {
+    if(!isFinite(a.base)) return 1;
+    if(!isFinite(b.base)) return -1;
+    return a.base - b.base;
+  });
   oFiltered = filtered;
 
   renderStackedChart(filtered, 'call', 'oChartCalls', '#00e5a8');
   renderStackedChart(filtered, 'put',  'oChartPuts',  '#ff3f5e');
-  renderGexChart(filtered);
+  computeAndRenderGamma(filtered);
   renderTable(filtered);
 };
 
-// ── Distribución OI (stacked) ─────────────────────────────────
+// ── Distribución OI ───────────────────────────────────────────
 function renderStackedChart(data, tipo, canvasId, color) {
-  // Filtrar y re-ordenar por si acaso
-  const items = data.filter(r => r.tipo === tipo).sort((a,b) => a.base - b.base);
+  // Filtrar y ordenar por base numérico (doble seguridad)
+  const items = data
+    .filter(r => r.tipo===tipo)
+    .sort((a,b) => a.base - b.base);
   if(!items.length) return;
 
-  const labels = items.map(r => '$' + r.base); // enteros, sin formato locale
+  // Labels sin formato locale: '$5548.7', '$11000', etc.
+  const labels = items.map(r => '$'+r.base);
 
-  if(oCharts[canvasId]) oCharts[canvasId].destroy();
-  oCharts[canvasId] = new Chart(document.getElementById(canvasId), {
+  if(oBarCharts[canvasId]) oBarCharts[canvasId].destroy();
+  oBarCharts[canvasId] = new Chart(document.getElementById(canvasId), {
     type:'bar',
     data:{
       labels,
@@ -286,173 +281,82 @@ function renderStackedChart(data, tipo, canvasId, color) {
   });
 }
 
-// ── GEX horizontal ────────────────────────────────────────────
-function renderGexChart(data) {
-  // Descendente: strikes altos arriba (como una cadena de opciones real)
-  const bases = [...new Set(data.map(r => r.base))].sort((a,b) => b-a);
-
+// ── Cómputo GEX + KPIs + price charts ────────────────────────
+function computeAndRenderGamma(data) {
+  const bases   = [...new Set(data.map(r=>r.base))].sort((a,b)=>a-b);
   const gexData = bases.map(b => {
-    const c = data.find(r => r.base===b && r.tipo==='call')?.total || 0;
-    const p = data.find(r => r.base===b && r.tipo==='put')?.total  || 0;
-    return (c - p) * b;
+    const c = data.find(r=>r.base===b && r.tipo==='call')?.total || 0;
+    const p = data.find(r=>r.base===b && r.tipo==='put') ?.total || 0;
+    return (c-p)*b;
   });
 
-  // Plugin para línea horizontal de spot
-  const spotPlugin = {
-    id:'gexSpot',
-    afterDraw(chart) {
-      if(!oSpotGGAL) return;
-      const {ctx, chartArea, scales} = chart;
-      const labels = chart.data.labels;
-      let closestIdx=0, minDist=Infinity;
-      labels.forEach((lbl,i) => {
-        const dist = Math.abs(Number(lbl.replace('$','')) - oSpotGGAL);
-        if(dist < minDist){ minDist=dist; closestIdx=i; }
-      });
-      const y = scales.y.getPixelForValue(closestIdx);
-      ctx.save();
-      ctx.setLineDash([5,4]);
-      ctx.strokeStyle='#ffd700'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(chartArea.left,y); ctx.lineTo(chartArea.right,y); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle='#ffd700'; ctx.font='bold 10px "IBM Plex Mono",monospace'; ctx.textAlign='left';
-      ctx.fillText('▶ SPOT $'+Math.round(oSpotGGAL).toLocaleString('es-AR'), chartArea.left+6, y-5);
-      ctx.restore();
-    }
-  };
-
-  const wrap = document.getElementById('oGexWrap');
-  if(wrap) wrap.style.height = Math.max(300, bases.length*22)+'px';
-
-  if(oCharts.gex) oCharts.gex.destroy();
-  oCharts.gex = new Chart(document.getElementById('oChartGex'), {
-    type:'bar',
-    plugins:[spotPlugin],
-    data:{
-      labels: bases.map(b => '$'+b),
-      datasets:[{
-        data: gexData,
-        backgroundColor: gexData.map(v => v>=0 ? '#00e5a855' : '#ff3f5e55'),
-        borderColor:     gexData.map(v => v>=0 ? '#00e5a8'   : '#ff3f5e'),
-        borderWidth:1, borderRadius:3, maxBarThickness:22
-      }]
-    },
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      layout:{ padding:{top:16} },
-      scales:{
-        y:{ grid:{display:false}, ticks:{font:{size:9}, color:'#8899aa'} },
-        x:{ grid:{color:'#1e2530'}, ticks:{font:{size:9}, callback:v=>fmtM(v)} }
-      },
-      plugins:{ legend:{display:false} }
-    }
-  });
-
-  renderGammaLevels(data, gexData, bases);
-}
-
-// ── Niveles gamma + price chart ───────────────────────────────
-function renderGammaLevels(data, gexData, bases) {
-  const calls = data.filter(r => r.tipo==='call');
-  const puts  = data.filter(r => r.tipo==='put');
-
-  const cw = calls.length ? calls.reduce((a,b) => a.total>b.total?a:b) : null;
-  const pw = puts.length  ? puts.reduce((a,b)  => a.total>b.total?a:b) : null;
+  const calls = data.filter(r=>r.tipo==='call');
+  const puts  = data.filter(r=>r.tipo==='put');
+  const cw = calls.length ? calls.reduce((a,b)=>a.total>b.total?a:b) : null;
+  const pw = puts.length  ? puts.reduce((a,b) =>a.total>b.total?a:b) : null;
 
   let flipStrike=null, minAbsG=Infinity;
-  bases.forEach((b,i) => { if(Math.abs(gexData[i])<minAbsG){ minAbsG=Math.abs(gexData[i]); flipStrike=b; } });
+  bases.forEach((b,i)=>{ if(Math.abs(gexData[i])<minAbsG){ minAbsG=Math.abs(gexData[i]); flipStrike=b; } });
 
   let maxPos=-Infinity, maxNeg=Infinity, magPosIdx=-1, magNegIdx=-1;
-  gexData.forEach((g,i) => {
-    if(g>maxPos){ maxPos=g; magPosIdx=i; }
-    if(g<maxNeg){ maxNeg=g; magNegIdx=i; }
-  });
+  gexData.forEach((g,i)=>{ if(g>maxPos){maxPos=g;magPosIdx=i;} if(g<maxNeg){maxNeg=g;magNegIdx=i;} });
   const magPosStrike = magPosIdx>=0 ? bases[magPosIdx] : null;
   const magNegStrike = magNegIdx>=0 ? bases[magNegIdx] : null;
   const netGex = gexData.reduce((a,b)=>a+b,0);
   const isPos  = netGex>=0;
 
-  // Guardar niveles para price chart
+  // Guardar niveles para price charts
   oLevels = { callWall:cw?.base, putWall:pw?.base, flip:flipStrike, magPos:magPosStrike, magNeg:magNegStrike };
 
-  const fmt = v => v!=null ? '$'+Number(v).toLocaleString('es-AR') : '—';
+  // Formateo seguro sin locale para KPIs numéricos de strike
+  const fmtStrike = v => v!=null ? '$'+v : '—';
 
   if(oSpotGGAL) document.getElementById('gk-spot').textContent   = '$'+Math.round(oSpotGGAL).toLocaleString('es-AR');
   if(oCCL)      document.getElementById('gk-ccl').textContent    = '$'+Math.round(oCCL).toLocaleString('es-AR');
   document.getElementById('gk-netgex').textContent  = fmtM(netGex);
   document.getElementById('gk-regime').textContent  = isPos ? 'POSITIVO' : 'NEGATIVO';
-  document.getElementById('gk-cwall').textContent   = cw ? fmt(cw.base) : '—';
-  document.getElementById('gk-pwall').textContent   = pw ? fmt(pw.base) : '—';
-  document.getElementById('gk-flip').textContent    = flipStrike!=null ? fmt(flipStrike) : '—';
-  document.getElementById('gk-magpos').textContent  = magPosStrike!=null ? fmt(magPosStrike) : '—';
-  document.getElementById('gk-magneg').textContent  = magNegStrike!=null ? fmt(magNegStrike) : '—';
-
+  document.getElementById('gk-cwall').textContent   = cw ? fmtStrike(cw.base) : '—';
+  document.getElementById('gk-pwall').textContent   = pw ? fmtStrike(pw.base) : '—';
+  document.getElementById('gk-flip').textContent    = flipStrike!=null ? fmtStrike(flipStrike) : '—';
+  document.getElementById('gk-magpos').textContent  = magPosStrike!=null ? fmtStrike(magPosStrike) : '—';
+  document.getElementById('gk-magneg').textContent  = magNegStrike!=null ? fmtStrike(magNegStrike) : '—';
   document.getElementById('gk-regime-card').style.setProperty('--c', isPos?'var(--green)':'var(--red)');
   document.getElementById('gk-netgex-card').style.setProperty('--c', isPos?'var(--green)':'var(--red)');
+  if(oCCL) document.getElementById('gadr-ccl-note').textContent = 'CCL: $'+Math.round(oCCL).toLocaleString('es-AR');
 
-  // ADR en USD vía CCL
-  if(oCCL && oCCL>0){
-    const toUSD = v => v!=null ? 'u$s '+(v/oCCL).toFixed(2) : '—';
-    document.getElementById('gadr-cwall').textContent  = cw ? toUSD(cw.base) : '—';
-    document.getElementById('gadr-pwall').textContent  = pw ? toUSD(pw.base) : '—';
-    document.getElementById('gadr-flip').textContent   = flipStrike!=null ? toUSD(flipStrike) : '—';
-    document.getElementById('gadr-magpos').textContent = magPosStrike!=null ? toUSD(magPosStrike) : '—';
-    document.getElementById('gadr-magneg').textContent = magNegStrike!=null ? toUSD(magNegStrike) : '—';
-    document.getElementById('gadr-ccl-note').textContent = 'CCL: $'+Math.round(oCCL).toLocaleString('es-AR');
-  }
-
-  renderPriceChart();
+  renderPriceCharts();
 }
 
-// ── Price chart GGAL (Lightweight Charts) ─────────────────────
-function renderPriceChart(){
-  const container = document.getElementById('oGgalPriceChart');
-  const status    = document.getElementById('oGgalPriceStatus');
-  if(!container) return;
+// ── Price charts (Lightweight Charts) ────────────────────────
+function buildLWChart(containerId, history, spotPrice, levelDefs) {
+  const el = document.getElementById(containerId);
+  if(!el || !window.LightweightCharts || !history?.length) return null;
 
-  if(!window.LightweightCharts || !oGgalHistory.length){
-    container.style.display='none';
-    if(status){ status.style.display='block'; status.textContent = !window.LightweightCharts ? 'Librería no disponible' : 'Sin datos históricos de GGAL'; }
-    return;
-  }
-  container.style.display='block';
-  if(status) status.style.display='none';
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#131923';
 
-  // Destruir instancia anterior
-  if(oCharts.price){ try{ oCharts.price.remove(); }catch(_){} oCharts.price=null; }
-
-  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#131923';
-
-  const chart = LightweightCharts.createChart(container, {
-    width: container.clientWidth,
+  const chart = LightweightCharts.createChart(el, {
+    width:  el.clientWidth,
     height: 300,
     layout:{
-      background:{ type:'solid', color: bgColor || '#131923' },
+      background:{ type:'solid', color: bg },
       textColor:'#8899aa',
-      fontFamily:"'IBM Plex Mono', monospace",
       fontSize: 11,
     },
-    grid:{
-      vertLines:{ color:'#1e2530' },
-      horzLines:{ color:'#1e2530' },
-    },
+    grid:{ vertLines:{color:'#1e2530'}, horzLines:{color:'#1e2530'} },
     crosshair:{ mode: LightweightCharts.CrosshairMode.Normal },
-    timeScale:{
-      borderColor:'#2a3440',
-      timeVisible: false,
-    },
+    timeScale:{ borderColor:'#2a3440' },
     rightPriceScale:{ borderColor:'#2a3440' },
-    handleScroll: true,
-    handleScale: true,
   });
 
-  const cSeries = chart.addCandlestickSeries({
+  const series = chart.addCandlestickSeries({
     upColor:'#00e5a8', downColor:'#ff3f5e',
-    borderVisible:false,
+    borderVisible: false,
     wickUpColor:'#00e5a8', wickDownColor:'#ff3f5e',
+    priceLineVisible: false,  // ocultar línea automática de último precio
+    lastValueVisible: false,
   });
 
-  cSeries.setData(oGgalHistory.map(r => ({
+  series.setData(history.map(r=>({
     time:  r.fecha,
     open:  r.apertura || r.cierre,
     high:  r.maximo   || r.cierre,
@@ -460,34 +364,55 @@ function renderPriceChart(){
     close: r.cierre,
   })));
 
-  // Líneas de niveles gamma
-  const levelDefs = [
-    { key:'callWall', color:'#00e5a8', title:'Call Wall', style:2 },
-    { key:'putWall',  color:'#ff3f5e', title:'Put Wall',  style:2 },
-    { key:'flip',     color:'#ffd700', title:'Flip',      style:1 },
-    { key:'magPos',   color:'#4af0c0', title:'+Magnet',   style:2 },
-    { key:'magNeg',   color:'#f06080', title:'-Magnet',   style:2 },
-  ];
-  levelDefs.forEach(({ key, color, title, style }) => {
-    const price = oLevels[key];
-    if(!price) return;
-    cSeries.createPriceLine({ price, color, lineWidth:1, lineStyle:style, axisLabelVisible:true, title });
+  // Spot explícito (mismo valor que los KPIs)
+  if(spotPrice && isFinite(spotPrice)) {
+    series.createPriceLine({ price:spotPrice, color:'#ffd700', lineWidth:2, lineStyle:2, axisLabelVisible:true, title:'SPOT' });
+  }
+
+  // Niveles gamma
+  levelDefs.forEach(({price,color,title})=>{
+    if(!price||!isFinite(price)) return;
+    series.createPriceLine({ price, color, lineWidth:1, lineStyle:2, axisLabelVisible:true, title });
   });
 
-  oCharts.price = chart;
+  chart.timeScale().fitContent();
 
-  // Responsive resize
-  if(!container._lwcObserver){
-    container._lwcObserver = new ResizeObserver(() => {
-      if(oCharts.price) oCharts.price.applyOptions({ width: container.clientWidth });
-    });
-    container._lwcObserver.observe(container);
+  // Resize observer
+  if(!el._lwObs){
+    el._lwObs = new ResizeObserver(()=>{ if(el._lwChart) el._lwChart.applyOptions({width:el.clientWidth}); });
+    el._lwObs.observe(el);
   }
+  el._lwChart = chart;
+  return chart;
+}
+
+function renderPriceCharts() {
+  // Destruir instancias previas
+  ['oChartArs','oChartAdr'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el?._lwChart){ try{el._lwChart.remove();}catch(_){} el._lwChart=null; }
+  });
+
+  const ccl = oCCL || 1;
+  const spot = oSpotGGAL;
+  const spotAdr = spot ? spot/ccl : null;
+
+  const levelDefsArs = [
+    {price:oLevels.callWall, color:'#00e5a8', title:'Call Wall'},
+    {price:oLevels.putWall,  color:'#ff3f5e', title:'Put Wall'},
+    {price:oLevels.flip,     color:'#ffd700', title:'Flip'},
+    {price:oLevels.magPos,   color:'#4af0c0', title:'+Magnet'},
+    {price:oLevels.magNeg,   color:'#f06080', title:'-Magnet'},
+  ];
+  const levelDefsAdr = levelDefsArs.map(l=>({...l, price: l.price ? l.price/ccl : null}));
+
+  buildLWChart('oChartArs', oGgalHistory, spot,    levelDefsArs);
+  buildLWChart('oChartAdr', oAdrHistory,  spotAdr, levelDefsAdr);
 }
 
 // ── Tabla ─────────────────────────────────────────────────────
 function renderTable(rows){
-  const sorted = [...rows].sort((a,b) => {
+  const sorted = [...rows].sort((a,b)=>{
     const va=a[oSortKey], vb=b[oSortKey];
     return (va<vb?-1:va>vb?1:0)*oSortDir;
   });
@@ -503,20 +428,22 @@ function renderTable(rows){
   document.getElementById('oRowCount').textContent = rows.length+' filas';
 }
 
-window.oSort = (field) => {
+window.oSort = (field)=>{
   if(oSortKey===field) oSortDir*=-1; else { oSortKey=field; oSortDir=1; }
   renderTable(oFiltered);
 };
 
-window.oSetTab = (n, b) => {
+window.oSetTab = (n,b)=>{
   document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('opanel-'+n).classList.add('active');
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   b.classList.add('active');
-  // Re-ajustar precio chart si se activa el tab gamma
-  if(n==='gex' && oCharts.price){
-    const c = document.getElementById('oGgalPriceChart');
-    if(c) oCharts.price.applyOptions({ width: c.clientWidth });
+  // Re-fit chart en tab gamma cuando el contenedor se vuelve visible
+  if(n==='gex'){
+    ['oChartArs','oChartAdr'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el?._lwChart) el._lwChart.applyOptions({width:el.clientWidth});
+    });
   }
 };
 
