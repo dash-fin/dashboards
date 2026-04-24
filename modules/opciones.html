@@ -171,11 +171,15 @@ async function oLoadData(){
 
     if(!rows?.length) return;
 
-    // parseFloat preserva decimales (ej: 5548.7); filtramos bases inválidas
+    // Corrección IAMC: el parser de Claude a veces omite la coma decimal del PDF argentino.
+    // Ejemplo: "6.348,7" → "63487" (incorrecto) o "4.574,0" → "45740" (incorrecto).
+    // Strikes con 5+ dígitos son 10x el valor real → dividir por 10.
+    const fixStrike = v => { const n = parseFloat(v); return (n >= 10000) ? n / 10 : n; };
+
     oAllRows = rows.map(r => ({
       tipo:        r.kind.toLowerCase(),
       vencimiento: r.expiration,
-      base:        parseFloat(r.strike),
+      base:        fixStrike(r.strike),
       cubierto:    Number(r.cubierto    || 0),
       descubierto: Number(r.descubierto || 0),
       total:       Number(r.open_interest || 0),
