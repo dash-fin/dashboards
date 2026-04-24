@@ -46,11 +46,8 @@ async function getYahooCrumb(): Promise<{ crumb: string; cookie: string }> {
 // La API ignora el rango de fechas, se filtra acá.
 const RAVA_TOKEN = "fedd65202420d32e4c00e6d4fcd525e3"; // api_public_key de Rava
 
-// Tickers que Rava identifica con especie compuesta (CT = contado 24hs)
-const RAVA_ALIAS: Record<string, string> = {
-  "AL30D": "AL30D-0002-C-CT-USD", // AL30 en dólares → para calcular MEP histórico
-  "GD30D": "GD30D-0002-C-CT-USD",
-};
+// Alias para tickers cuyo especie en Rava difiere del ticker usado en el dashboard
+const RAVA_ALIAS: Record<string, string> = {};
 
 async function fetchRavaHistory(sym: string): Promise<Array<{fecha: string; cierre: number}>> {
   const especie = RAVA_ALIAS[sym] ?? sym;
