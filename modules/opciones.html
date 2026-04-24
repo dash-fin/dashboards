@@ -174,7 +174,10 @@ async function oLoadData(){
     // Corrección IAMC: el parser de Claude a veces omite la coma decimal del PDF argentino.
     // Ejemplo: "6.348,7" → "63487" (incorrecto) o "4.574,0" → "45740" (incorrecto).
     // Strikes con 5+ dígitos son 10x el valor real → dividir por 10.
-    const fixStrike = v => { const n = parseFloat(v); return (n >= 10000) ? n / 10 : n; };
+    // Corrección IAMC: "4.348,7" en PDF argentino → Claude parsea como 43487 (10x).
+    // Los strikes 10000-11999 son correctos (range real ~11000 máximo).
+    // Desde 20000+ tienen la coma decimal omitida → dividir por 10.
+    const fixStrike = v => { const n = parseFloat(v); return (n >= 20000) ? n / 10 : n; };
 
     oAllRows = rows.map(r => ({
       tipo:        r.kind.toLowerCase(),
