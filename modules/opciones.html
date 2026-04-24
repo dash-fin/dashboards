@@ -4,132 +4,145 @@
     <button class="stab" id="ostab-gex" onclick="oSetTab('gex',this)">Análisis Gamma</button>
     <button class="stab" id="ostab-tabla" onclick="oSetTab('tabla',this)">Tabla Detalle</button>
   </div>
-
   <div style="display:flex; gap:12px; align-items:center">
-     <div class="filter-group">
-        <label>Vencimiento:</label>
-        <select id="oSelectVto" onchange="oApplyFilters()"></select>
-     </div>
-     <div class="sub-tabs-meta" id="oDateMeta">—</div>
+    <div class="filter-group">
+      <label>Vencimiento:</label>
+      <select id="oSelectVto" onchange="oApplyFilters()"></select>
+    </div>
+    <div class="sub-tabs-meta" id="oDateMeta">—</div>
   </div>
 </div>
 
+<!-- ── Panel 1: Distribución OI ───────────────────────────────── -->
 <div class="sub-panel active" id="opanel-iamc">
-  <div class="charts-grid" style="grid-template-columns: 1fr; gap:15px; margin-top:10px;">
-
+  <div class="charts-grid" style="grid-template-columns:1fr; gap:15px; margin-top:10px">
     <div class="card">
       <div class="card-head">
-          <div class="card-title">CALLS: Interés Abierto (Cubierto vs Descubierto)</div>
-          <div class="legend-row">
-              <div class="legend-item"><div class="legend-dot" style="background:#00e5a8"></div>Descubierto</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#00e5a866"></div>Cubierto</div>
-          </div>
+        <div class="card-title">CALLS: Interés Abierto (Cubierto vs Descubierto)</div>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#00e5a8"></div>Descubierto</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#00e5a866"></div>Cubierto</div>
+        </div>
       </div>
       <div class="card-body"><div class="chart-wrap" style="height:250px"><canvas id="oChartCalls"></canvas></div></div>
     </div>
-
     <div class="card">
       <div class="card-head">
-          <div class="card-title">PUTS: Interés Abierto (Cubierto vs Descubierto)</div>
-          <div class="legend-row">
-              <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e"></div>Descubierto</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e66"></div>Cubierto</div>
-          </div>
+        <div class="card-title">PUTS: Interés Abierto (Cubierto vs Descubierto)</div>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e"></div>Descubierto</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e66"></div>Cubierto</div>
+        </div>
       </div>
       <div class="card-body"><div class="chart-wrap" style="height:250px"><canvas id="oChartPuts"></canvas></div></div>
     </div>
   </div>
 </div>
 
+<!-- ── Panel 2: Análisis Gamma ───────────────────────────────── -->
 <div class="sub-panel" id="opanel-gex">
-  <!-- Row 1: Market context KPIs -->
-  <div class="gamma-grid" style="grid-template-columns: repeat(4, 1fr); margin-top: 10px">
+
+  <!-- KPIs fila 1: contexto de mercado -->
+  <div class="gamma-grid" style="grid-template-columns:repeat(4,1fr); margin-top:10px">
     <div class="g-card" style="--c:var(--amber)">
-        <div class="g-lab">Spot GGAL</div>
-        <div class="g-val" id="gk-spot">—</div>
+      <div class="g-lab">Spot GGAL</div>
+      <div class="g-val" id="gk-spot">—</div>
     </div>
     <div class="g-card" style="--c:var(--cyan)">
-        <div class="g-lab">MEP Estimado</div>
-        <div class="g-val" id="gk-mep">—</div>
+      <div class="g-lab">CCL (AL30/AL30C)</div>
+      <div class="g-val" id="gk-ccl">—</div>
     </div>
     <div class="g-card" style="--c:var(--text3)" id="gk-netgex-card">
-        <div class="g-lab">Net GEX Total</div>
-        <div class="g-val" id="gk-netgex">—</div>
+      <div class="g-lab">Net GEX Total</div>
+      <div class="g-val" id="gk-netgex">—</div>
     </div>
     <div class="g-card" style="--c:var(--text3)" id="gk-regime-card">
-        <div class="g-lab">Régimen Gamma</div>
-        <div class="g-val" id="gk-regime">—</div>
+      <div class="g-lab">Régimen Gamma</div>
+      <div class="g-val" id="gk-regime">—</div>
     </div>
   </div>
 
-  <!-- Row 2: Key levels -->
-  <div class="gamma-grid" style="grid-template-columns: repeat(5, 1fr); margin-top: 8px">
+  <!-- KPIs fila 2: niveles clave -->
+  <div class="gamma-grid" style="grid-template-columns:repeat(5,1fr); margin-top:8px">
     <div class="g-card" style="--c:var(--green)">
-        <div class="g-lab">Call Wall</div>
-        <div class="g-val" id="gk-cwall">—</div>
+      <div class="g-lab">Call Wall</div>
+      <div class="g-val" id="gk-cwall">—</div>
     </div>
     <div class="g-card" style="--c:#4af0c0">
-        <div class="g-lab">+GEX Magnet</div>
-        <div class="g-val" id="gk-magpos">—</div>
+      <div class="g-lab">+GEX Magnet</div>
+      <div class="g-val" id="gk-magpos">—</div>
     </div>
     <div class="g-card" style="--c:var(--amber)">
-        <div class="g-lab">Gamma Flip</div>
-        <div class="g-val" id="gk-flip">—</div>
+      <div class="g-lab">Gamma Flip</div>
+      <div class="g-val" id="gk-flip">—</div>
     </div>
     <div class="g-card" style="--c:#f06080">
-        <div class="g-lab">-GEX Magnet</div>
-        <div class="g-val" id="gk-magneg">—</div>
+      <div class="g-lab">-GEX Magnet</div>
+      <div class="g-val" id="gk-magneg">—</div>
     </div>
     <div class="g-card" style="--c:var(--red)">
-        <div class="g-lab">Put Wall</div>
-        <div class="g-val" id="gk-pwall">—</div>
+      <div class="g-lab">Put Wall</div>
+      <div class="g-val" id="gk-pwall">—</div>
     </div>
   </div>
 
-  <!-- GEX horizontal chart -->
+  <!-- Gráfico de precio GGAL estilo TradingView -->
   <div class="card" style="margin-top:12px">
     <div class="card-head">
-        <div class="card-title">Net GEX Profile — GGAL BCBA</div>
-        <div class="card-desc">GEX Proxy = (Call OI − Put OI) × Strike · Verde = gamma positiva (soporte) · Rojo = gamma negativa (amplificación)</div>
+      <div class="card-title">GGAL — Precio histórico con niveles gamma</div>
+      <div class="card-desc">Fuente: Rava Bursátil · Líneas de referencia según exposición gamma neta</div>
+    </div>
+    <div class="card-body">
+      <div id="oGgalPriceChart" style="height:300px; width:100%"></div>
+      <div id="oGgalPriceStatus" style="display:none; text-align:center; color:var(--text3); font-size:11px; padding:20px">Cargando histórico GGAL...</div>
+    </div>
+  </div>
+
+  <!-- GEX Profile horizontal -->
+  <div class="card" style="margin-top:10px">
+    <div class="card-head">
+      <div class="card-title">Net GEX Profile — GGAL BCBA</div>
+      <div class="card-desc">GEX Proxy = (Call OI − Put OI) × Strike · Verde = soporte gamma · Rojo = amplificación</div>
     </div>
     <div class="card-body">
       <div class="chart-wrap" id="oGexWrap" style="height:420px"><canvas id="oChartGex"></canvas></div>
     </div>
   </div>
 
-  <!-- ADR USD equivalent levels -->
+  <!-- Equivalente ADR en USD (usando CCL) -->
   <div class="card" style="margin-top:10px">
     <div class="card-head" style="display:flex; justify-content:space-between; align-items:baseline">
-        <div class="card-title">Niveles equivalentes — GGAL ADR (USD)</div>
-        <div class="card-desc" id="gadr-mep-note" style="margin:0">MEP: —</div>
+      <div class="card-title">Niveles equivalentes — GGAL ADR (USD)</div>
+      <div class="card-desc" id="gadr-ccl-note" style="margin:0">CCL: —</div>
     </div>
     <div class="card-body">
-      <div class="gamma-grid" style="grid-template-columns: repeat(5, 1fr)">
+      <div class="gamma-grid" style="grid-template-columns:repeat(5,1fr)">
         <div class="g-card" style="--c:var(--green)">
-            <div class="g-lab">Call Wall</div>
-            <div class="g-val" id="gadr-cwall" style="font-size:16px">—</div>
+          <div class="g-lab">Call Wall</div>
+          <div class="g-val" id="gadr-cwall" style="font-size:15px">—</div>
         </div>
         <div class="g-card" style="--c:#4af0c0">
-            <div class="g-lab">+GEX Magnet</div>
-            <div class="g-val" id="gadr-magpos" style="font-size:16px">—</div>
+          <div class="g-lab">+GEX Magnet</div>
+          <div class="g-val" id="gadr-magpos" style="font-size:15px">—</div>
         </div>
         <div class="g-card" style="--c:var(--amber)">
-            <div class="g-lab">Gamma Flip</div>
-            <div class="g-val" id="gadr-flip" style="font-size:16px">—</div>
+          <div class="g-lab">Gamma Flip</div>
+          <div class="g-val" id="gadr-flip" style="font-size:15px">—</div>
         </div>
         <div class="g-card" style="--c:#f06080">
-            <div class="g-lab">-GEX Magnet</div>
-            <div class="g-val" id="gadr-magneg" style="font-size:16px">—</div>
+          <div class="g-lab">-GEX Magnet</div>
+          <div class="g-val" id="gadr-magneg" style="font-size:15px">—</div>
         </div>
         <div class="g-card" style="--c:var(--red)">
-            <div class="g-lab">Put Wall</div>
-            <div class="g-val" id="gadr-pwall" style="font-size:16px">—</div>
+          <div class="g-lab">Put Wall</div>
+          <div class="g-val" id="gadr-pwall" style="font-size:15px">—</div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- ── Panel 3: Tabla ────────────────────────────────────────── -->
 <div class="sub-panel" id="opanel-tabla">
   <div class="card" style="margin-top:10px">
     <div class="toolbar">
@@ -144,7 +157,7 @@
           <th onclick="oSort('cubierto')" style="cursor:pointer">Cubierto ↕</th>
           <th onclick="oSort('descubierto')" style="cursor:pointer">Descubierto ↕</th>
           <th onclick="oSort('total')" style="cursor:pointer">Total OI ↕</th>
-          <th onclick="oSort('volume')" style="cursor:pointer">Var. Día ↕</th>
+          <th onclick="oSort('volume')" style="cursor:pointer">Vol. Día ↕</th>
         </tr></thead>
         <tbody id="oTbody"></tbody>
       </table>
@@ -154,261 +167,379 @@
 
 <script>
 (function(){
-let oAllRows=[], oFiltered=[], oCharts={}, oSortDir=1, oSortKey='base';
-let oSpotGGAL=null, oMEP=null;
 
+// ── Carga dinámica de Lightweight Charts ──────────────────────
+function loadLWC() {
+    return new Promise(resolve => {
+        if(window.LightweightCharts){ resolve(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+        s.onload = resolve;
+        s.onerror = resolve; // falla silenciosa
+        document.head.appendChild(s);
+    });
+}
+
+// ── Estado del módulo ─────────────────────────────────────────
+let oAllRows=[], oFiltered=[], oCharts={}, oSortDir=1, oSortKey='base';
+let oSpotGGAL=null, oCCL=null, oGgalHistory=[], oLevels={};
+
+const SB_URL = 'https://endymbpdayeidromxayb.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+
+// ── Carga inicial ─────────────────────────────────────────────
 async function oLoadData(){
   try {
-    const [rows, mercRows, usdRows] = await Promise.all([
-        sb('opciones_iamc', 'select=*'),
-        sb('mercado', 'select=ticker,last&ticker=in.(GGAL,AL30)').catch(() => []),
-        sb('mercado_usa', 'select=ticker,last&ticker=in.(AL30D)').catch(() => [])
+    const [rows, mercRows, ravaResp] = await Promise.all([
+      sb('opciones_iamc', 'select=*'),
+      sb('mercado', 'select=symbol,last,settlement&symbol=in.(GGAL,AL30,AL30C)&settlement=eq.24hs').catch(()=>[]),
+      fetch(`${SB_URL}/functions/v1/yahoo-prices`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SB_KEY, 'apikey':SB_KEY },
+        body: JSON.stringify({ mode:'rava-series', symbols:['GGAL'] })
+      }).then(r=>r.ok?r.json():{}).catch(()=>{}),
+      loadLWC()
     ]);
-    if(!rows || !rows.length) return;
 
+    if(!rows?.length) return;
+
+    // Strike como entero redondeado para evitar decimales flotantes
     oAllRows = rows.map(r => ({
       tipo: r.kind.toLowerCase(),
       vencimiento: r.expiration,
-      base: parseFloat(r.strike),
-      cubierto: parseInt(r.cubierto || 0),
-      descubierto: parseInt(r.descubierto || 0),
-      total: parseInt(r.open_interest || 0),
-      volume: parseInt(r.volume || 0),
+      base: Math.round(Number(r.strike)),
+      cubierto:    Math.round(Number(r.cubierto    || 0)),
+      descubierto: Math.round(Number(r.descubierto || 0)),
+      total:       Math.round(Number(r.open_interest || 0)),
+      volume:      Math.round(Number(r.volume      || 0)),
       updated_at: r.updated_at
     }));
 
-    const ggalRow = (mercRows||[]).find(r => r.ticker === 'GGAL');
-    const al30Row  = (mercRows||[]).find(r => r.ticker === 'AL30');
-    const al30dRow = (usdRows||[]).find(r => r.ticker === 'AL30D');
-    if(ggalRow?.last) oSpotGGAL = parseFloat(ggalRow.last);
-    if(al30Row?.last && al30dRow?.last) oMEP = parseFloat(al30Row.last) / parseFloat(al30dRow.last);
+    // Spot GGAL y CCL = AL30_ARS / AL30C_USD
+    const ggalRow  = (mercRows||[]).find(r => r.symbol === 'GGAL');
+    const al30Row  = (mercRows||[]).find(r => r.symbol === 'AL30');
+    const al30cRow = (mercRows||[]).find(r => r.symbol === 'AL30C');
+    if(ggalRow?.last)  oSpotGGAL = Number(ggalRow.last);
+    if(al30Row?.last && al30cRow?.last && Number(al30cRow.last) > 0)
+      oCCL = Number(al30Row.last) / Number(al30cRow.last);
 
+    // Histórico GGAL para price chart
+    oGgalHistory = (ravaResp?.GGAL || [])
+      .filter(r => r.fecha && r.cierre > 0)
+      .sort((a,b) => a.fecha.localeCompare(b.fecha));
+
+    // Selector de vencimientos
     const sel = document.getElementById('oSelectVto');
     const vtos = [...new Set(oAllRows.map(r => r.vencimiento))].sort();
-    if(sel.options.length === 0) {
-        vtos.forEach(v => {
-            const opt = document.createElement('option');
-            opt.value = v; opt.textContent = v;
-            sel.appendChild(opt);
-        });
-    }
+    if(sel.options.length === 0)
+      vtos.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
 
     oApplyFilters();
     document.getElementById('oDateMeta').textContent = 'Act. ' + new Date(rows[0].updated_at).toLocaleTimeString();
-  } catch(e) { console.error('[opciones] oLoadData:', e); }
+  } catch(e){ console.error('[opciones]', e); }
 }
 
+// ── Filtros y render ──────────────────────────────────────────
 window.oApplyFilters = () => {
-    const vtoF = document.getElementById('oSelectVto').value;
-    const q    = document.getElementById('oSearchQ').value.toLowerCase();
+  const vtoF = document.getElementById('oSelectVto').value;
+  const q    = document.getElementById('oSearchQ').value.toLowerCase();
 
-    let filtered = oAllRows.filter(r => r.vencimiento === vtoF);
-    if(q) filtered = filtered.filter(r => r.base.toString().includes(q));
-    filtered.sort((a, b) => a.base - b.base);
-    oFiltered = filtered;
+  let filtered = oAllRows.filter(r => r.vencimiento === vtoF);
+  if(q) filtered = filtered.filter(r => String(r.base).includes(q));
 
-    renderStackedChart(filtered, 'call', 'oChartCalls', '#00e5a8');
-    renderStackedChart(filtered, 'put',  'oChartPuts',  '#ff3f5e');
-    renderGexChart(filtered);
-    renderTable(filtered);
+  // Orden numérico explícito (siempre ascendente por base)
+  filtered = filtered.slice().sort((a,b) => a.base - b.base);
+  oFiltered = filtered;
+
+  renderStackedChart(filtered, 'call', 'oChartCalls', '#00e5a8');
+  renderStackedChart(filtered, 'put',  'oChartPuts',  '#ff3f5e');
+  renderGexChart(filtered);
+  renderTable(filtered);
 };
 
+// ── Distribución OI (stacked) ─────────────────────────────────
 function renderStackedChart(data, tipo, canvasId, color) {
-    const items = data.filter(r => r.tipo === tipo);
-    const datasets = [
-        { label:'Cubierto',    data: items.map(r => r.cubierto),    backgroundColor: color+'66', borderRadius: 2 },
-        { label:'Descubierto', data: items.map(r => r.descubierto), backgroundColor: color,      borderRadius: 2 }
-    ];
-    if(oCharts[canvasId]) oCharts[canvasId].destroy();
-    oCharts[canvasId] = new Chart(document.getElementById(canvasId), {
-        type: 'bar',
-        data: { labels: items.map(r => '$'+r.base), datasets },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            scales: {
-                x: { stacked: true, grid: { display:false }, ticks: { font:{size:9}, maxRotation:45 } },
-                y: { stacked: true, grid: { color:'#1e2530' }, ticks: { font:{size:9}, callback: v => fmtM(v) } }
-            },
-            plugins: { legend: { display:false } }
-        }
-    });
-}
+  // Filtrar y re-ordenar por si acaso
+  const items = data.filter(r => r.tipo === tipo).sort((a,b) => a.base - b.base);
+  if(!items.length) return;
 
-function renderGexChart(data) {
-    // Descending so higher strikes appear at top of horizontal chart
-    const bases = [...new Set(data.map(r => r.base))].sort((a,b) => b-a);
+  const labels = items.map(r => '$' + r.base); // enteros, sin formato locale
 
-    const gexData = bases.map(b => {
-        const c = data.find(r => r.base===b && r.tipo==='call')?.total || 0;
-        const p = data.find(r => r.base===b && r.tipo==='put')?.total  || 0;
-        return (c - p) * b;
-    });
-
-    // Inline plugin: horizontal dashed line at closest strike to spot
-    const spotPlugin = {
-        id: 'gexSpot',
-        afterDraw(chart) {
-            if(!oSpotGGAL) return;
-            const { ctx, chartArea, scales } = chart;
-            const labels = chart.data.labels;
-            let closestIdx = 0, minDist = Infinity;
-            labels.forEach((lbl, i) => {
-                const dist = Math.abs(parseFloat(String(lbl).replace('$','')) - oSpotGGAL);
-                if(dist < minDist) { minDist = dist; closestIdx = i; }
-            });
-            const y = scales.y.getPixelForValue(closestIdx);
-            ctx.save();
-            ctx.setLineDash([5, 4]);
-            ctx.strokeStyle = '#ffd700';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(chartArea.left, y);
-            ctx.lineTo(chartArea.right, y);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 10px "IBM Plex Mono", monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText('▶ SPOT $' + Math.round(oSpotGGAL).toLocaleString('es-AR'), chartArea.left + 6, y - 5);
-            ctx.restore();
-        }
-    };
-
-    // Adaptive height based on number of strikes
-    const wrap = document.getElementById('oGexWrap');
-    if(wrap) wrap.style.height = Math.max(300, bases.length * 22) + 'px';
-
-    if(oCharts.gex) oCharts.gex.destroy();
-    oCharts.gex = new Chart(document.getElementById('oChartGex'), {
-        type: 'bar',
-        plugins: [spotPlugin],
-        data: {
-            labels: bases.map(b => '$'+b),
-            datasets: [{
-                data: gexData,
-                backgroundColor: gexData.map(v => v >= 0 ? '#00e5a855' : '#ff3f5e55'),
-                borderColor:     gexData.map(v => v >= 0 ? '#00e5a8'   : '#ff3f5e'),
-                borderWidth: 1,
-                borderRadius: 3,
-                maxBarThickness: 22
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 16 } },
-            scales: {
-                y: { grid: { display:false }, ticks: { font:{size:9}, color:'#8899aa' } },
-                x: { grid: { color:'#1e2530' }, ticks: { font:{size:9}, callback: v => fmtM(v) } }
-            },
-            plugins: { legend: { display:false } }
-        }
-    });
-
-    renderGammaLevels(data, gexData, bases);
-}
-
-function renderGammaLevels(data, gexData, bases) {
-    const calls = data.filter(r => r.tipo === 'call');
-    const puts  = data.filter(r => r.tipo === 'put');
-
-    const cw = calls.length ? calls.reduce((a,b) => a.total > b.total ? a : b) : null;
-    const pw = puts.length  ? puts.reduce((a,b)  => a.total > b.total ? a : b)  : null;
-
-    // Gamma flip: strike whose absolute GEX is closest to zero
-    let flipStrike = null, minAbsG = Infinity;
-    bases.forEach((b,i) => {
-        if(Math.abs(gexData[i]) < minAbsG) { minAbsG = Math.abs(gexData[i]); flipStrike = b; }
-    });
-
-    // GEX Magnets
-    let maxPos=-Infinity, maxNeg=Infinity, magPosIdx=-1, magNegIdx=-1;
-    gexData.forEach((g,i) => {
-        if(g > maxPos) { maxPos=g; magPosIdx=i; }
-        if(g < maxNeg) { maxNeg=g; magNegIdx=i; }
-    });
-    const magPosStrike = magPosIdx >= 0 ? bases[magPosIdx] : null;
-    const magNegStrike = magNegIdx >= 0 ? bases[magNegIdx] : null;
-
-    const netGex = gexData.reduce((a,b) => a+b, 0);
-    const isPos  = netGex >= 0;
-    const fmt    = v => v != null ? '$' + Number(v).toLocaleString('es-AR') : '—';
-
-    if(oSpotGGAL) document.getElementById('gk-spot').textContent    = '$' + Math.round(oSpotGGAL).toLocaleString('es-AR');
-    if(oMEP)      document.getElementById('gk-mep').textContent      = '$' + Math.round(oMEP).toLocaleString('es-AR');
-    document.getElementById('gk-netgex').textContent  = fmtM(netGex);
-    document.getElementById('gk-regime').textContent  = isPos ? 'POSITIVO' : 'NEGATIVO';
-    document.getElementById('gk-cwall').textContent   = cw ? fmt(cw.base) : '—';
-    document.getElementById('gk-pwall').textContent   = pw ? fmt(pw.base) : '—';
-    document.getElementById('gk-flip').textContent    = flipStrike != null ? fmt(flipStrike) : '—';
-    document.getElementById('gk-magpos').textContent  = magPosStrike != null ? fmt(magPosStrike) : '—';
-    document.getElementById('gk-magneg').textContent  = magNegStrike != null ? fmt(magNegStrike) : '—';
-
-    document.getElementById('gk-regime-card').style.setProperty('--c', isPos ? 'var(--green)' : 'var(--red)');
-    document.getElementById('gk-netgex-card').style.setProperty('--c', isPos ? 'var(--green)' : 'var(--red)');
-
-    if(oMEP && oMEP > 0) {
-        const toUSD = v => v != null ? 'u$s ' + (v / oMEP).toFixed(2) : '—';
-        document.getElementById('gadr-cwall').textContent  = cw ? toUSD(cw.base) : '—';
-        document.getElementById('gadr-pwall').textContent  = pw ? toUSD(pw.base) : '—';
-        document.getElementById('gadr-flip').textContent   = flipStrike != null ? toUSD(flipStrike) : '—';
-        document.getElementById('gadr-magpos').textContent = magPosStrike != null ? toUSD(magPosStrike) : '—';
-        document.getElementById('gadr-magneg').textContent = magNegStrike != null ? toUSD(magNegStrike) : '—';
-        document.getElementById('gadr-mep-note').textContent = 'MEP: $' + Math.round(oMEP).toLocaleString('es-AR');
+  if(oCharts[canvasId]) oCharts[canvasId].destroy();
+  oCharts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Cubierto',    data:items.map(r=>r.cubierto),    backgroundColor:color+'66', borderRadius:2 },
+        { label:'Descubierto', data:items.map(r=>r.descubierto), backgroundColor:color,      borderRadius:2 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{ stacked:true, grid:{display:false}, ticks:{font:{size:9}, maxRotation:45} },
+        y:{ stacked:true, grid:{color:'#1e2530'}, ticks:{font:{size:9}, callback:v=>fmtM(v)} }
+      },
+      plugins:{ legend:{display:false} }
     }
+  });
 }
 
-function renderTable(rows) {
-    const sorted = [...rows].sort((a,b) => {
-        const va = a[oSortKey], vb = b[oSortKey];
-        return (va < vb ? -1 : va > vb ? 1 : 0) * oSortDir;
+// ── GEX horizontal ────────────────────────────────────────────
+function renderGexChart(data) {
+  // Descendente: strikes altos arriba (como una cadena de opciones real)
+  const bases = [...new Set(data.map(r => r.base))].sort((a,b) => b-a);
+
+  const gexData = bases.map(b => {
+    const c = data.find(r => r.base===b && r.tipo==='call')?.total || 0;
+    const p = data.find(r => r.base===b && r.tipo==='put')?.total  || 0;
+    return (c - p) * b;
+  });
+
+  // Plugin para línea horizontal de spot
+  const spotPlugin = {
+    id:'gexSpot',
+    afterDraw(chart) {
+      if(!oSpotGGAL) return;
+      const {ctx, chartArea, scales} = chart;
+      const labels = chart.data.labels;
+      let closestIdx=0, minDist=Infinity;
+      labels.forEach((lbl,i) => {
+        const dist = Math.abs(Number(lbl.replace('$','')) - oSpotGGAL);
+        if(dist < minDist){ minDist=dist; closestIdx=i; }
+      });
+      const y = scales.y.getPixelForValue(closestIdx);
+      ctx.save();
+      ctx.setLineDash([5,4]);
+      ctx.strokeStyle='#ffd700'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(chartArea.left,y); ctx.lineTo(chartArea.right,y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle='#ffd700'; ctx.font='bold 10px "IBM Plex Mono",monospace'; ctx.textAlign='left';
+      ctx.fillText('▶ SPOT $'+Math.round(oSpotGGAL).toLocaleString('es-AR'), chartArea.left+6, y-5);
+      ctx.restore();
+    }
+  };
+
+  const wrap = document.getElementById('oGexWrap');
+  if(wrap) wrap.style.height = Math.max(300, bases.length*22)+'px';
+
+  if(oCharts.gex) oCharts.gex.destroy();
+  oCharts.gex = new Chart(document.getElementById('oChartGex'), {
+    type:'bar',
+    plugins:[spotPlugin],
+    data:{
+      labels: bases.map(b => '$'+b),
+      datasets:[{
+        data: gexData,
+        backgroundColor: gexData.map(v => v>=0 ? '#00e5a855' : '#ff3f5e55'),
+        borderColor:     gexData.map(v => v>=0 ? '#00e5a8'   : '#ff3f5e'),
+        borderWidth:1, borderRadius:3, maxBarThickness:22
+      }]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      layout:{ padding:{top:16} },
+      scales:{
+        y:{ grid:{display:false}, ticks:{font:{size:9}, color:'#8899aa'} },
+        x:{ grid:{color:'#1e2530'}, ticks:{font:{size:9}, callback:v=>fmtM(v)} }
+      },
+      plugins:{ legend:{display:false} }
+    }
+  });
+
+  renderGammaLevels(data, gexData, bases);
+}
+
+// ── Niveles gamma + price chart ───────────────────────────────
+function renderGammaLevels(data, gexData, bases) {
+  const calls = data.filter(r => r.tipo==='call');
+  const puts  = data.filter(r => r.tipo==='put');
+
+  const cw = calls.length ? calls.reduce((a,b) => a.total>b.total?a:b) : null;
+  const pw = puts.length  ? puts.reduce((a,b)  => a.total>b.total?a:b) : null;
+
+  let flipStrike=null, minAbsG=Infinity;
+  bases.forEach((b,i) => { if(Math.abs(gexData[i])<minAbsG){ minAbsG=Math.abs(gexData[i]); flipStrike=b; } });
+
+  let maxPos=-Infinity, maxNeg=Infinity, magPosIdx=-1, magNegIdx=-1;
+  gexData.forEach((g,i) => {
+    if(g>maxPos){ maxPos=g; magPosIdx=i; }
+    if(g<maxNeg){ maxNeg=g; magNegIdx=i; }
+  });
+  const magPosStrike = magPosIdx>=0 ? bases[magPosIdx] : null;
+  const magNegStrike = magNegIdx>=0 ? bases[magNegIdx] : null;
+  const netGex = gexData.reduce((a,b)=>a+b,0);
+  const isPos  = netGex>=0;
+
+  // Guardar niveles para price chart
+  oLevels = { callWall:cw?.base, putWall:pw?.base, flip:flipStrike, magPos:magPosStrike, magNeg:magNegStrike };
+
+  const fmt = v => v!=null ? '$'+Number(v).toLocaleString('es-AR') : '—';
+
+  if(oSpotGGAL) document.getElementById('gk-spot').textContent   = '$'+Math.round(oSpotGGAL).toLocaleString('es-AR');
+  if(oCCL)      document.getElementById('gk-ccl').textContent    = '$'+Math.round(oCCL).toLocaleString('es-AR');
+  document.getElementById('gk-netgex').textContent  = fmtM(netGex);
+  document.getElementById('gk-regime').textContent  = isPos ? 'POSITIVO' : 'NEGATIVO';
+  document.getElementById('gk-cwall').textContent   = cw ? fmt(cw.base) : '—';
+  document.getElementById('gk-pwall').textContent   = pw ? fmt(pw.base) : '—';
+  document.getElementById('gk-flip').textContent    = flipStrike!=null ? fmt(flipStrike) : '—';
+  document.getElementById('gk-magpos').textContent  = magPosStrike!=null ? fmt(magPosStrike) : '—';
+  document.getElementById('gk-magneg').textContent  = magNegStrike!=null ? fmt(magNegStrike) : '—';
+
+  document.getElementById('gk-regime-card').style.setProperty('--c', isPos?'var(--green)':'var(--red)');
+  document.getElementById('gk-netgex-card').style.setProperty('--c', isPos?'var(--green)':'var(--red)');
+
+  // ADR en USD vía CCL
+  if(oCCL && oCCL>0){
+    const toUSD = v => v!=null ? 'u$s '+(v/oCCL).toFixed(2) : '—';
+    document.getElementById('gadr-cwall').textContent  = cw ? toUSD(cw.base) : '—';
+    document.getElementById('gadr-pwall').textContent  = pw ? toUSD(pw.base) : '—';
+    document.getElementById('gadr-flip').textContent   = flipStrike!=null ? toUSD(flipStrike) : '—';
+    document.getElementById('gadr-magpos').textContent = magPosStrike!=null ? toUSD(magPosStrike) : '—';
+    document.getElementById('gadr-magneg').textContent = magNegStrike!=null ? toUSD(magNegStrike) : '—';
+    document.getElementById('gadr-ccl-note').textContent = 'CCL: $'+Math.round(oCCL).toLocaleString('es-AR');
+  }
+
+  renderPriceChart();
+}
+
+// ── Price chart GGAL (Lightweight Charts) ─────────────────────
+function renderPriceChart(){
+  const container = document.getElementById('oGgalPriceChart');
+  const status    = document.getElementById('oGgalPriceStatus');
+  if(!container) return;
+
+  if(!window.LightweightCharts || !oGgalHistory.length){
+    container.style.display='none';
+    if(status){ status.style.display='block'; status.textContent = !window.LightweightCharts ? 'Librería no disponible' : 'Sin datos históricos de GGAL'; }
+    return;
+  }
+  container.style.display='block';
+  if(status) status.style.display='none';
+
+  // Destruir instancia anterior
+  if(oCharts.price){ try{ oCharts.price.remove(); }catch(_){} oCharts.price=null; }
+
+  const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#131923';
+
+  const chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: 300,
+    layout:{
+      background:{ type:'solid', color: bgColor || '#131923' },
+      textColor:'#8899aa',
+      fontFamily:"'IBM Plex Mono', monospace",
+      fontSize: 11,
+    },
+    grid:{
+      vertLines:{ color:'#1e2530' },
+      horzLines:{ color:'#1e2530' },
+    },
+    crosshair:{ mode: LightweightCharts.CrosshairMode.Normal },
+    timeScale:{
+      borderColor:'#2a3440',
+      timeVisible: false,
+    },
+    rightPriceScale:{ borderColor:'#2a3440' },
+    handleScroll: true,
+    handleScale: true,
+  });
+
+  const cSeries = chart.addCandlestickSeries({
+    upColor:'#00e5a8', downColor:'#ff3f5e',
+    borderVisible:false,
+    wickUpColor:'#00e5a8', wickDownColor:'#ff3f5e',
+  });
+
+  cSeries.setData(oGgalHistory.map(r => ({
+    time:  r.fecha,
+    open:  r.apertura || r.cierre,
+    high:  r.maximo   || r.cierre,
+    low:   r.minimo   || r.cierre,
+    close: r.cierre,
+  })));
+
+  // Líneas de niveles gamma
+  const levelDefs = [
+    { key:'callWall', color:'#00e5a8', title:'Call Wall', style:2 },
+    { key:'putWall',  color:'#ff3f5e', title:'Put Wall',  style:2 },
+    { key:'flip',     color:'#ffd700', title:'Flip',      style:1 },
+    { key:'magPos',   color:'#4af0c0', title:'+Magnet',   style:2 },
+    { key:'magNeg',   color:'#f06080', title:'-Magnet',   style:2 },
+  ];
+  levelDefs.forEach(({ key, color, title, style }) => {
+    const price = oLevels[key];
+    if(!price) return;
+    cSeries.createPriceLine({ price, color, lineWidth:1, lineStyle:style, axisLabelVisible:true, title });
+  });
+
+  oCharts.price = chart;
+
+  // Responsive resize
+  if(!container._lwcObserver){
+    container._lwcObserver = new ResizeObserver(() => {
+      if(oCharts.price) oCharts.price.applyOptions({ width: container.clientWidth });
     });
-    document.getElementById('oTbody').innerHTML = sorted.map(r => `
-        <tr>
-            <td style="color:var(--amber); font-weight:bold">$${r.base}</td>
-            <td><span class="badge ${r.tipo==='call'?'b-call':'b-put'}">${r.tipo}</span></td>
-            <td>${fmtM(r.cubierto)}</td>
-            <td>${fmtM(r.descubierto)}</td>
-            <td style="background:var(--bg2)">${fmtM(r.total)}</td>
-            <td style="color:${r.volume >= 0 ? 'var(--green)':'var(--red)'}">${fmtM(r.volume)}</td>
-        </tr>
-    `).join('');
-    document.getElementById('oRowCount').textContent = rows.length + ' filas';
+    container._lwcObserver.observe(container);
+  }
+}
+
+// ── Tabla ─────────────────────────────────────────────────────
+function renderTable(rows){
+  const sorted = [...rows].sort((a,b) => {
+    const va=a[oSortKey], vb=b[oSortKey];
+    return (va<vb?-1:va>vb?1:0)*oSortDir;
+  });
+  document.getElementById('oTbody').innerHTML = sorted.map(r=>`
+    <tr>
+      <td style="color:var(--amber);font-weight:bold">$${r.base}</td>
+      <td><span class="badge ${r.tipo==='call'?'b-call':'b-put'}">${r.tipo}</span></td>
+      <td>${fmtM(r.cubierto)}</td>
+      <td>${fmtM(r.descubierto)}</td>
+      <td style="background:var(--bg2)">${fmtM(r.total)}</td>
+      <td style="color:${r.volume>=0?'var(--green)':'var(--red)'}">${fmtM(r.volume)}</td>
+    </tr>`).join('');
+  document.getElementById('oRowCount').textContent = rows.length+' filas';
 }
 
 window.oSort = (field) => {
-    if(oSortKey === field) oSortDir *= -1;
-    else { oSortKey = field; oSortDir = 1; }
-    renderTable(oFiltered);
+  if(oSortKey===field) oSortDir*=-1; else { oSortKey=field; oSortDir=1; }
+  renderTable(oFiltered);
 };
 
 window.oSetTab = (n, b) => {
-    document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById('opanel-' + n).classList.add('active');
-    document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
-    b.classList.add('active');
-}
+  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('opanel-'+n).classList.add('active');
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  b.classList.add('active');
+  // Re-ajustar precio chart si se activa el tab gamma
+  if(n==='gex' && oCharts.price){
+    const c = document.getElementById('oGgalPriceChart');
+    if(c) oCharts.price.applyOptions({ width: c.clientWidth });
+  }
+};
 
 oLoadData();
 })();
 </script>
 
 <style>
-.charts-grid { display: grid; gap: 15px; }
-.gamma-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
-.g-card { background: var(--bg2); border-top: 3px solid var(--c); padding: 12px 15px; border-radius: 6px; text-align: center; }
-.g-lab { font-size: 9px; color: var(--text3); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px; }
-.g-val { font-size: 18px; font-weight: 800; color: var(--text); font-family: 'IBM Plex Mono', monospace; }
-.g-desc { font-size: 9px; color: var(--text4); margin-top: 4px; }
+.charts-grid { display:grid; gap:15px; }
+.gamma-grid  { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:10px; }
+.g-card { background:var(--bg2); border-top:3px solid var(--c); padding:12px 15px; border-radius:6px; text-align:center; }
+.g-lab  { font-size:9px; color:var(--text3); text-transform:uppercase; margin-bottom:6px; letter-spacing:1px; }
+.g-val  { font-size:18px; font-weight:800; color:var(--text); font-family:'IBM Plex Mono',monospace; }
 
-.legend-row { display: flex; gap: 10px; font-size: 9px; }
-.legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+.legend-row  { display:flex; gap:10px; font-size:9px; }
+.legend-dot  { width:8px; height:8px; border-radius:2px; }
+.legend-item { display:flex; align-items:center; gap:4px; color:var(--text3); }
 
-.filter-group { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text3); }
-.filter-group select { background: var(--bg2); border: 1px solid var(--border2); color: var(--text); padding: 3px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.filter-group { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text3); }
+.filter-group select { background:var(--bg2); border:1px solid var(--border2); color:var(--text); padding:3px 6px; border-radius:4px; font-size:11px; cursor:pointer; }
 
-.badge { padding: 2px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
-.b-call { background: #00e5a815; color: #00e5a8; }
-.b-put  { background: #ff3f5e15; color: #ff3f5e; }
-.card-desc { font-size: 9px; color: var(--text4); margin-top: -5px; margin-bottom: 10px; }
+.badge  { padding:2px 5px; border-radius:3px; font-size:9px; font-weight:700; text-transform:uppercase; }
+.b-call { background:#00e5a815; color:#00e5a8; }
+.b-put  { background:#ff3f5e15; color:#ff3f5e; }
+.card-desc { font-size:9px; color:var(--text4); margin-top:-5px; margin-bottom:10px; }
 </style>
