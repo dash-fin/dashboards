@@ -72,9 +72,28 @@ def procesar_con_claude(pdf_bytes: bytes) -> dict:
     
     print(f"Enviando PDF a Claude ({modelo})...")
     
-    prompt = """Extraé TODAS las filas de GGAL. 
-    JSON puro, decimales con punto, sin miles. 
-    Formato: {"opciones": [{"symbol": "...", "kind": "...", "strike": 0.0, "expiration": "YYYY-MM-DD", "open_interest": 0, "volume": 0, "cubierto": 0, "opuesto": 0, "cruce": 0, "descubierto": 0}]}"""
+    prompt = """Sos un extractor de datos financieros. Del PDF adjunto extraé TODAS las filas de opciones de GGAL (Grupo Financiero Galicia).
+
+REGLAS CRÍTICAS — leé con atención:
+
+1. "symbol": el código exacto de la opción tal como aparece en el PDF (ej: GFGC71487J).
+
+2. "kind": "call" o "put" en minúsculas.
+
+3. "strike": el precio de ejercicio como número ENTERO en pesos, copiado tal cual del PDF.
+   - Si el PDF dice 71487 → strike: 71487
+   - Si el PDF dice 43.487 con punto como separador de miles → strike: 43487
+   - NUNCA dividas el número ni uses punto decimal. El strike de GGAL es siempre un entero de 4-6 dígitos.
+
+4. "expiration": la fecha de vencimiento EXACTA leída del encabezado de columna del PDF, en formato YYYY-MM-DD.
+   - NO la inferás del símbolo ni del código de letra.
+   - Las opciones de GGAL vencen el tercer viernes del mes (ej: 2026-06-19, 2026-07-17).
+   - Si el PDF no muestra la fecha completa, inferí el tercer viernes del mes indicado.
+
+5. Campos numéricos (open_interest, volume, cubierto, opuesto, cruce, descubierto): enteros. Guión o vacío = 0.
+
+Devolvé SOLO JSON válido sin texto extra ni markdown:
+{"opciones": [{"symbol": "GFGC71487J", "kind": "call", "strike": 71487, "expiration": "2026-06-19", "open_interest": 0, "volume": 0, "cubierto": 0, "opuesto": 0, "cruce": 0, "descubierto": 0}]}"""
 
     msg = client.messages.create(
         model=modelo,
