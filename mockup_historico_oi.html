@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Historico OI Opciones</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117; --bg2:#131923; --bg3:#1a2230;
+  --border2:#1e2a38;
+  --text:#e2eaf4; --text2:#b0bec8; --text3:#6e8090; --text4:#4a5a6a;
+  --green:#00e5a8; --red:#ff3f5e; --amber:#ffc84a; --cyan:#38c8ff; --purple:#a855f7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:20px}
+
+.ph{display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border2)}
+.pt{font-size:16px;font-weight:700}
+.ps{font-size:10px;color:var(--text3);margin-top:2px}
+.bm{background:#ff3f5e22;color:#ff3f5e;border:1px solid #ff3f5e44;font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;letter-spacing:1px}
+
+.stabs-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2);margin-bottom:16px}
+.stabs{display:flex;gap:2px}
+.stab{background:none;border:none;color:var(--text3);font-size:11px;font-weight:600;padding:8px 14px;cursor:pointer;border-bottom:2px solid transparent}
+.stab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--bg2);border:1px solid var(--border2);border-top:3px solid var(--c,var(--text4));padding:12px 14px;border-radius:6px}
+.kl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.kv{font-size:18px;font-weight:800;font-family:'IBM Plex Mono',monospace}
+.kc{font-size:10px;font-weight:700;margin-top:4px}
+.ks{font-size:9px;color:var(--text4);margin-top:3px}
+.up{color:var(--green)} .dn{color:var(--red)}
+
+.card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;margin-bottom:12px;overflow:hidden}
+.ch{padding:14px 16px 0}
+.ct{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:2px}
+.cd{font-size:9px;color:var(--text4);margin-bottom:10px}
+.cb{padding:12px 16px 14px}
+
+.ctrl{display:flex;gap:8px;align-items:center;padding:10px 16px 8px;border-bottom:1px solid var(--border2)}
+.cl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.cb2{background:var(--bg3);border:1px solid var(--border2);color:var(--text3);font-size:10px;padding:3px 10px;border-radius:4px;cursor:pointer}
+.cb2.active{background:#38c8ff18;border-color:#38c8ff55;color:var(--cyan)}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.lgrow{display:flex;gap:12px;margin-top:8px}
+.lgi{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text3)}
+.lgd{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+.hm{overflow-x:auto;padding-bottom:4px}
+.hmt{border-collapse:collapse;font-size:9px;font-family:'IBM Plex Mono',monospace}
+.hmt th{color:var(--text4);font-weight:500;padding:3px 8px;text-align:center;border-bottom:1px solid var(--border2)}
+.hmt td{padding:2px 7px;text-align:right}
+.hmt .sc{color:var(--amber);font-weight:700;text-align:left;padding-right:10px}
+.hmt .sr td{border-top:1px solid #ffc84a44;border-bottom:1px solid #ffc84a44}
+</style>
+</head>
+<body>
+
+<div class="ph">
+  <div>
+    <div class="pt">Opciones GGAL — Historico OI</div>
+    <div class="ps">IAMC · Snapshot diario al cierre</div>
+  </div>
+  <div class="bm">MOCKUP</div>
+</div>
+
+<div class="stabs-row">
+  <div class="stabs">
+    <button class="stab">Distribucion OI</button>
+    <button class="stab">Analisis Gamma</button>
+    <button class="stab">Tabla Detalle</button>
+    <button class="stab active">Historico OI ✦</button>
+  </div>
+  <span style="font-size:10px;color:var(--text4);padding-bottom:6px">30 registros · Jun 2026</span>
+</div>
+
+<div class="card">
+  <div class="ctrl">
+    <span class="cl">Periodo:</span>
+    <button class="cb2">7d</button>
+    <button class="cb2 active">30d</button>
+    <button class="cb2">Todo</button>
+    <span style="flex:1"></span>
+    <span class="cl" style="color:var(--text4)">Vto: Jun 2026</span>
+  </div>
+</div>
+
+<div class="kpi-row">
+  <div class="kpi" style="--c:#38c8ff">
+    <div class="kl">OI Total Calls</div>
+    <div class="kv">218K</div>
+    <div class="kc up">+12% 7d</div>
+    <div class="ks">contratos abiertos</div>
+  </div>
+  <div class="kpi" style="--c:#ff3f5e">
+    <div class="kl">OI Total Puts</div>
+    <div class="kv">143K</div>
+    <div class="kc dn">-5% 7d</div>
+    <div class="ks">contratos abiertos</div>
+  </div>
+  <div class="kpi" style="--c:#ffc84a">
+    <div class="kl">Ratio Call/Put</div>
+    <div class="kv">1.52</div>
+    <div class="kc up">+0.18 vs 7d</div>
+    <div class="ks">sesgo alcista</div>
+  </div>
+  <div class="kpi" style="--c:#a855f7">
+    <div class="kl">% Descubierto</div>
+    <div class="kv">34%</div>
+    <div class="kc up">+3pp 7d</div>
+    <div class="ks">del total OI</div>
+  </div>
+  <div class="kpi" style="--c:#00e5a8">
+    <div class="kl">Calls Descub.</div>
+    <div class="kv">29%</div>
+    <div class="kc dn">-1pp 7d</div>
+    <div class="ks">del OI calls</div>
+  </div>
+</div>
+
+<!-- Chart 1: OI total -->
+<div class="card">
+  <div class="ch">
+    <div class="ct">Evolucion OI — Calls vs Puts</div>
+    <div class="cd">Interes abierto total · Contratos · Ratio C/P en eje derecho</div>
+  </div>
+  <div class="cb">
+    <div style="position:relative;height:210px"><canvas id="c1"></canvas></div>
+    <div class="lgrow">
+      <div class="lgi"><div class="lgd" style="background:#38c8ff"></div>OI Calls</div>
+      <div class="lgi"><div class="lgd" style="background:#ff3f5e"></div>OI Puts</div>
+      <div class="lgi"><div class="lgd" style="background:#ffc84a55;border:1px solid #ffc84a"></div>Ratio C/P</div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts 2 y 3: composicion -->
+<div class="g2">
+  <div class="card">
+    <div class="ch">
+      <div class="ct">Calls — Cubierto vs Descubierto</div>
+      <div class="cd">Composicion del OI calls en el tiempo</div>
+    </div>
+    <div class="cb">
+      <div style="position:relative;height:170px"><canvas id="c2"></canvas></div>
+      <div class="lgrow">
+        <div class="lgi"><div class="lgd" style="background:#38c8ff88"></div>Cubierto</div>
+        <div class="lgi"><div class="lgd" style="background:#38c8ff33"></div>Descubierto</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ch">
+      <div class="ct">Puts — Cubierto vs Descubierto</div>
+      <div class="cd">Composicion del OI puts en el tiempo</div>
+    </div>
+    <div class="cb">
+      <div style="position:relative;height:170px"><canvas id="c3"></canvas></div>
+      <div class="lgrow">
+        <div class="lgi"><div class="lgd" style="background:#ff3f5e88"></div>Cubierto</div>
+        <div class="lgi"><div class="lgd" style="background:#ff3f5e33"></div>Descubierto</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart 4: niveles clave -->
+<div class="card">
+  <div class="ch">
+    <div class="ct">Movimiento de Niveles Clave</div>
+    <div class="cd">Call Wall · Put Wall · Gamma Flip · Spot GGAL — evolucion diaria</div>
+  </div>
+  <div class="cb">
+    <div style="position:relative;height:190px"><canvas id="c4"></canvas></div>
+    <div class="lgrow">
+      <div class="lgi"><div class="lgd" style="background:#00e5a8"></div>Call Wall</div>
+      <div class="lgi"><div class="lgd" style="background:#ff3f5e"></div>Put Wall</div>
+      <div class="lgi"><div class="lgd" style="background:#ffd700"></div>Gamma Flip</div>
+      <div class="lgi"><div class="lgd" style="background:#ffffff88"></div>Spot GGAL</div>
+    </div>
+  </div>
+</div>
+
+<!-- Heatmap -->
+<div class="card">
+  <div class="ch">
+    <div class="ct">Heatmap OI por Strike</div>
+    <div class="cd">Concentracion de OI total (calls+puts) por strike · ultimos 10 dias habil</div>
+  </div>
+  <div class="cb">
+    <div class="hm"><table class="hmt" id="htable"></table></div>
+    <div class="lgrow" style="margin-top:10px;align-items:center">
+      <span style="font-size:9px;color:var(--text4)">OI:</span>
+      <div style="display:flex;gap:2px">
+        <div style="width:14px;height:10px;border-radius:2px;background:#38c8ff11"></div>
+        <div style="width:14px;height:10px;border-radius:2px;background:#38c8ff33"></div>
+        <div style="width:14px;height:10px;border-radius:2px;background:#38c8ff66"></div>
+        <div style="width:14px;height:10px;border-radius:2px;background:#38c8ffaa"></div>
+        <div style="width:14px;height:10px;border-radius:2px;background:#38c8ff"></div>
+      </div>
+      <span style="font-size:9px;color:var(--text4)">bajo → alto</span>
+      <div style="width:12px;height:2px;background:var(--amber);margin-left:6px"></div>
+      <span style="font-size:9px;color:var(--amber)">spot actual</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// datos sinteticos
+const N = 22;
+const labels = [];
+const base = new Date('2026-03-25');
+for(let i=0;i<N;i++){
+  const d=new Date(base); d.setDate(base.getDate()+i);
+  const wd=d.getDay(); if(wd===0||wd===6){continue;}
+  labels.push(d.toISOString().slice(5,10).replace('-','/'));
+}
+
+function rnd(b,e,v,n){return Array.from({length:n},(_,i)=>Math.round(b+(e-b)*i/(n-1)+(Math.random()-.5)*v));}
+function snap(arr,step){return arr.map(v=>Math.round(v/step)*step);}
+
+const L=labels.length;
+const calls=rnd(175000,218000,7000,L);
+const puts=rnd(158000,143000,5000,L);
+const ratio=calls.map((c,i)=>+(c/puts[i]).toFixed(2));
+const callsCub=calls.map(v=>Math.round(v*.72));
+const callsDes=calls.map((v,i)=>v-callsCub[i]);
+const putsCub=puts.map(v=>Math.round(v*.65));
+const putsDes=puts.map((v,i)=>v-putsCub[i]);
+const spot=rnd(9700,10250,130,L);
+const cwall=snap(rnd(10900,11200,150,L),250);
+const pwall=snap(rnd(8900,9200,150,L),250);
+const flip=snap(rnd(9700,10000,100,L),100);
+
+const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:11}};
+const GR={color:'#1e2530'};
+const TK={color:'#6e8090',font:{size:9}};
+
+// c1
+new Chart(document.getElementById('c1'),{
+  data:{labels,datasets:[
+    {type:'line',label:'OI Calls',data:calls,borderColor:'#38c8ff',borderWidth:2,backgroundColor:'#38c8ff18',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
+    {type:'line',label:'OI Puts',data:puts,borderColor:'#ff3f5e',borderWidth:2,backgroundColor:'#ff3f5e18',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
+    {type:'line',label:'Ratio',data:ratio,borderColor:'#ffc84a88',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y2'},
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    scales:{
+      x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},
+      y:{position:'left',grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'}},
+      y2:{position:'right',grid:{display:false},ticks:{...TK,callback:v=>v.toFixed(1)},min:.8,max:2.2}
+    },
+    plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.yAxisID==='y2'?c.parsed.y.toFixed(2):Math.round(c.parsed.y/1000)+'K'}`}}}
+  }
+});
+
+// c2
+new Chart(document.getElementById('c2'),{
+  data:{labels,datasets:[
+    {type:'bar',label:'Cubierto',data:callsCub,backgroundColor:'#38c8ff88',stack:'a'},
+    {type:'bar',label:'Descubierto',data:callsDes,backgroundColor:'#38c8ff2a',stack:'a'},
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'}}},
+    plugins:{legend:{display:false},tooltip:TT}
+  }
+});
+
+// c3
+new Chart(document.getElementById('c3'),{
+  data:{labels,datasets:[
+    {type:'bar',label:'Cubierto',data:putsCub,backgroundColor:'#ff3f5e88',stack:'a'},
+    {type:'bar',label:'Descubierto',data:putsDes,backgroundColor:'#ff3f5e2a',stack:'a'},
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'}}},
+    plugins:{legend:{display:false},tooltip:TT}
+  }
+});
+
+// c4
+new Chart(document.getElementById('c4'),{
+  data:{labels,datasets:[
+    {label:'Call Wall',data:cwall,borderColor:'#00e5a8',borderWidth:2,pointRadius:0,tension:.3,borderDash:[5,3]},
+    {label:'Put Wall',data:pwall,borderColor:'#ff3f5e',borderWidth:2,pointRadius:0,tension:.3,borderDash:[5,3]},
+    {label:'Gamma Flip',data:flip,borderColor:'#ffd700',borderWidth:1.5,pointRadius:0,tension:.3},
+    {label:'Spot',data:spot,borderColor:'#ffffff77',borderWidth:2,pointRadius:0,tension:.3},
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    scales:{x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},y:{grid:GR,ticks:{...TK,callback:v=>'$'+v.toLocaleString('es-AR')}}},
+    plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: $${c.parsed.y.toLocaleString('es-AR')}`}}}
+  }
+});
+
+// heatmap
+(function(){
+  const strikes=[8500,8750,9000,9250,9500,9750,10000,10250,10500,10750,11000,11250,11500];
+  const ND=10, rdates=labels.slice(-ND), spotN=spot[spot.length-1];
+  const oiM={};
+  strikes.forEach(s=>{
+    oiM[s]=rdates.map((_,i)=>{
+      const d=Math.abs(s-(spot[spot.length-ND+i]||spotN));
+      return Math.max(400,Math.round(14000-d*1.1+(Math.random()-.5)*2500));
+    });
+  });
+  const mx=Math.max(...Object.values(oiM).flat());
+  function col(v){const t=v/mx; return `rgba(56,200,255,${(.06+t*.85).toFixed(2)})`;}
+
+  const t=document.getElementById('htable');
+  const hd=t.createTHead(), hr=hd.insertRow();
+  const th0=document.createElement('th'); th0.textContent='Strike'; hr.appendChild(th0);
+  rdates.forEach(d=>{const th=document.createElement('th');th.textContent=d;hr.appendChild(th);});
+  const tb=t.createTBody();
+  strikes.slice().reverse().forEach(s=>{
+    const near=Math.abs(s-spotN)<250;
+    const row=tb.insertRow();
+    if(near) row.classList.add('sr');
+    const td0=row.insertCell(); td0.className='sc';
+    td0.textContent=(near?'▸ ':'')+'$'+s;
+    if(near) td0.style.color='var(--amber)';
+    oiM[s].forEach(v=>{
+      const td=row.insertCell();
+      td.style.background=col(v);
+      td.style.color=v/mx>.55?'#0d1117':'#8899aa';
+      td.textContent=Math.round(v/1000)+'K';
+    });
+  });
+})();
+</script>
+</body>
+</html>
