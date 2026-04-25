@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mockup — Historico OI Opciones</title>
+<title>Mockup — Historico OI</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0d1117;--bg2:#131923;--bg3:#1a2230;--border2:#1e2a38;--text:#e2eaf4;--text2:#b0bec8;--text3:#6e8090;--text4:#4a5a6a;--green:#00e5a8;--red:#ff3f5e;--amber:#ffc84a;--cyan:#38c8ff;--purple:#a855f7}
+:root{--bg:#0d1117;--bg2:#131923;--bg3:#1a2230;--border2:#1e2a38;
+  --text:#e2eaf4;--text2:#b0bec8;--text3:#6e8090;--text4:#4a5a6a;
+  --green:#00e5a8;--red:#ff3f5e;--amber:#ffc84a;--cyan:#38c8ff;--purple:#a855f7}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:20px;max-width:1100px;margin:0 auto}
 .ph{display:flex;align-items:center;gap:14px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border2)}
@@ -17,16 +19,16 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .stabs{display:flex;gap:2px}
 .stab{background:none;border:none;color:var(--text3);font-size:11px;font-weight:600;padding:8px 14px;cursor:pointer;border-bottom:2px solid transparent}
 .stab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
-.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
-.kpi{background:var(--bg2);border:1px solid var(--border2);border-top:3px solid var(--c,var(--text4));padding:12px 14px;border-radius:6px}
-.kl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
-.kv{font-size:18px;font-weight:800;font-family:'IBM Plex Mono',monospace}
-.kc{font-size:10px;font-weight:700;margin-top:4px}.ks{font-size:9px;color:var(--text4);margin-top:3px}
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:14px}
+.kpi{background:var(--bg2);border:1px solid var(--border2);border-top:3px solid var(--c,var(--text4));padding:11px 13px;border-radius:6px}
+.kl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.kv{font-size:17px;font-weight:800;font-family:'IBM Plex Mono',monospace}
+.kc{font-size:10px;font-weight:700;margin-top:3px}.ks{font-size:9px;color:var(--text4);margin-top:2px}
 .up{color:var(--green)}.dn{color:var(--red)}
 .card{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;margin-bottom:12px;overflow:hidden}
-.ch{padding:14px 16px 10px}.ct{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:2px}
+.ch{padding:13px 15px 8px}.ct{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:2px}
 .cd{font-size:9px;color:var(--text4)}
-.cb{padding:12px 16px 14px}
+.cb{padding:10px 15px 13px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .lgrow{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
 .lgi{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text3)}
@@ -34,33 +36,19 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 .sep{display:flex;align-items:center;gap:10px;margin:18px 0 12px}
 .sep-line{height:1px;flex:1;background:var(--border2)}
 .sep-txt{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
-input[type=range]{accent-color:var(--cyan)}
+input[type=range]{accent-color:var(--cyan);width:100%}
 select{background:var(--bg3);border:1px solid var(--border2);color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer}
-
-/* grilla ratio */
-.ratio-grid{overflow-x:auto}
-.rgt{border-collapse:collapse;font-size:9px;font-family:'IBM Plex Mono',monospace;width:100%}
-.rgt th{color:var(--text4);font-weight:500;padding:3px 8px;text-align:center;border-bottom:1px solid var(--border2);white-space:nowrap}
-.rgt td{padding:3px 7px;text-align:center;border-radius:3px}
-.rgt .sc{color:var(--amber);font-weight:700;text-align:left;padding-right:10px;font-size:10px}
-.rgt .sr .sc{color:var(--amber)}
-
-/* presion chart custom */
-.pres-wrap{position:relative;overflow:hidden}
-.pres-row{display:flex;align-items:center;margin-bottom:3px;gap:6px}
-.pres-strike{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--amber);font-weight:700;width:58px;text-align:right;flex-shrink:0}
-.pres-bars{position:relative;flex:1;display:flex;height:18px;gap:1px}
-.pres-call{height:100%;border-radius:0 3px 3px 0;transition:width .3s}
-.pres-put{height:100%;border-radius:3px 0 0 3px;transition:width .3s;margin-left:auto}
-.pres-center{position:absolute;left:50%;top:0;width:1px;height:100%;background:var(--border2)}
-.pres-spot-line{position:absolute;top:0;height:100%;width:2px;background:var(--amber);opacity:.7;transition:left .3s}
-.pres-label{font-size:8px;color:var(--text4);width:32px;text-align:left;flex-shrink:0}
+.hmt{border-collapse:collapse;font-size:9px;font-family:'IBM Plex Mono',monospace;width:100%}
+.hmt th{color:var(--text4);font-weight:500;padding:4px 8px;text-align:center;border-bottom:1px solid var(--border2);white-space:nowrap}
+.hmt td{padding:4px 8px;text-align:center;border-radius:2px}
+.hmt .sc{color:var(--amber);font-weight:700;text-align:left;font-size:10px}
+.hmt .sr td{border-top:1px solid #ffc84a33;border-bottom:1px solid #ffc84a33}
 </style>
 </head>
 <body>
 
 <div class="ph">
-  <div><div class="pt">Opciones GGAL — Historico OI</div><div class="ps">IAMC · Snapshot diario al cierre</div></div>
+  <div><div class="pt">Opciones GGAL — Historico OI</div><div class="ps">IAMC · Snapshot diario al cierre · Datos simulados</div></div>
   <div class="bm">MOCKUP</div>
 </div>
 
@@ -71,223 +59,214 @@ select{background:var(--bg3);border:1px solid var(--border2);color:var(--amber);
     <button class="stab">Tabla Detalle</button>
     <button class="stab active">Historico OI ✦</button>
   </div>
-  <span style="font-size:10px;color:var(--text4);padding-bottom:6px">22 registros · Jun 2026</span>
+  <span style="font-size:10px;color:var(--text4);padding-bottom:6px">20 dias · Vto Jun 2026</span>
 </div>
 
-<!-- KPIs -->
 <div class="kpi-row">
   <div class="kpi" style="--c:#38c8ff"><div class="kl">OI Total Calls</div><div class="kv">218K</div><div class="kc up">+12% 7d</div><div class="ks">contratos</div></div>
   <div class="kpi" style="--c:#ff3f5e"><div class="kl">OI Total Puts</div><div class="kv">143K</div><div class="kc dn">-5% 7d</div><div class="ks">contratos</div></div>
-  <div class="kpi" style="--c:#ffc84a"><div class="kl">Ratio Call/Put</div><div class="kv">1.52</div><div class="kc up">+0.18 vs 7d</div><div class="ks">sesgo alcista</div></div>
-  <div class="kpi" style="--c:#a855f7"><div class="kl">% Descubierto</div><div class="kv">34%</div><div class="kc up">+3pp 7d</div><div class="ks">del total OI</div></div>
-  <div class="kpi" style="--c:#00e5a8"><div class="kl">Calls Descub.</div><div class="kv">29%</div><div class="kc dn">-1pp 7d</div><div class="ks">del OI calls</div></div>
+  <div class="kpi" style="--c:#ffc84a"><div class="kl">Ratio C/P Total</div><div class="kv">1.52</div><div class="kc up">+0.18 7d</div><div class="ks">cub + descub</div></div>
+  <div class="kpi" style="--c:#a855f7"><div class="kl">Ratio C/P Descub.</div><div class="kv">0.88</div><div class="kc dn">-0.06 7d</div><div class="ks">solo especulativo</div></div>
+  <div class="kpi" style="--c:#00e5a8"><div class="kl">% Descub Calls</div><div class="kv">29%</div><div class="kc dn">-1pp 7d</div><div class="ks">del OI calls</div></div>
+  <div class="kpi" style="--c:#ff6080"><div class="kl">% Descub Puts</div><div class="kv">38%</div><div class="kc up">+3pp 7d</div><div class="ks">del OI puts</div></div>
 </div>
 
 <!-- OI Total -->
 <div class="card">
-  <div class="ch"><div class="ct">Evolucion OI — Calls vs Puts</div><div class="cd">Interes abierto total · Ratio C/P en eje derecho</div></div>
+  <div class="ch"><div class="ct">Evolucion OI Total — Calls vs Puts</div><div class="cd">Interes abierto total · Ratio C/P total y solo descubiertos en eje derecho</div></div>
   <div class="cb">
     <div style="position:relative;height:190px"><canvas id="c1"></canvas></div>
     <div class="lgrow">
       <div class="lgi"><div class="lgd" style="background:#38c8ff"></div>OI Calls</div>
       <div class="lgi"><div class="lgd" style="background:#ff3f5e"></div>OI Puts</div>
-      <div class="lgi"><div class="lgd" style="background:#ffc84a55;border:1px solid #ffc84a"></div>Ratio C/P</div>
+      <div class="lgi"><div class="lgd" style="background:#ffc84a"></div>Ratio C/P total</div>
+      <div class="lgi"><div class="lgd" style="background:#a855f7"></div>Ratio C/P descub.</div>
     </div>
   </div>
 </div>
 
-<!-- Composicion -->
+<!-- Composicion cubierto/descubierto -->
 <div class="g2">
   <div class="card">
-    <div class="ch"><div class="ct">Calls — Cubierto vs Descubierto</div><div class="cd">Composicion del OI calls</div></div>
+    <div class="ch"><div class="ct">Calls — Cubierto vs Descubierto</div><div class="cd">Stacked · Descubierto = posicion especulativa vendida</div></div>
     <div class="cb">
       <div style="position:relative;height:160px"><canvas id="c2"></canvas></div>
       <div class="lgrow">
         <div class="lgi"><div class="lgd" style="background:#38c8ff88"></div>Cubierto</div>
-        <div class="lgi"><div class="lgd" style="background:#38c8ff2a"></div>Descubierto</div>
+        <div class="lgi"><div class="lgd" style="background:#38c8ff2a;border:1px dashed #38c8ff55"></div>Descubierto</div>
       </div>
     </div>
   </div>
   <div class="card">
-    <div class="ch"><div class="ct">Puts — Cubierto vs Descubierto</div><div class="cd">Composicion del OI puts</div></div>
+    <div class="ch"><div class="ct">Puts — Cubierto vs Descubierto</div><div class="cd">Stacked · Descubierto = posicion especulativa vendida</div></div>
     <div class="cb">
       <div style="position:relative;height:160px"><canvas id="c3"></canvas></div>
       <div class="lgrow">
         <div class="lgi"><div class="lgd" style="background:#ff3f5e88"></div>Cubierto</div>
-        <div class="lgi"><div class="lgd" style="background:#ff3f5e2a"></div>Descubierto</div>
+        <div class="lgi"><div class="lgd" style="background:#ff3f5e2a;border:1px dashed #ff3f5e55"></div>Descubierto</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Niveles clave -->
+<!-- ── POR BASE ────────────────────────────────────────────── -->
+<div class="sep"><div class="sep-line"></div><div class="sep-txt">Por Strike (Base)</div><div class="sep-line"></div></div>
+
+<!-- Slider / snapshot -->
 <div class="card">
-  <div class="ch"><div class="ct">Movimiento de Niveles Clave</div><div class="cd">Call Wall · Put Wall · Gamma Flip · Spot — evolucion diaria</div></div>
+  <div class="ch">
+    <div class="ct">Distribucion OI por Strike — snapshot diario</div>
+    <div class="cd">Calls cubierto/descubierto y puts cubierto/descubierto en cada base · mover slider para cambiar fecha</div>
+  </div>
+  <div style="padding:8px 15px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:12px">
+    <span style="font-size:9px;color:var(--text3);white-space:nowrap">Fecha:</span>
+    <input type="range" id="snap" min="0">
+    <span id="snapLbl" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cyan);white-space:nowrap;min-width:44px;text-align:right"></span>
+  </div>
   <div class="cb">
-    <div style="position:relative;height:180px"><canvas id="c4"></canvas></div>
+    <div style="position:relative;height:240px"><canvas id="c4"></canvas></div>
     <div class="lgrow">
-      <div class="lgi"><div class="lgd" style="background:#00e5a8"></div>Call Wall</div>
-      <div class="lgi"><div class="lgd" style="background:#ff3f5e"></div>Put Wall</div>
-      <div class="lgi"><div class="lgd" style="background:#ffd700"></div>Gamma Flip</div>
-      <div class="lgi"><div class="lgd" style="background:#ffffff88"></div>Spot GGAL</div>
+      <div class="lgi"><div class="lgd" style="background:#38c8ff"></div>Call Cubierto</div>
+      <div class="lgi"><div class="lgd" style="background:#38c8ff33;border:1px dashed #38c8ff"></div>Call Descubierto</div>
+      <div class="lgi"><div class="lgd" style="background:#ff3f5e"></div>Put Cubierto</div>
+      <div class="lgi"><div class="lgd" style="background:#ff3f5e33;border:1px dashed #ff3f5e"></div>Put Descubierto</div>
+      <div class="lgi"><div style="width:2px;height:10px;background:var(--amber)"></div>Spot</div>
     </div>
   </div>
 </div>
 
-<!-- ── POR BASE ─────────────────────────────────────────────── -->
-<div class="sep"><div class="sep-line"></div><div class="sep-txt">Posicionamiento por Strike</div><div class="sep-line"></div></div>
-
-<!-- 1. Mapa de presion -->
-<div class="card">
-  <div class="ch" style="display:flex;justify-content:space-between;align-items:flex-start">
-    <div>
-      <div class="ct">Mapa de Presion — Calls vs Puts por Strike</div>
-      <div class="cd">Cada barra muestra el peso relativo de calls (→) y puts (←) · Claro = descubierto (vendido) · Oscuro = cubierto (comprado)</div>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:9px;color:var(--text3)">Fecha:</span>
-        <span id="presDateLabel" style="font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--cyan)"></span>
-      </div>
-      <input type="range" id="presSlider" min="0" style="width:140px">
-    </div>
-  </div>
-  <div class="cb" style="padding-top:6px">
-    <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text4);margin-bottom:6px;padding-left:64px">
-      <span style="color:#ff3f5e88">← PUTS</span>
-      <span>spot ▸</span>
-      <span style="color:#38c8ff88">CALLS →</span>
-    </div>
-    <div class="pres-wrap" id="presWrap"></div>
-    <div class="lgrow" style="margin-top:10px">
-      <div class="lgi"><div class="lgd" style="background:#38c8ff"></div>Call descubierto (vendido)</div>
-      <div class="lgi"><div class="lgd" style="background:#38c8ff33"></div>Call cubierto (comprado)</div>
-      <div class="lgi"><div class="lgd" style="background:#ff3f5e"></div>Put descubierto (vendido)</div>
-      <div class="lgi"><div class="lgd" style="background:#ff3f5e33"></div>Put cubierto (comprado)</div>
-      <div class="lgi"><div style="width:8px;height:2px;background:var(--amber)"></div>Spot</div>
-    </div>
-    <div style="margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:5px;font-size:9px;color:var(--text3);line-height:1.7">
-      <span style="color:var(--cyan);font-weight:700">Calls descubiertos grandes arriba del spot</span> = hay vendedores de calls en esos strikes → resistencia esperada<br>
-      <span style="color:var(--red);font-weight:700">Puts descubiertos grandes abajo del spot</span> = hay vendedores de puts en esos strikes → soporte esperado
-    </div>
-  </div>
-</div>
-
-<!-- 2. Evolucion de un strike -->
+<!-- Evolucion de un strike -->
 <div class="card">
   <div class="ch" style="display:flex;justify-content:space-between;align-items:center">
     <div>
-      <div class="ct">Evolucion de un Strike</div>
-      <div class="cd">Neto descubiertos (calls − puts vendidos) · Positivo = presion alcista resistida · Negativo = soporte vendido</div>
+      <div class="ct">Evolucion de un Strike en el tiempo</div>
+      <div class="cd">Calls y puts (cubierto y descubierto) a lo largo de los dias para la base seleccionada</div>
     </div>
     <select id="strikeSel"></select>
   </div>
   <div class="cb">
-    <div style="position:relative;height:180px"><canvas id="c5"></canvas></div>
+    <div style="position:relative;height:200px"><canvas id="c5"></canvas></div>
     <div class="lgrow">
-      <div class="lgi"><div class="lgd" style="background:#38c8ff88"></div>Total Calls OI</div>
-      <div class="lgi"><div class="lgd" style="background:#ff3f5e88"></div>Total Puts OI</div>
-      <div class="lgi"><div class="lgd" style="background:#ffd70088;border:1px solid #ffd700"></div>Neto descubiertos (C−P)</div>
+      <div class="lgi"><div class="lgd" style="background:#38c8ff"></div>Call Cubierto</div>
+      <div class="lgi"><div class="lgd" style="background:#38c8ff44;border:1px dashed #38c8ff"></div>Call Descubierto</div>
+      <div class="lgi"><div class="lgd" style="background:#ff3f5e"></div>Put Cubierto</div>
+      <div class="lgi"><div class="lgd" style="background:#ff3f5e44;border:1px dashed #ff3f5e"></div>Put Descubierto</div>
     </div>
   </div>
 </div>
 
-<!-- 3. Grilla ratio calls/puts -->
+<!-- Heatmap OI por strike -->
 <div class="card">
   <div class="ch">
-    <div class="ct">Ratio Calls/Puts por Strike y Fecha</div>
-    <div class="cd">Azul intenso = dominan calls · Rojo intenso = dominan puts · Gris = equilibrado · Fila con ▸ = cerca del spot actual</div>
+    <div class="ct">Heatmap OI por Strike — ultimos 12 dias</div>
+    <div class="cd">Calor = concentracion de OI total (calls+puts) · Azul intenso = maximo · Fila ▸ = cerca del spot actual</div>
   </div>
-  <div class="cb" style="padding-top:6px">
-    <div class="ratio-grid"><table class="rgt" id="rgrid"></table></div>
+  <div class="cb" style="overflow-x:auto;padding-top:6px">
+    <table class="hmt" id="htable"></table>
     <div class="lgrow" style="margin-top:10px;align-items:center">
-      <span style="font-size:9px;color:var(--text4)">Puts dominan</span>
+      <span style="font-size:9px;color:var(--text4)">Poco OI</span>
       <div style="display:flex;gap:2px">
-        <div style="width:16px;height:10px;border-radius:2px;background:#ff3f5e"></div>
-        <div style="width:16px;height:10px;border-radius:2px;background:#ff3f5e66"></div>
-        <div style="width:16px;height:10px;border-radius:2px;background:#2a3440"></div>
-        <div style="width:16px;height:10px;border-radius:2px;background:#38c8ff55"></div>
+        <div style="width:16px;height:10px;border-radius:2px;background:#38c8ff12"></div>
+        <div style="width:16px;height:10px;border-radius:2px;background:#38c8ff33"></div>
+        <div style="width:16px;height:10px;border-radius:2px;background:#38c8ff66"></div>
+        <div style="width:16px;height:10px;border-radius:2px;background:#38c8ffaa"></div>
         <div style="width:16px;height:10px;border-radius:2px;background:#38c8ff"></div>
       </div>
-      <span style="font-size:9px;color:var(--text4)">Calls dominan</span>
+      <span style="font-size:9px;color:var(--text4)">Mucho OI</span>
+      <div style="width:1px;height:12px;background:var(--border2);margin:0 4px"></div>
+      <div style="width:12px;height:2px;background:var(--amber)"></div>
+      <span style="font-size:9px;color:var(--amber)">spot actual</span>
     </div>
   </div>
 </div>
 
 <script>
-// ── Datos base ─────────────────────────────────────────────────
-const N=22;
+// ── Serie de fechas (20 dias habiles) ──────────────────────────
 const labels=[];
-const base=new Date('2026-03-25');
-for(let i=0;i<40&&labels.length<N;i++){
-  const d=new Date(base);d.setDate(base.getDate()+i);
+const d0=new Date('2026-03-25');
+for(let i=0;labels.length<20;i++){
+  const d=new Date(d0);d.setDate(d0.getDate()+i);
   if(d.getDay()!==0&&d.getDay()!==6) labels.push(d.toISOString().slice(5,10).replace('-','/'));
 }
 const L=labels.length;
 
-function rnd(b,e,v,n){return Array.from({length:n},(_,i)=>Math.round(b+(e-b)*i/(n-1)+(Math.random()-.5)*v));}
-function snap(arr,step){return arr.map(v=>Math.round(v/step)*step);}
+// ── Spot GGAL: sube de 9500 a 10300 ───────────────────────────
+const spot=Array.from({length:L},(_,i)=>Math.round(9500+(10300-9500)*i/(L-1)+(Math.random()-.5)*120));
 
-const calls=rnd(175000,218000,7000,L);
-const puts=rnd(158000,143000,5000,L);
-const ratio=calls.map((c,i)=>+(c/puts[i]).toFixed(2));
-const callsCub=calls.map(v=>Math.round(v*.72));
-const callsDes=calls.map((v,i)=>v-callsCub[i]);
-const putsCub=puts.map(v=>Math.round(v*.65));
-const putsDes=puts.map((v,i)=>v-putsCub[i]);
-const spot=rnd(9700,10250,130,L);
-const cwall=snap(rnd(10900,11200,150,L),250);
-const pwall=snap(rnd(8900,9200,150,L),250);
-const flip=snap(rnd(9700,10000,100,L),100);
-
+// ── Strikes ────────────────────────────────────────────────────
 const STRIKES=[8500,8750,9000,9250,9500,9750,10000,10250,10500,10750,11000,11250,11500];
-const spotLast=spot[L-1];
 
-// byBase[s][i] = {cc,cd,pc,pd}
+// OI por strike y fecha: concentrado cerca del spot, call wall en 10750, put wall en 9250
+function oiForStrike(s,spotV,kind){
+  const dist=Math.abs(s-spotV);
+  // Concentracion base (ATM tiene mas OI)
+  let base=Math.max(800, 18000-dist*1.8);
+  // Call wall artificial en 10750
+  if(kind==='call'&&s===10750) base*=2.2;
+  // Put wall artificial en 9250
+  if(kind==='put'&&s===9250) base*=2.0;
+  // Calls dominan arriba del spot, puts abajo
+  if(kind==='call') base*=(s>=spotV?1.4:.7);
+  if(kind==='put')  base*=(s< spotV?1.4:.7);
+  return Math.max(400,Math.round(base+(Math.random()-.5)*1200));
+}
+
+// byBase[s][i] = {cc, cd, pc, pd}
 const byBase={};
 STRIKES.forEach(s=>{
   byBase[s]=Array.from({length:L},(_,i)=>{
-    const dist=Math.abs(s-spot[i]);
-    const base=Math.max(300, 11000-dist*0.9+(Math.random()-.5)*1500);
-    const callTot=Math.round(base*(s>=spot[i]?.58:.42));
-    const putTot =Math.round(base*(s>=spot[i]?.42:.58));
-    const cdR=s>spot[i]?(.35+.1*(s-spot[i])/800):.18;
-    const pdR=s<spot[i]?(.35+.1*(spot[i]-s)/800):.18;
+    const sv=spot[i];
+    const ct=oiForStrike(s,sv,'call');
+    const pt=oiForStrike(s,sv,'put');
+    // Descubiertos: mas alto en OTM (vendedores de prima)
+    const cdR=s>sv ? Math.min(.55,.25+.15*(s-sv)/500) : .15;
+    const pdR=s<sv ? Math.min(.55,.25+.15*(sv-s)/500) : .15;
     return {
-      cc:Math.round(callTot*(1-Math.min(.5,cdR))),
-      cd:Math.round(callTot*Math.min(.5,cdR)),
-      pc:Math.round(putTot*(1-Math.min(.5,pdR))),
-      pd:Math.round(putTot*Math.min(.5,pdR)),
+      cc:Math.round(ct*(1-cdR)),
+      cd:Math.round(ct*cdR),
+      pc:Math.round(pt*(1-pdR)),
+      pd:Math.round(pt*pdR),
     };
   });
 });
+
+// Totales agregados por fecha
+const totalCalls=Array.from({length:L},(_,i)=>STRIKES.reduce((a,s)=>a+byBase[s][i].cc+byBase[s][i].cd,0));
+const totalPuts =Array.from({length:L},(_,i)=>STRIKES.reduce((a,s)=>a+byBase[s][i].pc+byBase[s][i].pd,0));
+const totalCallsCub=Array.from({length:L},(_,i)=>STRIKES.reduce((a,s)=>a+byBase[s][i].cc,0));
+const totalCallsDes=Array.from({length:L},(_,i)=>STRIKES.reduce((a,s)=>a+byBase[s][i].cd,0));
+const totalPutsCub =Array.from({length:L},(_,i)=>STRIKES.reduce((a,s)=>a+byBase[s][i].pc,0));
+const totalPutsDes =Array.from({length:L},(_,i)=>STRIKES.reduce((a,s)=>a+byBase[s][i].pd,0));
+const ratioTotal=totalCalls.map((c,i)=>+(c/totalPuts[i]).toFixed(2));
+const ratioDes  =totalCallsDes.map((c,i)=>+(c/totalPutsDes[i]).toFixed(2));
 
 const GR={color:'#1e2530'};
 const TK={color:'#6e8090',font:{size:9}};
 const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:11}};
 
-// ── Chart 1 ────────────────────────────────────────────────────
+// ── Chart 1: OI Total + 2 ratios ──────────────────────────────
 new Chart(document.getElementById('c1'),{
   data:{labels,datasets:[
-    {type:'line',label:'OI Calls',data:calls,borderColor:'#38c8ff',borderWidth:2,backgroundColor:'#38c8ff18',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
-    {type:'line',label:'OI Puts',data:puts,borderColor:'#ff3f5e',borderWidth:2,backgroundColor:'#ff3f5e18',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
-    {type:'line',label:'Ratio',data:ratio,borderColor:'#ffc84a88',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y2'},
+    {type:'line',label:'OI Calls',data:totalCalls,borderColor:'#38c8ff',borderWidth:2,backgroundColor:'#38c8ff1a',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
+    {type:'line',label:'OI Puts', data:totalPuts, borderColor:'#ff3f5e',borderWidth:2,backgroundColor:'#ff3f5e1a',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
+    {type:'line',label:'Ratio total',data:ratioTotal,borderColor:'#ffc84a',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y2'},
+    {type:'line',label:'Ratio descub',data:ratioDes,borderColor:'#a855f7',borderWidth:1.5,borderDash:[2,3],pointRadius:0,tension:.3,yAxisID:'y2'},
   ]},
   options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     scales:{
       x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},
       y:{position:'left',grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'}},
-      y2:{position:'right',grid:{display:false},ticks:{...TK,callback:v=>v.toFixed(1)},min:.8,max:2.2}
+      y2:{position:'right',grid:{display:false},ticks:{...TK,callback:v=>v.toFixed(1)},min:.4,max:2.0}
     },
-    plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.yAxisID==='y2'?c.parsed.y.toFixed(2):Math.round(c.parsed.y/1000)+'K'}`}}}
+    plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.datasetIndex<2?Math.round(c.parsed.y/1000)+'K':c.parsed.y.toFixed(2)}`}}}
   }
 });
 
-// ── Chart 2 ────────────────────────────────────────────────────
+// ── Chart 2: Calls stacked ────────────────────────────────────
 new Chart(document.getElementById('c2'),{
   data:{labels,datasets:[
-    {type:'bar',label:'Cubierto',data:callsCub,backgroundColor:'#38c8ff88',stack:'a'},
-    {type:'bar',label:'Descubierto',data:callsDes,backgroundColor:'#38c8ff2a',stack:'a'},
+    {type:'bar',label:'Cubierto',   data:totalCallsCub,backgroundColor:'#38c8ff88',stack:'a'},
+    {type:'bar',label:'Descubierto',data:totalCallsDes,backgroundColor:'#38c8ff2a',stack:'a'},
   ]},
   options:{responsive:true,maintainAspectRatio:false,
     scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'}}},
@@ -295,11 +274,11 @@ new Chart(document.getElementById('c2'),{
   }
 });
 
-// ── Chart 3 ────────────────────────────────────────────────────
+// ── Chart 3: Puts stacked ─────────────────────────────────────
 new Chart(document.getElementById('c3'),{
   data:{labels,datasets:[
-    {type:'bar',label:'Cubierto',data:putsCub,backgroundColor:'#ff3f5e88',stack:'a'},
-    {type:'bar',label:'Descubierto',data:putsDes,backgroundColor:'#ff3f5e2a',stack:'a'},
+    {type:'bar',label:'Cubierto',   data:totalPutsCub,backgroundColor:'#ff3f5e88',stack:'a'},
+    {type:'bar',label:'Descubierto',data:totalPutsDes,backgroundColor:'#ff3f5e2a',stack:'a'},
   ]},
   options:{responsive:true,maintainAspectRatio:false,
     scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'}}},
@@ -307,192 +286,139 @@ new Chart(document.getElementById('c3'),{
   }
 });
 
-// ── Chart 4 ────────────────────────────────────────────────────
-new Chart(document.getElementById('c4'),{
-  data:{labels,datasets:[
-    {label:'Call Wall',data:cwall,borderColor:'#00e5a8',borderWidth:2,pointRadius:0,tension:.3,borderDash:[5,3]},
-    {label:'Put Wall',data:pwall,borderColor:'#ff3f5e',borderWidth:2,pointRadius:0,tension:.3,borderDash:[5,3]},
-    {label:'Gamma Flip',data:flip,borderColor:'#ffd700',borderWidth:1.5,pointRadius:0,tension:.3},
-    {label:'Spot',data:spot,borderColor:'#ffffff77',borderWidth:2,pointRadius:0,tension:.3},
-  ]},
-  options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-    scales:{x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},y:{grid:GR,ticks:{...TK,callback:v=>'$'+v.toLocaleString('es-AR')}}},
-    plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: $${c.parsed.y.toLocaleString('es-AR')}`}}}
-  }
-});
+// ── Chart 4: Snapshot por fecha (slider) ──────────────────────
+let c4=null;
+const snapEl=document.getElementById('snap');
+const snapLbl=document.getElementById('snapLbl');
+snapEl.max=L-1; snapEl.value=L-1;
 
-// ── Mapa de presion (custom HTML bars) ───────────────────────
-const presWrap=document.getElementById('presWrap');
-const presSlider=document.getElementById('presSlider');
-const presDateLabel=document.getElementById('presDateLabel');
-presSlider.max=L-1; presSlider.value=L-1;
+function renderSnap(idx){
+  snapLbl.textContent=labels[idx];
+  const sv=spot[idx];
+  const slbls=STRIKES.map(s=>'$'+s);
+  const cc=STRIKES.map(s=>byBase[s][idx].cc);
+  const cd=STRIKES.map(s=>byBase[s][idx].cd);
+  const pc=STRIKES.map(s=>-byBase[s][idx].pc); // negativo para que vayan abajo
+  const pd=STRIKES.map(s=>-byBase[s][idx].pd);
 
-function renderPres(idx){
-  presDateLabel.textContent=labels[idx];
-  const spotV=spot[idx];
+  // spot como anotacion: encontrar el strike mas cercano
+  const spotStrikeIdx=STRIKES.reduce((bi,s,i)=>Math.abs(s-sv)<Math.abs(STRIKES[bi]-sv)?i:bi,0);
 
-  // max OI en ese dia para escalar
-  let maxOI=0;
-  STRIKES.forEach(s=>{
-    const d=byBase[s][idx];
-    maxOI=Math.max(maxOI, d.cc+d.cd, d.pc+d.pd);
-  });
-
-  // spot relativo: qué porcentaje del rango de strikes
-  const sMin=STRIKES[0], sMax=STRIKES[STRIKES.length-1];
-  const spotPct=Math.min(95,Math.max(5,(spotV-sMin)/(sMax-sMin)*100));
-
-  presWrap.innerHTML='';
-
-  // linea de spot comun
-  const spotEl=document.createElement('div');
-  spotEl.style.cssText=`position:absolute;left:calc(64px + ${spotPct/2}%);top:0;height:100%;width:1px;background:var(--amber);opacity:.7;pointer-events:none;z-index:2`;
-
-  STRIKES.slice().reverse().forEach(s=>{
-    const d=byBase[s][idx];
-    const callTot=d.cc+d.cd, putTot=d.pc+d.pd;
-    const callW=Math.round(callTot/maxOI*100);
-    const putW=Math.round(putTot/maxOI*100);
-    const cdPct=callTot>0?Math.round(d.cd/callTot*100):0;
-    const pdPct=putTot>0?Math.round(d.pd/putTot*100):0;
-    const near=Math.abs(s-spotV)<250;
-
-    const row=document.createElement('div');
-    row.className='pres-row';
-    row.style.opacity=near?'1':'.85';
-
-    const strikeLbl=document.createElement('div');
-    strikeLbl.className='pres-strike';
-    strikeLbl.textContent=(near?'▸':'')+'$'+s;
-    if(near) strikeLbl.style.color='var(--amber)';
-
-    // contenedor de barras (50% izq = puts, 50% der = calls)
-    const barWrap=document.createElement('div');
-    barWrap.style.cssText=`position:relative;flex:1;height:18px;display:flex;align-items:center`;
-
-    // barra puts (izquierda, alineada a la derecha de su mitad)
-    const putBar=document.createElement('div');
-    putBar.style.cssText=`position:absolute;right:50%;height:14px;border-radius:3px 0 0 3px;overflow:hidden;display:flex;flex-direction:row-reverse;min-width:2px;width:${putW/2}%`;
-    const pdDiv=document.createElement('div');
-    pdDiv.style.cssText=`background:#ff3f5e;height:100%;width:${pdPct}%`;
-    const pcDiv=document.createElement('div');
-    pcDiv.style.cssText=`background:#ff3f5e33;height:100%;flex:1`;
-    putBar.appendChild(pdDiv); putBar.appendChild(pcDiv);
-
-    // barra calls (derecha)
-    const callBar=document.createElement('div');
-    callBar.style.cssText=`position:absolute;left:50%;height:14px;border-radius:0 3px 3px 0;overflow:hidden;display:flex;min-width:2px;width:${callW/2}%`;
-    const ccDiv=document.createElement('div');
-    ccDiv.style.cssText=`background:#38c8ff33;height:100%;flex:1`;
-    const cdDiv=document.createElement('div');
-    cdDiv.style.cssText=`background:#38c8ff;height:100%;width:${cdPct}%`;
-    callBar.appendChild(ccDiv); callBar.appendChild(cdDiv);
-
-    // linea central
-    const center=document.createElement('div');
-    center.style.cssText=`position:absolute;left:50%;width:1px;height:100%;background:#1e2a38`;
-
-    // spot marker
-    const spotM=document.createElement('div');
-    spotM.style.cssText=`position:absolute;left:calc(50% + ${(spotPct-50)/2}%);width:1px;height:100%;background:var(--amber);opacity:.5`;
-
-    barWrap.appendChild(center);
-    barWrap.appendChild(spotM);
-    barWrap.appendChild(putBar);
-    barWrap.appendChild(callBar);
-
-    const pctLbl=document.createElement('div');
-    pctLbl.className='pres-label';
-    pctLbl.style.cssText='font-size:8px;color:var(--text4);width:38px;text-align:left';
-    pctLbl.textContent=`C${Math.round(callTot/1000)}K P${Math.round(putTot/1000)}K`;
-
-    row.appendChild(strikeLbl);
-    row.appendChild(barWrap);
-    row.appendChild(pctLbl);
-    presWrap.appendChild(row);
-  });
-}
-
-presSlider.addEventListener('input',()=>renderPres(+presSlider.value));
-renderPres(L-1);
-
-// ── Evolucion de strike (Chart 5) ─────────────────────────────
-let c5Chart=null;
-const strikeSel=document.getElementById('strikeSel');
-STRIKES.forEach(s=>{
-  const o=document.createElement('option');
-  o.value=s;
-  const nearSpot=Math.abs(s-spotLast)<300;
-  o.textContent='$'+s+(nearSpot?' ← spot':'');
-  strikeSel.appendChild(o);
-});
-strikeSel.value=STRIKES.find(s=>Math.abs(s-spotLast)<350)||10000;
-
-function renderStrikeEvol(s){
-  const d=byBase[s];
-  const totalC=d.map(x=>x.cc+x.cd);
-  const totalP=d.map(x=>x.pc+x.pd);
-  const netDesc=d.map(x=>x.cd-x.pd); // neto descubiertos calls minus puts
-
-  if(c5Chart) c5Chart.destroy();
-  c5Chart=new Chart(document.getElementById('c5'),{
-    data:{labels,datasets:[
-      {type:'bar',label:'Total Calls',data:totalC,backgroundColor:'#38c8ff33',yAxisID:'y',order:2},
-      {type:'bar',label:'Total Puts',data:totalP,backgroundColor:'#ff3f5e33',yAxisID:'y',order:2},
-      {type:'line',label:'Neto descubiertos (C−P)',data:netDesc,borderColor:'#ffd700',borderWidth:2,pointRadius:2,pointBackgroundColor:'#ffd700',tension:.3,yAxisID:'y2',order:1,
-        segment:{borderColor:ctx=>ctx.p1.parsed.y>=0?'#38c8ff':'#ff3f5e'}},
+  if(c4) c4.destroy();
+  c4=new Chart(document.getElementById('c4'),{
+    type:'bar',
+    data:{labels:slbls,datasets:[
+      {label:'Call Cubierto',   data:cc, backgroundColor:'#38c8ffaa', stack:'call'},
+      {label:'Call Descubierto',data:cd, backgroundColor:'#38c8ff33', stack:'call'},
+      {label:'Put Cubierto',    data:pc, backgroundColor:'#ff3f5eaa', stack:'put'},
+      {label:'Put Descubierto', data:pd, backgroundColor:'#ff3f5e33', stack:'put'},
     ]},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    options:{responsive:true,maintainAspectRatio:false,
       scales:{
-        x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},
-        y:{position:'left',grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'},stacked:false},
-        y2:{position:'right',grid:{display:false},ticks:{...TK,callback:v=>(v>0?'+':'')+Math.round(v/1000)+'K'},
-          afterDataLimits(scale){const m=Math.max(Math.abs(scale.min),Math.abs(scale.max));scale.min=-m;scale.max=m;}
-        }
+        x:{grid:GR,ticks:{...TK,maxRotation:45}},
+        y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>Math.abs(Math.round(v/1000))+'K'}}
       },
       plugins:{
         legend:{display:false},
-        tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${(c.parsed.y>0&&c.datasetIndex===2?'+':'')+Math.round(c.parsed.y/1000)}K`}}
+        tooltip:{...TT,callbacks:{
+          title:t=>`Strike ${t[0].label} | Spot $${sv.toLocaleString('es-AR')}`,
+          label:c=>` ${c.dataset.label}: ${Math.abs(Math.round(c.parsed.y/1000))}K`
+        }},
+        annotation:{annotations:{
+          spotLine:{type:'line',xMin:spotStrikeIdx-.5,xMax:spotStrikeIdx+.5,borderColor:'#ffc84a',borderWidth:2,
+            label:{content:'Spot $'+sv.toLocaleString('es-AR'),display:true,position:'start',color:'#ffc84a',font:{size:9},backgroundColor:'transparent'}}
+        }}
       }
     }
   });
 }
 
-strikeSel.addEventListener('change',()=>renderStrikeEvol(+strikeSel.value));
-renderStrikeEvol(+strikeSel.value);
+// annotation plugin (inline si no esta cargado)
+if(!Chart.registry.plugins.get('annotation')){
+  // fallback sin anotacion si el plugin no carga
+  Chart.register({id:'annotation',beforeDraw(){}});
+}
 
-// ── Grilla ratio calls/puts ────────────────────────────────────
+snapEl.addEventListener('input',()=>renderSnap(+snapEl.value));
+renderSnap(L-1);
+
+// ── Chart 5: Evolucion de un strike ───────────────────────────
+let c5=null;
+const strikeSel=document.getElementById('strikeSel');
+STRIKES.forEach(s=>{
+  const o=document.createElement('option');o.value=s;
+  const sv=spot[L-1];
+  const tag=Math.abs(s-sv)<300?' ← cerca del spot':s===10750?' ← call wall':s===9250?' ← put wall':'';
+  o.textContent='$'+s+tag;
+  strikeSel.appendChild(o);
+});
+strikeSel.value='10750';
+
+function renderEvol(s){
+  const d=byBase[s];
+  if(c5) c5.destroy();
+  c5=new Chart(document.getElementById('c5'),{
+    data:{labels,datasets:[
+      {type:'line',label:'Call Cubierto',   data:d.map(x=>x.cc),borderColor:'#38c8ff',  backgroundColor:'#38c8ff18',fill:true,tension:.35,pointRadius:2,borderWidth:2},
+      {type:'line',label:'Call Descubierto',data:d.map(x=>x.cd),borderColor:'#38c8ff66',backgroundColor:'#38c8ff08',fill:true,tension:.35,pointRadius:2,borderWidth:1.5,borderDash:[5,3]},
+      {type:'line',label:'Put Cubierto',    data:d.map(x=>x.pc),borderColor:'#ff3f5e',  backgroundColor:'#ff3f5e18',fill:true,tension:.35,pointRadius:2,borderWidth:2},
+      {type:'line',label:'Put Descubierto', data:d.map(x=>x.pd),borderColor:'#ff3f5e66',backgroundColor:'#ff3f5e08',fill:true,tension:.35,pointRadius:2,borderWidth:1.5,borderDash:[5,3]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},y:{grid:GR,ticks:{...TK,callback:v=>Math.round(v/1000)+'K'}}},
+      plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${Math.round(c.parsed.y/1000)}K`}}}
+    }
+  });
+}
+strikeSel.addEventListener('change',()=>renderEvol(+strikeSel.value));
+renderEvol(10750);
+
+// ── Heatmap ───────────────────────────────────────────────────
 (function(){
-  const ND=12, rdates=labels.slice(-ND);
-  const t=document.getElementById('rgrid');
+  const ND=12, rdates=labels.slice(-ND), startIdx=L-ND;
+  const spotLast=spot[L-1];
+
+  // OI total por strike y fecha
+  const oiMat={};
+  STRIKES.forEach(s=>{
+    oiMat[s]=Array.from({length:ND},(_,i)=>byBase[s][startIdx+i].cc+byBase[s][startIdx+i].cd+byBase[s][startIdx+i].pc+byBase[s][startIdx+i].pd);
+  });
+  const allVals=Object.values(oiMat).flat();
+  const mx=Math.max(...allVals), mn=Math.min(...allVals);
+
+  function cellColor(v){
+    const t=(v-mn)/(mx-mn);
+    const a=.08+t*.88;
+    const r=Math.round(56+t*20), g=Math.round(200-t*60), b=Math.round(255-t*40);
+    return {bg:`rgba(${r},${g},${b},${a.toFixed(2)})`, fg:t>.55?'#0d1117':'#8899aa'};
+  }
+
+  const t=document.getElementById('htable');
   const hd=t.createTHead(),hr=hd.insertRow();
   const th0=document.createElement('th');th0.textContent='Strike';hr.appendChild(th0);
   rdates.forEach(d=>{const th=document.createElement('th');th.textContent=d;hr.appendChild(th);});
+  // Columna total
+  const thT=document.createElement('th');thT.textContent='Avg';thT.style.color='var(--text3)';hr.appendChild(thT);
 
   const tb=t.createTBody();
   STRIKES.slice().reverse().forEach(s=>{
     const near=Math.abs(s-spotLast)<250;
     const row=tb.insertRow();
-    if(near)row.className='sr';
+    if(near) row.className='sr';
     const td0=row.insertCell();td0.className='sc';
-    td0.textContent=(near?'▸ ':'')+'$'+s;
-
-    rdates.forEach((_,i)=>{
-      const di=L-ND+i;
-      const d=byBase[s][di];
-      const tc=d.cc+d.cd, tp=d.pc+d.pd;
-      const r=tp>0?tc/tp:1;
-      // r>1 = calls dominan (azul), r<1 = puts dominan (rojo)
-      let bg,fg;
-      if(r>1.8){bg='rgba(56,200,255,.9)';fg='#0d1117';}
-      else if(r>1.3){bg='rgba(56,200,255,.5)';fg='#e2eaf4';}
-      else if(r>0.8){bg='#1e2a38';fg='#6e8090';}
-      else if(r>0.5){bg='rgba(255,63,94,.5)';fg='#e2eaf4';}
-      else{bg='rgba(255,63,94,.9)';fg='#0d1117';}
+    td0.textContent=(near?'▸ ':'  ')+'$'+s;
+    const vals=oiMat[s];
+    vals.forEach(v=>{
+      const {bg,fg}=cellColor(v);
       const td=row.insertCell();
-      td.style.cssText=`background:${bg};color:${fg};text-align:center;border-radius:3px;font-size:8px`;
-      td.textContent=r.toFixed(1);
+      td.style.cssText=`background:${bg};color:${fg}`;
+      td.textContent=Math.round(v/1000)+'K';
     });
+    // avg
+    const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length/1000);
+    const tdA=row.insertCell();
+    tdA.style.cssText='color:var(--text4);font-size:8px';
+    tdA.textContent=avg+'K';
   });
 })();
 </script>
