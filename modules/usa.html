@@ -976,7 +976,7 @@ async function rrgLoad() {
   try {
     const rows = await fetch(
       `https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?select=symbol,fecha,close&symbol=in.(${allSyms.join(',')})&fecha=gte.${sinceStr}&order=symbol,fecha&limit=60000`,
-      {headers:{apikey:SBKEY,'Authorization':'Bearer '+SBKEY}}
+      {headers:{apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY}}
     ).then(r => r.ok ? r.json() : []);
 
     if (!rows?.length) { document.getElementById('rrg-meta').textContent='Sin datos en historico_precios.'; return; }
