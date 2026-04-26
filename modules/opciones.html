@@ -598,23 +598,30 @@ async function hLoadData() {
 
     if (!rows?.length) { document.getElementById('hMeta').textContent = 'Sin datos en histórico.'; return; }
 
-    // Vencimiento activo = el más próximo con fecha futura (no vencido)
+    // Vencimiento activo = expiration futura con más datos (ignora series con pocas filas)
     const hoy = new Date().toISOString().slice(0,10);
-    const expsConDatos = [...new Set(rows.map(r => r.expiration))].sort();
-    const activeExp = expsConDatos.find(e => e >= hoy) || expsConDatos[expsConDatos.length - 1];
+    const expCount = {};
+    rows.forEach(r => { if(r.expiration >= hoy) expCount[r.expiration] = (expCount[r.expiration]||0)+1; });
+    const futureExps = Object.entries(expCount).filter(([,c])=>c>10).sort(([a],[b])=>a.localeCompare(b));
+    const activeExp = futureExps.length ? futureExps[0][0]
+      : [...new Set(rows.map(r=>r.expiration))].sort().reverse()[0];
     const filtered = rows.filter(r => r.expiration === activeExp);
+
+    // Corrección de strike: mismo fix que tab Distribución (error coma decimal PDF argentino)
+    const fixSH = v => { const n = Number(v); return n >= 20000 ? n/10 : n; };
 
     // Estructuras
     hDates   = [...new Set(filtered.map(r => r.fecha_informe))].sort();
-    hStrikes = [...new Set(filtered.map(r => r.strike))].sort((a,b) => a-b);
+    hStrikes = [...new Set(filtered.map(r => fixSH(r.strike)))].sort((a,b) => a-b);
 
     // byDate[fecha][strike][kind] = {cc,cd,pc,pd}
     hByDate = {};
     hDates.forEach(d => { hByDate[d] = {}; hStrikes.forEach(s => { hByDate[d][s] = {cc:0,cd:0,pc:0,pd:0}; }); });
     filtered.forEach(r => {
-      if(!hByDate[r.fecha_informe]?.[r.strike]) return;
-      if(r.kind==='call'){ hByDate[r.fecha_informe][r.strike].cc = r.cubierto; hByDate[r.fecha_informe][r.strike].cd = r.descubierto; }
-      else               { hByDate[r.fecha_informe][r.strike].pc = r.cubierto; hByDate[r.fecha_informe][r.strike].pd = r.descubierto; }
+      const s = fixSH(r.strike);
+      if(!hByDate[r.fecha_informe]?.[s]) return;
+      if(r.kind==='call'){ hByDate[r.fecha_informe][s].cc = r.cubierto; hByDate[r.fecha_informe][s].cd = r.descubierto; }
+      else               { hByDate[r.fecha_informe][s].pc = r.cubierto; hByDate[r.fecha_informe][s].pd = r.descubierto; }
     });
 
     // byStrike[strike][i] = {cc,cd,pc,pd} para cada fecha
@@ -808,7 +815,7 @@ function hRenderStrikeSelector() {
     const tags = [];
     if(s===maxCall) tags.push('call wall');
     if(s===maxPut)  tags.push('put wall');
-    if(hSpotLast && Math.abs(s-hSpotLast)<300) tags.push('~spot');
+    if(hSpotLast && Math.abs(s-hSpotLast)<hSpotLast*0.08) tags.push('~spot');
     o.textContent = '$'+s + (tags.length ? ' ← '+tags.join(', ') : '');
     sel.appendChild(o);
   });
@@ -880,7 +887,7 @@ function hRenderHeatmap() {
 
   const tb = t.createTBody();
   hStrikes.slice().reverse().forEach(s => {
-    const near = hSpotLast && Math.abs(s-hSpotLast)<250;
+    const near = hSpotLast && Math.abs(s-hSpotLast)<hSpotLast*0.08;
     const row = tb.insertRow();
     if(near) row.style.cssText='border-top:1px solid rgba(255,200,74,.3);border-bottom:1px solid rgba(255,200,74,.3)';
     const td0 = row.insertCell();
