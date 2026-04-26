@@ -194,16 +194,14 @@ def snapshot_historico(data: dict, fecha_informe: date):
     opciones = data.get("opciones", [])
     if not opciones: return
 
+    # Vencimiento activo = el 3er viernes de mes par más próximo
+    vto_activo = vencimientoActivo(fecha_informe)
+    vto_str    = vto_activo.strftime("%Y-%m-%d")
+
     filas = []
     for op in opciones:
         exp_str = op.get("expiration", "")
-        if not exp_str: continue
-        try:
-            exp_date = date.fromisoformat(exp_str)
-        except ValueError:
-            continue
-        # Solo guardar si la expiration aún no ha vencido al momento del informe
-        if exp_date < fecha_informe:
+        if exp_str != vto_str:
             continue
         filas.append({
             "fecha_informe":  fecha_informe.strftime("%Y-%m-%d"),
