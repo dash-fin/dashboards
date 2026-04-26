@@ -590,18 +590,18 @@ const SB_REST = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/';
 async function hLoadData() {
   hLoaded = true;
   try {
-    // Traer todo el histórico del vencimiento activo (el más próximo con datos)
+    // Traer todo el histórico (limit alto para no cortar en 1000)
     const rows = await fetch(
-      SB_REST + 'opciones_historico?select=fecha_informe,expiration,strike,kind,cubierto,descubierto,open_interest,volume&order=fecha_informe',
+      SB_REST + 'opciones_historico?select=fecha_informe,expiration,strike,kind,cubierto,descubierto,open_interest,volume&order=fecha_informe&limit=10000',
       { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } }
     ).then(r => r.ok ? r.json() : []);
 
     if (!rows?.length) { document.getElementById('hMeta').textContent = 'Sin datos en histórico.'; return; }
 
-    // Vencimiento activo = el que aparece más en los datos
-    const expCount = {};
-    rows.forEach(r => expCount[r.expiration] = (expCount[r.expiration]||0)+1);
-    const activeExp = Object.entries(expCount).sort((a,b)=>b[1]-a[1])[0][0];
+    // Vencimiento activo = el más próximo con fecha futura (no vencido)
+    const hoy = new Date().toISOString().slice(0,10);
+    const expsConDatos = [...new Set(rows.map(r => r.expiration))].sort();
+    const activeExp = expsConDatos.find(e => e >= hoy) || expsConDatos[expsConDatos.length - 1];
     const filtered = rows.filter(r => r.expiration === activeExp);
 
     // Estructuras
