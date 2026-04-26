@@ -611,14 +611,22 @@ async function hLoadData() {
       : [...new Set(rows.map(r=>r.expiration))].sort().reverse()[0];
     const filtered = rows.filter(r => r.expiration === activeExp);
 
-    // Corrección de strike: mismo fix que tab Distribución (error coma decimal PDF argentino)
-    const fixSH = v => { const n = Number(v); return n >= 20000 ? n/10 : n; };
+    // Corrección de strike + redondeo a entero (strikes GGAL son siempre enteros)
+    // Mismo criterio que fixStrike en solapa Distribución, agregando Math.round para
+    // absorber variaciones de parseo de Claude entre distintos PDFs del backfill.
+    const fixSH = v => Math.round(Number(v) >= 20000 ? Number(v) / 10 : Number(v));
+
+    // Conjunto canónico de strikes del snapshot actual (opciones_iamc, solapa Distribución).
+    // Se usa como filtro autorizado: solo mostrar en el histórico strikes que existen hoy.
+    const canonSet = oAllRows?.length
+      ? new Set(oAllRows.filter(r => r.vencimiento === activeExp).map(r => Math.round(r.base)))
+      : null;
 
     // Estructuras
     hDates   = [...new Set(filtered.map(r => r.fecha_informe))].sort();
     const allFixedStrikes = [...new Set(filtered.map(r => fixSH(r.strike)))].sort((a,b) => a-b);
 
-    // byDate[fecha][strike] = {cc,cd,pc,pd}  — usa += para fusionar strikes duplicados tras fixSH
+    // byDate[fecha][strike] = {cc,cd,pc,pd}  — += para fusionar strikes que colisionan tras fixSH
     hByDate = {};
     hDates.forEach(d => { hByDate[d] = {}; allFixedStrikes.forEach(s => { hByDate[d][s] = {cc:0,cd:0,pc:0,pd:0}; }); });
     filtered.forEach(r => {
@@ -628,9 +636,10 @@ async function hLoadData() {
       else               { hByDate[r.fecha_informe][s].pc += r.cubierto; hByDate[r.fecha_informe][s].pd += r.descubierto; }
     });
 
-    // Solo mantener strikes con OI real en al menos un día
+    // Filtrar strikes: preferir conjunto canónico (solapa Distribución), fallback a OI > 0
     hStrikes = allFixedStrikes.filter(s =>
-      hDates.some(d => { const dd = hByDate[d][s]; return dd && (dd.cc+dd.cd+dd.pc+dd.pd) > 0; })
+      canonSet ? canonSet.has(s)
+               : hDates.some(d => { const dd = hByDate[d][s]; return dd && (dd.cc+dd.cd+dd.pc+dd.pd) > 0; })
     );
 
     // byStrike[strike][i] = {cc,cd,pc,pd} para cada fecha
@@ -810,43 +819,37 @@ function hRenderSnap(idx) {
 
 function hRenderDelta(idx) {
   const slbls = hStrikes.map(s => '$'+s);
-  let deltas, colors;
-
-  if(idx === 0) {
-    // Primer día: no hay anterior, mostrar todo en gris
-    deltas = hStrikes.map(() => 0);
-    colors = hStrikes.map(() => 'rgba(110,128,144,.35)');
-  } else {
-    deltas = hStrikes.map(s => {
-      const cur  = hByStrike[s][idx];
-      const prev = hByStrike[s][idx-1];
-      return (cur.cc+cur.cd+cur.pc+cur.pd) - (prev.cc+prev.cd+prev.pc+prev.pd);
-    });
-    colors = deltas.map(v => v > 0 ? 'rgba(0,229,168,.75)' : v < 0 ? 'rgba(255,63,94,.75)' : 'rgba(110,128,144,.25)');
-  }
-
   const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:8}};
   const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:10}};
+
+  const zero = hStrikes.map(() => 0);
+  let dCC=zero, dCD=zero, dPC=zero, dPD=zero;
+  if(idx > 0) {
+    dCC = hStrikes.map(s => hByStrike[s][idx].cc - hByStrike[s][idx-1].cc);
+    dCD = hStrikes.map(s => hByStrike[s][idx].cd - hByStrike[s][idx-1].cd);
+    dPC = hStrikes.map(s => hByStrike[s][idx].pc - hByStrike[s][idx-1].pc);
+    dPD = hStrikes.map(s => hByStrike[s][idx].pd - hByStrike[s][idx-1].pd);
+  }
 
   if(hDeltaChart) hDeltaChart.destroy();
   hDeltaChart = new Chart(document.getElementById('hChartDelta'), {
     type:'bar',
-    data:{labels:slbls,datasets:[{
-      data:deltas,
-      backgroundColor:colors,
-      borderWidth:0,
-      barPercentage:.85
-    }]},
+    data:{labels:slbls,datasets:[
+      {label:'Call Cub',  data:dCC, backgroundColor:'#38c8ffcc', stack:'c'},
+      {label:'Call Desc', data:dCD, backgroundColor:'#38c8ff55', stack:'c'},
+      {label:'Put Cub',   data:dPC, backgroundColor:'#ff3f5ecc', stack:'p'},
+      {label:'Put Desc',  data:dPD, backgroundColor:'#ff3f5e55', stack:'p'},
+    ]},
     options:{responsive:true,maintainAspectRatio:false,
       scales:{
-        x:{grid:GR,ticks:{...TK,maxRotation:45}},
+        x:{stacked:true,grid:GR,ticks:{...TK,maxRotation:45}},
         y:{grid:GR,ticks:{...TK,callback:v=>fmtM(Math.abs(v))}}
       },
       plugins:{
         legend:{display:false},
         tooltip:{...TT,callbacks:{
-          title:t=>`${t[0].label} · delta vs ayer`,
-          label:c=>{ const v=c.parsed.y; return ` ${v>=0?'+':''}${fmtM(v)} OI`; }
+          title:t=>`${t[0].label} · variación vs ${idx===0?'(primer día)':'día anterior'}`,
+          label:c=>{ const v=c.parsed.y; return v!==0?` ${c.dataset.label}: ${v>0?'+':''}${fmtM(v)}`:null; }
         }}
       }
     }
