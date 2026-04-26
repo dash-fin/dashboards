@@ -187,22 +187,27 @@ def subir_a_supabase(data: dict, fecha_pdf: datetime):
 # ── Snapshot historico ─────────────────────────────────────────
 def snapshot_historico(data: dict, fecha_informe: date):
     """
-    Filtra el vencimiento activo para esa fecha e inserta en opciones_historico.
+    Guarda en opciones_historico todas las filas del PDF cuya expiration
+    sea futura respecto a fecha_informe (descarta series ya vencidas).
     Ignora duplicados (re-run seguro).
     """
     opciones = data.get("opciones", [])
     if not opciones: return
 
-    vto_activo = vencimientoActivo(fecha_informe)
-    vto_str = vto_activo.strftime("%Y-%m-%d")
-
     filas = []
     for op in opciones:
-        if op.get("expiration") != vto_str:
+        exp_str = op.get("expiration", "")
+        if not exp_str: continue
+        try:
+            exp_date = date.fromisoformat(exp_str)
+        except ValueError:
+            continue
+        # Solo guardar si la expiration aún no ha vencido al momento del informe
+        if exp_date < fecha_informe:
             continue
         filas.append({
             "fecha_informe":  fecha_informe.strftime("%Y-%m-%d"),
-            "expiration":     vto_str,
+            "expiration":     exp_str,
             "strike":         op.get("strike", 0),
             "kind":           op.get("kind", ""),
             "cubierto":       int(op.get("cubierto", 0) or 0),
@@ -212,13 +217,14 @@ def snapshot_historico(data: dict, fecha_informe: date):
         })
 
     if not filas:
-        print(f"  ⚠️  Sin filas para vto {vto_str} en {fecha_informe}.")
+        print(f"  ⚠️  Sin filas futuras en {fecha_informe}.")
         return
 
+    exps = set(f["expiration"] for f in filas)
     sb = create_client(SB_URL, SB_KEY)
     try:
         sb.table(HIST_TABLE).upsert(filas, on_conflict="fecha_informe,expiration,strike,kind", ignore_duplicates=True).execute()
-        print(f"  ✅ historico: {len(filas)} filas para {fecha_informe} (vto {vto_str}).")
+        print(f"  ✅ historico: {len(filas)} filas para {fecha_informe} (vtos: {', '.join(sorted(exps))}).")
     except Exception as e:
         print(f"  ❌ Error historico: {e}")
 
