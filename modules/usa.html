@@ -974,10 +974,16 @@ async function rrgLoad() {
   const sinceStr = since.toISOString().slice(0,10);
   document.getElementById('rrg-meta').textContent = 'Cargando datos…';
   try {
-    const rows = await fetch(
-      `https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?select=symbol,fecha,close&symbol=in.(${allSyms.join(',')})&fecha=gte.${sinceStr}&order=symbol,fecha&limit=60000`,
-      {headers:{apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY}}
-    ).then(r => r.ok ? r.json() : []);
+    const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
+    const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
+    // Fetch each symbol separately in parallel — Supabase caps at 1000 rows/request
+    const results = await Promise.all(
+      allSyms.map(sym =>
+        fetch(`${base}?select=symbol,fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=500`, {headers:SBH})
+          .then(r => r.ok ? r.json() : [])
+      )
+    );
+    const rows = results.flat();
 
     if (!rows?.length) { document.getElementById('rrg-meta').textContent='Sin datos en historico_precios.'; return; }
 
