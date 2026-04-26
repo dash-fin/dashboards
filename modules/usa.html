@@ -1005,11 +1005,7 @@ async function rrgLoad() {
     rrgData.sectores = buildTab(RRG_SECTORS);
     rrgData.acciones = buildTab(RRG_ACCIONES);
 
-    // Rango simétrico alrededor de 100: desviación máxima * 1.5, mínimo ±3.5
-    const allPts = [...rrgData.sectores,...rrgData.acciones].flatMap(({p})=>p);
-    const maxDev = allPts.reduce((mx,[r,m])=>Math.max(mx,Math.abs(r-100),Math.abs(m-100)), 3.5);
-    const spread = maxDev * 1.5;
-    rrgRange = {min: 100-spread, max: 100+spread};
+    // El rango se calcula per-tab en rrgRender()
 
     const lastDate = [...spyMap.keys()].sort().pop()||'—';
     document.getElementById('rrg-meta').textContent = `Benchmark: SPY · Cola ${RRG_TAIL}w · Actualizado ${lastDate}`;
@@ -1056,6 +1052,11 @@ function rrgRender() {
   ctx.scale(dpr,dpr);
   const W=cssW,H=cssH,pw=W-RRG_PAD.left-RRG_PAD.right,ph=H-RRG_PAD.top-RRG_PAD.bottom;
   ctx.clearRect(0,0,W,H);
+  // Rango por tab: desviación máx × 1.25, mínimo ±2, cap ±4.5
+  { const pts=rrgData[rrgTab].flatMap(({p})=>p);
+    const dev=pts.reduce((mx,[r,m])=>Math.max(mx,Math.abs(r-100),Math.abs(m-100)),2);
+    const sp=Math.min(dev*1.25, 4.5);
+    rrgRange={min:100-sp, max:100+sp}; }
 
   const [cx,cy]=rrgXY(RRG_CENTER,RRG_CENTER,W,H);
 
