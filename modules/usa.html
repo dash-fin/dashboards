@@ -28,6 +28,7 @@
     <button class="stab"        id="ustab-sectores" onclick="usTab('sectores',this)">Sectores</button>
     <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
     <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
+    <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -228,6 +229,32 @@
   <div style="margin-top:8px;font-size:10px;color:var(--text3);font-family:monospace">* OI/Vol: open interest cuando disponible, volumen del dia como proxy cuando OI es null</div>
 </div>
 
+<!-- ══ RRG ══ -->
+<div class="sub-panel" id="uspanel-rrg">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:3px">
+      <button class="rrg-stab stab active" onclick="rrgSwitchTab('sectores',this)">Sectores</button>
+      <button class="rrg-stab stab"        onclick="rrgSwitchTab('acciones',this)">Acciones</button>
+    </div>
+    <div style="font-size:9px;color:var(--text4)" id="rrg-meta">—</div>
+  </div>
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-title">ETFs de Sectores — S&amp;P 500</div>
+      <div style="font-size:9px;color:var(--text4)">Benchmark: SPY · EMA 10/26 semanal</div>
+    </div>
+    <div style="padding:14px 14px 8px"><canvas id="rrgChart"></canvas></div>
+    <div id="rrg-legend" style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 14px;border-top:1px solid var(--border)"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;padding:8px 14px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(0,229,168,.45);flex-shrink:0"></div>Leading — RS fuerte y acelerando</div>
+      <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(56,200,255,.45);flex-shrink:0"></div>Improving — RS débil pero mejorando</div>
+      <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(255,200,74,.45);flex-shrink:0"></div>Weakening — RS fuerte pero desacelerando</div>
+      <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(255,63,94,.45);flex-shrink:0"></div>Lagging — RS débil y deteriorando</div>
+    </div>
+  </div>
+</div>
+<div id="rrg-tooltip" style="position:fixed;background:#0f1822;border:1px solid var(--border2);border-radius:6px;padding:9px 13px;font-size:10px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .12s;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5)"></div>
+
 <script>
 (function(){
 
@@ -250,6 +277,7 @@ window.usTab = (name, btn) => {
   btn.classList.add('active');
   if(name==='sectores') usRenderSectores();
   if(name==='opciones') usRenderOpciones();
+  if(name==='rrg') { if(!rrgLoaded) rrgLoad(); else rrgRender(); }
 };
 
 // ── Load ──
@@ -894,6 +922,276 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
     plugins: [hPlugin]
   });
 }
+
+// ── RRG ──────────────────────────────────────────────────────
+let rrgLoaded  = false;
+let rrgTab     = 'sectores';
+let rrgData    = {sectores:[], acciones:[]};
+let rrgRange   = {min:95, max:106};
+
+const RRG_SECTORS  = ['XLK','XLF','XLE','XLV','XLY','XLP','XLI','XLB','XLRE','XLU','XLC'];
+const RRG_ACCIONES = ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','JPM','V','UNH','AVGO','MA'];
+const RRG_COLORS   = ['#38c8ff','#00e5a8','#ffc84a','#ff3f5e','#a855f7','#fb923c','#f472b6','#34d399','#60a5fa','#facc15','#e879f9','#818cf8'];
+const RRG_PAD      = {top:36, right:44, bottom:46, left:52};
+const RRG_CENTER   = 100;
+const RRG_TAIL     = 8;
+
+function rrgEma(arr, p) {
+  const k = 2/(p+1), r = [];
+  let prev = arr[0];
+  arr.forEach(v => { prev = v*k + prev*(1-k); r.push(prev); });
+  return r;
+}
+
+function rrgWeeklyMap(series) {
+  const m = new Map();
+  series.forEach(({date,close}) => {
+    const d = new Date(date+'T12:00:00');
+    const day = d.getDay();
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - (day===0?6:day-1));
+    m.set(mon.toISOString().slice(0,10), Number(close));
+  });
+  return m;
+}
+
+function rrgCalcSymbol(weekMap, spyMap) {
+  const weeks = [...spyMap.keys()].filter(k => weekMap.has(k)).sort();
+  if (weeks.length < 35) return null;
+  const rawRS = weeks.map(k => weekMap.get(k) / spyMap.get(k) * 100);
+  const e10   = rrgEma(rawRS, 10);
+  const e26   = rrgEma(rawRS, 26);
+  const ratio = e10.map((v,i) => e26[i]>0 ? (v/e26[i]-1)*100+100 : 100);
+  const mom   = ratio.map((v,i) => i>0 && ratio[i-1]>0 ? (v/ratio[i-1]-1)*100+100 : 100);
+  const n = ratio.length, tail = RRG_TAIL+1;
+  return ratio.slice(-tail).map((r,i) => [r, mom[n-tail+i]]);
+}
+
+async function rrgLoad() {
+  rrgLoaded = true;
+  const allSyms = ['SPY', ...RRG_SECTORS, ...RRG_ACCIONES];
+  const since = new Date(); since.setDate(since.getDate()-420);
+  const sinceStr = since.toISOString().slice(0,10);
+  document.getElementById('rrg-meta').textContent = 'Cargando datos…';
+  try {
+    const rows = await fetch(
+      `https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?select=symbol,fecha,close&symbol=in.(${allSyms.join(',')})&fecha=gte.${sinceStr}&order=symbol,fecha&limit=60000`,
+      {headers:{apikey:SBKEY,'Authorization':'Bearer '+SBKEY}}
+    ).then(r => r.ok ? r.json() : []);
+
+    if (!rows?.length) { document.getElementById('rrg-meta').textContent='Sin datos en historico_precios.'; return; }
+
+    // Agrupar por símbolo
+    const bySymbol = {};
+    rows.forEach(r => {
+      if (!bySymbol[r.symbol]) bySymbol[r.symbol]=[];
+      bySymbol[r.symbol].push({date:r.fecha, close:r.close});
+    });
+
+    const spyMap = rrgWeeklyMap(bySymbol['SPY']||[]);
+    if (spyMap.size < 30) { document.getElementById('rrg-meta').textContent='Insuficientes datos de SPY.'; return; }
+
+    const buildTab = syms => syms.map((s,i) => {
+      const pts = bySymbol[s] ? rrgCalcSymbol(rrgWeeklyMap(bySymbol[s]), spyMap) : null;
+      return {s, c:RRG_COLORS[i%RRG_COLORS.length], p:pts||[]};
+    }).filter(d => d.p.length > 1);
+
+    rrgData.sectores = buildTab(RRG_SECTORS);
+    rrgData.acciones = buildTab(RRG_ACCIONES);
+
+    // Calcular rango dinámico con padding
+    let rMin=101,rMax=99,mMin=101,mMax=99;
+    [...rrgData.sectores,...rrgData.acciones].forEach(({p}) =>
+      p.forEach(([r,m]) => { rMin=Math.min(rMin,r);rMax=Math.max(rMax,r);mMin=Math.min(mMin,m);mMax=Math.max(mMax,m); })
+    );
+    const pad = Math.max((rMax-rMin),(mMax-mMin))*0.15+0.8;
+    const lo  = Math.min(rMin,mMin)-pad, hi = Math.max(rMax,mMax)+pad;
+    rrgRange  = {min: Math.min(lo,98), max: Math.max(hi,102)};
+
+    const lastDate = [...spyMap.keys()].sort().pop()||'—';
+    document.getElementById('rrg-meta').textContent = `Benchmark: SPY · Cola ${RRG_TAIL}w · Actualizado ${lastDate}`;
+    rrgRender();
+    rrgBuildLegend();
+    rrgSetupTooltip();
+  } catch(e) {
+    console.error('[rrg]',e);
+    document.getElementById('rrg-meta').textContent = 'Error: '+e.message;
+  }
+}
+
+function rrgXY(ratio, mom, W, H) {
+  const pw=W-RRG_PAD.left-RRG_PAD.right, ph=H-RRG_PAD.top-RRG_PAD.bottom;
+  const span=rrgRange.max-rrgRange.min;
+  return [
+    RRG_PAD.left + (ratio-rrgRange.min)/span*pw,
+    RRG_PAD.top  + (rrgRange.max-mom)/span*ph
+  ];
+}
+
+function rrgArrow(ctx,x1,y1,x2,y2,fill,sz=6) {
+  const a=Math.atan2(y2-y1,x2-x1);
+  ctx.save(); ctx.fillStyle=fill; ctx.translate(x2,y2); ctx.rotate(a);
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz,-sz*.5); ctx.lineTo(-sz,sz*.5);
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+function rrgQ(r,m) {
+  if(r>=RRG_CENTER&&m>=RRG_CENTER) return{name:'Leading',   color:'#00e5a8'};
+  if(r< RRG_CENTER&&m>=RRG_CENTER) return{name:'Improving', color:'#38c8ff'};
+  if(r< RRG_CENTER&&m< RRG_CENTER) return{name:'Lagging',   color:'#ff3f5e'};
+  return                                  {name:'Weakening', color:'#ffc84a'};
+}
+
+function rrgRender() {
+  const canvas=document.getElementById('rrgChart'); if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const cssW=canvas.parentElement.clientWidth-28;
+  const cssH=Math.min(cssW*.68,520);
+  canvas.style.width=cssW+'px'; canvas.style.height=cssH+'px';
+  canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  ctx.scale(dpr,dpr);
+  const W=cssW,H=cssH,pw=W-RRG_PAD.left-RRG_PAD.right,ph=H-RRG_PAD.top-RRG_PAD.bottom;
+  ctx.clearRect(0,0,W,H);
+
+  const [cx,cy]=rrgXY(RRG_CENTER,RRG_CENTER,W,H);
+
+  // Quadrant fills
+  ctx.fillStyle='rgba(0,229,168,.08)';  ctx.fillRect(cx,RRG_PAD.top,W-RRG_PAD.right-cx,cy-RRG_PAD.top);
+  ctx.fillStyle='rgba(56,200,255,.08)'; ctx.fillRect(RRG_PAD.left,RRG_PAD.top,cx-RRG_PAD.left,cy-RRG_PAD.top);
+  ctx.fillStyle='rgba(255,63,94,.08)';  ctx.fillRect(RRG_PAD.left,cy,cx-RRG_PAD.left,H-RRG_PAD.bottom-cy);
+  ctx.fillStyle='rgba(255,200,74,.08)'; ctx.fillRect(cx,cy,W-RRG_PAD.right-cx,H-RRG_PAD.bottom-cy);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.03)'; ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    const x=RRG_PAD.left+pw/10*i,y=RRG_PAD.top+ph/10*i;
+    ctx.beginPath();ctx.moveTo(x,RRG_PAD.top);ctx.lineTo(x,H-RRG_PAD.bottom);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(RRG_PAD.left,y);ctx.lineTo(W-RRG_PAD.right,y);ctx.stroke();
+  }
+
+  // Center axes
+  ctx.setLineDash([6,5]); ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx,RRG_PAD.top);ctx.lineTo(cx,H-RRG_PAD.bottom);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(RRG_PAD.left,cy);ctx.lineTo(W-RRG_PAD.right,cy);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Border
+  ctx.strokeStyle='#1e2a38'; ctx.lineWidth=1;
+  ctx.strokeRect(RRG_PAD.left,RRG_PAD.top,pw,ph);
+
+  // Quadrant labels
+  const qfs=Math.max(9,Math.round(pw/28));
+  ctx.font=`700 ${qfs}px 'IBM Plex Mono',monospace`; ctx.textAlign='center';
+  const qp=16;
+  [['LEADING',cx+(W-RRG_PAD.right-cx)/2,RRG_PAD.top+qp+6,'rgba(0,229,168,.15)'],
+   ['IMPROVING',RRG_PAD.left+(cx-RRG_PAD.left)/2,RRG_PAD.top+qp+6,'rgba(56,200,255,.15)'],
+   ['LAGGING',RRG_PAD.left+(cx-RRG_PAD.left)/2,H-RRG_PAD.bottom-qp,'rgba(255,63,94,.15)'],
+   ['WEAKENING',cx+(W-RRG_PAD.right-cx)/2,H-RRG_PAD.bottom-qp,'rgba(255,200,74,.15)'],
+  ].forEach(([t,x,y,c])=>{ctx.fillStyle=c;ctx.fillText(t,x,y);});
+
+  // Ticks
+  ctx.fillStyle='#3d5166'; ctx.font=`400 8px 'IBM Plex Mono',monospace`;
+  const TICKS=5,TSTEP=(rrgRange.max-rrgRange.min)/TICKS;
+  for(let i=0;i<=TICKS;i++){
+    const v=rrgRange.min+TSTEP*i;
+    const [px]=rrgXY(v,RRG_CENTER,W,H);
+    const [,py]=rrgXY(RRG_CENTER,v,W,H);
+    ctx.textAlign='center'; ctx.fillText(v.toFixed(1),px,H-RRG_PAD.bottom+13);
+    ctx.textAlign='right';  ctx.fillText(v.toFixed(1),RRG_PAD.left-5,py+3);
+  }
+  ctx.fillStyle='#4a6070'; ctx.font=`500 9px 'IBM Plex Mono',monospace`; ctx.textAlign='center';
+  ctx.fillText('RS-Ratio →',RRG_PAD.left+pw/2,H-8);
+  ctx.save(); ctx.translate(13,RRG_PAD.top+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('RS-Momentum →',0,0); ctx.restore();
+
+  // Symbols
+  rrgData[rrgTab].forEach(({s,c,p})=>{
+    if(p.length<2) return;
+    const n=p.length, rgb=parseInt(c.slice(1),16);
+    const r=(rgb>>16)&255,g=(rgb>>8)&255,b=rgb&255;
+    const rgba=(a)=>`rgba(${r},${g},${b},${a})`;
+
+    for(let i=0;i<n-1;i++){
+      const alpha=((i+1)/(n-1))*.85;
+      const [x1,y1]=rrgXY(p[i][0],p[i][1],W,H);
+      const [x2,y2]=rrgXY(p[i+1][0],p[i+1][1],W,H);
+      ctx.beginPath(); ctx.strokeStyle=rgba(alpha);
+      ctx.lineWidth=1+(i/(n-2))*1.8;
+      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      if(i<n-2){ ctx.beginPath(); ctx.fillStyle=rgba(alpha*.5); ctx.arc(x1,y1,1.5+(i/(n-2))*2,0,Math.PI*2); ctx.fill(); }
+    }
+    const [x1,y1]=rrgXY(p[n-2][0],p[n-2][1],W,H);
+    const [x2,y2]=rrgXY(p[n-1][0],p[n-1][1],W,H);
+    rrgArrow(ctx,x1,y1,x2,y2,c,7);
+
+    ctx.beginPath(); ctx.fillStyle=rgba(.13); ctx.arc(x2,y2,12,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle=rgba(.4); ctx.lineWidth=1.5; ctx.arc(x2,y2,9,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.fillStyle=c; ctx.arc(x2,y2,4.5,0,Math.PI*2); ctx.fill();
+
+    ctx.fillStyle=c; ctx.font=`600 9.5px 'IBM Plex Mono',monospace`; ctx.textAlign='left';
+    ctx.fillText(s,x2+12,y2+4);
+  });
+}
+
+function rrgBuildLegend() {
+  const el=document.getElementById('rrg-legend'); if(!el) return;
+  el.innerHTML='';
+  rrgData[rrgTab].forEach(({s,c,p})=>{
+    if(!p.length) return;
+    const last=p[p.length-1];
+    const {name,color}=rrgQ(last[0],last[1]);
+    el.innerHTML+=`<div style="display:flex;align-items:center;gap:5px;font-size:9px">
+      <div style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0"></div>
+      <span style="color:#a8bdd0">${s}</span>
+      <span style="color:${color};font-size:8px">${name}</span>
+    </div>`;
+  });
+}
+
+function rrgSetupTooltip() {
+  const canvas=document.getElementById('rrgChart'); if(!canvas) return;
+  const tip=document.getElementById('rrg-tooltip');
+  canvas.addEventListener('mousemove',e=>{
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    const W=parseFloat(canvas.style.width),H=parseFloat(canvas.style.height);
+    let hit=null;
+    for(const d of rrgData[rrgTab]){
+      if(!d.p.length) continue;
+      const last=d.p[d.p.length-1];
+      const [dx,dy]=rrgXY(last[0],last[1],W,H);
+      if(Math.hypot(mx-dx,my-dy)<14){hit=d;break;}
+    }
+    if(hit){
+      const last=hit.p[hit.p.length-1];
+      const prev=hit.p.length>1?hit.p[hit.p.length-2]:null;
+      const {name,color}=rrgQ(last[0],last[1]);
+      const dR=prev?(last[0]-prev[0]).toFixed(2):null;
+      const dM=prev?(last[1]-prev[1]).toFixed(2):null;
+      const arrow=v=>v>0?`<span style="color:#00e5a8">▲${v}</span>`:`<span style="color:#ff3f5e">▼${Math.abs(v)}</span>`;
+      tip.innerHTML=`<div style="font-weight:700;font-size:12px;color:${hit.c};margin-bottom:5px">${hit.s}</div>
+        <div style="color:var(--text3);line-height:1.9">RS-Ratio &nbsp;&nbsp;: <b style="color:var(--text)">${last[0].toFixed(2)}</b>${dR?'  '+arrow(dR):''}</div>
+        <div style="color:var(--text3);line-height:1.9">RS-Momentum: <b style="color:var(--text)">${last[1].toFixed(2)}</b>${dM?'  '+arrow(dM):''}</div>
+        <div style="color:var(--text3);line-height:1.9">Cuadrante &nbsp;: <b style="color:${color}">${name}</b></div>`;
+      tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-8)+'px'; tip.style.opacity='1';
+    } else { tip.style.opacity='0'; }
+  });
+  canvas.addEventListener('mouseleave',()=>{ document.getElementById('rrg-tooltip').style.opacity='0'; });
+}
+
+window.rrgSwitchTab = function(tab,btn){
+  rrgTab=tab;
+  document.querySelectorAll('.rrg-stab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('rrg-title').textContent=
+    tab==='sectores'?'ETFs de Sectores — S&P 500':'Acciones Individuales — S&P 500';
+  rrgRender(); rrgBuildLegend();
+};
+
+window.addEventListener('resize',()=>{
+  if(document.getElementById('uspanel-rrg')?.classList.contains('active')) rrgRender();
+});
 
 // ── Init ──
 usLoadAll();
