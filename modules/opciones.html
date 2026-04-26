@@ -204,6 +204,10 @@
         <div class="legend-item"><div class="legend-dot" style="background:#ff3f5eaa"></div>Put Cubierto</div>
         <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e33"></div>Put Descubierto</div>
       </div>
+      <div style="margin-top:10px;border-top:1px solid var(--border2);padding-top:8px">
+        <div style="font-size:9px;color:var(--text4);margin-bottom:4px;text-transform:uppercase;letter-spacing:.8px">Variación vs día anterior por strike</div>
+        <div class="chart-wrap" style="height:80px"><canvas id="hChartDelta"></canvas></div>
+      </div>
     </div>
   </div>
 
@@ -581,7 +585,7 @@ window.oSetTab = (n,b)=>{
 
 // ── HISTÓRICO OI ──────────────────────────────────────────────
 let hLoaded = false;
-let hSnapChart = null, hEvolChart = null, hOIChart = null, hCallsChart = null, hPutsChart = null;
+let hSnapChart = null, hEvolChart = null, hOIChart = null, hCallsChart = null, hPutsChart = null, hDeltaChart = null;
 let hByDate = {}, hStrikes = [], hDates = [], hByStrike = {};
 let hSpotLast = null;
 
@@ -612,17 +616,22 @@ async function hLoadData() {
 
     // Estructuras
     hDates   = [...new Set(filtered.map(r => r.fecha_informe))].sort();
-    hStrikes = [...new Set(filtered.map(r => fixSH(r.strike)))].sort((a,b) => a-b);
+    const allFixedStrikes = [...new Set(filtered.map(r => fixSH(r.strike)))].sort((a,b) => a-b);
 
-    // byDate[fecha][strike][kind] = {cc,cd,pc,pd}
+    // byDate[fecha][strike] = {cc,cd,pc,pd}  — usa += para fusionar strikes duplicados tras fixSH
     hByDate = {};
-    hDates.forEach(d => { hByDate[d] = {}; hStrikes.forEach(s => { hByDate[d][s] = {cc:0,cd:0,pc:0,pd:0}; }); });
+    hDates.forEach(d => { hByDate[d] = {}; allFixedStrikes.forEach(s => { hByDate[d][s] = {cc:0,cd:0,pc:0,pd:0}; }); });
     filtered.forEach(r => {
       const s = fixSH(r.strike);
       if(!hByDate[r.fecha_informe]?.[s]) return;
-      if(r.kind==='call'){ hByDate[r.fecha_informe][s].cc = r.cubierto; hByDate[r.fecha_informe][s].cd = r.descubierto; }
-      else               { hByDate[r.fecha_informe][s].pc = r.cubierto; hByDate[r.fecha_informe][s].pd = r.descubierto; }
+      if(r.kind==='call'){ hByDate[r.fecha_informe][s].cc += r.cubierto; hByDate[r.fecha_informe][s].cd += r.descubierto; }
+      else               { hByDate[r.fecha_informe][s].pc += r.cubierto; hByDate[r.fecha_informe][s].pd += r.descubierto; }
     });
+
+    // Solo mantener strikes con OI real en al menos un día
+    hStrikes = allFixedStrikes.filter(s =>
+      hDates.some(d => { const dd = hByDate[d][s]; return dd && (dd.cc+dd.cd+dd.pc+dd.pd) > 0; })
+    );
 
     // byStrike[strike][i] = {cc,cd,pc,pd} para cada fecha
     hByStrike = {};
@@ -795,6 +804,53 @@ function hRenderSnap(idx) {
   slider.max   = hDates.length - 1;
   slider.value = idx;
   slider.oninput = () => hRenderSnap(+slider.value);
+
+  hRenderDelta(idx);
+}
+
+function hRenderDelta(idx) {
+  const slbls = hStrikes.map(s => '$'+s);
+  let deltas, colors;
+
+  if(idx === 0) {
+    // Primer día: no hay anterior, mostrar todo en gris
+    deltas = hStrikes.map(() => 0);
+    colors = hStrikes.map(() => 'rgba(110,128,144,.35)');
+  } else {
+    deltas = hStrikes.map(s => {
+      const cur  = hByStrike[s][idx];
+      const prev = hByStrike[s][idx-1];
+      return (cur.cc+cur.cd+cur.pc+cur.pd) - (prev.cc+prev.cd+prev.pc+prev.pd);
+    });
+    colors = deltas.map(v => v > 0 ? 'rgba(0,229,168,.75)' : v < 0 ? 'rgba(255,63,94,.75)' : 'rgba(110,128,144,.25)');
+  }
+
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:8}};
+  const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:10}};
+
+  if(hDeltaChart) hDeltaChart.destroy();
+  hDeltaChart = new Chart(document.getElementById('hChartDelta'), {
+    type:'bar',
+    data:{labels:slbls,datasets:[{
+      data:deltas,
+      backgroundColor:colors,
+      borderWidth:0,
+      barPercentage:.85
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{grid:GR,ticks:{...TK,maxRotation:45}},
+        y:{grid:GR,ticks:{...TK,callback:v=>fmtM(Math.abs(v))}}
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{...TT,callbacks:{
+          title:t=>`${t[0].label} · delta vs ayer`,
+          label:c=>{ const v=c.parsed.y; return ` ${v>=0?'+':''}${fmtM(v)} OI`; }
+        }}
+      }
+    }
+  });
 }
 
 function hRenderStrikeSelector() {
