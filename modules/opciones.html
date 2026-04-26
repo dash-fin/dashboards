@@ -3,6 +3,7 @@
     <button class="stab active" id="ostab-iamc" onclick="oSetTab('iamc',this)">Distribución OI</button>
     <button class="stab" id="ostab-gex" onclick="oSetTab('gex',this)">Análisis Gamma</button>
     <button class="stab" id="ostab-tabla" onclick="oSetTab('tabla',this)">Tabla Detalle</button>
+    <button class="stab" id="ostab-hist" onclick="oSetTab('hist',this)">Histórico OI</button>
   </div>
   <div style="display:flex; gap:12px; align-items:center">
     <div class="filter-group">
@@ -129,6 +130,130 @@
       </table>
     </div>
   </div>
+</div>
+
+<!-- ── Panel 4: Histórico OI ──────────────────────────────── -->
+<div class="sub-panel" id="opanel-hist">
+
+  <!-- KPIs -->
+  <div class="gamma-grid" style="grid-template-columns:repeat(6,1fr); margin-top:10px" id="hkpi-row">
+    <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">OI Calls</div><div class="g-val" id="hk-calls">—</div><div class="g-lab" id="hk-calls-chg" style="margin-top:4px"></div></div>
+    <div class="g-card" style="--c:var(--red)"><div class="g-lab">OI Puts</div><div class="g-val" id="hk-puts">—</div><div class="g-lab" id="hk-puts-chg" style="margin-top:4px"></div></div>
+    <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Ratio C/P Total</div><div class="g-val" id="hk-ratio-t">—</div><div class="g-lab" style="margin-top:4px;color:var(--text4)">cub+descub</div></div>
+    <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Ratio C/P Descub.</div><div class="g-val" id="hk-ratio-d">—</div><div class="g-lab" style="margin-top:4px;color:var(--text4)">solo especulativo</div></div>
+    <div class="g-card" style="--c:var(--green)"><div class="g-lab">% Descub Calls</div><div class="g-val" id="hk-pct-c">—</div><div class="g-lab" id="hk-pct-c-chg" style="margin-top:4px"></div></div>
+    <div class="g-card" style="--c:#ff6080"><div class="g-lab">% Descub Puts</div><div class="g-val" id="hk-pct-p">—</div><div class="g-lab" id="hk-pct-p-chg" style="margin-top:4px"></div></div>
+  </div>
+
+  <!-- OI Total -->
+  <div class="card" style="margin-top:12px">
+    <div class="card-head">
+      <div class="card-title">Evolución OI Total — Calls vs Puts</div>
+      <div class="card-desc">Interés abierto total · Ratio C/P total y solo descubiertos en eje derecho</div>
+    </div>
+    <div class="card-body"><div class="chart-wrap" style="height:190px"><canvas id="hChartOI"></canvas></div>
+      <div class="legend-row" style="margin-top:8px">
+        <div class="legend-item"><div class="legend-dot" style="background:#38c8ff"></div>OI Calls</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e"></div>OI Puts</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffc84a"></div>Ratio C/P total</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>Ratio C/P descub.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Composición -->
+  <div class="charts-grid" style="grid-template-columns:1fr 1fr; margin-top:0">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Calls — Cubierto vs Descubierto</div></div>
+      <div class="card-body"><div class="chart-wrap" style="height:160px"><canvas id="hChartCallsComp"></canvas></div>
+        <div class="legend-row" style="margin-top:8px">
+          <div class="legend-item"><div class="legend-dot" style="background:#38c8ff88"></div>Cubierto</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#38c8ff2a"></div>Descubierto</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Puts — Cubierto vs Descubierto</div></div>
+      <div class="card-body"><div class="chart-wrap" style="height:160px"><canvas id="hChartPutsComp"></canvas></div>
+        <div class="legend-row" style="margin-top:8px">
+          <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e88"></div>Cubierto</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e2a"></div>Descubierto</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snapshot por fecha -->
+  <div class="card" style="margin-top:0">
+    <div class="card-head">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="card-title">Distribución OI por Strike — snapshot diario</div>
+          <div class="card-desc">Calls ↑ y Puts ↓ por base · Claro = descubierto (vendido) · Mover slider para cambiar fecha</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="hSnapLbl" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cyan);white-space:nowrap"></span>
+          <input type="range" id="hSnapSlider" min="0" style="width:130px;accent-color:var(--cyan)">
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><div class="chart-wrap" style="height:230px"><canvas id="hChartSnap"></canvas></div>
+      <div class="legend-row" style="margin-top:8px">
+        <div class="legend-item"><div class="legend-dot" style="background:#38c8ffaa"></div>Call Cubierto</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#38c8ff33"></div>Call Descubierto</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff3f5eaa"></div>Put Cubierto</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e33"></div>Put Descubierto</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Evolución de un strike -->
+  <div class="card" style="margin-top:0">
+    <div class="card-head">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="card-title">Evolución de un Strike en el tiempo</div>
+          <div class="card-desc">Calls y puts (cubierto / descubierto) para la base seleccionada a lo largo de los días</div>
+        </div>
+        <select id="hStrikeSel" style="background:var(--bg2);border:1px solid var(--border2);color:var(--amber);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer"></select>
+      </div>
+    </div>
+    <div class="card-body"><div class="chart-wrap" style="height:190px"><canvas id="hChartEvol"></canvas></div>
+      <div class="legend-row" style="margin-top:8px">
+        <div class="legend-item"><div class="legend-dot" style="background:#38c8ff"></div>Call Cubierto</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#38c8ff44;border:1px dashed #38c8ff"></div>Call Descubierto</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e"></div>Put Cubierto</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e44;border:1px dashed #ff3f5e"></div>Put Descubierto</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="card" style="margin-top:0">
+    <div class="card-head">
+      <div class="card-title">Heatmap OI por Strike</div>
+      <div class="card-desc">Concentración OI total (calls+puts) por strike · Azul intenso = mayor concentración · ▸ = cerca del spot actual</div>
+    </div>
+    <div class="card-body" style="overflow-x:auto;padding-top:6px">
+      <table id="hHeatmap" style="border-collapse:collapse;font-size:9px;font-family:'IBM Plex Mono',monospace;width:100%"></table>
+      <div class="legend-row" style="margin-top:10px;align-items:center">
+        <span style="font-size:9px;color:var(--text4)">Poco OI</span>
+        <div style="display:flex;gap:2px">
+          <div style="width:14px;height:9px;border-radius:2px;background:rgba(56,200,255,.08)"></div>
+          <div style="width:14px;height:9px;border-radius:2px;background:rgba(56,200,255,.3)"></div>
+          <div style="width:14px;height:9px;border-radius:2px;background:rgba(56,200,255,.6)"></div>
+          <div style="width:14px;height:9px;border-radius:2px;background:rgba(56,200,255,.85)"></div>
+          <div style="width:14px;height:9px;border-radius:2px;background:#38c8ff"></div>
+        </div>
+        <span style="font-size:9px;color:var(--text4)">Mucho OI</span>
+        <div style="width:1px;height:12px;background:var(--border2);margin:0 4px"></div>
+        <div style="width:12px;height:2px;background:var(--amber)"></div>
+        <span style="font-size:9px;color:var(--amber)">spot actual</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="hMeta">—</div>
 </div>
 
 <script>
@@ -445,14 +570,338 @@ window.oSetTab = (n,b)=>{
   document.getElementById('opanel-'+n).classList.add('active');
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   b.classList.add('active');
-  // Re-fit chart en tab gamma cuando el contenedor se vuelve visible
   if(n==='gex'){
     ['oChartArs','oChartAdr'].forEach(id=>{
       const el = document.getElementById(id);
       if(el?._lwChart) el._lwChart.applyOptions({width:el.clientWidth});
     });
   }
+  if(n==='hist' && !hLoaded) hLoadData();
 };
+
+// ── HISTÓRICO OI ──────────────────────────────────────────────
+let hLoaded = false;
+let hSnapChart = null, hEvolChart = null, hOIChart = null, hCallsChart = null, hPutsChart = null;
+let hByDate = {}, hStrikes = [], hDates = [], hByStrike = {};
+let hSpotLast = null;
+
+const SB_REST = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/';
+
+async function hLoadData() {
+  hLoaded = true;
+  try {
+    // Traer todo el histórico del vencimiento activo (el más próximo con datos)
+    const rows = await fetch(
+      SB_REST + 'opciones_historico?select=fecha_informe,expiration,strike,kind,cubierto,descubierto,open_interest,volume&order=fecha_informe',
+      { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } }
+    ).then(r => r.ok ? r.json() : []);
+
+    if (!rows?.length) { document.getElementById('hMeta').textContent = 'Sin datos en histórico.'; return; }
+
+    // Vencimiento activo = el que aparece más en los datos
+    const expCount = {};
+    rows.forEach(r => expCount[r.expiration] = (expCount[r.expiration]||0)+1);
+    const activeExp = Object.entries(expCount).sort((a,b)=>b[1]-a[1])[0][0];
+    const filtered = rows.filter(r => r.expiration === activeExp);
+
+    // Estructuras
+    hDates   = [...new Set(filtered.map(r => r.fecha_informe))].sort();
+    hStrikes = [...new Set(filtered.map(r => r.strike))].sort((a,b) => a-b);
+
+    // byDate[fecha][strike][kind] = {cc,cd,pc,pd}
+    hByDate = {};
+    hDates.forEach(d => { hByDate[d] = {}; hStrikes.forEach(s => { hByDate[d][s] = {cc:0,cd:0,pc:0,pd:0}; }); });
+    filtered.forEach(r => {
+      if(!hByDate[r.fecha_informe]?.[r.strike]) return;
+      if(r.kind==='call'){ hByDate[r.fecha_informe][r.strike].cc = r.cubierto; hByDate[r.fecha_informe][r.strike].cd = r.descubierto; }
+      else               { hByDate[r.fecha_informe][r.strike].pc = r.cubierto; hByDate[r.fecha_informe][r.strike].pd = r.descubierto; }
+    });
+
+    // byStrike[strike][i] = {cc,cd,pc,pd} para cada fecha
+    hByStrike = {};
+    hStrikes.forEach(s => { hByStrike[s] = hDates.map(d => hByDate[d][s] || {cc:0,cd:0,pc:0,pd:0}); });
+
+    // Spot actual (de la tabla mercado ya cargada en oSpotGGAL)
+    hSpotLast = oSpotGGAL;
+
+    hRenderKPIs();
+    hRenderOIChart();
+    hRenderCompCharts();
+    hRenderSnap(hDates.length - 1);
+    hRenderStrikeSelector();
+    hRenderHeatmap();
+
+    const vtoFmt = new Date(activeExp + 'T12:00:00').toLocaleDateString('es-AR', {month:'long', year:'numeric'});
+    document.getElementById('hMeta').textContent =
+      `Vto ${vtoFmt} · ${hDates.length} días · ${filtered.length} registros · Actualizado ${hDates[hDates.length-1]}`;
+
+  } catch(e) { console.error('[hist]', e); document.getElementById('hMeta').textContent = 'Error al cargar datos.'; }
+}
+
+function hTotals(dateIdx) {
+  let cc=0,cd=0,pc=0,pd=0;
+  hStrikes.forEach(s => {
+    const d = hByStrike[s][dateIdx];
+    cc+=d.cc; cd+=d.cd; pc+=d.pc; pd+=d.pd;
+  });
+  return {cc,cd,pc,pd, calls:cc+cd, puts:pc+pd, descCalls:cd, descPuts:pd};
+}
+
+function hRenderKPIs() {
+  const L = hDates.length;
+  const last  = hTotals(L-1);
+  const prev7 = L>=8 ? hTotals(L-8) : null;
+
+  const pct = (a,b) => b>0 ? ((a-b)/b*100).toFixed(1)+'%' : '—';
+  const chgStyle = v => v && parseFloat(v)>=0 ? 'color:var(--green)' : 'color:var(--red)';
+  const sign = v => v && parseFloat(v)>=0 ? '+'+v : v;
+
+  const ratioT = last.puts>0 ? (last.calls/last.puts).toFixed(2) : '—';
+  const ratioD = last.descPuts>0 ? (last.descCalls/last.descPuts).toFixed(2) : '—';
+  const pctDC  = last.calls>0 ? Math.round(last.descCalls/last.calls*100)+'%' : '—';
+  const pctDP  = last.puts>0  ? Math.round(last.descPuts /last.puts *100)+'%' : '—';
+
+  document.getElementById('hk-calls').textContent  = fmtM(last.calls);
+  document.getElementById('hk-puts').textContent   = fmtM(last.puts);
+  document.getElementById('hk-ratio-t').textContent= ratioT;
+  document.getElementById('hk-ratio-d').textContent= ratioD;
+  document.getElementById('hk-pct-c').textContent  = pctDC;
+  document.getElementById('hk-pct-p').textContent  = pctDP;
+
+  if(prev7) {
+    const chgC = pct(last.calls, prev7.calls), chgP = pct(last.puts, prev7.puts);
+    document.getElementById('hk-calls-chg').textContent = sign(chgC)+' 7d';
+    document.getElementById('hk-calls-chg').style = chgStyle(chgC);
+    document.getElementById('hk-puts-chg').textContent = sign(chgP)+' 7d';
+    document.getElementById('hk-puts-chg').style = chgStyle(chgP);
+    const chgDC = (last.descCalls/last.calls*100 - prev7.descCalls/prev7.calls*100).toFixed(1);
+    const chgDP = (last.descPuts /last.puts *100 - prev7.descPuts /prev7.puts *100).toFixed(1);
+    document.getElementById('hk-pct-c-chg').textContent = (parseFloat(chgDC)>=0?'+':'')+chgDC+'pp 7d';
+    document.getElementById('hk-pct-c-chg').style = chgStyle(chgDC);
+    document.getElementById('hk-pct-p-chg').textContent = (parseFloat(chgDP)>=0?'+':'')+chgDP+'pp 7d';
+    document.getElementById('hk-pct-p-chg').style = chgStyle(chgDP);
+  }
+}
+
+function hRenderOIChart() {
+  const totals = hDates.map((_,i) => hTotals(i));
+  const calls  = totals.map(t => t.calls);
+  const puts   = totals.map(t => t.puts);
+  const ratioT = totals.map(t => t.puts>0 ? +(t.calls/t.puts).toFixed(2) : null);
+  const ratioD = totals.map(t => t.descPuts>0 ? +(t.descCalls/t.descPuts).toFixed(2) : null);
+  const lbls   = hDates.map(d => d.slice(5));
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:11}};
+
+  if(hOIChart) hOIChart.destroy();
+  hOIChart = new Chart(document.getElementById('hChartOI'), {
+    data:{labels:lbls,datasets:[
+      {type:'line',label:'OI Calls',data:calls,borderColor:'#38c8ff',borderWidth:2,backgroundColor:'#38c8ff1a',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
+      {type:'line',label:'OI Puts', data:puts, borderColor:'#ff3f5e',borderWidth:2,backgroundColor:'#ff3f5e1a',fill:true,tension:.3,pointRadius:0,yAxisID:'y'},
+      {type:'line',label:'Ratio total',data:ratioT,borderColor:'#ffc84a',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:.3,yAxisID:'y2'},
+      {type:'line',label:'Ratio descub',data:ratioD,borderColor:'#a855f7',borderWidth:1.5,borderDash:[2,3],pointRadius:0,tension:.3,yAxisID:'y2'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},
+        y:{position:'left',grid:GR,ticks:{...TK,callback:v=>fmtM(v)}},
+        y2:{position:'right',grid:{display:false},ticks:{...TK,callback:v=>v?.toFixed(1)},min:.4,max:2.5}
+      },
+      plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${c.datasetIndex<2?fmtM(c.parsed.y):c.parsed.y?.toFixed(2)}`}}}
+    }
+  });
+}
+
+function hRenderCompCharts() {
+  const lbls = hDates.map(d => d.slice(5));
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:11}};
+  const totals = hDates.map((_,i) => hTotals(i));
+
+  if(hCallsChart) hCallsChart.destroy();
+  hCallsChart = new Chart(document.getElementById('hChartCallsComp'), {
+    data:{labels:lbls,datasets:[
+      {type:'bar',label:'Cubierto',   data:totals.map(t=>t.cc),backgroundColor:'#38c8ff88',stack:'a'},
+      {type:'bar',label:'Descubierto',data:totals.map(t=>t.cd),backgroundColor:'#38c8ff2a',stack:'a'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>fmtM(v)}}},
+      plugins:{legend:{display:false},tooltip:TT}
+    }
+  });
+
+  if(hPutsChart) hPutsChart.destroy();
+  hPutsChart = new Chart(document.getElementById('hChartPutsComp'), {
+    data:{labels:lbls,datasets:[
+      {type:'bar',label:'Cubierto',   data:totals.map(t=>t.pc),backgroundColor:'#ff3f5e88',stack:'a'},
+      {type:'bar',label:'Descubierto',data:totals.map(t=>t.pd),backgroundColor:'#ff3f5e2a',stack:'a'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>fmtM(v)}}},
+      plugins:{legend:{display:false},tooltip:TT}
+    }
+  });
+}
+
+function hRenderSnap(idx) {
+  const lbl = hDates[idx];
+  document.getElementById('hSnapLbl').textContent = lbl;
+  const slbls = hStrikes.map(s => '$'+s);
+  const cc = hStrikes.map(s => hByStrike[s][idx].cc);
+  const cd = hStrikes.map(s => hByStrike[s][idx].cd);
+  const pc = hStrikes.map(s => -hByStrike[s][idx].pc);
+  const pd = hStrikes.map(s => -hByStrike[s][idx].pd);
+
+  // Marca el strike más cercano al spot
+  const spotStrikeIdx = hSpotLast
+    ? hStrikes.reduce((bi,s,i) => Math.abs(s-hSpotLast)<Math.abs(hStrikes[bi]-hSpotLast)?i:bi, 0)
+    : -1;
+
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:11}};
+
+  if(hSnapChart) hSnapChart.destroy();
+  hSnapChart = new Chart(document.getElementById('hChartSnap'), {
+    type:'bar',
+    data:{labels:slbls,datasets:[
+      {label:'Call Cubierto',   data:cc, backgroundColor:'#38c8ffaa', stack:'call'},
+      {label:'Call Descubierto',data:cd, backgroundColor:'#38c8ff33', stack:'call'},
+      {label:'Put Cubierto',    data:pc, backgroundColor:'#ff3f5eaa', stack:'put'},
+      {label:'Put Descubierto', data:pd, backgroundColor:'#ff3f5e33', stack:'put'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{grid:GR,ticks:{...TK,maxRotation:45}},
+        y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>fmtM(Math.abs(v))}}
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{...TT,callbacks:{
+          title:t=>`Strike ${t[0].label}${spotStrikeIdx===t[0].dataIndex?' ◀ spot':''}`,
+          label:c=>` ${c.dataset.label}: ${fmtM(Math.abs(c.parsed.y))}`
+        }}
+      }
+    }
+  });
+
+  const slider = document.getElementById('hSnapSlider');
+  slider.max   = hDates.length - 1;
+  slider.value = idx;
+  slider.oninput = () => hRenderSnap(+slider.value);
+}
+
+function hRenderStrikeSelector() {
+  const sel = document.getElementById('hStrikeSel');
+  sel.innerHTML = '';
+  // Calcular qué strike tiene más OI total en el último día
+  const lastIdx = hDates.length - 1;
+  const oiByStrike = hStrikes.map(s => {
+    const d = hByStrike[s][lastIdx];
+    return {s, oi: d.cc+d.cd+d.pc+d.pd};
+  });
+  // Etiquetas: indicar el de mayor OI calls, mayor OI puts, y cercano al spot
+  const maxCall = hStrikes.reduce((mx,s) => (hByStrike[s][lastIdx].cc+hByStrike[s][lastIdx].cd) > (hByStrike[mx][lastIdx].cc+hByStrike[mx][lastIdx].cd) ? s : mx, hStrikes[0]);
+  const maxPut  = hStrikes.reduce((mx,s) => (hByStrike[s][lastIdx].pc+hByStrike[s][lastIdx].pd) > (hByStrike[mx][lastIdx].pc+hByStrike[mx][lastIdx].pd) ? s : mx, hStrikes[0]);
+
+  hStrikes.forEach(s => {
+    const o = document.createElement('option'); o.value = s;
+    const tags = [];
+    if(s===maxCall) tags.push('call wall');
+    if(s===maxPut)  tags.push('put wall');
+    if(hSpotLast && Math.abs(s-hSpotLast)<300) tags.push('~spot');
+    o.textContent = '$'+s + (tags.length ? ' ← '+tags.join(', ') : '');
+    sel.appendChild(o);
+  });
+  sel.value = maxCall;
+  sel.onchange = () => hRenderEvol(+sel.value);
+  hRenderEvol(maxCall);
+}
+
+function hRenderEvol(strike) {
+  const d    = hByStrike[strike];
+  const lbls = hDates.map(x => x.slice(5));
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  const TT={backgroundColor:'#131923',borderColor:'#1e2a38',borderWidth:1,titleColor:'#6e8090',bodyColor:'#e2eaf4',bodyFont:{family:'IBM Plex Mono',size:11}};
+
+  if(hEvolChart) hEvolChart.destroy();
+  hEvolChart = new Chart(document.getElementById('hChartEvol'), {
+    data:{labels:lbls,datasets:[
+      {type:'line',label:'Call Cubierto',   data:d.map(x=>x.cc),borderColor:'#38c8ff',  backgroundColor:'#38c8ff18',fill:true,tension:.35,pointRadius:2,borderWidth:2},
+      {type:'line',label:'Call Descubierto',data:d.map(x=>x.cd),borderColor:'#38c8ff55',backgroundColor:'#38c8ff06',fill:true,tension:.35,pointRadius:2,borderWidth:1.5,borderDash:[5,3]},
+      {type:'line',label:'Put Cubierto',    data:d.map(x=>x.pc),borderColor:'#ff3f5e',  backgroundColor:'#ff3f5e18',fill:true,tension:.35,pointRadius:2,borderWidth:2},
+      {type:'line',label:'Put Descubierto', data:d.map(x=>x.pd),borderColor:'#ff3f5e55',backgroundColor:'#ff3f5e06',fill:true,tension:.35,pointRadius:2,borderWidth:1.5,borderDash:[5,3]},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},y:{grid:GR,ticks:{...TK,callback:v=>fmtM(v)}}},
+      plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:c=>` ${c.dataset.label}: ${fmtM(c.parsed.y)}`}}}
+    }
+  });
+}
+
+function hRenderHeatmap() {
+  const ND = Math.min(12, hDates.length);
+  const rdates = hDates.slice(-ND);
+  const startIdx = hDates.length - ND;
+
+  const oiMat = {};
+  hStrikes.forEach(s => {
+    oiMat[s] = rdates.map((_,i) => {
+      const d = hByStrike[s][startIdx+i];
+      return d.cc+d.cd+d.pc+d.pd;
+    });
+  });
+
+  const allVals = Object.values(oiMat).flat().filter(v=>v>0);
+  const mx = Math.max(...allVals, 1), mn = Math.min(...allVals, 0);
+
+  function cellBg(v) {
+    const t = (v-mn)/(mx-mn);
+    const a = .06 + t*.88;
+    return { bg:`rgba(56,200,255,${a.toFixed(2)})`, fg: t>.55?'#0d1117':'#8899aa' };
+  }
+
+  const t = document.getElementById('hHeatmap');
+  t.innerHTML = '';
+  const hd = t.createTHead(), hr = hd.insertRow();
+  const th0 = document.createElement('th');
+  th0.textContent = 'Strike';
+  th0.style.cssText = 'color:var(--text4);font-weight:500;padding:3px 8px;text-align:left;border-bottom:1px solid var(--border2)';
+  hr.appendChild(th0);
+  rdates.forEach(d => {
+    const th = document.createElement('th');
+    th.textContent = d.slice(5);
+    th.style.cssText = 'color:var(--text4);font-weight:500;padding:3px 8px;text-align:center;border-bottom:1px solid var(--border2);white-space:nowrap';
+    hr.appendChild(th);
+  });
+  const thAvg = document.createElement('th');
+  thAvg.textContent = 'Avg';
+  thAvg.style.cssText = 'color:var(--text4);font-weight:500;padding:3px 8px;text-align:center;border-bottom:1px solid var(--border2)';
+  hr.appendChild(thAvg);
+
+  const tb = t.createTBody();
+  hStrikes.slice().reverse().forEach(s => {
+    const near = hSpotLast && Math.abs(s-hSpotLast)<250;
+    const row = tb.insertRow();
+    if(near) row.style.cssText='border-top:1px solid rgba(255,200,74,.3);border-bottom:1px solid rgba(255,200,74,.3)';
+    const td0 = row.insertCell();
+    td0.textContent = (near?'▸ ':'  ')+'$'+s;
+    td0.style.cssText = 'color:var(--amber);font-weight:700;text-align:left;padding:3px 8px;font-size:10px;white-space:nowrap';
+    if(!near) td0.style.color='var(--text3)';
+
+    const vals = oiMat[s];
+    vals.forEach(v => {
+      const {bg,fg} = cellBg(v);
+      const td = row.insertCell();
+      td.style.cssText=`background:${bg};color:${fg};text-align:center;padding:3px 7px;border-radius:2px`;
+      td.textContent = v>0 ? fmtM(v) : '—';
+    });
+
+    const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+    const tdA = row.insertCell();
+    tdA.style.cssText='color:var(--text4);font-size:8px;text-align:center;padding:3px 7px';
+    tdA.textContent = fmtM(avg);
+  });
+}
 
 oLoadData();
 })();
@@ -476,4 +925,9 @@ oLoadData();
 .b-call { background:#00e5a815; color:#00e5a8; }
 .b-put  { background:#ff3f5e15; color:#ff3f5e; }
 .card-desc { font-size:9px; color:var(--text4); margin-top:-5px; margin-bottom:10px; }
+
+.card-head { padding:12px 15px 0; }
+.card-body { padding:10px 15px 13px; }
+#hkpi-row .g-val { font-size:16px; }
+#hkpi-row .g-lab { font-size:8px; }
 </style>
