@@ -1005,14 +1005,11 @@ async function rrgLoad() {
     rrgData.sectores = buildTab(RRG_SECTORS);
     rrgData.acciones = buildTab(RRG_ACCIONES);
 
-    // Calcular rango dinámico con padding
-    let rMin=101,rMax=99,mMin=101,mMax=99;
-    [...rrgData.sectores,...rrgData.acciones].forEach(({p}) =>
-      p.forEach(([r,m]) => { rMin=Math.min(rMin,r);rMax=Math.max(rMax,r);mMin=Math.min(mMin,m);mMax=Math.max(mMax,m); })
-    );
-    const pad = Math.max((rMax-rMin),(mMax-mMin))*0.15+0.8;
-    const lo  = Math.min(rMin,mMin)-pad, hi = Math.max(rMax,mMax)+pad;
-    rrgRange  = {min: Math.min(lo,98), max: Math.max(hi,102)};
+    // Rango simétrico alrededor de 100: desviación máxima * 1.5, mínimo ±3.5
+    const allPts = [...rrgData.sectores,...rrgData.acciones].flatMap(({p})=>p);
+    const maxDev = allPts.reduce((mx,[r,m])=>Math.max(mx,Math.abs(r-100),Math.abs(m-100)), 3.5);
+    const spread = maxDev * 1.5;
+    rrgRange = {min: 100-spread, max: 100+spread};
 
     const lastDate = [...spyMap.keys()].sort().pop()||'—';
     document.getElementById('rrg-meta').textContent = `Benchmark: SPY · Cola ${RRG_TAIL}w · Actualizado ${lastDate}`;
