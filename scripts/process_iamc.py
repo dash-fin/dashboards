@@ -156,7 +156,10 @@ Devolvé SOLO JSON válido sin texto extra ni markdown:
     clean = re.sub(r'```json\n?|```', '', raw).strip()
 
     try:
-        return json.loads(clean)
+        parsed = json.loads(clean)
+        # Normalizar: siempre devolver {"opciones": [lista]}
+        lista = _extraer_lista(parsed) if not isinstance(parsed, list) else parsed
+        return {"opciones": lista}
     except json.JSONDecodeError:
         print("  ⚠️  Parseo directo falló — reconstruyendo...")
         objetos = re.findall(r'\{[^{}]+\}', clean)
@@ -168,18 +171,36 @@ Devolvé SOLO JSON válido sin texto extra ni markdown:
             return {"opciones": lista}
         raise ValueError("JSON irreparable.")
 
+IAMC_COLS = {"symbol","kind","strike","expiration","open_interest","volume","cubierto","opuesto","cruce","descubierto","updated_at","fecha_informe"}
+
+def _extraer_lista(data):
+    """Extrae la lista de opciones tolerando nesting variable del JSON de Claude."""
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        val = data.get("opciones", data.get("options", []))
+        if isinstance(val, list):
+            return val
+        if isinstance(val, dict):
+            return _extraer_lista(val)
+    return []
+
 # ── Upsert diario a opciones_iamc (sin cambios) ───────────────
 def subir_a_supabase(data: dict, fecha_pdf: datetime):
-    opciones = data.get("opciones", [])
+    opciones = _extraer_lista(data)
     if not opciones: print("  ⚠️  Sin datos."); return
     sb = create_client(SB_URL, SB_KEY)
     now_iso = datetime.utcnow().isoformat()
+    rows = []
     for op in opciones:
+        if not isinstance(op, dict): continue
         op["updated_at"] = now_iso
         op["fecha_informe"] = fecha_pdf.strftime("%Y-%m-%d")
-    print(f"  → Upsert {len(opciones)} filas en {TARGET_TABLE}...")
+        rows.append({k: v for k, v in op.items() if k in IAMC_COLS})
+    if not rows: print("  ⚠️  Sin filas válidas tras limpieza."); return
+    print(f"  → Upsert {len(rows)} filas en {TARGET_TABLE}...")
     try:
-        sb.table(TARGET_TABLE).upsert(opciones, on_conflict="symbol,expiration").execute()
+        sb.table(TARGET_TABLE).upsert(rows, on_conflict="symbol,expiration").execute()
         print("  ✅ opciones_iamc OK.")
     except Exception as e:
         print(f"  ❌ Error: {e}"); raise
@@ -191,7 +212,7 @@ def snapshot_historico(data: dict, fecha_informe: date):
     sea futura respecto a fecha_informe (descarta series ya vencidas).
     Ignora duplicados (re-run seguro).
     """
-    opciones = data.get("opciones", [])
+    opciones = _extraer_lista(data)
     if not opciones: return
 
     # Vencimiento activo = el 3er viernes de mes par más próximo

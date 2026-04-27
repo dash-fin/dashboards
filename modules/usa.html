@@ -240,16 +240,22 @@
 <!-- ══ RRG ══ -->
 <div class="sub-panel" id="uspanel-rrg">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-    <div style="display:flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:3px">
-      <button class="rrg-stab stab active" onclick="rrgSwitchTab('sectores',this)">Sectores</button>
-      <button class="rrg-stab stab"        onclick="rrgSwitchTab('acciones',this)">Acciones</button>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:3px">
+        <button class="rrg-stab stab active" onclick="rrgSwitchTab('sectores',this)">Sectores</button>
+        <button class="rrg-stab stab"        onclick="rrgSwitchTab('acciones',this)">Acciones</button>
+      </div>
+      <div style="display:flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:3px">
+        <button class="rrg-mode-btn stab active" onclick="rrgSwitchMode('weekly',this)">Semanal</button>
+        <button class="rrg-mode-btn stab"        onclick="rrgSwitchMode('daily',this)">Diario</button>
+      </div>
     </div>
     <div style="font-size:9px;color:var(--text4)" id="rrg-meta">—</div>
   </div>
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-title">ETFs de Sectores — S&amp;P 500</div>
-      <div style="font-size:9px;color:var(--text4)">Benchmark: SPY · EMA 10/26 semanal</div>
+      <div style="font-size:9px;color:var(--text4)">Benchmark: SPY · <span id="rrg-benchmark">EMA 10/26 · Cola 8w</span></div>
     </div>
     <div style="padding:14px 14px 8px"><canvas id="rrgChart"></canvas></div>
     <div id="rrg-legend" style="display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 14px;border-top:1px solid var(--border)"></div>
@@ -985,7 +991,8 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
 // ── RRG ──────────────────────────────────────────────────────
 let rrgLoaded  = false;
 let rrgTab     = 'sectores';
-let rrgData    = {sectores:[], acciones:[]};
+let rrgMode    = 'weekly'; // 'weekly' | 'daily'
+let rrgData    = {sectores:[], acciones:[], sectores_d:[], acciones_d:[]};
 let rrgRange   = {min:95, max:106};
 
 const RRG_SECTORS  = ['XLK','XLF','XLE','XLV','XLY','XLP','XLI','XLB','XLRE','XLU','XLC'];
@@ -994,12 +1001,31 @@ const RRG_COLORS   = ['#38c8ff','#00e5a8','#ffc84a','#ff3f5e','#a855f7','#fb923c
 const RRG_PAD      = {top:36, right:44, bottom:46, left:52};
 const RRG_CENTER   = 100;
 const RRG_TAIL     = 8;
+const RRG_TAIL_D   = 5;
 
 function rrgEma(arr, p) {
   const k = 2/(p+1), r = [];
   let prev = arr[0];
   arr.forEach(v => { prev = v*k + prev*(1-k); r.push(prev); });
   return r;
+}
+
+function rrgDailyMap(series) {
+  const m = new Map();
+  series.forEach(({date,close}) => m.set(date, Number(close)));
+  return m;
+}
+
+function rrgCalcSymbolDaily(dayMap, spyMap) {
+  const days = [...spyMap.keys()].filter(k => dayMap.has(k)).sort();
+  if (days.length < 20) return null;
+  const rawRS = days.map(k => dayMap.get(k) / spyMap.get(k) * 100);
+  const e5  = rrgEma(rawRS, 5);
+  const e13 = rrgEma(rawRS, 13);
+  const ratio = e5.map((v,i) => e13[i]>0 ? (v/e13[i]-1)*100+100 : 100);
+  const mom   = ratio.map((v,i) => i>0 && ratio[i-1]>0 ? (v/ratio[i-1]-1)*100+100 : 100);
+  const n = ratio.length, tail = RRG_TAIL_D+1;
+  return ratio.slice(-tail).map((r,i) => [r, mom[n-tail+i]]);
 }
 
 function rrgWeeklyMap(series) {
@@ -1064,10 +1090,18 @@ async function rrgLoad() {
     rrgData.sectores = buildTab(RRG_SECTORS);
     rrgData.acciones = buildTab(RRG_ACCIONES);
 
-    // El rango se calcula per-tab en rrgRender()
+    // Daily mode
+    const spyDayMap = rrgDailyMap(bySymbol['SPY']||[]);
+    const buildTabDaily = syms => syms.map((s,i) => {
+      const pts = bySymbol[s] ? rrgCalcSymbolDaily(rrgDailyMap(bySymbol[s]), spyDayMap) : null;
+      return {s, c:RRG_COLORS[i%RRG_COLORS.length], p:pts||[]};
+    }).filter(d => d.p.length > 1);
+
+    rrgData.sectores_d = buildTabDaily(RRG_SECTORS);
+    rrgData.acciones_d = buildTabDaily(RRG_ACCIONES);
 
     const lastDate = [...spyMap.keys()].sort().pop()||'—';
-    document.getElementById('rrg-meta').textContent = `Benchmark: SPY · Cola ${RRG_TAIL}w · Actualizado ${lastDate}`;
+    document.getElementById('rrg-meta').textContent = `Benchmark: SPY · Actualizado ${lastDate}`;
     rrgRender();
     rrgBuildLegend();
     rrgSetupTooltip();
@@ -1111,8 +1145,9 @@ function rrgRender() {
   ctx.scale(dpr,dpr);
   const W=cssW,H=cssH,pw=W-RRG_PAD.left-RRG_PAD.right,ph=H-RRG_PAD.top-RRG_PAD.bottom;
   ctx.clearRect(0,0,W,H);
+  const rrgKey = rrgMode === 'daily' ? rrgTab+'_d' : rrgTab;
   // Rango por tab: desviación máx × 1.25, mínimo ±2, cap ±4.5
-  { const pts=rrgData[rrgTab].flatMap(({p})=>p);
+  { const pts=rrgData[rrgKey].flatMap(({p})=>p);
     const dev=pts.reduce((mx,[r,m])=>Math.max(mx,Math.abs(r-100),Math.abs(m-100)),2);
     const sp=Math.min(dev*1.25, 4.5);
     rrgRange={min:100-sp, max:100+sp}; }
@@ -1169,7 +1204,7 @@ function rrgRender() {
   ctx.fillText('RS-Momentum →',0,0); ctx.restore();
 
   // Symbols
-  rrgData[rrgTab].forEach(({s,c,p})=>{
+  rrgData[rrgKey].forEach(({s,c,p})=>{
     if(p.length<2) return;
     const n=p.length, rgb=parseInt(c.slice(1),16);
     const r=(rgb>>16)&255,g=(rgb>>8)&255,b=rgb&255;
@@ -1200,7 +1235,8 @@ function rrgRender() {
 function rrgBuildLegend() {
   const el=document.getElementById('rrg-legend'); if(!el) return;
   el.innerHTML='';
-  rrgData[rrgTab].forEach(({s,c,p})=>{
+  const rrgKey = rrgMode === 'daily' ? rrgTab+'_d' : rrgTab;
+  rrgData[rrgKey].forEach(({s,c,p})=>{
     if(!p.length) return;
     const last=p[p.length-1];
     const {name,color}=rrgQ(last[0],last[1]);
@@ -1219,8 +1255,9 @@ function rrgSetupTooltip() {
     const rect=canvas.getBoundingClientRect();
     const mx=e.clientX-rect.left,my=e.clientY-rect.top;
     const W=parseFloat(canvas.style.width),H=parseFloat(canvas.style.height);
+    const _rrgKey = rrgMode === 'daily' ? rrgTab+'_d' : rrgTab;
     let hit=null;
-    for(const d of rrgData[rrgTab]){
+    for(const d of rrgData[_rrgKey]){
       if(!d.p.length) continue;
       const last=d.p[d.p.length-1];
       const [dx,dy]=rrgXY(last[0],last[1],W,H);
@@ -1249,6 +1286,15 @@ window.rrgSwitchTab = function(tab,btn){
   btn.classList.add('active');
   document.getElementById('rrg-title').textContent=
     tab==='sectores'?'ETFs de Sectores — S&P 500':'Acciones Individuales — S&P 500';
+  rrgRender(); rrgBuildLegend();
+};
+
+window.rrgSwitchMode = function(mode,btn){
+  rrgMode=mode;
+  document.querySelectorAll('.rrg-mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const bm = document.getElementById('rrg-benchmark');
+  if(bm) bm.textContent = mode==='weekly' ? 'EMA 10/26 · Cola 8w' : 'EMA 5/13 · Cola 5d';
   rrgRender(); rrgBuildLegend();
 };
 

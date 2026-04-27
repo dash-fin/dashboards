@@ -54,7 +54,6 @@
   <div class="sub-tabs">
     <button class="stab active" id="estab-sim"   onclick="esTab('sim',this)">Simulador</button>
     <button class="stab"        id="estab-pos"   onclick="esTab('pos',this)">Posiciones</button>
-    <button class="stab"        id="estab-sug"   onclick="esTab('sug',this)">Sugerencias</button>
   </div>
   <div class="sub-tabs-meta">
     GGAL: <span id="esSpotDisplay" style="color:var(--green);font-family:'IBM Plex Mono',monospace;font-weight:500">—</span>
@@ -280,27 +279,6 @@
   </div>
 </div>
 
-<!-- ══ PANEL: SUGERENCIAS ══ -->
-<div class="sub-panel" id="espanel-sug">
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <div style="font-size:11px;color:var(--text2)">Perspectiva:</div>
-    <div style="display:flex;gap:4px" id="esBiasGroup">
-      <button class="flt on" onclick="esBias('bull',this)">🐂 Alcista</button>
-      <button class="flt" onclick="esBias('bear',this)">🐻 Bajista</button>
-      <button class="flt" onclick="esBias('neutral',this)">↔ Neutral</button>
-      <button class="flt" onclick="esBias('vol',this)">⚡ Alta vol</button>
-    </div>
-    <div style="font-size:11px;color:var(--text2);margin-left:8px">Riesgo:</div>
-    <div style="display:flex;gap:4px" id="esRiskGroup">
-      <button class="flt on" onclick="esRisk('bajo',this)">Bajo</button>
-      <button class="flt" onclick="esRisk('medio',this)">Medio</button>
-      <button class="flt" onclick="esRisk('alto',this)">Alto</button>
-    </div>
-    <button class="btn btn-green" onclick="esSugGen()" style="margin-left:auto">Buscar estrategias</button>
-  </div>
-  <div id="esSugEmpty" class="empty-state"><div class="empty-icon">🎯</div><p>Seleccioná perspectiva y hacé clic en "Buscar estrategias"</p></div>
-  <div id="esSugGrid" style="display:none;flex-direction:column;gap:10px"></div>
-</div>
 
 <script>
 // Estrategias — scope global del módulo
