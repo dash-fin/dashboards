@@ -164,9 +164,9 @@ function anIVCalc(price,S,K,T,r,tipo){
   return(sig>0.005&&sig<15)?sig:null;
 }
 function anCalcT(expStr){
-  if(!expStr)return 0;
+  if(!expStr)return -1;
   const exp=new Date(String(expStr).slice(0,10)+'T12:00:00');
-  return Math.max((exp-new Date())/(1000*60*60*24*365),1/365);
+  return (exp-new Date())/(1000*60*60*24*365); // negativo si ya expiró
 }
 
 // ══════════════════════════════════════════════════
@@ -212,8 +212,9 @@ window.anTab=(name,btn)=>{
 async function anLoad(){
   document.getElementById('anMeta').textContent='Cargando...';
   try{
+    const today=new Date().toISOString().slice(0,10);
     const[opts,spotR,caucR]=await Promise.all([
-      sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&order=strike.asc&limit=500'),
+      sb('opciones_rt',`underlying_asset=ilike.GGAL*&expiration=gte.${today}&select=symbol,kind,strike,expiration,last,bid,ask&order=strike.asc&limit=500`),
       sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
       sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=last&limit=5'),
     ]);
@@ -232,7 +233,7 @@ async function anLoad(){
         strike:Number(o.strike), expiration:o.expiration,
         bid, ask, last, mid, T:anCalcT(o.expiration), iv:null,
       };
-    }).filter(o=>o.strike>0&&o.mid>0&&o.T>0);
+    }).filter(o=>o.strike>0&&o.mid>0&&o.T>3/365); // excluir expirados y con <3 días
 
     // IV ATM
     const atmOpts=anOpts.filter(o=>{const m=o.strike/anSpotN;return m>=0.94&&m<=1.06;});
@@ -531,27 +532,44 @@ function anCalcSilla(){
     <thead><tr>
       <th>Tipo</th><th>Vto</th>
       <th>K izq.</th><th>K centro ★</th><th>K der.</th>
-      <th>Precio Interp.</th><th>Precio Real</th><th>Descuento $</th><th>% Ancho</th>
-      <th>Mariposa aprox.</th><th>Señal</th>
+      <th>Interp.</th><th>Real</th><th>Descuento $</th><th>% Ancho</th>
+      <th>Mariposa</th><th>Sin dirección</th><th>Con view alcista</th><th>Con view bajista</th>
     </tr></thead>
     <tbody>${rows.slice(0,15).map(r=>{
-      const arb=r.disc>r.span*0.01&&r.C1i>r.C1*1.05; // real discount
-      const strong=r.pctSpan>0.04;
-      const col=arb?'var(--green)':strong?'var(--cyan)':'var(--text3)';
-      // approx butterfly cost for equal-spacing ref
       const bfly=r.w*r.C0-r.C1+(1-r.w)*r.C2;
+      const strong=r.pctSpan>0.04;
+      const col=bfly<0?'var(--red)':strong?'var(--cyan)':'var(--text3)';
+      const m=r.K1/anSpotN;
+      const isCall=r.kind==='CALL';
+      // Moneyness label for K1
+      const mon=m>1.08?'OTM+':m>1.02?'OTM':m>0.98?'ATM':m>0.92?'ITM':'ITM+';
+      // Strategies by view
+      let noDir,bull,bear;
+      if(isCall){
+        noDir='Mariposa call';
+        if(mon==='OTM+'||mon==='OTM'){ bull=`Bull spread ${anF(r.K1)}–${anF(r.K2)}`; bear='Solo mariposa'; }
+        else if(mon==='ATM'){          bull=`Compra call ${anF(r.K1)} directo`; bear=`Bear spread puts`; }
+        else{                          bull=`Compra call ${anF(r.K1)} (ITM)`; bear='Solo mariposa'; }
+      }else{
+        noDir='Mariposa put';
+        if(mon==='ITM+'||mon==='ITM'){ bear=`Bear spread ${anF(r.K0)}–${anF(r.K1)}`; bull='Solo mariposa'; }
+        else if(mon==='ATM'){          bear=`Compra put ${anF(r.K1)} directo`; bull='Bull spread calls'; }
+        else{                          bear=`Compra put ${anF(r.K1)} (OTM)`; bull='Solo mariposa'; }
+      }
       return`<tr>
-        <td>${r.kind==='CALL'?'<span style="color:var(--green)">C</span>':'<span style="color:var(--red)">P</span>'}</td>
+        <td>${isCall?'<span style="color:var(--green)">C</span>':'<span style="color:var(--red)">P</span>'}</td>
         <td>${anExp(r.exp)}</td>
         <td style="color:var(--text3)">${anF(r.K0)}</td>
-        <td style="color:var(--cyan);font-weight:700">${anF(r.K1)}</td>
+        <td style="color:var(--cyan);font-weight:700">${anF(r.K1)} <span style="font-size:8px;color:var(--text4)">${mon}</span></td>
         <td style="color:var(--text3)">${anF(r.K2)}</td>
         <td style="color:var(--text3)">$${anF2(r.C1i)}</td>
         <td style="color:var(--cyan)">$${anF2(r.C1)}</td>
         <td style="color:${col};font-weight:600">$${anF2(r.disc)}</td>
         <td style="color:${col}">${anPct(r.pctSpan)}</td>
         <td style="color:${bfly<0?'var(--red)':'var(--text3)'}">$${anF2(bfly)}${bfly<0?' ⚡':''}</td>
-        <td style="font-size:9px;color:${col}">${bfly<0?'<b style="color:var(--red)">ARB PURO</b>':strong?'Comprar mariposa':'Vigilar'}</td>
+        <td style="font-size:9px;color:var(--text3)">${bfly<0?'<b style="color:var(--red)">ARB PURO</b>':noDir}</td>
+        <td style="font-size:9px;color:var(--green)">${bull}</td>
+        <td style="font-size:9px;color:var(--red)">${bear}</td>
       </tr>`;
     }).join('')}</tbody></table>`;
 }
