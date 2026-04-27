@@ -263,7 +263,9 @@ const AL = {
   tipoActual: 'precio',
   filtroTipo: 'all',
   cfg: {},          // waNum, waKey, tgToken, tgChatId, canal
-  rtChannel: null,  // Supabase Realtime channel
+  rtChannel: null,     // Supabase Realtime — tabla mercado (ARS)
+  rtChannelUsa: null,  // Supabase Realtime — tabla mercado_usa
+  rtChannelOpt: null,  // Supabase Realtime — tabla opciones_rt
 };
 
 // Limpiador agresivo de tickers para que siempre coincidan
@@ -317,31 +319,35 @@ async function sbDelete(table, params){
 // ─────────────────────────────────────────────
 async function alCargarPreciosIniciales() {
   try {
-    // CLAVE: Usamos la función sbAll que tenés en index.html que pagina automáticamente.
-    // Además pedimos SOLO los settlement=24hs para no mezclar precios.
-    const rows = await window.sbAll('mercado', 'settlement=eq.24hs&select=symbol,last');
-    
-    if (rows && rows.length > 0) {
-      rows.forEach(r => {
-        const sym = alCleanTicker(r.symbol);
-        if (sym && r.last != null) {
-          AL.prevPrices[sym] = Number(r.last);
-        }
-      });
-      alRenderActivas(); 
-    }
-  } catch (e) {
-    console.error("Excepción cargando precios iniciales:", e);
+    const [arsRows, usaRows, optRows] = await Promise.all([
+      window.sbAll('mercado', 'settlement=eq.24hs&select=symbol,last').catch(()=>[]),
+      window.sbAll('mercado_usa', 'select=symbol,last').catch(()=>[]),
+      window.sb('opciones_rt', 'select=symbol,last,bid,ask&limit=500').catch(()=>[])
+    ]);
+    [...(arsRows||[]), ...(usaRows||[])].forEach(r => {
+      const sym = alCleanTicker(r.symbol);
+      if(sym && r.last != null) AL.prevPrices[sym] = Number(r.last);
+    });
+    (optRows||[]).forEach(r => {
+      const sym = alCleanTicker(r.symbol);
+      const mid = ((Number(r.bid||0)+Number(r.ask||0))/2) || Number(r.last||0);
+      if(sym && mid) AL.prevPrices[sym] = mid;
+    });
+    alRenderActivas();
+  } catch(e) {
+    console.error("Error cargando precios iniciales:", e);
   }
 }
 
 async function alInit(){
   alCfgCargarLocal();
   await alCargarAlertas();
-  await alCargarPreciosIniciales(); 
+  await alCargarPreciosIniciales();
   await alCargarHistorial();
   alKpiUpdate();
   alRtConnect();
+  alRtConnectUsa();
+  alRtConnectOpt();
   alFormPreview();
 }
 
@@ -389,96 +395,102 @@ function alRtConnect(){
     });
 }
 
-async function alOnMercadoUpdate(payload){
-  const row = payload.new;
-  // Solo consideramos los ticks que vienen del plazo normal (24hs) para no tener saltos de precio irreales
-  if(!row || row.settlement !== '24hs') return;
+// Evaluador compartido entre mercado ARS, USA y opciones
+async function alEvaluarAlertas(sym, cur, change, turnover){
+  const alertasDelTicker = AL.alerts.filter(a => a.activa && alCleanTicker(a.ticker) === sym);
+  if(!alertasDelTicker.length) return;
 
-  const sym = alCleanTicker(row.symbol);
-  const cur = Number(row.last);
-  if(!sym || isNaN(cur)) return;
-
-  const ts = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-
-  const krtEl = document.getElementById('al-kpi-rt');
-  if(krtEl) krtEl.textContent = sym + ' ' + ts.slice(0,5);
-
-  const alertasDelTicker = AL.alerts.filter(a => {
-    if(!a.activa) return false;
-    const at = alCleanTicker(a.ticker);
-    return at === sym;
-  });
-
-  // Mantenemos la memoria siempre actualizada
-  AL.prevPrices[sym] = cur;
-
-  if(!alertasDelTicker.length){
-    alRenderActivas(); 
-    return;
-  }
-
-  alLog(`📡 ${sym} → $${fmtAR(cur,2)} | var: ${Number(row.change||0).toFixed(2)}%`, 'text3');
+  alLog(`📡 ${sym} → $${fmtAR(cur,2)} | var: ${change>=0?'+':''}${change.toFixed(2)}%`, 'text3');
   alLog(`🔍 Evaluando ${alertasDelTicker.length} alerta(s) para ${sym}`, 'blue');
 
   for(const alerta of alertasDelTicker){
-    let disparado = false;
-    let condDesc  = '';
-
-    if(alerta.tipo === 'precio'){
-      [disparado, condDesc] = evalPrecio(alerta, cur, cur);
-    } else if(alerta.tipo === 'ma'){
-      [disparado, condDesc] = await evalMA(alerta, sym);
-    } else if(alerta.tipo === 'variacion'){
-      [disparado, condDesc] = evalVariacion(alerta, Number(row.change||0));
-    } else if(alerta.tipo === 'volumen'){
-      [disparado, condDesc] = evalVolumen(alerta, Number(row.turnover||0));
-    }
+    let disparado = false, condDesc = '';
+    if(alerta.tipo === 'precio')     [disparado, condDesc] = evalPrecio(alerta, cur, cur);
+    else if(alerta.tipo === 'ma')    [disparado, condDesc] = await evalMA(alerta, sym);
+    else if(alerta.tipo === 'variacion') [disparado, condDesc] = evalVariacion(alerta, change);
+    else if(alerta.tipo === 'volumen')   [disparado, condDesc] = evalVolumen(alerta, turnover);
 
     if(disparado){
       const ahora = Date.now();
       const cooldownMs = (alerta.params?.cooldown || 1800) * 1000;
       const lastFiredMs = alerta.last_fired ? new Date(alerta.last_fired).getTime() : 0;
-
       if(cooldownMs > 0 && (ahora - lastFiredMs) < cooldownMs){
         const restMin = Math.round((cooldownMs - (ahora - lastFiredMs)) / 60000);
         alLog(`⏳ ${sym}: en cooldown (${restMin}min).`, 'amber');
         continue;
       }
-
-      const msg = alBuildMsg(alerta, cur, Number(row.change||0), condDesc);
+      const msg = alBuildMsg(alerta, cur, change, condDesc);
       alLog(`🔔 ALERTA DISPARADA: ${sym} — ${condDesc}`, 'green');
-
       const canal = AL.cfg.canal || 'ninguno';
       let estado = '❌ Sin canal';
       if(canal !== 'ninguno'){
         const ok = await alEnviar(msg);
         estado = ok ? '✅ Enviado' : '❌ Error envío';
       }
-
       alerta.last_fired = new Date().toISOString();
       alerta.fired_count = (alerta.fired_count || 0) + 1;
-      await sbPatch('alertas', `id=eq.${alerta.id}`, {
-        last_fired: alerta.last_fired,
-        fired_count: alerta.fired_count
-      });
-
+      await sbPatch('alertas', `id=eq.${alerta.id}`, { last_fired: alerta.last_fired, fired_count: alerta.fired_count });
       await sbPost('alertas_historial', {
-        user_id:    alUserId(),
-        alerta_id:  alerta.id,
-        ticker:     sym,
-        tipo:       alerta.tipo,
-        cond_desc:  condDesc,
-        precio:     cur,
-        canal:      canal,
-        estado:     estado,
-        fired_at:   new Date().toISOString()
+        user_id: alUserId(), alerta_id: alerta.id, ticker: sym, tipo: alerta.tipo,
+        cond_desc: condDesc, precio: cur, canal, estado, fired_at: new Date().toISOString()
       });
-
       alKpiUpdate();
     }
   }
+}
 
-  alRenderActivas(); 
+async function alOnMercadoUpdate(payload){
+  const row = payload.new;
+  if(!row || row.settlement !== '24hs') return;
+  const sym = alCleanTicker(row.symbol);
+  const cur = Number(row.last);
+  if(!sym || isNaN(cur)) return;
+  const tsStr = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const krtEl = document.getElementById('al-kpi-rt');
+  if(krtEl) krtEl.textContent = sym + ' ' + tsStr.slice(0,5);
+  AL.prevPrices[sym] = cur;
+  await alEvaluarAlertas(sym, cur, Number(row.change||0), Number(row.turnover||0));
+  alRenderActivas();
+}
+
+function alRtConnectUsa(){
+  if(AL.rtChannelUsa){ try{ AL.rtChannelUsa.unsubscribe(); }catch(e){} }
+  AL.rtChannelUsa = window.sbAuth
+    .channel('mercado-usa-alertas')
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'mercado_usa' }, async payload => {
+      const row = payload.new;
+      if(!row) return;
+      const sym = alCleanTicker(row.symbol);
+      const cur = Number(row.last);
+      if(!sym || isNaN(cur)) return;
+      AL.prevPrices[sym] = cur;
+      await alEvaluarAlertas(sym, cur, Number(row.change_pct||row.change||0), 0);
+      alRenderActivas();
+    })
+    .subscribe(status => {
+      if(status === 'SUBSCRIBED') alLog('🟢 Realtime USA activo.', 'green');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setTimeout(alRtConnectUsa, 5000);
+    });
+}
+
+function alRtConnectOpt(){
+  if(AL.rtChannelOpt){ try{ AL.rtChannelOpt.unsubscribe(); }catch(e){} }
+  AL.rtChannelOpt = window.sbAuth
+    .channel('opciones-rt-alertas')
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'opciones_rt' }, async payload => {
+      const row = payload.new;
+      if(!row) return;
+      const sym = alCleanTicker(row.symbol);
+      const mid = ((Number(row.bid||0)+Number(row.ask||0))/2) || Number(row.last||0);
+      if(!sym || !mid) return;
+      AL.prevPrices[sym] = mid;
+      await alEvaluarAlertas(sym, mid, 0, 0);
+      alRenderActivas();
+    })
+    .subscribe(status => {
+      if(status === 'SUBSCRIBED') alLog('🟢 Realtime Opciones activo.', 'green');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setTimeout(alRtConnectOpt, 5000);
+    });
 }
 
 function alRtStatus(status){
@@ -982,28 +994,49 @@ window.alTickerSearch = async function(q){
   clearTimeout(_alTickerTimer);
   const res = document.getElementById('al-ticker-results');
   if(!q || q.length < 1){ res.style.display = 'none'; return; }
-  
+
   res.style.display = 'block';
   res.innerHTML = '<div style="padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3)">Buscando...</div>';
-  
+
   _alTickerTimer = setTimeout(async () => {
-    const rows = await window.sb('mercado', `symbol=ilike.${encodeURIComponent(q)}*&settlement=eq.24hs&select=symbol,last,change&order=turnover.desc.nullslast&limit=8`);
-    
-    if(!rows || !rows.length){
+    const qEnc = encodeURIComponent(q);
+    const [arsRows, usaRows, optRows] = await Promise.all([
+      window.sb('mercado',     `symbol=ilike.${qEnc}*&settlement=eq.24hs&select=symbol,last,change&order=turnover.desc.nullslast&limit=6`).catch(()=>[]),
+      window.sb('mercado_usa', `symbol=ilike.${qEnc}*&select=symbol,last,change_pct,name&order=symbol.asc&limit=4`).catch(()=>[]),
+      window.sb('opciones_rt', `symbol=ilike.${qEnc}*&select=symbol,last,bid,ask&order=symbol.asc&limit=4`).catch(()=>[]),
+    ]);
+
+    const items = [
+      ...(arsRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change||0), src:'ARS', sub:'' })),
+      ...(usaRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change_pct||r.change||0), src:'USA', sub:r.name||'' })),
+      ...(optRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:((Number(r.bid||0)+Number(r.ask||0))/2)||Number(r.last||0), chg:0, src:'OPT', sub:'' })),
+    ];
+
+    if(!items.length){
       res.innerHTML = '<div style="padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3)">Sin resultados</div>';
       return;
     }
-    
-    res.innerHTML = rows.map(r => {
-      const chg = Number(r.change || 0);
-      const cls = chg > 0 ? 'var(--green)' : chg < 0 ? 'var(--red)' : 'var(--text3)';
-      const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
-      const cleanSym = alCleanTicker(r.symbol); 
-      
-      return `<div onclick="alTickerSelect('${cleanSym}')" style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-bottom:1px solid rgba(30,37,48,.5);font-family:'IBM Plex Mono',monospace;transition:background .1s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
-        <span style="font-size:12px;font-weight:500;color:var(--text)">${cleanSym}</span>
-        <span style="font-size:12px;color:var(--text)">$${fmtAR(r.last, 2)}</span>
-        <span style="font-size:11px;color:${cls}">${chgStr}</span>
+
+    const srcCfg = {
+      ARS: { color:'var(--cyan)',   label:'ARS' },
+      USA: { color:'var(--green)',  label:'USA' },
+      OPT: { color:'var(--amber)',  label:'OPT' },
+    };
+
+    res.innerHTML = items.map(r => {
+      const chgColor = r.chg > 0 ? 'var(--green)' : r.chg < 0 ? 'var(--red)' : 'var(--text3)';
+      const chgStr   = r.chg !== 0 ? (r.chg >= 0 ? '+' : '') + r.chg.toFixed(2) + '%' : '—';
+      const priceStr = r.price ? '$' + fmtAR(r.price, 2) + (r.src==='USA' ? ' USD' : '') : '—';
+      const cfg = srcCfg[r.src];
+      const sub = r.sub ? `<div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.sub}</div>` : '';
+      return `<div onclick="alTickerSelect('${r.sym}')" style="display:flex;gap:10px;align-items:center;padding:8px 14px;cursor:pointer;border-bottom:1px solid rgba(30,37,48,.5);transition:background .1s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
+        <span style="flex-shrink:0;font-size:8px;font-weight:600;color:${cfg.color};background:${cfg.color}22;border:1px solid ${cfg.color}44;border-radius:3px;padding:1px 5px;letter-spacing:.5px">${cfg.label}</span>
+        <div style="flex:1;min-width:0;font-family:'IBM Plex Mono',monospace">
+          <div style="font-size:12px;font-weight:500;color:var(--text)">${r.sym}</div>
+          ${sub}
+        </div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);white-space:nowrap">${priceStr}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:${chgColor};white-space:nowrap">${chgStr}</span>
       </div>`;
     }).join('');
   }, 250);
