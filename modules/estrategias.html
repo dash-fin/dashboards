@@ -771,7 +771,16 @@ window.esGuardar = async () => {
   btn.disabled = true; btn.textContent = 'Guardando...';
 
   const optSz = Number(document.getElementById('esOptSize').value)||100;
-  const costoNeto = esLegs.reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz;
+
+  // Enriquecer cada pata con el símbolo real de opciones_rt
+  const patasConSimbolo = esLegs.map(l => {
+    const match = esOptsData.find(o =>
+      o.kind === l.kind.toUpperCase() &&
+      Math.abs(o.strike - l.strike) < 0.01 &&
+      o.vto === l.vto
+    );
+    return { ...l, option_size: optSz, symbol: match?.symbol || null };
+  });
 
   const payload = {
     user_id:      user.id,
@@ -781,15 +790,39 @@ window.esGuardar = async () => {
     subyacente:   'GGAL',
     spot_entrada: esSpotVal,
     estado:       'abierta',
-    patas:        esLegs.map(l=>({...l, option_size: optSz})),
+    patas:        patasConSimbolo,
   };
 
   try {
-    const headers = {...CFG.SBH,'Content-Type':'application/json','Prefer':'return=minimal'};
     const token = session?.data?.session?.access_token;
+    const headers = {...CFG.SBH,'Content-Type':'application/json','Prefer':'return=representation'};
     if(token) headers['Authorization'] = 'Bearer '+token;
     const r = await fetch(`${CFG.SB_URL}/rest/v1/operaciones`, {method:'POST', headers, body:JSON.stringify(payload)});
     if(!r.ok) throw new Error('Error '+r.status+': '+(await r.text()).slice(0,100));
+    const [savedOp] = await r.json();
+
+    // Insertar una fila en portafolio por cada pata con símbolo conocido
+    if(savedOp?.id) {
+      const pfRows = patasConSimbolo
+        .filter(l => l.symbol)
+        .map(l => ({
+          user_email:        user.email,
+          tipo:              'OPCION',
+          ticker_ars:        l.symbol,
+          fecha_compra:      payload.fecha,
+          cantidad:          l.action === 'buy' ? l.qty * optSz : -(l.qty * optSz),
+          precio_compra_ars: l.prima,
+          notas:             `${payload.nombre} | ${payload.subyacente}`,
+          operacion_id:      savedOp.id,
+          activo:            true,
+        }));
+      if(pfRows.length) {
+        const pfH = {...CFG.SBH,'Content-Type':'application/json','Prefer':'return=minimal'};
+        if(token) pfH['Authorization'] = 'Bearer '+token;
+        await fetch(`${CFG.SB_URL}/rest/v1/portafolio`, {method:'POST', headers:pfH, body:JSON.stringify(pfRows)});
+      }
+    }
+
     msg.textContent = '✓ Operación guardada'; msg.className='modal-msg ok';
     document.getElementById('esNota').value='';
     setTimeout(()=>{ msg.className='modal-msg'; },3000);
@@ -898,6 +931,8 @@ window.esCerrarOp = async (id) => {
   if(!token) return;
   const headers = {...CFG.SBH,'Authorization':'Bearer '+token,'Content-Type':'application/json','Prefer':'return=minimal'};
   await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({estado:'cerrada',fecha_cierre:new Date().toISOString().split('T')[0],spot_cierre:Number(spotCierre)})});
+  // Cerrar también las filas de portafolio vinculadas
+  await fetch(`${CFG.SB_URL}/rest/v1/portafolio?operacion_id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({activo:false})});
   esPosLoad();
 };
 

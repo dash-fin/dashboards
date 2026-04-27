@@ -335,6 +335,7 @@
         <button class="flt"    onclick="pfSetFilter('CEDEAR',this)">CEDEARs</button>
         <button class="flt"    onclick="pfSetFilter('BONO_SOBERANO',this)">Bonos Sob.</button>
         <button class="flt"    onclick="pfSetFilter('DOLAR_LINKED',this)">Dólar Linked</button>
+        <button class="flt"    onclick="pfSetFilter('OPCION',this)">Opciones</button>
       </div>
       <span class="row-count" id="pfPosCount">0 posiciones</span>
       <div style="margin-left:auto;display:flex;gap:6px;position:relative">
@@ -361,28 +362,39 @@
 <div class="sub-panel" id="pfpanel-historial">
   <div class="card">
     <div class="toolbar" style="justify-content:space-between">
-      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Operaciones cerradas</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Trades cerrados</span>
       <span id="pfHistStats" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"></span>
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th class="th-left">Ticker</th>
-          <th class="th-left">Tipo</th>
-          <th>Apertura</th>
-          <th>Cierre</th>
-          <th>Cantidad</th>
-          <th>P. Entrada</th>
-          <th>P. Salida</th>
-          <th>Invertido USD</th>
-          <th>Retorno USD</th>
-          <th>Ganancia USD</th>
-          <th>%</th>
-          <th class="th-left">Notas</th>
+          <th class="th-left">Ticker</th><th class="th-left">Tipo</th>
+          <th>Apertura</th><th>Cierre</th><th>Cantidad</th>
+          <th>P. Entrada</th><th>P. Salida</th>
+          <th>Invertido USD</th><th>Retorno USD</th>
+          <th>Ganancia USD</th><th>%</th><th class="th-left">Notas</th>
         </tr></thead>
         <tbody id="pfHistTbody">
           <tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
         </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" id="pfHistOpsSection" style="display:none;margin-top:0">
+    <div class="toolbar">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:1.5px">Estrategias de opciones cerradas</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Estrategia</th><th class="th-left">Sub.</th>
+          <th>Apertura</th><th>Cierre</th>
+          <th class="th-left">Patas</th>
+          <th>Spot entrada</th><th>Spot cierre</th>
+          <th>P&amp;L neto</th>
+        </tr></thead>
+        <tbody id="pfHistOpsTbody"></tbody>
       </table>
     </div>
   </div>
@@ -395,16 +407,16 @@
 const TIPO_LABEL = {
   CEDEAR:'CEDEARs', BONO_SOBERANO:'Bonos Soberanos',
   DOLAR_LINKED:'Dólar Linked', BONO_CER:'Bonos CER',
-  BONO_DUAL:'Bonos Duales', ACCION:'Acciones',
+  BONO_DUAL:'Bonos Duales', ACCION:'Acciones', OPCION:'Opciones',
 };
 const TIPO_COLOR = {
   CEDEAR:'#00b4d8', BONO_SOBERANO:'#00e5a8',
   DOLAR_LINKED:'#f0a500', BONO_CER:'#b39dff',
-  BONO_DUAL:'#ff3f5e', ACCION:'#4da6ff',
+  BONO_DUAL:'#ff3f5e', ACCION:'#4da6ff', OPCION:'#ffc84a',
 };
 
 // ── Estado ──────────────────────────────────────────────
-let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfMep = null, pfFilter = 'all', pfChart = null;
+let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfOptPrices = {}, pfMep = null, pfFilter = 'all', pfChart = null;
 let pfRefCloses = {}; // { ticker_ars: { wtd: number|null, ytd: number|null } }
 let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de referencia
 let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
@@ -521,6 +533,20 @@ window.pfLoadAll = async () => {
     pfAdrPrices = {};
     (prAdr||[]).forEach(r=>{ pfAdrPrices[r.symbol]=r; });
 
+    // Precios RT para posiciones OPCION
+    pfOptPrices = {};
+    const optPosList = pfPositions.filter(p => p.tipo === 'OPCION');
+    if(optPosList.length) {
+      const optSyms = [...new Set(optPosList.map(p => p.ticker_ars).filter(Boolean))];
+      if(optSyms.length) {
+        const optRows = await sb('opciones_rt', `symbol=in.(${optSyms.join(',')})&select=symbol,last,bid,ask`).catch(()=>[]);
+        (optRows||[]).forEach(r => {
+          const price = Number(r.last||0) || ((Number(r.bid||0)+Number(r.ask||0))/2);
+          if(price) pfOptPrices[r.symbol] = price;
+        });
+      }
+    }
+
     // Siempre buscar en Yahoo para obtener betas (mercado_usa no las tiene)
     if(adrTickers.length) {
       try {
@@ -550,6 +576,22 @@ window.pfLoadAll = async () => {
 
 // ── Cálculo P&L por posición ─────────────────────────────
 function pfCalc(pos) {
+  if(pos.tipo === 'OPCION') {
+    const currentOpt = pfOptPrices[pos.ticker_ars] || 0;
+    const precioActual = currentOpt || null;
+    const qty   = Math.abs(pos.cantidad || 0);
+    const sign  = (pos.cantidad || 0) >= 0 ? 1 : -1;
+    const prima = pos.precio_compra_ars || 0;
+    const pnlARS = (precioActual && prima > 0) ? sign * (precioActual - prima) * qty : null;
+    const mepRef = pos.mep_compra || pfMep;
+    const usdInv = (mepRef && prima > 0) ? (prima * qty) / mepRef : null;
+    const usdAct = (pnlARS != null && pfMep) ? ((prima * qty) + pnlARS) / pfMep : null;
+    const gan    = (usdAct != null && usdInv != null) ? usdAct - usdInv : null;
+    const pct    = (gan != null && usdInv > 0) ? gan / usdInv : null;
+    return {...pos, precioActual, changeLocal:null, pnlARS, usdInv, usdAct, gan, pct,
+            adrActual:null, adrChangePct:null, adrGan:null, adrPct:null, betaAdr:null, adrInv:null};
+  }
+
   const esBono  = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
   const factor  = esBono ? 100 : 1;
 
@@ -1001,7 +1043,14 @@ function pfRenderPositions(calced) {
       case 'ticker':    return `<td class="th-left"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${TIPO_COLOR[p.tipo]||'#888'};margin-right:5px;vertical-align:middle"></span><b>${p.ticker_ars}</b></td>`;
       case 'tipo':      return `<td style="font-size:10px;color:var(--text3)">${TIPO_LABEL[p.tipo]||p.tipo}</td>`;
       case 'fecha':     return `<td>${fecha}</td>`;
-      case 'cantidad':  return `<td>${Number(p.cantidad).toLocaleString('es-AR')}</td>`;
+      case 'cantidad':
+        if(p.tipo === 'OPCION') {
+          const dir = (p.cantidad||0) >= 0
+            ? `<span style="color:var(--green);font-size:9px">▲</span>`
+            : `<span style="color:var(--red);font-size:9px">▼</span>`;
+          return `<td>${dir} ${Math.abs(p.cantidad||0)}</td>`;
+        }
+        return `<td>${Number(p.cantidad).toLocaleString('es-AR')}</td>`;
       case 'pcompra':   return `<td>${fmtArs(p.precio_compra_ars)}</td>`;
       case 'pactual':   return `<td>${p.precioActual!=null?fmtArs(p.precioActual):'—'}</td>`;
       case 'varlocal':  return `<td>${fmtVar(p.changeLocal, true)}</td>`;
@@ -1015,20 +1064,32 @@ function pfRenderPositions(calced) {
       case 'mep':       return `<td style="${border}color:var(--text3)">$${Math.round(p.mep_compra).toLocaleString('es-AR')}</td>`;
       case 'inversion': return `<td>${fmtUsd(p.usdInv)}</td>`;
       case 'actual':    return `<td>${fmtUsd(p.usdAct)}</td>`;
-      case 'ganancia':  return `<td style="color:${gc}">${p.gan!=null?(gs+fmtUsd(p.gan)):'—'}</td>`;
+      case 'ganancia':
+        if(p.tipo === 'OPCION') {
+          if(p.pnlARS == null) return `<td style="color:var(--text3)">—</td>`;
+          const oc = p.pnlARS >= 0 ? 'var(--green)' : 'var(--red)';
+          return `<td style="color:${oc}">${p.pnlARS>=0?'+':''}$${Math.round(p.pnlARS).toLocaleString('es-AR')}</td>`;
+        }
+        return `<td style="color:${gc}">${p.gan!=null?(gs+fmtUsd(p.gan)):'—'}</td>`;
       case 'pct':       return `<td style="color:${gc}">${p.pct!=null?((p.pct>=0?'+':'')+(p.pct*100).toFixed(1)+'%'):'—'}</td>`;
       default:          return '<td>—</td>';
     }
   };
 
-  tbody.innerHTML = rows.map(p =>
-    '<tr>' + visibleCols.map(c=>cell(p,c.id)).join('') +
-    `<td>
-      <button onclick="pfModalOpen('${p.id}')" title="Editar" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text3)'">✎</button>
-      <button onclick="pfCloseModal('${p.id}')" title="Cerrar posición" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text3)'">⊠</button>
-      <button onclick="pfDelete('${p.id}','${p.ticker_ars}')" title="Eliminar" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
-    </td></tr>`
-  ).join('');
+  tbody.innerHTML = rows.map(p => {
+    const btnStyle = 'background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px';
+    const actions = p.tipo === 'OPCION'
+      ? `<td>
+          ${p.operacion_id ? `<button onclick="pfCloseOpcion('${p.operacion_id}')" title="Cerrar estrategia" style="${btnStyle}" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text3)'">⊠</button>` : ''}
+          <button onclick="pfDelete('${p.id}','${p.ticker_ars}')" title="Quitar fila" style="${btnStyle}" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
+        </td>`
+      : `<td>
+          <button onclick="pfModalOpen('${p.id}')" title="Editar" style="${btnStyle}" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text3)'">✎</button>
+          <button onclick="pfCloseModal('${p.id}')" title="Cerrar posición" style="${btnStyle}" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text3)'">⊠</button>
+          <button onclick="pfDelete('${p.id}','${p.ticker_ars}')" title="Eliminar" style="${btnStyle}" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text3)'">✕</button>
+        </td>`;
+    return '<tr>' + visibleCols.map(c=>cell(p,c.id)).join('') + actions + '</tr>';
+  }).join('');
 }
 
 // ── Filtro ────────────────────────────────────────────────
@@ -1147,6 +1208,28 @@ function pfShowMsg(type, text) {
   el.style.color = type==='error' ? 'var(--red)' : 'var(--green)';
   el.style.border = `1px solid ${type==='error'?'rgba(255,63,94,.3)':'rgba(0,229,168,.3)'}`;
 }
+
+// ── Cerrar estrategia de opciones (ambos lados) ──────────
+window.pfCloseOpcion = async (operacionId) => {
+  if(!confirm('¿Cerrar esta estrategia de opciones? Se marcará cerrada en Estrategias también.')) return;
+  try {
+    const session = await window.sbAuth?.auth?.getSession();
+    const token = session?.data?.session?.access_token;
+    const h = { ...CFG.SBH, 'Content-Type':'application/json', 'Prefer':'return=minimal' };
+    if(token) h['Authorization'] = 'Bearer '+token;
+    await Promise.all([
+      fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${operacionId}`, {
+        method:'PATCH', headers:h,
+        body: JSON.stringify({ estado:'cerrada', fecha_cierre: new Date().toISOString().split('T')[0] })
+      }),
+      fetch(`${CFG.SB_URL}/rest/v1/portafolio?operacion_id=eq.${operacionId}`, {
+        method:'PATCH', headers:h,
+        body: JSON.stringify({ activo: false })
+      }),
+    ]);
+    await pfLoadAll();
+  } catch(e) { alert('Error al cerrar: '+e.message); }
+};
 
 // ── Eliminar posición (soft delete) ──────────────────────
 window.pfDelete = async (id, ticker) => {
@@ -1300,43 +1383,73 @@ function pfCloseMsgShow(type, text) {
 async function pfLoadHistorial() {
   const email = window.currentUser?.email;
   if(!email) return;
-  const rows = await sb('trades',
-    `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`);
+  const [rows, opsRows] = await Promise.all([
+    sb('trades', `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`),
+    sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre`),
+  ]);
   const tbody   = document.getElementById('pfHistTbody');
   const statsEl = document.getElementById('pfHistStats');
   if(!tbody) return;
-  if(!rows || !rows.length) {
+  const fmtD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+
+  if(!rows?.length) {
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Sin operaciones cerradas aún</td></tr>';
     if(statsEl) statsEl.textContent = '';
-    return;
+  } else {
+    const totGan = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0);
+    const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length;
+    const sGan   = totGan>=0?'+':'';
+    const color  = totGan>=0?'var(--green)':'var(--red)';
+    if(statsEl) statsEl.innerHTML =
+      `${rows.length} trades · Win rate: ${((wins/rows.length)*100).toFixed(0)}% · `
+      + `Total realizado: <span style="color:${color};font-weight:500">${sGan}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
+    tbody.innerHTML = rows.map(r => {
+      const gan = r.ganancia_usd||0, pct = r.ganancia_pct||0;
+      const gc  = gan>=0?'var(--green)':'var(--red)', gs = gan>=0?'+':'';
+      return `<tr>
+        <td class="th-left"><b>${r.ticker_ars}</b>${r.ticker_adr?` <span style="color:var(--text3);font-size:10px">/ ${r.ticker_adr}</span>`:''}</td>
+        <td class="th-left" style="font-size:10px;color:var(--text3)">${TIPO_LABEL[r.tipo]||r.tipo}</td>
+        <td>${fmtD(r.fecha_apertura)}</td><td>${fmtD(r.fecha_cierre)}</td>
+        <td>${Number(r.cantidad).toLocaleString('es-AR')}</td>
+        <td>$${Number(r.precio_entrada_ars).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
+        <td>$${Number(r.precio_salida_ars).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
+        <td>U$S ${Math.round(r.usd_invertido||0).toLocaleString('es-AR')}</td>
+        <td>U$S ${Math.round(r.usd_retorno||0).toLocaleString('es-AR')}</td>
+        <td style="color:${gc};font-weight:500">${gs}U$S ${Math.abs(Math.round(gan)).toLocaleString('es-AR')}</td>
+        <td style="color:${gc}">${gs}${Math.abs(pct).toFixed(1)}%</td>
+        <td class="th-left" style="font-size:10px;color:var(--text3)">${r.notas||'—'}</td>
+      </tr>`;
+    }).join('');
   }
-  const totGan = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0);
-  const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length;
-  const s      = totGan>=0?'+':'';
-  const color  = totGan>=0?'var(--green)':'var(--red)';
-  if(statsEl) statsEl.innerHTML =
-    `${rows.length} trades · Win rate: ${((wins/rows.length)*100).toFixed(0)}% · `
-    + `Total realizado: <span style="color:${color};font-weight:500">${s}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
 
-  const fmtD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
-  tbody.innerHTML = rows.map(r => {
-    const gan  = r.ganancia_usd||0, pct = r.ganancia_pct||0;
-    const gc   = gan>=0?'var(--green)':'var(--red)', gs = gan>=0?'+':'';
-    return `<tr>
-      <td class="th-left"><b>${r.ticker_ars}</b>${r.ticker_adr?` <span style="color:var(--text3);font-size:10px">/ ${r.ticker_adr}</span>`:''}</td>
-      <td class="th-left" style="font-size:10px;color:var(--text3)">${TIPO_LABEL[r.tipo]||r.tipo}</td>
-      <td>${fmtD(r.fecha_apertura)}</td>
-      <td>${fmtD(r.fecha_cierre)}</td>
-      <td>${Number(r.cantidad).toLocaleString('es-AR')}</td>
-      <td>$${Number(r.precio_entrada_ars).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
-      <td>$${Number(r.precio_salida_ars).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
-      <td>U$S ${Math.round(r.usd_invertido||0).toLocaleString('es-AR')}</td>
-      <td>U$S ${Math.round(r.usd_retorno||0).toLocaleString('es-AR')}</td>
-      <td style="color:${gc};font-weight:500">${gs}U$S ${Math.abs(Math.round(gan)).toLocaleString('es-AR')}</td>
-      <td style="color:${gc}">${gs}${Math.abs(pct).toFixed(1)}%</td>
-      <td class="th-left" style="font-size:10px;color:var(--text3)">${r.notas||'—'}</td>
-    </tr>`;
-  }).join('');
+  // Sección de estrategias de opciones cerradas
+  const opsEl = document.getElementById('pfHistOpsSection');
+  if(opsEl && opsRows?.length) {
+    opsEl.style.display = 'block';
+    const opsTbody = document.getElementById('pfHistOpsTbody');
+    if(opsTbody) {
+      opsTbody.innerHTML = opsRows.map(op => {
+        const optSz = op.patas?.[0]?.option_size || 100;
+        const patas = (op.patas||[]).map(l =>
+          `${l.action==='buy'?'▲':'▼'} ${l.qty} ${(l.kind||'')[0]?.toUpperCase()}@$${Math.round(l.strike)}`
+        ).join(' / ');
+        const costoNeto = (op.patas||[]).reduce((s,l)=>
+          s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz;
+        const cc = costoNeto<=0?'var(--green)':'var(--red)';
+        return `<tr>
+          <td class="th-left" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500">${op.nombre||'—'}</td>
+          <td style="font-size:10px;color:var(--text3)">${op.subyacente||'—'}</td>
+          <td>${fmtD(op.fecha)}</td><td>${fmtD(op.fecha_cierre)}</td>
+          <td style="font-size:9px;color:var(--text2)">${patas}</td>
+          <td>$${Number(op.spot_entrada||0).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
+          <td>${op.spot_cierre ? '$'+Number(op.spot_cierre).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
+          <td style="color:${cc}">${costoNeto<=0?'+':''}$${Math.round(-costoNeto).toLocaleString('es-AR')}</td>
+        </tr>`;
+      }).join('');
+    }
+  } else if(opsEl) {
+    opsEl.style.display = 'none';
+  }
 }
 
 // ── WTD / YTD ────────────────────────────────────────────────────
