@@ -1,9 +1,11 @@
 <div class="sub-tabs-row">
   <div class="sub-tabs">
-    <button class="stab active" id="ostab-iamc" onclick="oSetTab('iamc',this)">Distribución OI</button>
-    <button class="stab" id="ostab-gex" onclick="oSetTab('gex',this)">Análisis Gamma</button>
-    <button class="stab" id="ostab-tabla" onclick="oSetTab('tabla',this)">Tabla Detalle</button>
-    <button class="stab" id="ostab-hist" onclick="oSetTab('hist',this)">Histórico OI</button>
+    <button class="stab active" id="ostab-iamc"       onclick="oSetTab('iamc',this)">Distribución OI</button>
+    <button class="stab"        id="ostab-gex"        onclick="oSetTab('gex',this)">Análisis Gamma</button>
+    <button class="stab"        id="ostab-tabla"      onclick="oSetTab('tabla',this)">Tabla Detalle</button>
+    <button class="stab"        id="ostab-hist"       onclick="oSetTab('hist',this)">Histórico OI</button>
+    <button class="stab"        id="ostab-estrategias" onclick="oSetTab('estrategias',this)">Estrategias</button>
+    <button class="stab"        id="ostab-analisis"   onclick="oSetTab('analisis',this)">Señales</button>
   </div>
   <div style="display:flex; gap:12px; align-items:center">
     <div class="filter-group">
@@ -258,6 +260,16 @@
   </div>
 
   <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="hMeta">—</div>
+</div>
+
+<!-- ── Panel 5: Estrategias ──────────────────────────────── -->
+<div class="sub-panel" id="opanel-estrategias" data-loaded="false">
+  <div class="an-empty" style="padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Cargando módulo de estrategias...</div>
+</div>
+
+<!-- ── Panel 6: Señales ──────────────────────────────── -->
+<div class="sub-panel" id="opanel-analisis" data-loaded="false">
+  <div class="an-empty" style="padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Cargando módulo de señales...</div>
 </div>
 
 <script>
@@ -569,7 +581,7 @@ window.oSort = (field)=>{
   renderTable(oFiltered);
 };
 
-window.oSetTab = (n,b)=>{
+window.oSetTab = async (n,b)=>{
   document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('opanel-'+n).classList.add('active');
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
@@ -581,6 +593,24 @@ window.oSetTab = (n,b)=>{
     });
   }
   if(n==='hist' && !hLoaded) hLoadData();
+  // Lazy-load módulos externos
+  for(const mod of ['estrategias','analisis']){
+    if(n===mod){
+      const panel=document.getElementById('opanel-'+mod);
+      if(panel.dataset.loaded==='false'){
+        panel.dataset.loaded='true';
+        try{
+          const html=await fetch(`modules/${mod}.html`).then(r=>r.text());
+          panel.innerHTML=html;
+          panel.querySelectorAll('script').forEach(old=>{
+            const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
+          });
+        }catch(e){
+          panel.innerHTML=`<div style="padding:24px;text-align:center;font-size:10px;color:var(--red)">Error cargando ${mod}: ${e.message}</div>`;
+        }
+      }
+    }
+  }
 };
 
 // ── HISTÓRICO OI ──────────────────────────────────────────────

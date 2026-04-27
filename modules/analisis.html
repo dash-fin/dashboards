@@ -1,0 +1,565 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: SEÑALES — Análisis Avanzado de Opciones GGAL
+     Spreads baratos · Ratios · Para vender · Paridad · Silla
+══════════════════════════════════════════════════ -->
+<style>
+.an-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.an-kpis{display:flex;gap:16px;font-size:10px}
+.an-kpi{color:var(--text3)}
+.an-kpi span{font-weight:600;font-family:'IBM Plex Mono',monospace}
+.an-card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:12px}
+.an-card-head{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.an-card-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2)}
+.an-badge{padding:2px 8px;border-radius:3px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.an-b-bull{background:rgba(0,229,168,.15);color:#00e5a8}
+.an-b-bear{background:rgba(255,63,94,.15);color:#ff3f5e}
+.an-b-warn{background:rgba(255,200,74,.15);color:#ffc84a}
+.an-b-info{background:rgba(56,200,255,.15);color:#38c8ff}
+.an-b-red {background:rgba(255,63,94,.20);color:#ff3f5e}
+.an-table{width:100%;border-collapse:collapse;font-size:10px;font-family:'IBM Plex Mono',monospace}
+.an-table th{padding:6px 10px;background:var(--bg3);color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:right}
+.an-table th:first-child,.an-table th:nth-child(2){text-align:left}
+.an-table td{padding:7px 10px;border-bottom:1px solid rgba(30,42,56,.5);color:var(--text2);white-space:nowrap;text-align:right}
+.an-table td:first-child,.an-table td:nth-child(2){text-align:left}
+.an-table tr:last-child td{border-bottom:none}
+.an-table tr:hover td{background:rgba(255,255,255,.02)}
+.an-why{font-size:9px;color:var(--text3);padding:9px 14px;border-top:1px solid rgba(30,42,56,.5);line-height:1.65;background:rgba(0,0,0,.08)}
+.an-empty{padding:24px;text-align:center;font-size:10px;color:var(--text4);font-family:'IBM Plex Mono',monospace}
+.an-bar-wrap{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px}
+.an-bar{height:3px;width:56px;border-radius:2px;background:var(--border);overflow:hidden}
+.an-bar-fill{height:100%;border-radius:2px;transition:width .3s}
+</style>
+
+<!-- Header -->
+<div class="an-hdr">
+  <div class="an-kpis">
+    <div class="an-kpi">GGAL: <span id="anSpot" style="color:var(--green)">—</span></div>
+    <div class="an-kpi">IV ATM: <span id="anIV" style="color:var(--purple)">—</span></div>
+    <div class="an-kpi">TNA Cauc: <span id="anTasa" style="color:var(--amber)">—</span></div>
+    <div class="an-kpi">Opciones: <span id="anCount" style="color:var(--text)">—</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span id="anMeta" style="font-size:8px;color:var(--text4)">—</span>
+    <button class="btn btn-outline" style="font-size:9px;padding:3px 10px" onclick="anLoad()">↻ Actualizar</button>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="sub-tabs-row" style="margin-bottom:14px">
+  <div class="sub-tabs">
+    <button class="stab active" id="antab-spreads" onclick="anTab('spreads',this)">Spreads Baratos</button>
+    <button class="stab"        id="antab-ratios"  onclick="anTab('ratios',this)">Ratios</button>
+    <button class="stab"        id="antab-vender"  onclick="anTab('vender',this)">Para Vender</button>
+    <button class="stab"        id="antab-paridad" onclick="anTab('paridad',this)">Paridad P/C</button>
+    <button class="stab"        id="antab-silla"   onclick="anTab('silla',this)">Silla</button>
+  </div>
+</div>
+
+<!-- ══ SPREADS BARATOS ══ -->
+<div class="sub-panel active" id="anpanel-spreads">
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Bull Call Spreads</div>
+      <span class="an-badge an-b-bull">Costo &lt; 30% del ancho</span>
+    </div>
+    <div id="anBullSpreads"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">Por qué es barato:</b> el spread vale menos del 30% del ancho entre strikes. Significa que podés ganar al menos 2.3× lo invertido si el activo llega al strike superior. Cuanto menor el ratio, más favorable la asimetría riesgo/retorno. Se prioriza proximity al spot para mayor probabilidad de éxito.</div>
+  </div>
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Bear Put Spreads</div>
+      <span class="an-badge an-b-bear">Costo &lt; 30% del ancho</span>
+    </div>
+    <div id="anBearSpreads"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">Por qué es barato:</b> misma lógica que el bull spread pero bajista. Comprás el put alto y vendés el put bajo. El costo bajo puede indicar que la volatilidad implícita en puts OTM está subvaluada, o que hay asimetría de skew favorable para comprador.</div>
+  </div>
+</div>
+
+<!-- ══ RATIOS ══ -->
+<div class="sub-panel" id="anpanel-ratios">
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Ratio Call Spread 1:2 — Cobrando Prima</div>
+      <span class="an-badge an-b-info">Prima neta &gt; 0</span>
+    </div>
+    <div id="anRatioCall"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">Por qué cobrar:</b> los calls OTM tienen IV más alta que el ATM (skew alcista). Vendiendo 2 calls OTM y comprando 1 ATM/ITM se captura esa diferencia de IV. Máxima ganancia si el activo cierra exactamente en K₂. Riesgo ilimitado si sube mucho — siempre conocé el break-even superior antes de operar.</div>
+  </div>
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Ratio Put Spread 1:2 — Cobrando Prima</div>
+      <span class="an-badge an-b-info">Prima neta &gt; 0</span>
+    </div>
+    <div id="anRatioPut"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">Por qué cobrar:</b> los puts OTM suelen tener IV alta por demanda de cobertura. Vendiendo 2 puts OTM y comprando 1 put ATM se aprovecha esa sobrevaloración. Riesgo elevado si el subyacente cae por debajo del break-even inferior.</div>
+  </div>
+</div>
+
+<!-- ══ PARA VENDER ══ -->
+<div class="sub-panel" id="anpanel-vender">
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Opciones con VI Alta — Para Vender</div>
+      <span class="an-badge an-b-warn">IV &gt; 120% ATM</span>
+    </div>
+    <div id="anCaros"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">Por qué vender:</b> opciones con IV muy por encima del ATM están "caras" en términos relativos. La mean-reversion de volatilidad hace que a largo plazo volver a niveles ATM sea lo más probable. Al vender, se captura el exceso de prima. Siempre acompañar con cobertura delta si el skew es muy pronunciado.</div>
+  </div>
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Skew Put/Call Asimétrico por Strike</div>
+      <span class="an-badge an-b-warn">Δ IV &gt; 5pp</span>
+    </div>
+    <div id="anSkew"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">Por qué es señal:</b> en paridad, put y call del mismo strike deberían tener IV similar (ajustado por carry). Una diferencia grande significa que el mercado está pagando prima extra por un lado. Si los puts tienen mucho más IV, hay demanda de cobertura bajista — oportunidad de vender puts y cubrir con calls (o viceversa).</div>
+  </div>
+</div>
+
+<!-- ══ PARIDAD ══ -->
+<div class="sub-panel" id="anpanel-paridad">
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Inconsistencias de Paridad Put-Call</div>
+      <span class="an-badge an-b-info">C − P ≠ S − PV(K)</span>
+    </div>
+    <div id="anParidad"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">La fórmula:</b> C − P = S − K·e<sup>−rT</sup> (paridad libre de arbitraje). Si el precio real difiere del teórico en más del 1% del spot, hay una inconsistencia. <b style="color:var(--green)">Calls caros:</b> vender call + comprar put = sintético corto cobrando la diferencia. <b style="color:var(--red)">Puts caros:</b> vender put + comprar call = sintético largo cobrando la diferencia.</div>
+  </div>
+</div>
+
+<!-- ══ SILLA ══ -->
+<div class="sub-panel" id="anpanel-silla">
+  <div class="an-card">
+    <div class="an-card-head">
+      <div class="an-card-title">Efecto Ensilladura — Strikes Baratos por Convexidad</div>
+      <span class="an-badge an-b-info">Descuento vs. interpolación lineal</span>
+    </div>
+    <div id="anSilla"><div class="an-empty">Cargando...</div></div>
+    <div class="an-why"><b style="color:var(--text2)">Por qué existe:</b> la curva de primas de opciones debe ser convexa (ley de no-arbitraje). Si el precio de un strike K queda por debajo de la interpolación entre sus vecinos, ese strike está "barato" en términos relativos. Una mariposa centrada ahí cuesta poco (o da crédito = arbitraje puro). Si el subyacente se mueve hacia K, el descuento se captura. Cuanto mayor el % del ancho, más significativa la oportunidad.</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// MATH — Black-Scholes inline
+// ══════════════════════════════════════════════════
+function anNorm(x){const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const s=x<0?-1:1;x=Math.abs(x)/Math.sqrt(2);const t=1/(1+p*x);return 0.5*(1+s*(1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x)));}
+function anNPDF(x){return Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI);}
+function anBS(S,K,T,r,sig,tipo){if(T<=0||sig<=0)return Math.max(tipo==='call'?S-K:K-S,0);const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?S*anNorm(d1)-K*Math.exp(-r*T)*anNorm(d2):K*Math.exp(-r*T)*anNorm(-d2)-S*anNorm(-d1);}
+function anVega(S,K,T,r,sig){if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+0.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*anNPDF(d1)*Math.sqrt(T);}
+function anIVCalc(price,S,K,T,r,tipo){
+  if(T<=0||price<=0)return null;
+  const intr=Math.max(tipo==='call'?S-K:K-S,0);
+  if(price<intr-0.01)return null;
+  let sig=0.60;
+  for(let i=0;i<100;i++){
+    const p=anBS(S,K,T,r,sig,tipo),v=anVega(S,K,T,r,sig);
+    if(Math.abs(v)<1e-8)break;
+    const step=(p-price)/v;
+    sig-=step;
+    if(sig<0.005)sig=0.005;
+    if(sig>20){return null;}
+    if(Math.abs(step)<1e-6)break;
+  }
+  return(sig>0.005&&sig<15)?sig:null;
+}
+function anCalcT(expStr){
+  if(!expStr)return 0;
+  const exp=new Date(String(expStr).slice(0,10)+'T12:00:00');
+  return Math.max((exp-new Date())/(1000*60*60*24*365),1/365);
+}
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let anOpts=[], anSpotN=0, anTasaN=0.50, anIVN=0;
+
+// ══════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════
+const anM   = o => (o.bid>0&&o.ask>0)?(o.bid+o.ask)/2:(o.last||0);
+const anF   = n => fmtAR(n,0);
+const anF2  = n => fmtAR(n,2);
+const anPct = (v,d=1) => (v*100).toFixed(d)+'%';
+const anExp = e => e?String(e).slice(5,10).replace('-','/'):'—';
+const anMon = k => {
+  const m=k/anSpotN;
+  if(m>1.12)return'<span style="font-size:8px;color:var(--text4)">OTM+</span>';
+  if(m>1.03)return'<span style="font-size:8px;color:var(--text3)">OTM</span>';
+  if(m>0.97)return'<span style="font-size:8px;color:var(--cyan)">ATM</span>';
+  if(m>0.88)return'<span style="font-size:8px;color:var(--text3)">ITM</span>';
+  return'<span style="font-size:8px;color:var(--text4)">ITM+</span>';
+};
+function anBar(ratio,max){
+  const pct=Math.min(ratio/max,1)*100;
+  const col=ratio/max<0.5?'var(--green)':ratio/max<0.80?'var(--amber)':'var(--red)';
+  return`<div class="an-bar-wrap"><span style="font-size:9px;color:${col};font-weight:600">${anPct(ratio)}</span><div class="an-bar"><div class="an-bar-fill" style="width:${pct}%;background:${col}"></div></div></div>`;
+}
+
+// ══════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════
+window.anTab=(name,btn)=>{
+  document.querySelectorAll('[id^="anpanel-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('anpanel-'+name).classList.add('active');
+  document.querySelectorAll('[id^="antab-"]').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+// ══════════════════════════════════════════════════
+// LOAD DATA
+// ══════════════════════════════════════════════════
+async function anLoad(){
+  document.getElementById('anMeta').textContent='Cargando...';
+  try{
+    const[opts,spotR,caucR]=await Promise.all([
+      sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&order=strike.asc&limit=500'),
+      sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
+      sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=last&limit=5'),
+    ]);
+
+    if(spotR?.length) anSpotN=Number(spotR[0].last)||anSpotN;
+    if(caucR?.length){
+      const avg=caucR.reduce((s,r)=>s+Number(r.last||0),0)/caucR.length;
+      if(avg>0)anTasaN=avg/100;
+    }
+
+    anOpts=(opts||[]).map(o=>{
+      const bid=Number(o.bid)||0, ask=Number(o.ask)||0, last=Number(o.last)||0;
+      const mid=(bid>0&&ask>0)?(bid+ask)/2:last;
+      return{
+        symbol:o.symbol, kind:(o.kind||'').toUpperCase(),
+        strike:Number(o.strike), expiration:o.expiration,
+        bid, ask, last, mid, T:anCalcT(o.expiration), iv:null,
+      };
+    }).filter(o=>o.strike>0&&o.mid>0&&o.T>0);
+
+    // IV ATM
+    const atmOpts=anOpts.filter(o=>{const m=o.strike/anSpotN;return m>=0.94&&m<=1.06;});
+    const ivs=atmOpts.map(o=>anIVCalc(o.mid,anSpotN,o.strike,o.T,anTasaN,o.kind==='CALL'?'call':'put')).filter(v=>v);
+    anIVN=ivs.length?ivs.reduce((s,v)=>s+v,0)/ivs.length:0.60;
+
+    // Calc IV per option
+    anOpts.forEach(o=>{o.iv=anIVCalc(o.mid,anSpotN,o.strike,o.T,anTasaN,o.kind==='CALL'?'call':'put');});
+
+    document.getElementById('anSpot').textContent='$'+anF(anSpotN);
+    document.getElementById('anIV').textContent=anPct(anIVN);
+    document.getElementById('anTasa').textContent=anPct(anTasaN);
+    document.getElementById('anCount').textContent=anOpts.length;
+    document.getElementById('anMeta').textContent=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+    anCalcSpreads();
+    anCalcRatios();
+    anCalcVender();
+    anCalcParidad();
+    anCalcSilla();
+  }catch(e){
+    document.getElementById('anMeta').textContent='Error: '+e.message;
+    console.error('[analisis]',e);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// 1. SPREADS BARATOS (<30%)
+// ══════════════════════════════════════════════════
+function anCalcSpreads(){
+  const exps=[...new Set(anOpts.map(o=>o.expiration))].sort();
+  const bull=[], bear=[];
+
+  for(const exp of exps){
+    const cs=anOpts.filter(o=>o.expiration===exp&&o.kind==='CALL').sort((a,b)=>a.strike-b.strike);
+    const ps=anOpts.filter(o=>o.expiration===exp&&o.kind==='PUT').sort((a,b)=>a.strike-b.strike);
+
+    // Bull call spreads
+    for(let i=0;i<cs.length;i++){
+      for(let j=i+1;j<Math.min(i+7,cs.length);j++){
+        const lo=cs[i],hi=cs[j];
+        const cost=lo.mid-hi.mid;
+        if(cost<=0||cost>=lo.mid)continue;
+        const w=hi.strike-lo.strike, ratio=cost/w;
+        if(ratio<0.30)bull.push({lo,hi,cost,w,ratio,exp,maxP:w-cost,pl:(w-cost)/cost});
+      }
+    }
+    // Bear put spreads
+    for(let i=0;i<ps.length;i++){
+      for(let j=i+1;j<Math.min(i+7,ps.length);j++){
+        const lo=ps[i],hi=ps[j];
+        const cost=hi.mid-lo.mid;
+        if(cost<=0||cost>=hi.mid)continue;
+        const w=hi.strike-lo.strike, ratio=cost/w;
+        if(ratio<0.30)bear.push({lo,hi,cost,w,ratio,exp,maxP:w-cost,pl:(w-cost)/cost});
+      }
+    }
+  }
+
+  bull.sort((a,b)=>a.ratio-b.ratio);
+  bear.sort((a,b)=>a.ratio-b.ratio);
+
+  const tbl=(rows,el)=>{
+    if(!rows.length){el.innerHTML='<div class="an-empty">Sin oportunidades con los datos actuales</div>';return;}
+    el.innerHTML=`<table class="an-table">
+      <thead><tr><th>Vto</th><th>Buy K</th><th>Sell K</th><th>Ancho</th><th>Costo</th><th>Ratio</th><th>Max Profit</th><th>P/L</th><th></th></tr></thead>
+      <tbody>${rows.slice(0,15).map(r=>`<tr>
+        <td>${anExp(r.exp)}</td>
+        <td>${anF(r.lo.strike)}</td>
+        <td>${anF(r.hi.strike)}</td>
+        <td>$${anF(r.w)}</td>
+        <td style="color:${r.ratio<0.15?'var(--green)':r.ratio<0.25?'var(--amber)':'var(--text2)'}">$${anF2(r.cost)}</td>
+        <td>${anBar(r.ratio,0.30)}</td>
+        <td style="color:var(--green)">$${anF2(r.maxP)}</td>
+        <td style="color:var(--cyan);font-weight:600">${r.pl.toFixed(1)}:1</td>
+        <td>${anMon(r.lo.strike)}</td>
+      </tr>`).join('')}</tbody></table>`;
+  };
+  tbl(bull,document.getElementById('anBullSpreads'));
+  tbl(bear,document.getElementById('anBearSpreads'));
+}
+
+// ══════════════════════════════════════════════════
+// 2. RATIOS COBRANDO (1:2)
+// ══════════════════════════════════════════════════
+function anCalcRatios(){
+  const exps=[...new Set(anOpts.map(o=>o.expiration))].sort();
+  const rc=[], rp=[];
+
+  for(const exp of exps){
+    const cs=anOpts.filter(o=>o.expiration===exp&&o.kind==='CALL').sort((a,b)=>a.strike-b.strike);
+    const ps=anOpts.filter(o=>o.expiration===exp&&o.kind==='PUT').sort((a,b)=>a.strike-b.strike);
+
+    // Ratio call 1:2 — buy 1 lo, sell 2 hi
+    for(let i=0;i<cs.length;i++){
+      for(let j=i+1;j<Math.min(i+7,cs.length);j++){
+        const lo=cs[i],hi=cs[j];
+        const net=2*hi.mid-lo.mid;
+        if(net<=0)continue;
+        const w=hi.strike-lo.strike;
+        const maxP=w+net;
+        const beUp=hi.strike+maxP;
+        rc.push({lo,hi,net,w,maxP,beUp,exp,creditPct:net/anSpotN*100});
+      }
+    }
+    // Ratio put 1:2 — buy 1 hi, sell 2 lo
+    for(let i=0;i<ps.length;i++){
+      for(let j=i+1;j<Math.min(i+7,ps.length);j++){
+        const lo=ps[i],hi=ps[j];
+        const net=2*lo.mid-hi.mid;
+        if(net<=0)continue;
+        const w=hi.strike-lo.strike;
+        const maxP=w+net;
+        const beDn=lo.strike-maxP;
+        rp.push({lo,hi,net,w,maxP,beDn,exp,creditPct:net/anSpotN*100});
+      }
+    }
+  }
+
+  rc.sort((a,b)=>b.creditPct-a.creditPct);
+  rp.sort((a,b)=>b.creditPct-a.creditPct);
+
+  const tblR=(rows,type,el)=>{
+    if(!rows.length){el.innerHTML='<div class="an-empty">Sin ratios cobrando prima</div>';return;}
+    const beLbl=type==='call'?'BE superior':'BE inferior';
+    el.innerHTML=`<table class="an-table">
+      <thead><tr><th>Vto</th><th>Buy 1×K₁</th><th>Sell 2×K₂</th><th>Prima neta</th><th>Crédito/Spot</th><th>Max Profit</th><th>${beLbl}</th></tr></thead>
+      <tbody>${rows.slice(0,12).map(r=>{
+        const be=type==='call'?r.beUp:r.beDn;
+        const bePct=Math.abs(be-anSpotN)/anSpotN;
+        return`<tr>
+          <td>${anExp(r.exp)}</td>
+          <td>${anF(r.lo.strike)}</td>
+          <td>${anF(r.hi.strike)}</td>
+          <td style="color:var(--green)">+$${anF2(r.net)}</td>
+          <td style="color:var(--cyan)">${r.creditPct.toFixed(2)}%</td>
+          <td>$${anF2(r.maxP)}</td>
+          <td style="color:var(--amber)">${anF(be)} <span style="font-size:8px;color:var(--text3)">(${anPct(bePct)} ${type==='call'?'↑':'↓'})</span></td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  };
+  tblR(rc,'call',document.getElementById('anRatioCall'));
+  tblR(rp,'put',document.getElementById('anRatioPut'));
+}
+
+// ══════════════════════════════════════════════════
+// 3. PARA VENDER — IV alta + Skew
+// ══════════════════════════════════════════════════
+function anCalcVender(){
+  // Opciones caras por IV
+  const withIV=anOpts.filter(o=>o.iv&&o.iv>0&&o.iv<12);
+  const caros=withIV.filter(o=>o.iv/anIVN>1.20).sort((a,b)=>(b.iv/anIVN)-(a.iv/anIVN));
+
+  if(!caros.length){
+    document.getElementById('anCaros').innerHTML='<div class="an-empty">No se detectan opciones con IV &gt; 120% del ATM</div>';
+  }else{
+    document.getElementById('anCaros').innerHTML=`<table class="an-table">
+      <thead><tr><th>Símbolo</th><th>Tipo</th><th>Strike</th><th>Vto</th><th>Mid</th><th>IV</th><th>IV/ATM</th><th>Acción sugerida</th></tr></thead>
+      <tbody>${caros.slice(0,18).map(o=>{
+        const r=o.iv/anIVN;
+        const col=r>1.6?'var(--red)':r>1.35?'var(--amber)':'var(--text2)';
+        return`<tr>
+          <td style="color:var(--text)">${o.symbol}</td>
+          <td>${o.kind==='CALL'?'<span style="color:var(--green)">CALL</span>':'<span style="color:var(--red)">PUT</span>'}</td>
+          <td>${anF(o.strike)}</td>
+          <td>${anExp(o.expiration)}</td>
+          <td>$${anF2(o.mid)}</td>
+          <td style="color:${col}">${anPct(o.iv)}</td>
+          <td style="color:${col};font-weight:700">${r.toFixed(2)}×</td>
+          <td style="font-size:9px;color:var(--text3)">Vender${r>1.50?'+cubrir delta':''}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  }
+
+  // Skew asimétrico
+  const exps=[...new Set(anOpts.map(o=>o.expiration))].sort();
+  const skew=[];
+  for(const exp of exps){
+    const ks=[...new Set(anOpts.filter(o=>o.expiration===exp).map(o=>o.strike))].sort((a,b)=>a-b);
+    for(const K of ks){
+      const c=anOpts.find(o=>o.expiration===exp&&o.strike===K&&o.kind==='CALL'&&o.iv);
+      const p=anOpts.find(o=>o.expiration===exp&&o.strike===K&&o.kind==='PUT'&&o.iv);
+      if(!c||!p)continue;
+      const d=p.iv-c.iv;
+      if(Math.abs(d)>0.05)skew.push({K,exp,c,p,d});
+    }
+  }
+  skew.sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+
+  if(!skew.length){
+    document.getElementById('anSkew').innerHTML='<div class="an-empty">No se detecta skew asimétrico &gt; 5pp</div>';
+  }else{
+    document.getElementById('anSkew').innerHTML=`<table class="an-table">
+      <thead><tr><th>Vto</th><th>Strike</th><th>IV Call</th><th>IV Put</th><th>Δ IV</th><th>Caro</th><th>Estrategia</th></tr></thead>
+      <tbody>${skew.slice(0,12).map(r=>{
+        const pc=r.d>0;
+        const col=pc?'var(--red)':'var(--green)';
+        return`<tr>
+          <td>${anExp(r.exp)}</td>
+          <td>${anF(r.K)}</td>
+          <td style="color:var(--green)">${anPct(r.c.iv)}</td>
+          <td style="color:var(--red)">${anPct(r.p.iv)}</td>
+          <td style="color:${col};font-weight:600">+${anPct(Math.abs(r.d),1)}</td>
+          <td style="color:${col}">${pc?'PUT':'CALL'}</td>
+          <td style="font-size:9px;color:var(--text3)">${pc?'Vender put · Comprar call sintético':'Vender call · Comprar put sintético'}</td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// 4. PARIDAD PUT-CALL
+// ══════════════════════════════════════════════════
+function anCalcParidad(){
+  if(!anSpotN){document.getElementById('anParidad').innerHTML='<div class="an-empty">Sin precio del subyacente</div>';return;}
+  const TOL=anSpotN*0.012; // 1.2% del spot
+  const exps=[...new Set(anOpts.map(o=>o.expiration))].sort();
+  const rows=[];
+
+  for(const exp of exps){
+    const T=anCalcT(exp);
+    const ks=[...new Set(anOpts.filter(o=>o.expiration===exp).map(o=>o.strike))].sort((a,b)=>a-b);
+    for(const K of ks){
+      const call=anOpts.find(o=>o.expiration===exp&&o.strike===K&&o.kind==='CALL');
+      const put=anOpts.find(o=>o.expiration===exp&&o.strike===K&&o.kind==='PUT');
+      if(!call||!put)continue;
+      const PVK=K*Math.exp(-anTasaN*T);
+      const teo=anSpotN-PVK;
+      const real=call.mid-put.mid;
+      const dev=real-teo;
+      if(Math.abs(dev)>TOL){
+        rows.push({K,exp,call,put,teo,real,dev,devPct:Math.abs(dev)/anSpotN});
+      }
+    }
+  }
+  rows.sort((a,b)=>b.devPct-a.devPct);
+
+  if(!rows.length){
+    document.getElementById('anParidad').innerHTML='<div class="an-empty">No se detectan inconsistencias de paridad &gt; 1.2% del spot</div>';
+    return;
+  }
+  document.getElementById('anParidad').innerHTML=`<table class="an-table">
+    <thead><tr><th>Vto</th><th>Strike</th><th>C mid</th><th>P mid</th><th>C−P real</th><th>C−P teórico</th><th>Desvío</th><th>% Spot</th><th>Caro</th><th>Estrategia</th></tr></thead>
+    <tbody>${rows.slice(0,15).map(r=>{
+      const cc=r.dev>0; // calls caros
+      const col=cc?'var(--green)':'var(--red)';
+      return`<tr>
+        <td>${anExp(r.exp)}</td>
+        <td>${anF(r.K)}</td>
+        <td style="color:var(--green)">$${anF2(r.call.mid)}</td>
+        <td style="color:var(--red)">$${anF2(r.put.mid)}</td>
+        <td>$${anF2(r.real)}</td>
+        <td style="color:var(--text3)">$${anF2(r.teo)}</td>
+        <td style="color:${r.dev>0?'var(--red)':'var(--cyan)'};font-weight:600">${r.dev>0?'+':''}$${anF2(r.dev)}</td>
+        <td style="color:var(--amber)">${anPct(r.devPct)}</td>
+        <td style="color:${col}">${cc?'CALL':'PUT'}</td>
+        <td style="font-size:9px;color:var(--text3)">${cc?'Vta call + Cpa put':'Cpa call + Vta put'}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+// ══════════════════════════════════════════════════
+// 5. EFECTO ENSILLADURA (CONVEXIDAD)
+// ══════════════════════════════════════════════════
+function anCalcSilla(){
+  const exps=[...new Set(anOpts.map(o=>o.expiration))].sort();
+  const rows=[];
+
+  for(const exp of exps){
+    for(const kind of['CALL','PUT']){
+      const chain=anOpts.filter(o=>o.expiration===exp&&o.kind===kind).sort((a,b)=>a.strike-b.strike);
+      if(chain.length<3)continue;
+      for(let i=1;i<chain.length-1;i++){
+        const A=chain[i-1],B=chain[i],C=chain[i+1];
+        const K0=A.strike,K1=B.strike,K2=C.strike;
+        const C0=A.mid,C1=B.mid,C2=C.mid;
+        // Linear interp at K1
+        const w=(K2-K1)/(K2-K0); // weight on A
+        const C1i=w*C0+(1-w)*C2;
+        const disc=C1i-C1; // positive = B cheaper than convexity implies
+        if(disc>0){
+          const span=K2-K0;
+          const pctSpan=disc/span;
+          rows.push({kind,exp,A,B,C,K0,K1,K2,C0,C1,C2,C1i,disc,span,pctSpan,w});
+        }
+      }
+    }
+  }
+  rows.sort((a,b)=>b.pctSpan-a.pctSpan);
+
+  if(!rows.length){
+    document.getElementById('anSilla').innerHTML='<div class="an-empty">No se detectan violaciones de convexidad en la cadena actual</div>';
+    return;
+  }
+  document.getElementById('anSilla').innerHTML=`<table class="an-table">
+    <thead><tr>
+      <th>Tipo</th><th>Vto</th>
+      <th>K izq.</th><th>K centro ★</th><th>K der.</th>
+      <th>Precio Interp.</th><th>Precio Real</th><th>Descuento $</th><th>% Ancho</th>
+      <th>Mariposa aprox.</th><th>Señal</th>
+    </tr></thead>
+    <tbody>${rows.slice(0,15).map(r=>{
+      const arb=r.disc>r.span*0.01&&r.C1i>r.C1*1.05; // real discount
+      const strong=r.pctSpan>0.04;
+      const col=arb?'var(--green)':strong?'var(--cyan)':'var(--text3)';
+      // approx butterfly cost for equal-spacing ref
+      const bfly=r.w*r.C0-r.C1+(1-r.w)*r.C2;
+      return`<tr>
+        <td>${r.kind==='CALL'?'<span style="color:var(--green)">C</span>':'<span style="color:var(--red)">P</span>'}</td>
+        <td>${anExp(r.exp)}</td>
+        <td style="color:var(--text3)">${anF(r.K0)}</td>
+        <td style="color:var(--cyan);font-weight:700">${anF(r.K1)}</td>
+        <td style="color:var(--text3)">${anF(r.K2)}</td>
+        <td style="color:var(--text3)">$${anF2(r.C1i)}</td>
+        <td style="color:var(--cyan)">$${anF2(r.C1)}</td>
+        <td style="color:${col};font-weight:600">$${anF2(r.disc)}</td>
+        <td style="color:${col}">${anPct(r.pctSpan)}</td>
+        <td style="color:${bfly<0?'var(--red)':'var(--text3)'}">$${anF2(bfly)}${bfly<0?' ⚡':''}</td>
+        <td style="font-size:9px;color:${col}">${bfly<0?'<b style="color:var(--red)">ARB PURO</b>':strong?'Comprar mariposa':'Vigilar'}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+anLoad();
+window.moduleTimers=window.moduleTimers||{};
+window.moduleTimers.analisis=setInterval(anLoad,30000);
+</script>
