@@ -161,15 +161,30 @@ Devolvé SOLO JSON válido sin texto extra ni markdown:
         lista = _extraer_lista(parsed) if not isinstance(parsed, list) else parsed
         return {"opciones": lista}
     except json.JSONDecodeError:
-        print("  ⚠️  Parseo directo falló — reconstruyendo...")
+        print(f"  ⚠️  Parseo directo falló — respuesta Claude (500 chars): {raw[:500]}")
+        # Intentar extraer el bloque JSON de array directamente
+        m = re.search(r'\[\s*\{.*\}\s*\]', clean, re.DOTALL)
+        if m:
+            try:
+                lista = json.loads(m.group(0))
+                print(f"  → Extraído array directamente: {len(lista)} filas")
+                return {"opciones": lista}
+            except: pass
+        # Fallback: regex para objetos planos
         objetos = re.findall(r'\{[^{}]+\}', clean)
         if objetos:
             lista = []
             for obj in objetos:
-                try: lista.append(json.loads(re.sub(r'(\d+),(\d+)', r'\1.\2', obj)))
+                try:
+                    parsed_obj = json.loads(obj)
+                    if parsed_obj.get("symbol"):  # solo objetos con symbol válido
+                        lista.append(parsed_obj)
                 except: continue
-            return {"opciones": lista}
-        raise ValueError("JSON irreparable.")
+            if lista:
+                print(f"  → Fallback regex: {len(lista)} objetos con symbol")
+                return {"opciones": lista}
+        print(f"  ❌ No se pudo extraer datos del PDF.")
+        return {"opciones": []}
 
 IAMC_COLS = {"symbol","kind","strike","expiration","open_interest","volume","cubierto","opuesto","cruce","descubierto","updated_at","fecha_informe"}
 
@@ -194,6 +209,7 @@ def subir_a_supabase(data: dict, fecha_pdf: datetime):
     rows = []
     for op in opciones:
         if not isinstance(op, dict): continue
+        if not op.get("symbol"): continue  # descartar filas sin symbol
         op["updated_at"] = now_iso
         op["fecha_informe"] = fecha_pdf.strftime("%Y-%m-%d")
         rows.append({k: v for k, v in op.items() if k in IAMC_COLS})
