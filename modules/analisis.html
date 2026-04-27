@@ -216,13 +216,15 @@ async function anLoad(){
     const[opts,spotR,caucR]=await Promise.all([
       sb('opciones_rt',`underlying_asset=ilike.GGAL*&expiration=gte.${today}&select=symbol,kind,strike,expiration,last,bid,ask&order=strike.asc&limit=500`),
       sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
-      sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=last&limit=5'),
+      sb('cauciones','order=days.asc&limit=10&select=bid_rate,ask_rate,last,days'),
     ]);
 
     if(spotR?.length) anSpotN=Number(spotR[0].last)||anSpotN;
     if(caucR?.length){
-      const avg=caucR.reduce((s,r)=>s+Number(r.last||0),0)/caucR.length;
-      if(avg>0)anTasaN=avg/100;
+      // Use shortest-term overnight caución rate; prefer mid(bid,ask) else last
+      const row=caucR[0];
+      const rate=((row.bid_rate>0&&row.ask_rate>0)?(row.bid_rate+row.ask_rate)/2:(row.last||0));
+      if(rate>0)anTasaN=rate/100;
     }
 
     anOpts=(opts||[]).map(o=>{
@@ -264,62 +266,59 @@ async function anLoad(){
 // 1. SPREADS BARATOS (<30%)
 // ══════════════════════════════════════════════════
 function anCalcSpreads(){
-  const MIN_W = anSpotN * 0.01; // ancho mínimo 1% del spot (filtra strikes irreales)
+  const MIN_W    = anSpotN * 0.01;   // ancho mínimo 1% del spot
+  const MIN_COST = anSpotN * 0.005;  // costo mínimo 0.5% del spot (elimina spreads far-OTM sin valor real)
   const exps=[...new Set(anOpts.map(o=>o.expiration))].sort();
   const bull=[], bear=[];
 
   for(const exp of exps){
-    const cs=anOpts.filter(o=>o.expiration===exp&&o.kind==='CALL').sort((a,b)=>a.strike-b.strike);
+    // Solo opciones con bid Y ask válidos — descarta series con precios stale/rotos
+    const cs=anOpts.filter(o=>o.expiration===exp&&o.kind==='CALL'&&o.bid>0&&o.ask>0).sort((a,b)=>a.strike-b.strike);
 
     for(let i=0;i<cs.length;i++){
       for(let j=i+1;j<Math.min(i+8,cs.length);j++){
         const lo=cs[i],hi=cs[j];
         const w=hi.strike-lo.strike;
         if(w<MIN_W)continue;
-        const distK1=Math.abs(lo.strike-anSpotN)/anSpotN; // distancia del buy-strike al spot
+        const distK1=Math.abs(lo.strike-anSpotN)/anSpotN;
+
+        const cost=lo.mid-hi.mid;
+        if(cost<MIN_COST||cost>=lo.mid)continue; // costo mínimo + lógica básica
+
+        const ratio=cost/w;
 
         // ── Bull call spread (débito) — queremos barato < 30%
-        const cost=lo.mid-hi.mid;
-        if(cost>0&&cost<lo.mid){
-          const ratio=cost/w;
-          if(ratio<0.30)
-            bull.push({lo,hi,cost,w,ratio,exp,maxP:w-cost,pl:(w-cost)/cost,distK1});
-        }
+        if(ratio<0.30)
+          bull.push({lo,hi,cost,w,ratio,exp,maxP:w-cost,pl:(w-cost)/cost,distK1});
 
         // ── Bear call spread (crédito) — queremos lleno > 70%
-        // Sell lo (lower strike), buy hi (higher strike)
-        const credit=lo.mid-hi.mid; // mismo cálculo — crédito cobrado
-        if(credit>0){
-          const fill=credit/w; // queremos fill alto
-          if(fill>0.70){
-            const maxRisk=w-credit;
-            const be=lo.strike+credit; // break-even = strike vendido + crédito cobrado
-            bear.push({lo,hi,credit,w,fill,exp,maxRisk,be,
-              bePct:Math.abs(be-anSpotN)/anSpotN,distK1});
-          }
+        if(ratio>0.70){
+          const credit=cost, maxRisk=w-credit, be=lo.strike+credit;
+          bear.push({lo,hi,credit,w,fill:ratio,exp,maxRisk,be,
+            bePct:Math.abs(be-anSpotN)/anSpotN,distK1});
         }
       }
     }
   }
 
-  // Bull: ordenar por score combinado (ratio barato + K1 cercano al spot)
+  // Bull: primero por score combinado; desempate por K1 más cercano al spot
   bull.sort((a,b)=>(a.ratio + a.distK1*0.4)-(b.ratio + b.distK1*0.4));
-
-  // Bear: ordenar por fill descendente (más lleno primero), tiebreak por distK1
   bear.sort((a,b)=>(b.fill + (1-b.distK1)*0.2)-(a.fill + (1-a.distK1)*0.2));
 
-  // Render bull
+  // ── Render bull
   const elBull=document.getElementById('anBullSpreads');
   if(!bull.length){elBull.innerHTML='<div class="an-empty">Sin oportunidades con los datos actuales</div>';}
   else{
     elBull.innerHTML=`<table class="an-table">
-      <thead><tr><th>Vto</th><th>Buy K</th><th>Sell K</th><th>Ancho</th><th>Costo</th><th>Ratio</th><th>Max Profit</th><th>P/L</th><th>Moneyness</th></tr></thead>
+      <thead><tr><th>Vto</th><th>Buy K</th><th>Mid K₁</th><th>Sell K</th><th>Mid K₂</th><th>Ancho</th><th>Costo</th><th>Ratio</th><th>Max Profit</th><th>P/L</th><th>Money</th></tr></thead>
       <tbody>${bull.slice(0,15).map(r=>{
         const col=r.ratio<0.15?'var(--green)':r.ratio<0.22?'var(--amber)':'var(--text2)';
         return`<tr>
           <td>${anExp(r.exp)}</td>
-          <td>${anF(r.lo.strike)}</td>
-          <td>${anF(r.hi.strike)}</td>
+          <td style="color:var(--cyan)">${anF(r.lo.strike)}</td>
+          <td style="color:var(--text3)">$${anF2(r.lo.mid)}</td>
+          <td style="color:var(--text3)">${anF(r.hi.strike)}</td>
+          <td style="color:var(--text3)">$${anF2(r.hi.mid)}</td>
           <td>$${anF(r.w)}</td>
           <td style="color:${col}">$${anF2(r.cost)}</td>
           <td>${anBar(r.ratio,0.30)}</td>
@@ -330,18 +329,20 @@ function anCalcSpreads(){
       }).join('')}</tbody></table>`;
   }
 
-  // Render bear call spread (crédito)
+  // ── Render bear call spread
   const elBear=document.getElementById('anBearSpreads');
   if(!bear.length){elBear.innerHTML='<div class="an-empty">Sin bear call spreads con crédito &gt; 70% del ancho</div>';}
   else{
     elBear.innerHTML=`<table class="an-table">
-      <thead><tr><th>Vto</th><th>Sell K</th><th>Buy K</th><th>Ancho</th><th>Crédito</th><th>Llenado</th><th>Riesgo máx.</th><th>Break-even</th><th>Moneyness</th></tr></thead>
+      <thead><tr><th>Vto</th><th>Sell K</th><th>Mid K₁</th><th>Buy K</th><th>Mid K₂</th><th>Ancho</th><th>Crédito</th><th>Llenado</th><th>Riesgo máx.</th><th>Break-even</th><th>Money</th></tr></thead>
       <tbody>${bear.slice(0,15).map(r=>{
         const col=r.fill>0.88?'var(--green)':r.fill>0.78?'var(--amber)':'var(--text2)';
         return`<tr>
           <td>${anExp(r.exp)}</td>
           <td style="color:var(--red)">${anF(r.lo.strike)}</td>
+          <td style="color:var(--text3)">$${anF2(r.lo.mid)}</td>
           <td>${anF(r.hi.strike)}</td>
+          <td style="color:var(--text3)">$${anF2(r.hi.mid)}</td>
           <td>$${anF(r.w)}</td>
           <td style="color:var(--green)">+$${anF2(r.credit)}</td>
           <td>${anBar(1-r.fill,0.30)}<span style="font-size:9px;color:${col};font-weight:600">${anPct(r.fill)}</span></td>

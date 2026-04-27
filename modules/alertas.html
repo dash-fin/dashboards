@@ -330,8 +330,8 @@ async function alCargarPreciosIniciales() {
     });
     (optRows||[]).forEach(r => {
       const sym = alCleanTicker(r.symbol);
-      const mid = ((Number(r.bid||0)+Number(r.ask||0))/2) || Number(r.last||0);
-      if(sym && mid) AL.prevPrices[sym] = mid;
+      const price = Number(r.last||0);
+      if(sym && price) AL.prevPrices[sym] = price;
     });
     alRenderActivas();
   } catch(e) {
@@ -481,10 +481,10 @@ function alRtConnectOpt(){
       const row = payload.new;
       if(!row) return;
       const sym = alCleanTicker(row.symbol);
-      const mid = ((Number(row.bid||0)+Number(row.ask||0))/2) || Number(row.last||0);
-      if(!sym || !mid) return;
-      AL.prevPrices[sym] = mid;
-      await alEvaluarAlertas(sym, mid, 0, 0);
+      const price = Number(row.last||0);
+      if(!sym || !price) return;
+      AL.prevPrices[sym] = price;
+      await alEvaluarAlertas(sym, price, 0, 0);
       alRenderActivas();
     })
     .subscribe(status => {
@@ -1009,7 +1009,7 @@ window.alTickerSearch = async function(q){
     const items = [
       ...(arsRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change||0), src:'ARS', sub:'' })),
       ...(usaRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change_pct||r.change||0), src:'USA', sub:r.name||'' })),
-      ...(optRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:((Number(r.bid||0)+Number(r.ask||0))/2)||Number(r.last||0), chg:0, src:'OPT', sub:'' })),
+      ...(optRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:0, src:'OPT', sub:'' })),
     ];
 
     if(!items.length){

@@ -130,10 +130,18 @@
 <!-- ══ SECTORES ══ -->
 <div class="sub-panel" id="uspanel-sectores">
   <div class="card">
-    <div class="card-head"><div class="card-title">Heatmap sectorial — ETFs</div></div>
+    <div class="card-head"><div class="card-title">Heatmap sectorial — ETFs</div><div style="font-size:9px;color:var(--text4)">Click en un ETF para ver movers del sector</div></div>
     <div class="card-body">
       <div class="usa-heatmap" id="usHeatmap"></div>
     </div>
+  </div>
+  <!-- Panel de movers del sector seleccionado -->
+  <div id="usSectorDetail" style="display:none" class="card">
+    <div class="card-head">
+      <div class="card-title" id="usSectorDetailTitle">—</div>
+      <button onclick="document.getElementById('usSectorDetail').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px">✕</button>
+    </div>
+    <div id="usSectorDetailBody"></div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="card">
@@ -429,6 +437,56 @@ window.usSort = (col) => {
   usApplyScreener();
 };
 
+// ── Sector keyword map ETF name → sub-sector keywords in mercado_usa ──
+const US_SECTOR_KW = {
+  'Technology':             ['Software','Semiconductor','Technology','IT ','Electronic Equipment','Data Processing','Computer'],
+  'Financials':             ['Bank','Insurance','Financial','Asset Manag','Investment Banking','Mortgage','Brokerage','Capital Markets'],
+  'Energy':                 ['Oil','Gas','Energy','Petroleum','Coal','Refin'],
+  'Health Care':            ['Health Care','Pharma','Biotech','Medical','Life Sci','Drug'],
+  'Consumer Discretionary': ['Hotel','Resort','Cruise','Restaurant','Auto','Retail','E-commerce','Apparel','Luxury','Leisure'],
+  'Consumer Staples':       ['Food','Beverage','Household','Tobacco','Drug Retail','Hypermarket','Cosmetic','Personal'],
+  'Industrials':            ['Aerospace','Defense','Machinery','Airline','Transport','Railroad','Electrical','Construction','Waste'],
+  'Materials':              ['Chemical','Metal','Mining','Steel','Paper','Container','Forest','Aluminum'],
+  'Real Estate':            ['REIT','Real Estate','Property'],
+  'Utilities':              ['Utilities','Electric','Gas Util','Water'],
+  'Communication':          ['Media','Telecom','Cable','Satellite','Publishing','Advertising','Interactive'],
+};
+
+function usSectorMovers(etfName, isGreen){
+  const kws = US_SECTOR_KW[etfName];
+  if(!kws) return [];
+  const stocks = (usAllData||[]).filter(r=>
+    r.sector && r.sector !== 'Other' && r.sector !== 'ETF Sector' &&
+    r.change_pct != null &&
+    kws.some(k => r.sector.includes(k))
+  );
+  return isGreen
+    ? stocks.sort((a,b)=>b.change_pct-a.change_pct).slice(0,8)
+    : stocks.sort((a,b)=>a.change_pct-b.change_pct).slice(0,8);
+}
+
+window.usShowSector = (symbol, isGreen) => {
+  const etf = usSectors.find(r=>r.symbol===symbol);
+  if(!etf) return;
+  const movers = usSectorMovers(etf.name||etf.sector||'', isGreen);
+  const label  = isGreen ? 'Mayores subas' : 'Mayores bajas';
+  const col    = isGreen ? 'var(--green)' : 'var(--red)';
+  document.getElementById('usSectorDetailTitle').textContent =
+    `${symbol} — ${etf.name||etf.sector} · ${label} del sector`;
+  document.getElementById('usSectorDetailBody').innerHTML = !movers.length
+    ? '<div style="padding:18px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3);text-align:center">Sin datos de acciones para este sector</div>'
+    : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;padding:12px">
+        ${movers.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border-radius:5px;gap:8px">
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text)">${r.symbol}</div>
+            <div style="font-size:8px;color:var(--text4);margin-top:1px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.sector}</div>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${col}">${fmtPct(r.change_pct)}</div>
+        </div>`).join('')}
+      </div>`;
+  document.getElementById('usSectorDetail').style.display='';
+};
+
 // ── Sectores heatmap ──
 function usRenderSectores(){
   if(!usSectors.length){
@@ -445,7 +503,8 @@ function usRenderSectores(){
     const bg = chg >= 0
       ? `rgba(0,229,168,${0.15+intensity*0.5})`
       : `rgba(255,63,94,${0.15+intensity*0.5})`;
-    return`<div class="hm-cell" style="background:${bg};min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    const isGreen = chg >= 0;
+    return`<div class="hm-cell" style="background:${bg};min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer" onclick="usShowSector('${r.symbol}',${isGreen})">
       <div class="hm-sym">${r.symbol}</div>
       <div class="hm-chg">${fmtPct(chg)}</div>
       <div class="hm-vol">${r.name||r.sector||''}</div>

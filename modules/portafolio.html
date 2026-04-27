@@ -287,6 +287,21 @@
         </div>
       </div>
 
+      <!-- Distribución interna por tipo -->
+      <div class="card" style="padding:18px 20px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px">Distribución interna por clase</div>
+        <div id="pfTypeDistribs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px"></div>
+      </div>
+
+      <!-- Opciones activas -->
+      <div class="card" style="padding:18px 20px" id="pfOpcionesCard">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Opciones GGAL — Posiciones activas</span>
+          <span id="pfOpsPnlTotal" style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600">—</span>
+        </div>
+        <div id="pfOpcionesBody"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);text-align:center;padding:12px">Cargando...</div></div>
+      </div>
+
       <div class="card" style="padding:18px 20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Portafolio YTD · USD</span>
@@ -643,6 +658,8 @@ function pfRender() {
 
   pfRenderDonut(byTipo, totAct, totGan);
   pfRenderAlloc(byTipo, totAct);
+  pfRenderTypeDistribs(calced);
+  pfRenderOpciones();
   pfRenderPositions(calced);
 }
 
@@ -709,6 +726,197 @@ function pfRenderAlloc(byTipo, totAct) {
       <td style="color:${gc}">${d.inv>0?(gs+(gan/d.inv*100).toFixed(1)+'%'):'—'}</td>
     </tr>`;
   }).join('');
+}
+
+// ── Distribución interna por tipo ────────────────────────
+let pfTypeCharts = {};
+function pfRenderTypeDistribs(calced) {
+  const container = document.getElementById('pfTypeDistribs');
+  if(!container) return;
+
+  // Destruir charts previos
+  Object.values(pfTypeCharts).forEach(c=>{ try{c.destroy();}catch(e){} });
+  pfTypeCharts = {};
+
+  // Agrupar por tipo → tickers
+  const byTipo = {};
+  calced.forEach(p => {
+    if(!byTipo[p.tipo]) byTipo[p.tipo] = {};
+    const t = p.ticker_ars || p.ticker_usd || '?';
+    byTipo[p.tipo][t] = (byTipo[p.tipo][t]||0) + (p.usdAct||0);
+  });
+
+  // Paleta dinámica por ticker
+  const palette = ['#00b4d8','#00e5a8','#ffc84a','#ff3f5e','#b39dff','#4da6ff','#ff8c42','#a8dadc','#52b788','#e9c46a','#f4a261','#e76f51','#90e0ef','#cdb4db'];
+
+  const tipos = Object.keys(byTipo).sort((a,b)=>{
+    const sumA = Object.values(byTipo[a]).reduce((s,v)=>s+v,0);
+    const sumB = Object.values(byTipo[b]).reduce((s,v)=>s+v,0);
+    return sumB - sumA;
+  });
+
+  container.innerHTML = tipos.map(tipo => {
+    const tickers = Object.entries(byTipo[tipo]).sort((a,b)=>b[1]-a[1]);
+    const total = tickers.reduce((s,[,v])=>s+v,0);
+    if(tickers.length <= 1) return ''; // sin torta para tipo con 1 sola posición
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px">${TIPO_LABEL[tipo]||tipo}</div>
+      <div style="position:relative;width:140px;height:140px">
+        <canvas id="pfTypeChart_${tipo}" width="140" height="140"></canvas>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">${tickers.length} pos.</div>
+        </div>
+      </div>
+      <div style="width:100%;display:flex;flex-direction:column;gap:3px">
+        ${tickers.slice(0,8).map(([t,v],i)=>{
+          const pct=(total>0?v/total*100:0).toFixed(1);
+          return `<div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+            <div style="display:flex;align-items:center;gap:5px">
+              <span style="width:7px;height:7px;border-radius:1px;background:${palette[i%palette.length]};flex-shrink:0"></span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text2)">${t}</span>
+            </div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">${pct}%</span>
+          </div>`;
+        }).join('')}
+        ${tickers.length>8?`<div style="font-size:8px;color:var(--text4);font-family:'IBM Plex Mono',monospace;margin-top:2px">+${tickers.length-8} más</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Renderizar cada chart
+  tipos.forEach(tipo => {
+    const tickers = Object.entries(byTipo[tipo]).sort((a,b)=>b[1]-a[1]);
+    if(tickers.length <= 1) return;
+    const canvas = document.getElementById(`pfTypeChart_${tipo}`);
+    if(!canvas) return;
+    pfTypeCharts[tipo] = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: tickers.map(([t])=>t),
+        datasets: [{
+          data: tickers.map(([,v])=>v),
+          backgroundColor: tickers.map((_,i)=>palette[i%palette.length]),
+          borderColor: '#0d1117',
+          borderWidth: 3,
+          hoverOffset: 4,
+        }]
+      },
+      options: {
+        responsive: false, cutout: '68%', animation: {duration:400},
+        plugins: { legend:{display:false}, tooltip:{callbacks:{label:ctx=>{
+          const total = ctx.dataset.data.reduce((s,v)=>s+v,0);
+          const pct = total>0?(ctx.raw/total*100).toFixed(1):0;
+          return ` ${ctx.label}: ${pct}% (U$S ${Math.round(ctx.raw).toLocaleString('es-AR')})`;
+        }}}}
+      }
+    });
+  });
+}
+
+// ── Opciones GGAL en portafolio ───────────────────────────
+let pfOpsSpot = 0;
+async function pfRenderOpciones() {
+  const el = document.getElementById('pfOpcionesBody');
+  const elTotal = document.getElementById('pfOpsPnlTotal');
+  if(!el) return;
+  try {
+    const [ops, spotR, optRT] = await Promise.all([
+      sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
+      sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
+      sb('opciones_rt','select=symbol,last,bid,ask,strike&order=symbol.asc'),
+    ]);
+    const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
+    pfOpsSpot = S || pfOpsSpot;
+    if(!ops?.length){
+      el.innerHTML='<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:12px">Sin posiciones abiertas. Cargalas desde el módulo de Opciones.</div>';
+      elTotal.textContent='—'; elTotal.style.color='var(--text3)';
+      return;
+    }
+
+    // Índice de precios RT por (kind_strike) → { price, src }
+    const rtIdx = {};
+    (optRT||[]).forEach(r => {
+      const sym = (r.symbol||'').toUpperCase();
+      if(sym.length < 5) return;
+      const kindChar = sym[3];
+      const kind = kindChar === 'C' ? 'call' : kindChar === 'P' ? 'put' : null;
+      if(!kind) return;
+      const strike = Number(r.strike) || 0;
+      if(!strike) return;
+      const price = Number(r.last||0) || 0;
+      if(price > 0) rtIdx[`${kind}_${strike}`] = price;
+    });
+
+    // BS como fallback cuando no hay precio RT
+    const _norm=x=>{const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const s=x<0?-1:1;x=Math.abs(x)/Math.SQRT2;const t=1/(1+p*x);return 0.5*(1+s*(1-t*Math.exp(-x*x)*(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)));};
+    const _bsP=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return Math.max(tipo==='call'?S-K:K-S,0);const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?S*_norm(d1)-K*Math.exp(-r*T)*_norm(d2):K*Math.exp(-r*T)*_norm(-d2)-S*_norm(-d1);};
+    const _vega=(S,K,T,r,sig)=>{if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*Math.exp(-d1*d1/2)/Math.sqrt(2*Math.PI)*Math.sqrt(T);};
+    const _iv=(price,S,K,T,r,tipo)=>{if(T<=0||price<=0)return 0.60;let sig=0.60;for(let i=0;i<80;i++){const p=_bsP(S,K,T,r,sig),v=_vega(S,K,T,r,sig);if(Math.abs(v)<1e-8)break;sig-=(p-price)/v;if(sig<0.01)sig=0.01;if(sig>15)return 0.60;}return sig;};
+    const _T=vto=>{const e=new Date(String(vto).slice(0,10)+'T12:00:00');return(e-new Date())/(1000*60*60*24*365);};
+
+    let totPnL = 0;
+    const rows = ops.map(op=>{
+      const optSz = op.patas?.[0]?.option_size||100;
+      let pnl=0;
+      const legRows = (op.patas||[]).map(leg=>{
+        const K=leg.strike, tipo=leg.kind==='call'?'call':'put';
+        const key=`${tipo}_${K}`;
+        let curPrice = rtIdx[key] || 0;
+        let src = curPrice ? 'RT' : 'BS';
+        if(!curPrice){
+          const T=_T(leg.vto);
+          const iv=_iv(leg.prima,S,K,T,0.70,tipo);
+          curPrice=_bsP(S,K,T,0.70,iv,tipo);
+        }
+        const legPnl = (leg.action==='buy'?1:-1)*(curPrice-leg.prima)*leg.qty*optSz;
+        pnl += legPnl;
+        return { leg, curPrice, legPnl, src };
+      });
+      totPnL+=pnl;
+      const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz);
+      return{op,pnl,entrada,legRows};
+    });
+
+    const sign=totPnL>=0?'+':'';
+    elTotal.textContent=sign+'$'+Math.round(totPnL).toLocaleString('es-AR');
+    elTotal.style.color=totPnL>=0?'var(--green)':'var(--red)';
+
+    el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Fecha</th>
+        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Estrategia</th>
+        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Pata</th>
+        <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Prima entrada</th>
+        <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Precio actual</th>
+        <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">P&amp;L ($)</th>
+      </tr></thead>
+      <tbody>${rows.map(({op,pnl,entrada,legRows})=>{
+        const opColor=pnl>=0?'var(--green)':'var(--red)';
+        const legHtml = legRows.map(({leg,curPrice,legPnl,src},i)=>{
+          const legDir = leg.action==='buy' ? `<span style="color:var(--green)">▲ COMPRA</span>` : `<span style="color:var(--red)">▼ VENTA</span>`;
+          const pataDesc = `${legDir} ${leg.qty} ${leg.kind?.toUpperCase()} K${Math.round(leg.strike)}`;
+          const srcBadge = src==='RT'
+            ? `<span style="font-size:7px;background:rgba(0,229,168,.15);color:var(--green);border:1px solid rgba(0,229,168,.3);border-radius:2px;padding:1px 4px;margin-left:4px">RT</span>`
+            : `<span style="font-size:7px;background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.2);border-radius:2px;padding:1px 4px;margin-left:4px">BS</span>`;
+          const lc = legPnl>=0?'var(--green)':'var(--red)';
+          const firstCell = i===0
+            ? `<td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text3);vertical-align:top">${op.fecha}</td>
+               <td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text);font-weight:500;vertical-align:top">${op.nombre||'—'}</td>`
+            : '';
+          return `<tr style="border-bottom:1px solid rgba(30,42,56,.3)">
+            ${firstCell}
+            <td style="padding:5px 10px;font-size:9px">${pataDesc}</td>
+            <td style="padding:5px 10px;text-align:right;color:var(--text3)">$${leg.prima?.toFixed(2)}</td>
+            <td style="padding:5px 10px;text-align:right">${curPrice>0?'$'+curPrice.toFixed(2):'—'}${srcBadge}</td>
+            <td style="padding:5px 10px;text-align:right;color:${lc};font-weight:600">${legPnl>=0?'+':''}$${Math.round(legPnl).toLocaleString('es-AR')}</td>
+          </tr>`;
+        }).join('');
+        return legHtml;
+      }).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
+  }
 }
 
 // ── Panel columnas ────────────────────────────────────────
