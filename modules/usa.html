@@ -249,9 +249,17 @@
         <button class="rrg-mode-btn stab active" onclick="rrgSwitchMode('weekly',this)">Semanal</button>
         <button class="rrg-mode-btn stab"        onclick="rrgSwitchMode('daily',this)">Diario</button>
       </div>
-      <button id="rrg-filter-btn" onclick="rrgSwitchFilter(this)"
+      <select id="rrg-filter-sel" onchange="rrgSwitchFilter(this)"
+        style="padding:3px 8px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;outline:none;transition:border-color .15s">
+        <option value="all">Todos los cuadrantes</option>
+        <option value="leading">▶ Leading</option>
+        <option value="improving">↑ Improving</option>
+        <option value="weakening">↘ Weakening</option>
+        <option value="lagging">↓ Lagging</option>
+      </select>
+      <button id="rrg-scan-btn" onclick="rrgScanSP500()"
         style="padding:3px 10px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;transition:all .15s">
-        ↑ Mejorando
+        🔍 Scan S&amp;P 500
       </button>
     </div>
     <div style="font-size:9px;color:var(--text4)" id="rrg-meta">—</div>
@@ -268,6 +276,19 @@
       <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(56,200,255,.45);flex-shrink:0"></div>Improving — RS débil pero mejorando</div>
       <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(255,200,74,.45);flex-shrink:0"></div>Weakening — RS fuerte pero desacelerando</div>
       <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(255,63,94,.45);flex-shrink:0"></div>Lagging — RS débil y deteriorando</div>
+    </div>
+  </div>
+  <!-- Scan S&P 500 results -->
+  <div id="rrg-scan-panel" style="display:none;margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-scan-title">Scan S&P 500 — resultados</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:9px;color:var(--text4)" id="rrg-scan-meta">—</span>
+        <button onclick="document.getElementById('rrg-scan-panel').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 4px">✕</button>
+      </div>
+    </div>
+    <div id="rrg-scan-body" style="padding:12px 14px">
+      <div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Iniciando scan…</div>
     </div>
   </div>
 </div>
@@ -996,7 +1017,7 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
 let rrgLoaded  = false;
 let rrgTab     = 'sectores';
 let rrgMode    = 'weekly'; // 'weekly' | 'daily'
-let rrgFilter  = 'all';   // 'all' | 'improving'
+let rrgFilter  = 'all';   // 'all' | 'leading' | 'improving' | 'weakening' | 'lagging'
 let rrgData    = {sectores:[], acciones:[], sectores_d:[], acciones_d:[]};
 let rrgRange   = {min:95, max:106};
 
@@ -1220,16 +1241,12 @@ function rrgRender() {
   ctx.save(); ctx.translate(13,RRG_PAD.top+ph/2); ctx.rotate(-Math.PI/2);
   ctx.fillText('RS-Momentum →',0,0); ctx.restore();
 
-  // Symbols (filtro mejorando si activo)
+  // Symbols filtrados por cuadrante
   const rrgVisible = rrgData[rrgKey].filter(({p})=>{
     if(rrgFilter==='all') return true;
     if(!p.length) return false;
-    const [r,m]=p[p.length-1];
-    // Improving: ratio<100, momentum>=100
-    if(r<RRG_CENTER&&m>=RRG_CENTER) return true;
-    // Lagging pero con momentum subiendo (camino a Improving)
-    if(r<RRG_CENTER&&m<RRG_CENTER&&p.length>=2) return m>p[p.length-2][1];
-    return false;
+    const {name} = rrgQ(p[p.length-1][0], p[p.length-1][1]);
+    return name.toLowerCase() === rrgFilter;
   });
   rrgVisible.forEach(({s,c,p})=>{
     if(p.length<2) return;
@@ -1274,7 +1291,7 @@ function rrgBuildLegend() {
   allEntries.forEach(({s,c,p})=>{
     const last=p[p.length-1];
     const {name,color}=rrgQ(last[0],last[1]);
-    const dimmed = rrgFilter==='improving' && name!=='Improving' && !(last[0]<RRG_CENTER&&last[1]<RRG_CENTER&&p.length>=2&&last[1]>p[p.length-2][1]);
+    const dimmed = rrgFilter!=='all' && name.toLowerCase()!==rrgFilter;
     el.innerHTML+=`<div style="display:flex;align-items:center;gap:5px;font-size:9px;opacity:${dimmed?.35:1}">
       <div style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0"></div>
       <span style="color:#a8bdd0">${s}</span>
@@ -1333,13 +1350,137 @@ window.rrgSwitchMode = function(mode,btn){
   rrgRender(); rrgBuildLegend();
 };
 
-window.rrgSwitchFilter = function(btn){
-  rrgFilter = rrgFilter==='all' ? 'improving' : 'all';
-  const on = rrgFilter==='improving';
-  btn.style.background    = on ? 'rgba(56,200,255,.15)' : 'var(--bg2)';
-  btn.style.borderColor   = on ? '#38c8ff' : 'var(--border)';
-  btn.style.color         = on ? '#38c8ff' : 'var(--text3)';
+window.rrgSwitchFilter = function(sel){
+  rrgFilter = sel.value;
+  const colors = {leading:'#00e5a8',improving:'#38c8ff',weakening:'#ffc84a',lagging:'#ff3f5e'};
+  const col = colors[rrgFilter];
+  sel.style.borderColor = col || 'var(--border)';
+  sel.style.color       = col || 'var(--text3)';
   rrgRender(); rrgBuildLegend();
+};
+
+window.rrgScanSP500 = async function(){
+  const filterVal = rrgFilter === 'all' ? 'improving' : rrgFilter; // default to improving if no filter set
+  const panel = document.getElementById('rrg-scan-panel');
+  const body  = document.getElementById('rrg-scan-body');
+  const meta  = document.getElementById('rrg-scan-meta');
+  const title = document.getElementById('rrg-scan-title');
+  const btn   = document.getElementById('rrg-scan-btn');
+
+  panel.style.display = '';
+  body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Obteniendo lista de símbolos…</div>';
+  btn.textContent = '⏳ Escaneando…';
+  btn.disabled = true;
+
+  const qLabel = {leading:'Leading',improving:'Improving',weakening:'Weakening',lagging:'Lagging'};
+  title.textContent = `Scan S&P 500 — ${qLabel[filterVal] || 'Todos'}`;
+
+  try {
+    const SBH  = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
+    const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
+
+    // 1. Get all distinct symbols in one request: fetch a single known date where all S&P500 symbols have data
+    const symResp = await fetch(`${base}?select=symbol&fecha=eq.2024-01-02&order=symbol.asc&limit=600`, {headers:SBH});
+    let allSyms = symResp.ok ? (await symResp.json()).map(r=>r.symbol).filter(s=>s && s!=='SPY') : [];
+
+    // If that date has no data, try 2024-01-03
+    if (!allSyms.length) {
+      const r2 = await fetch(`${base}?select=symbol&fecha=eq.2024-01-03&order=symbol.asc&limit=600`, {headers:SBH});
+      allSyms = r2.ok ? (await r2.json()).map(r=>r.symbol).filter(s=>s && s!=='SPY') : [];
+    }
+    allSyms = [...new Set(allSyms)];
+
+    if (!allSyms.length) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en historico_precios</div>'; return; }
+
+    meta.textContent = `${allSyms.length} símbolos · cargando histórico…`;
+
+    // 2. We need SPY data — reuse already-loaded data or fetch fresh
+    const since = new Date(); since.setDate(since.getDate()-420);
+    const sinceStr = since.toISOString().slice(0,10);
+
+    // Fetch SPY first
+    const spyResp = await fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=500`, {headers:SBH});
+    const spyRows = spyResp.ok ? await spyResp.json() : [];
+    const spySeries = spyRows.map(r=>({date:r.fecha,close:r.close}));
+    const spyMap = rrgWeeklyMap(spySeries);
+    if (spyMap.size < 30) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Insuficientes datos SPY</div>'; return; }
+
+    // 3. Fetch all symbols in batches of 40
+    const BATCH = 40;
+    const results = [];
+    for (let i = 0; i < allSyms.length; i += BATCH) {
+      const batch = allSyms.slice(i, i+BATCH);
+      const pct = Math.round((i/allSyms.length)*100);
+      meta.textContent = `${pct}% — procesando ${i}/${allSyms.length} símbolos…`;
+      const fetches = await Promise.all(
+        batch.map(sym =>
+          fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=500`, {headers:SBH})
+            .then(r => r.ok ? r.json().then(rows => ({sym, rows})) : {sym, rows:[]})
+        )
+      );
+      results.push(...fetches);
+    }
+
+    // 4. Calculate RRG for each symbol and classify
+    const scanResults = [];
+    for (const {sym, rows} of results) {
+      if (!rows.length) continue;
+      const series = rows.map(r=>({date:r.fecha,close:r.close}));
+      const wMap = rrgWeeklyMap(series);
+      const pts = rrgCalcSymbol(wMap, spyMap);
+      if (!pts || pts.length < 2) continue;
+      const last = pts[pts.length-1];
+      const {name, color} = rrgQ(last[0], last[1]);
+      // momentum direction
+      const prev = pts[pts.length-2];
+      const dR = last[0]-prev[0];
+      const dM = last[1]-prev[1];
+      scanResults.push({sym, name, color, ratio:last[0], mom:last[1], dR, dM});
+    }
+
+    // 5. Filter by selected quadrant (or show all sorted by quadrant)
+    const qOrder = {Improving:0,Leading:1,Weakening:2,Lagging:3};
+    const filtered = filterVal === 'all'
+      ? scanResults
+      : scanResults.filter(r => r.name.toLowerCase() === filterVal);
+
+    filtered.sort((a,b) => {
+      const qd = (qOrder[a.name]??4)-(qOrder[b.name]??4);
+      if (qd!==0) return qd;
+      // within same quadrant, sort by RS-Ratio desc
+      return b.ratio - a.ratio;
+    });
+
+    meta.textContent = `${filtered.length} símbolos en ${qLabel[filterVal]||'todos los cuadrantes'} de ${allSyms.length} escaneados`;
+
+    if (!filtered.length) {
+      body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en este cuadrante</div>';
+      return;
+    }
+
+    const arrowR = v => v>0?`<span style="color:#00e5a8">▲</span>`:`<span style="color:#ff3f5e">▼</span>`;
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">
+        ${filtered.map(r=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;gap:6px">
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text)">${r.sym}</div>
+              <div style="font-size:8px;color:${r.color};margin-top:2px">${r.name}</div>
+            </div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+              <div>${r.ratio.toFixed(1)} ${arrowR(r.dR)}</div>
+              <div>${r.mom.toFixed(1)} ${arrowR(r.dM)}</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+
+  } catch(e) {
+    body.innerHTML = `<div style="text-align:center;padding:24px;color:var(--red);font-size:11px">Error: ${e.message}</div>`;
+  } finally {
+    btn.textContent = '🔍 Scan S&P 500';
+    btn.disabled = false;
+  }
 };
 
 window.addEventListener('resize',()=>{

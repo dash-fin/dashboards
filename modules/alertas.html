@@ -330,7 +330,7 @@ async function alCargarPreciosIniciales() {
     });
     (optRows||[]).forEach(r => {
       const sym = alCleanTicker(r.symbol);
-      const price = Number(r.last||0);
+      const price = Number(r.last||0) || Number(r.bid||0);
       if(sym && price) AL.prevPrices[sym] = price;
     });
     alRenderActivas();
@@ -481,7 +481,7 @@ function alRtConnectOpt(){
       const row = payload.new;
       if(!row) return;
       const sym = alCleanTicker(row.symbol);
-      const price = Number(row.last||0);
+      const price = Number(row.last||0) || Number(row.bid||0);
       if(!sym || !price) return;
       AL.prevPrices[sym] = price;
       await alEvaluarAlertas(sym, price, 0, 0);
@@ -1009,7 +1009,7 @@ window.alTickerSearch = async function(q){
     const items = [
       ...(arsRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change||0), src:'ARS', sub:'' })),
       ...(usaRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change_pct||r.change||0), src:'USA', sub:r.name||'' })),
-      ...(optRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:0, src:'OPT', sub:'' })),
+      ...(optRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0)||Number(r.bid||0), chg:0, src:'OPT', sub:r.last?'':r.bid?'bid':'—' })),
     ];
 
     if(!items.length){
