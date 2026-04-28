@@ -313,10 +313,11 @@ window.esTab = (name, btn) => {
 // LOAD DATA
 // ══════════════════════════════════════════════════
 async function esLoad(){
-  const [optRows, spotRows, caucRows] = await Promise.all([
-    sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0,ask.gt.0)&order=strike.asc&limit=500'),
+  const [optRows, spotRows, caucRows, iamcR] = await Promise.all([
+    sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0)&order=strike.asc&limit=500'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
     sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=symbol,last&limit=5'),
+    sb('opciones_iamc','symbol=ilike.GFG*&select=symbol&limit=300'),
   ]);
   if(spotRows?.length){
     esSpotVal = Number(spotRows[0].last);
@@ -334,14 +335,18 @@ async function esLoad(){
       if(tb) tb.textContent = caucTna.toFixed(1)+'%';
     }
   }
+  const iamcSet = new Set((iamcR||[]).map(r=>r.symbol));
+
   if(optRows?.length){
-    esOptsData = optRows.map(o=>({
-      symbol:o.symbol, kind:(o.kind||'').toUpperCase(),
-      strike:Number(o.strike), vto:esFormatVto(o.expiration),
-      expiration:o.expiration,
-      last:Number(o.last||0), bid:Number(o.bid||0), ask:Number(o.ask||0),
-      mid:o.bid>0&&o.ask>0?(Number(o.bid)+Number(o.ask))/2:Number(o.last||0),
-    })).filter(o=>o.strike>0&&o.mid>0);
+    esOptsData = optRows
+      .filter(o => iamcSet.size===0 || iamcSet.has(o.symbol))
+      .map(o=>({
+        symbol:o.symbol, kind:(o.kind||'').toUpperCase(),
+        strike:Number(o.strike), vto:esFormatVto(o.expiration),
+        expiration:o.expiration,
+        last:Number(o.last||0), bid:Number(o.bid||0), ask:Number(o.ask||0),
+        mid: Number(o.last||0) || Number(o.bid||0), // last primero, bid fallback
+      })).filter(o=>o.strike>0&&o.mid>0);
 
     // Calcular IV ATM
     const atmOpts = esOptsData.filter(o=>{

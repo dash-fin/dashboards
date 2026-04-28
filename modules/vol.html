@@ -156,19 +156,8 @@ function calcularIV(opts, S, r = TASA_RF) {
     const T = calcT(opt.vencimiento);
     if (!T || !K || !S) return { ...opt, iv_bs: null, iv_binom: null, T: null };
 
-    // Precio: mid si ambos bid/ask válidos y spread razonable (<50%), sino last
-    let precio = null;
-    const bid = opt.bid > 0 ? opt.bid : null;
-    const ask = opt.ask > 0 ? opt.ask : null;
-    if (bid && ask) {
-      const mid = (bid + ask) / 2;
-      const spread = (ask - bid) / mid;
-      if (spread < 0.50) precio = mid;  // spread < 50% → usar mid
-      else if (opt.last > 0) precio = opt.last;  // spread muy amplio → usar last
-      else precio = mid;  // igual usar mid como último recurso
-    } else if (opt.last > 0) {
-      precio = opt.last;
-    }
+    // Precio: last primero, bid como fallback — sin promedio bid/ask
+    const precio = opt.last > 0 ? opt.last : (opt.bid > 0 ? opt.bid : null);
     if (!precio) return { ...opt, iv_bs: null, iv_binom: null, T };
 
     const tipo = opt.tipo === 'call' ? 'call' : 'put';
@@ -376,9 +365,10 @@ window.vTab = (name, btn) => {
 // ── Load data ──
 async function vLoad() {
   // Cargar opciones RT y precio spot GGAL en paralelo
-  const [optsRows, spotRows] = await Promise.all([
-    sb('opciones_rt', 'underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0,ask.gt.0)&limit=500'),
+  const [optsRows, spotRows, iamcR] = await Promise.all([
+    sb('opciones_rt', 'underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0)&limit=500'),
     sb('mercado', 'symbol=eq.GGAL&settlement=eq.24hs&select=last'),
+    sb('opciones_iamc', 'symbol=ilike.GFG*&select=symbol&limit=300'),
   ]);
 
   // Precio spot
@@ -389,17 +379,21 @@ async function vLoad() {
 
   if (!optsRows || !optsRows.length) return;
 
-  // Normalizar columnas reales de opciones_rt:
-  // kind → tipo, strike → base, expiration → vencimiento
-  const opts = optsRows.map(o => ({
-    symbol:      o.symbol,
-    tipo:        (o.kind || '').toString().toLowerCase().includes('call') ? 'call' : 'put',
-    base:        normalizeBase(o.strike),
-    vencimiento: o.expiration ? VolLib.formatExpiration(o.expiration) : null,
-    last:        Number(o.last || 0),
-    bid:         Number(o.bid  || 0),
-    ask:         Number(o.ask  || 0),
-  })).filter(o => o.base > 0);
+  // Filtro canónico: solo bases que figuran en el informe IAMC
+  const iamcSet = new Set((iamcR||[]).map(r=>r.symbol));
+
+  // Normalizar columnas reales de opciones_rt
+  const opts = optsRows
+    .filter(o => iamcSet.size===0 || iamcSet.has(o.symbol))
+    .map(o => ({
+      symbol:      o.symbol,
+      tipo:        (o.kind || '').toString().toLowerCase().includes('call') ? 'call' : 'put',
+      base:        normalizeBase(o.strike),
+      vencimiento: o.expiration ? VolLib.formatExpiration(o.expiration) : null,
+      last:        Number(o.last || 0),
+      bid:         Number(o.bid  || 0),
+      ask:         Number(o.ask  || 0),
+    })).filter(o => o.base > 0);
 
   if (!vSpot || !opts.length) return;
 

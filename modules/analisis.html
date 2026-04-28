@@ -177,7 +177,7 @@ let anOpts=[], anSpotN=0, anTasaN=0.50, anIVN=0;
 // ══════════════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════════════
-const anM   = o => (o.bid>0&&o.ask>0)?(o.bid+o.ask)/2:(o.last||0);
+const anM   = o => (o.last||0) || (o.bid||0);
 const anF   = n => fmtAR(n,0);
 const anF2  = n => fmtAR(n,2);
 const anPct = (v,d=1) => (v*100).toFixed(d)+'%';
@@ -213,29 +213,34 @@ async function anLoad(){
   document.getElementById('anMeta').textContent='Cargando...';
   try{
     const today=new Date().toISOString().slice(0,10);
-    const[opts,spotR,caucR]=await Promise.all([
+    const[opts,spotR,caucR,iamcR]=await Promise.all([
       sb('opciones_rt',`underlying_asset=ilike.GGAL*&expiration=gte.${today}&select=symbol,kind,strike,expiration,last,bid,ask&order=strike.asc&limit=500`),
       sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
       sb('cauciones','order=days.asc&limit=10&select=bid_rate,ask_rate,last,days'),
+      sb('opciones_iamc','symbol=ilike.GFG*&select=symbol&limit=300'),
     ]);
 
     if(spotR?.length) anSpotN=Number(spotR[0].last)||anSpotN;
     if(caucR?.length){
-      // Use shortest-term overnight caución rate; prefer mid(bid,ask) else last
       const row=caucR[0];
-      const rate=((row.bid_rate>0&&row.ask_rate>0)?(row.bid_rate+row.ask_rate)/2:(row.last||0));
+      const rate=(row.last||0)||(row.bid_rate>0&&row.ask_rate>0?(row.bid_rate+row.ask_rate)/2:0);
       if(rate>0)anTasaN=rate/100;
     }
 
-    anOpts=(opts||[]).map(o=>{
-      const bid=Number(o.bid)||0, ask=Number(o.ask)||0, last=Number(o.last)||0;
-      const mid=(bid>0&&ask>0)?(bid+ask)/2:last;
-      return{
-        symbol:o.symbol, kind:(o.kind||'').toUpperCase(),
-        strike:Number(o.strike), expiration:o.expiration,
-        bid, ask, last, mid, T:anCalcT(o.expiration), iv:null,
-      };
-    }).filter(o=>o.strike>0&&o.mid>0&&o.T>3/365); // excluir expirados y con <3 días
+    // Filtro canónico: solo símbolos que figuran en el informe IAMC (bases reales BYMA)
+    const iamcSet=new Set((iamcR||[]).map(r=>r.symbol));
+
+    anOpts=(opts||[])
+      .filter(o=>iamcSet.size===0||iamcSet.has(o.symbol))
+      .map(o=>{
+        const bid=Number(o.bid)||0, ask=Number(o.ask)||0, last=Number(o.last)||0;
+        const mid=last||bid; // last primero, bid como fallback — sin promedio bid/ask
+        return{
+          symbol:o.symbol, kind:(o.kind||'').toUpperCase(),
+          strike:Number(o.strike), expiration:o.expiration,
+          bid, ask, last, mid, T:anCalcT(o.expiration), iv:null,
+        };
+      }).filter(o=>o.strike>0&&o.mid>0&&o.T>3/365);
 
     // IV ATM
     const atmOpts=anOpts.filter(o=>{const m=o.strike/anSpotN;return m>=0.94&&m<=1.06;});
@@ -272,8 +277,7 @@ function anCalcSpreads(){
   const bull=[], bear=[];
 
   for(const exp of exps){
-    // Solo opciones con bid Y ask válidos — descarta series con precios stale/rotos
-    const cs=anOpts.filter(o=>o.expiration===exp&&o.kind==='CALL'&&o.bid>0&&o.ask>0).sort((a,b)=>a.strike-b.strike);
+    const cs=anOpts.filter(o=>o.expiration===exp&&o.kind==='CALL'&&(o.last>0||o.bid>0)).sort((a,b)=>a.strike-b.strike);
 
     for(let i=0;i<cs.length;i++){
       for(let j=i+1;j<Math.min(i+8,cs.length);j++){
