@@ -186,8 +186,10 @@
             <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Teórico</div>
           </div>
         </div>
-        <div id="tvggal_es" style="position:relative;height:230px;border-bottom:1px solid var(--border2)"></div>
-        <div style="position:relative;padding:6px 10px;height:190px"><canvas id="esPLChart"></canvas></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;height:420px">
+          <div id="tvggal_es" style="position:relative;border-right:1px solid var(--border2)"></div>
+          <div style="position:relative;padding:6px 8px"><canvas id="esPLChart"></canvas></div>
+        </div>
         <div style="padding:6px 14px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">
           Break evens: <span id="esBreakEvens2" style="color:var(--amber)">—</span>
           &nbsp;·&nbsp; Máx gan: <span id="esMaxGan2" style="color:var(--green)">—</span>
@@ -479,10 +481,12 @@ function esRenderLegs(){
         oninput="esLegs[${i}].qty=Math.max(1,Number(this.value)||1);esRecalc();">
       <button onclick="esRemoveLeg(${i})" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0;width:100%;text-align:center">✕</button>
     </div>
-    <div style="padding:2px 0 4px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);display:flex;gap:10px">
-      <span>Prima: <span style="color:var(--text2)">${primaStr}</span></span>
-      ${opt?.bid>0?`<span>Bid: $${fmtAR(opt.bid,2)}</span>`:''}
-      ${opt?.ask>0?`<span>Ask: $${fmtAR(opt.ask,2)}</span>`:''}
+    <div style="padding:2px 0 6px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);display:flex;gap:10px;align-items:center">
+      <span>Prima $<input type="number" min="0" step="0.01" value="${(leg.prima||0).toFixed(2)}"
+        style="background:var(--bg3);border:1px solid var(--border2);border-radius:3px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:9px;width:72px;padding:2px 5px;outline:none"
+        oninput="esLegs[${i}].prima=Number(this.value)||0;esRecalc()"></span>
+      ${opt?.bid>0?`<span style="color:var(--text3)">bid $${fmtAR(opt.bid,2)}</span>`:''}
+      ${opt?.ask>0?`<span style="color:var(--text3)">ask $${fmtAR(opt.ask,2)}</span>`:''}
     </div>`;
   }).join('') : `<div style="padding:12px 0;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);text-align:center">Sin patas — agregá una con + Pata</div>`;
 
@@ -648,69 +652,60 @@ window.esRecalc = () => {
     }
   }
 
-  // Plugin: línea vertical en el spot actual
+  // Plugin: línea horizontal en el spot actual (alineada con TV)
   const spotLinePlugin = {
     id: 'spotLine',
     afterDraw(chart) {
       const {ctx, chartArea, scales} = chart;
-      if (!scales.x || !chartArea) return;
-      const xPx = scales.x.getPixelForValue(S);
-      if (xPx < chartArea.left || xPx > chartArea.right) return;
+      if (!scales.y || !chartArea) return;
+      const yPx = scales.y.getPixelForValue(S);
+      if (yPx < chartArea.top || yPx > chartArea.bottom) return;
       ctx.save();
       ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255,200,74,0.75)';
+      ctx.strokeStyle = 'rgba(255,200,74,0.8)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
-      ctx.moveTo(xPx, chartArea.top);
-      ctx.lineTo(xPx, chartArea.bottom);
+      ctx.moveTo(chartArea.left, yPx);
+      ctx.lineTo(chartArea.right, yPx);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.font = '8px IBM Plex Mono, monospace';
-      ctx.fillStyle = 'rgba(255,200,74,0.85)';
-      ctx.textAlign = 'center';
-      ctx.fillText('$'+fmtAR(S,0), xPx, chartArea.top - 3);
+      ctx.fillStyle = 'rgba(255,200,74,0.9)';
+      ctx.textAlign = 'left';
+      ctx.fillText('$'+fmtAR(S,0), chartArea.left + 3, yPx - 3);
       ctx.restore();
     }
   };
+
+  // Datos: P&L en X, precio en Y — alineado verticalmente con TradingView
+  const payoffXY  = prices.map((p, i) => ({x: pnlVto[i],  y: p}));
+  const teoXY     = pnlTeo ? prices.map((p, i) => ({x: pnlTeo[i], y: p})) : null;
 
   if(esPLChartInst) esPLChartInst.destroy();
   esPLChartInst = new Chart(document.getElementById('esPLChart'), {
     type: 'line',
     plugins: [spotLinePlugin],
     data: {
-      labels: prices,
       datasets: [
         {
           label: 'Vencimiento',
-          data: pnlVto,
-          borderColor: '#00e5a8',
-          backgroundColor: (ctx) => {
-            const chart = ctx.chart;
-            const {ctx: c, chartArea, scales} = chart;
-            if (!chartArea || !scales.y) return 'rgba(0,229,168,0.08)';
-            const zeroY = scales.y.getPixelForValue(0);
-            const h = chartArea.height;
-            const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-            const frac = Math.max(0, Math.min(1, (zeroY - chartArea.top) / h));
-            grad.addColorStop(0, 'rgba(0,229,168,0.18)');
-            grad.addColorStop(frac, 'rgba(0,229,168,0.04)');
-            if (frac < 1) {
-              grad.addColorStop(frac, 'rgba(255,63,94,0.04)');
-              grad.addColorStop(1, 'rgba(255,63,94,0.14)');
+          data: payoffXY,
+          borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false,
+          segment: {
+            borderColor: ctx => {
+              const x0 = ctx.p0.parsed.x, x1 = ctx.p1.parsed.x;
+              if (x0 >= 0 && x1 >= 0) return '#00e5a8';
+              if (x0 <= 0 && x1 <= 0) return '#ff3f5e';
+              return '#ffc84a';
             }
-            return grad;
-          },
-          borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true,
+          }
         },
-        ...(showT && pnlTeo ? [{
+        ...(showT && teoXY ? [{
           label: `Teórico ${dias}d`,
-          data: pnlTeo,
-          borderColor: '#b39dff',
-          backgroundColor: 'transparent',
-          borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: false,
-          borderDash: [5, 3],
+          data: teoXY,
+          borderColor: '#b39dff', borderWidth: 1.5, pointRadius: 0,
+          tension: 0.2, fill: false, borderDash: [5, 3],
         }] : []),
-        {label:'Cero', data:prices.map(()=>0), borderColor:'rgba(92,112,144,0.35)', borderWidth:1, pointRadius:0, borderDash:[4,4], fill:false},
       ]
     },
     options: {
@@ -719,21 +714,23 @@ window.esRecalc = () => {
         legend: {display: false},
         tooltip: {
           callbacks: {
-            title: items => '$'+fmtAR(items[0].parsed.x, 0),
-            label: ctx => ctx.dataset.label === 'Cero' ? null : ctx.dataset.label+': '+(ctx.parsed.y>=0?'+':'')+fmtAR(ctx.parsed.y, 2),
-          },
-          filter: item => item.dataset.label !== 'Cero',
+            title: items => '$'+fmtAR(items[0].parsed.y, 0),
+            label: ctx => ctx.dataset.label+': '+(ctx.parsed.x>=0?'+':'')+fmtAR(ctx.parsed.x, 2),
+          }
         }
       },
       scales: {
         x: {
-          type: 'linear', min: minS, max: maxS,
-          ticks: {color:'#9dafc5', font:{size:8,family:'IBM Plex Mono'}, maxTicksLimit:10, callback: v=>'$'+fmtAR(v,0)},
-          grid: {color:'rgba(30,37,48,0.5)'},
+          type: 'linear',
+          position: 'center',
+          ticks: {color:'#9dafc5', font:{size:8}, maxTicksLimit:7, callback: v=>(v>=0?'+':'')+fmtAR(v,0)},
+          grid: {color:'rgba(30,37,48,0.4)'},
         },
         y: {
-          ticks: {color:'#9dafc5', font:{size:8}, callback: v=>(v>=0?'+':'')+fmtAR(v,0)},
-          grid: {color:'rgba(30,37,48,0.4)'},
+          type: 'linear', min: minS, max: maxS,
+          position: 'right',
+          ticks: {color:'#9dafc5', font:{size:8,family:'IBM Plex Mono'}, maxTicksLimit:10, callback: v=>'$'+fmtAR(v,0)},
+          grid: {color:'rgba(30,37,48,0.5)'},
         }
       }
     }
