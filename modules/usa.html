@@ -261,6 +261,18 @@
         style="padding:3px 10px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;transition:all .15s">
         🔍 Scan S&amp;P 500
       </button>
+      <!-- Add symbol (acciones tab only) -->
+      <div id="rrg-add-wrap" style="display:none;position:relative">
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+          <input id="rrg-add-input" type="text" placeholder="+ ticker USA…" autocomplete="off" autocapitalize="characters" spellcheck="false"
+            style="background:var(--bg2);border:none;outline:none;padding:3px 8px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text);width:100px;text-transform:uppercase"
+            oninput="rrgAddAutocomplete(this.value)"
+            onkeydown="if(event.key==='Enter')rrgAddSymbol();if(event.key==='Escape')rrgAddHideAc()">
+          <button onclick="rrgAddSymbol()"
+            style="padding:3px 7px;background:var(--bg3);border:none;border-left:1px solid var(--border);color:var(--cyan);cursor:pointer;font-size:11px;line-height:1">+</button>
+        </div>
+        <div id="rrg-add-ac" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:#0f1822;border:1px solid var(--border2);border-radius:5px;margin-top:3px;min-width:130px;max-height:160px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
+      </div>
     </div>
     <div style="font-size:9px;color:var(--text4)" id="rrg-meta">—</div>
   </div>
@@ -1338,7 +1350,111 @@ window.rrgSwitchTab = function(tab,btn){
   btn.classList.add('active');
   document.getElementById('rrg-title').textContent=
     tab==='sectores'?'ETFs de Sectores — S&P 500':'Acciones Individuales — S&P 500';
+  document.getElementById('rrg-add-wrap').style.display = tab==='acciones' ? '' : 'none';
   rrgRender(); rrgBuildLegend();
+};
+
+// ── Add symbol manually ────────────────────────────────────────
+let rrgAddCache = null; // cached S&P 500 symbol list
+
+async function rrgGetSymbolList() {
+  if (rrgAddCache) return rrgAddCache;
+  const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
+  const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
+  const r = await fetch(`${base}?select=symbol&fecha=eq.2024-01-02&order=symbol.asc&limit=600`, {headers:SBH});
+  if (!r.ok) return [];
+  const rows = await r.json();
+  rrgAddCache = rows.map(x=>x.symbol).filter(s=>s && s!=='SPY');
+  return rrgAddCache;
+}
+
+window.rrgAddAutocomplete = async function(val) {
+  const q = val.toUpperCase().trim();
+  const ac = document.getElementById('rrg-add-ac');
+  if (!q || q.length < 1) { ac.style.display='none'; return; }
+  const syms = await rrgGetSymbolList();
+  const matches = syms.filter(s => s.startsWith(q)).slice(0, 8);
+  if (!matches.length) { ac.style.display='none'; return; }
+  ac.style.display = '';
+  ac.innerHTML = matches.map(s => {
+    const alreadyIn = rrgData.acciones.some(d=>d.s===s) || rrgData.acciones_d.some(d=>d.s===s);
+    return `<div onclick="rrgAddPick('${s}')" style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;color:${alreadyIn?'var(--text4)':'var(--text)'};transition:background .1s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+      ${s}${alreadyIn?' <span style="color:var(--text4);font-size:8px">ya en gráfico</span>':''}
+    </div>`;
+  }).join('');
+};
+
+window.rrgAddPick = function(sym) {
+  document.getElementById('rrg-add-input').value = sym;
+  document.getElementById('rrg-add-ac').style.display = 'none';
+  rrgAddSymbol();
+};
+
+window.rrgAddHideAc = function() {
+  document.getElementById('rrg-add-ac').style.display = 'none';
+};
+
+window.rrgAddSymbol = async function() {
+  const inp = document.getElementById('rrg-add-input');
+  const sym = inp.value.toUpperCase().trim();
+  if (!sym) return;
+  rrgAddHideAc();
+
+  // Check already in list
+  if (rrgData.acciones.some(d=>d.s===sym)) {
+    inp.style.borderColor='var(--amber)'; setTimeout(()=>inp.style.borderColor='',1200);
+    return;
+  }
+
+  inp.disabled = true;
+  const meta = document.getElementById('rrg-meta');
+  const prevMeta = meta.textContent;
+  meta.textContent = `Cargando ${sym}…`;
+
+  try {
+    const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
+    const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
+    const since = new Date(); since.setDate(since.getDate()-420);
+    const sinceStr = since.toISOString().slice(0,10);
+
+    const [symRows, spyRows] = await Promise.all([
+      fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
+      fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
+    ]);
+
+    if (!symRows.length) {
+      meta.textContent = `${sym}: no encontrado en historico_precios`;
+      setTimeout(()=>meta.textContent=prevMeta, 2500);
+      return;
+    }
+
+    const spyMap    = rrgWeeklyMap(spyRows.map(r=>({date:r.fecha,close:r.close})));
+    const spyDayMap = rrgDailyMap(spyRows.map(r=>({date:r.fecha,close:r.close})));
+
+    const series  = symRows.map(r=>({date:r.fecha,close:r.close}));
+    const ptsW    = rrgCalcSymbol(rrgWeeklyMap(series), spyMap);
+    const ptsD    = rrgCalcSymbolDaily(rrgDailyMap(series), spyDayMap);
+
+    if (!ptsW || ptsW.length < 2) {
+      meta.textContent = `${sym}: insuficientes datos`;
+      setTimeout(()=>meta.textContent=prevMeta, 2500);
+      return;
+    }
+
+    const color = RRG_COLORS[rrgData.acciones.length % RRG_COLORS.length];
+    rrgData.acciones.push({s:sym, c:color, p:ptsW||[]});
+    rrgData.acciones_d.push({s:sym, c:color, p:ptsD||[]});
+
+    inp.value = '';
+    meta.textContent = prevMeta;
+    rrgRender(); rrgBuildLegend();
+  } catch(e) {
+    meta.textContent = `Error: ${e.message}`;
+    setTimeout(()=>meta.textContent=prevMeta, 3000);
+  } finally {
+    inp.disabled = false;
+    inp.focus();
+  }
 };
 
 window.rrgSwitchMode = function(mode,btn){
@@ -1379,16 +1495,18 @@ window.rrgScanSP500 = async function(){
     const SBH  = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
 
-    // 1. Get all distinct symbols in one request: fetch a single known date where all S&P500 symbols have data
-    const symResp = await fetch(`${base}?select=symbol&fecha=eq.2024-01-02&order=symbol.asc&limit=600`, {headers:SBH});
-    let allSyms = symResp.ok ? (await symResp.json()).map(r=>r.symbol).filter(s=>s && s!=='SPY') : [];
-
-    // If that date has no data, try 2024-01-03
+    // 1. Get all distinct symbols (reuse cache from autocomplete if available)
+    let allSyms = rrgAddCache ? [...rrgAddCache] : [];
     if (!allSyms.length) {
-      const r2 = await fetch(`${base}?select=symbol&fecha=eq.2024-01-03&order=symbol.asc&limit=600`, {headers:SBH});
-      allSyms = r2.ok ? (await r2.json()).map(r=>r.symbol).filter(s=>s && s!=='SPY') : [];
+      const symResp = await fetch(`${base}?select=symbol&fecha=eq.2024-01-02&order=symbol.asc&limit=600`, {headers:SBH});
+      allSyms = symResp.ok ? (await symResp.json()).map(r=>r.symbol).filter(s=>s && s!=='SPY') : [];
+      if (!allSyms.length) {
+        const r2 = await fetch(`${base}?select=symbol&fecha=eq.2024-01-03&order=symbol.asc&limit=600`, {headers:SBH});
+        allSyms = r2.ok ? (await r2.json()).map(r=>r.symbol).filter(s=>s && s!=='SPY') : [];
+      }
+      rrgAddCache = [...new Set(allSyms)];
+      allSyms = rrgAddCache;
     }
-    allSyms = [...new Set(allSyms)];
 
     if (!allSyms.length) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en historico_precios</div>'; return; }
 
@@ -1485,6 +1603,12 @@ window.rrgScanSP500 = async function(){
 
 window.addEventListener('resize',()=>{
   if(document.getElementById('uspanel-rrg')?.classList.contains('active')) rrgRender();
+});
+
+// Close autocomplete on outside click
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('rrg-add-wrap');
+  if (wrap && !wrap.contains(e.target)) rrgAddHideAc();
 });
 
 // ── Init ──
