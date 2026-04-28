@@ -16,7 +16,7 @@
 .es-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text);outline:none;transition:border-color .15s}
 .es-input:focus{border-color:var(--green)}
 .es-select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);outline:none}
-.es-leg-row{display:grid;grid-template-columns:90px 70px 100px 90px 60px 28px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(30,37,48,.6)}
+.es-leg-row{display:grid;grid-template-columns:80px 60px 90px 80px 52px 22px;gap:5px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(30,37,48,.6)}
 .es-leg-row:last-of-type{border-bottom:none}
 .es-leg-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
 .es-metric{background:var(--bg3);border-radius:5px;padding:8px 10px;text-align:center}
@@ -78,41 +78,25 @@
           </div>
         </div>
         <!-- Header cols -->
-        <div style="display:grid;grid-template-columns:90px 70px 100px 90px 60px 28px;gap:5px;padding:4px 14px;border-bottom:1px solid var(--border)">
+        <div style="display:grid;grid-template-columns:80px 60px 90px 80px 52px 22px;gap:5px;padding:4px 14px;border-bottom:1px solid var(--border)">
           <div class="es-leg-lbl">Tipo</div><div class="es-leg-lbl">Opción</div>
           <div class="es-leg-lbl">Strike</div><div class="es-leg-lbl">Vto</div>
           <div class="es-leg-lbl">Cant.</div><div></div>
         </div>
         <div style="padding:6px 14px" id="esLegsContainer"></div>
-        <div style="padding:6px 14px;border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);display:flex;justify-content:space-between">
+        <div style="padding:6px 14px;border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);display:flex;justify-content:space-between;align-items:center">
           <span id="esNombreEstrategia">—</span>
-          <span>Costo neto: <span id="esCostoNetoVal" style="color:var(--text2)">—</span></span>
+          <span style="display:flex;gap:10px;align-items:center">
+            <span>GGAL <span id="esSpotBar" style="color:var(--green);font-weight:500">—</span></span>
+            <span>Tasa <span id="esTasaBar" style="color:var(--blue)">—</span></span>
+            <span>Costo neto: <span id="esCostoNetoVal" style="color:var(--text2)">—</span></span>
+          </span>
         </div>
-      </div>
-
-      <!-- Parámetros -->
-      <div class="es-panel">
-        <div class="es-panel-head"><div class="es-panel-title">Parámetros</div></div>
-        <div class="es-panel-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-            <div class="es-field">
-              <div class="es-field-label">Spot GGAL</div>
-              <input class="es-input" type="number" id="esSpotInput" value="6120" oninput="esRecalc()">
-            </div>
-            <div class="es-field">
-              <div class="es-field-label">Option size</div>
-              <input class="es-input" type="number" id="esOptSize" value="100" oninput="esRecalc()">
-            </div>
-            <div class="es-field">
-              <div class="es-field-label">Tasa anual (%)</div>
-              <input class="es-input" type="number" id="esTasa" value="70" oninput="esRecalc()">
-            </div>
-            <div class="es-field">
-              <div class="es-field-label">Rango gráfico (%)</div>
-              <input class="es-input" type="number" id="esRango" value="30" oninput="esRecalc()">
-            </div>
-          </div>
-        </div>
+        <!-- Hidden inputs para compatibilidad con esRecalc -->
+        <input id="esSpotInput" type="hidden" value="6120">
+        <input id="esOptSize"   type="hidden" value="100">
+        <input id="esTasa"      type="hidden" value="70">
+        <input id="esRango"     type="hidden" value="25">
       </div>
 
       <!-- Métricas -->
@@ -202,10 +186,8 @@
             <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>Teórico</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;height:440px">
-          <div id="tvggal_es" style="position:relative;border-right:1px solid var(--border2)"></div>
-          <div style="position:relative;padding:8px"><canvas id="esPLChart"></canvas></div>
-        </div>
+        <div id="tvggal_es" style="position:relative;height:230px;border-bottom:1px solid var(--border2)"></div>
+        <div style="position:relative;padding:6px 10px;height:190px"><canvas id="esPLChart"></canvas></div>
         <div style="padding:6px 14px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">
           Break evens: <span id="esBreakEvens2" style="color:var(--amber)">—</span>
           &nbsp;·&nbsp; Máx gan: <span id="esMaxGan2" style="color:var(--green)">—</span>
@@ -338,12 +320,16 @@ async function esLoad(){
     esSpotVal = Number(spotRows[0].last);
     document.getElementById('esSpotDisplay').textContent = '$'+fmtAR(esSpotVal);
     document.getElementById('esSpotInput').value = esSpotVal;
+    const sb = document.getElementById('esSpotBar');
+    if(sb) sb.textContent = '$'+fmtAR(esSpotVal);
   }
   if(caucRows?.length){
     const caucTna = caucRows.reduce((s,r)=>s+Number(r.last||0),0)/caucRows.length;
     if(caucTna>0){
       const tasaEl = document.getElementById('esTasa');
-      if(tasaEl && !tasaEl.dataset.userEdited) tasaEl.value = caucTna.toFixed(2);
+      if(tasaEl) tasaEl.value = caucTna.toFixed(2);
+      const tb = document.getElementById('esTasaBar');
+      if(tb) tb.textContent = caucTna.toFixed(1)+'%';
     }
   }
   if(optRows?.length){
@@ -516,19 +502,23 @@ window.esSliderChange = () => {
 };
 
 window.esRecalc = () => {
-  console.log('esRecalc called, legs:', esLegs.length, JSON.stringify(esLegs));
-  if(!esLegs.length) { console.log('no legs, returning'); return; }
+  if(!esLegs.length) return;
   const S      = Number(document.getElementById('esSpotInput')?.value)||esSpotVal;
   const r      = (Number(document.getElementById('esTasa')?.value)||70)/100;
-  const rango  = (Number(document.getElementById('esRango')?.value)||30)/100;
   const optSz  = Number(document.getElementById('esOptSize')?.value)||100;
   const dias   = Number(document.getElementById('esDiasSlider')?.value)||32;
   const volAdj = Number(document.getElementById('esVolSlider')?.value||0)/100;
   const showT  = document.getElementById('esShowTeorico')?.checked||false;
-  console.log('S:', S, 'r:', r, 'optSz:', optSz);
   const T_teo  = dias/365;
 
-  const minS = S*(1-rango), maxS = S*(1+rango);
+  // Rango automático basado en strikes de las patas
+  const strikePrices = esLegs.map(l=>l.strike).filter(s=>s>0);
+  const minK = strikePrices.length ? Math.min(...strikePrices) : S;
+  const maxK = strikePrices.length ? Math.max(...strikePrices) : S;
+  const spread = Math.max(maxK - minK, S * 0.06);
+  const pad = spread * 0.9;
+  const minS = Math.max(minK - pad, S * 0.55);
+  const maxS = Math.min(maxK + pad, S * 1.45);
   const steps = 200;
   const prices = Array.from({length:steps+1},(_,i)=>minS+(maxS-minS)*i/steps);
 
@@ -621,15 +611,6 @@ window.esRecalc = () => {
   // Línea cero
   datasets.push({label:'Cero',data:prices.map(()=>0),borderColor:'rgba(92,112,144,0.4)',borderWidth:1,pointRadius:0,borderDash:[4,4],fill:false});
 
-  // Gráfico payoff HORIZONTAL (precio en Y, P&L en X)
-  // Muestrear a ~60 puntos para que las barras sean visibles
-  const barStep = Math.max(1, Math.floor(prices.length / 60));
-  const barPrices  = prices.filter((_,i) => i % barStep === 0);
-  const payoffs    = pnlVto.filter((_,i) => i % barStep === 0);
-  const teoricos   = pnlTeo ? pnlTeo.filter((_,i) => i % barStep === 0) : null;
-
-  const priceRange = window._esPriceRange || { min: barPrices[0], max: barPrices[barPrices.length-1] };
-
   // TradingView GGAL (solo una vez)
   if (!window._tvGGALLoaded) {
     window._tvGGALLoaded = true;
@@ -667,48 +648,92 @@ window.esRecalc = () => {
     }
   }
 
+  // Plugin: línea vertical en el spot actual
+  const spotLinePlugin = {
+    id: 'spotLine',
+    afterDraw(chart) {
+      const {ctx, chartArea, scales} = chart;
+      if (!scales.x || !chartArea) return;
+      const xPx = scales.x.getPixelForValue(S);
+      if (xPx < chartArea.left || xPx > chartArea.right) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255,200,74,0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.moveTo(xPx, chartArea.top);
+      ctx.lineTo(xPx, chartArea.bottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '8px IBM Plex Mono, monospace';
+      ctx.fillStyle = 'rgba(255,200,74,0.85)';
+      ctx.textAlign = 'center';
+      ctx.fillText('$'+fmtAR(S,0), xPx, chartArea.top - 3);
+      ctx.restore();
+    }
+  };
+
   if(esPLChartInst) esPLChartInst.destroy();
   esPLChartInst = new Chart(document.getElementById('esPLChart'), {
-    type: 'bar',
+    type: 'line',
+    plugins: [spotLinePlugin],
     data: {
-      labels: barPrices.map(p => '$'+p.toFixed(2)),
+      labels: prices,
       datasets: [
         {
           label: 'Vencimiento',
-          data: payoffs,
-          backgroundColor: payoffs.map(v => v >= 0 ? 'rgba(0,229,168,0.7)' : 'rgba(255,63,94,0.7)'),
-          borderColor: payoffs.map(v => v >= 0 ? '#00e5a8' : '#ff3f5e'),
-          borderWidth: 1
+          data: pnlVto,
+          borderColor: '#00e5a8',
+          backgroundColor: (ctx) => {
+            const chart = ctx.chart;
+            const {ctx: c, chartArea, scales} = chart;
+            if (!chartArea || !scales.y) return 'rgba(0,229,168,0.08)';
+            const zeroY = scales.y.getPixelForValue(0);
+            const h = chartArea.height;
+            const grad = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            const frac = Math.max(0, Math.min(1, (zeroY - chartArea.top) / h));
+            grad.addColorStop(0, 'rgba(0,229,168,0.18)');
+            grad.addColorStop(frac, 'rgba(0,229,168,0.04)');
+            if (frac < 1) {
+              grad.addColorStop(frac, 'rgba(255,63,94,0.04)');
+              grad.addColorStop(1, 'rgba(255,63,94,0.14)');
+            }
+            return grad;
+          },
+          borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true,
         },
-        ...(teoricos ? [{
-          label: 'Teórico',
-          data: teoricos,
-          type: 'line',
-          borderColor: 'rgba(138,43,226,0.8)',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          fill: false
-        }] : [])
+        ...(showT && pnlTeo ? [{
+          label: `Teórico ${dias}d`,
+          data: pnlTeo,
+          borderColor: '#b39dff',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 0, tension: 0.2, fill: false,
+          borderDash: [5, 3],
+        }] : []),
+        {label:'Cero', data:prices.map(()=>0), borderColor:'rgba(92,112,144,0.35)', borderWidth:1, pointRadius:0, borderDash:[4,4], fill:false},
       ]
     },
     options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
+      responsive: true, maintainAspectRatio: false, animation: false,
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => (ctx.parsed.x >= 0 ? '+' : '') + ctx.parsed.x.toFixed(2) } }
+        legend: {display: false},
+        tooltip: {
+          callbacks: {
+            title: items => '$'+fmtAR(items[0].parsed.x, 0),
+            label: ctx => ctx.dataset.label === 'Cero' ? null : ctx.dataset.label+': '+(ctx.parsed.y>=0?'+':'')+fmtAR(ctx.parsed.y, 2),
+          },
+          filter: item => item.dataset.label !== 'Cero',
+        }
       },
       scales: {
-        y: {
-          // Escala categórica: las labels ya están formateadas como '$4580.50'
-          ticks: { color:'#9dafc5', font:{size:8,family:'IBM Plex Mono'}, maxTicksLimit:14, autoSkip:true },
-          grid: { color: 'rgba(30,37,48,0.5)' }
-        },
         x: {
-          ticks: { color:'#9dafc5', font:{size:8}, callback: v => (v>=0?'+':'')+v.toFixed(0) },
-          grid: { color:'rgba(30,37,48,0.4)' }
+          type: 'linear', min: minS, max: maxS,
+          ticks: {color:'#9dafc5', font:{size:8,family:'IBM Plex Mono'}, maxTicksLimit:10, callback: v=>'$'+fmtAR(v,0)},
+          grid: {color:'rgba(30,37,48,0.5)'},
+        },
+        y: {
+          ticks: {color:'#9dafc5', font:{size:8}, callback: v=>(v>=0?'+':'')+fmtAR(v,0)},
+          grid: {color:'rgba(30,37,48,0.4)'},
         }
       }
     }
@@ -826,6 +851,17 @@ window.esPosLoad = async () => {
   const abiertas = ops.filter(o=>o.estado==='abierta');
   const cerradas = ops.filter(o=>o.estado==='cerrada');
 
+  // Obtener precios de mercado actuales para todos los símbolos en posiciones abiertas
+  const allSymbols = [...new Set(abiertas.flatMap(op=>(op.patas||[]).map(l=>l.symbol).filter(Boolean)))];
+  let rtPriceMap = {};
+  if (allSymbols.length) {
+    const rtRows = await sb('opciones_rt', `symbol=in.(${allSymbols.join(',')})&select=symbol,last,bid`);
+    (rtRows||[]).forEach(r => {
+      const p = Number(r.last||0) || Number(r.bid||0);
+      if (p > 0) rtPriceMap[r.symbol] = p;
+    });
+  }
+
   // Totales griegos abiertas
   let totDelta=0,totGamma=0,totTheta=0,totVega=0,totCapital=0,totPnL=0;
   abiertas.forEach(op=>{
@@ -840,7 +876,9 @@ window.esPosLoad = async () => {
       totVega +=sign*bsVega(esSpotVal,K,T_now,r,iv)*leg.qty*optSz;
       const costoLeg=(leg.action==='buy'?leg.prima:-leg.prima)*leg.qty*optSz;
       totCapital+=costoLeg>0?costoLeg:0;
-      const currentPrice=bsPrice(esSpotVal,K,T_now,r,iv,leg.kind==='call'?'call':'put');
+      // Precio actual: mercado si disponible, BS como fallback
+      const rtPrice = leg.symbol ? rtPriceMap[leg.symbol] : null;
+      const currentPrice = rtPrice ?? bsPrice(esSpotVal,K,T_now,r,iv,leg.kind==='call'?'call':'put');
       totPnL+=sign*(currentPrice-leg.prima)*leg.qty*optSz;
     });
   });
@@ -864,7 +902,8 @@ window.esPosLoad = async () => {
         op.patas?.forEach(leg=>{
           const K=leg.strike,T=calcT(leg.vto),r=0.70;
           const iv=ivBS(leg.prima,esSpotVal,K,T,r,leg.kind==='call'?'call':'put');
-          const cur=bsPrice(esSpotVal,K,T,r,iv,leg.kind==='call'?'call':'put');
+          const rtP = leg.symbol ? rtPriceMap[leg.symbol] : null;
+          const cur = rtP ?? bsPrice(esSpotVal,K,T,r,iv,leg.kind==='call'?'call':'put');
           pnlOp+=(leg.action==='buy'?1:-1)*(cur-leg.prima)*leg.qty*optSz;
         });
         let opDelta=0,opTheta=0;
@@ -881,7 +920,7 @@ window.esPosLoad = async () => {
           <span style="color:var(--text);font-weight:500">${op.nombre||'—'}</span>
           <span style="color:var(--text2);font-size:9px">${patas}</span>
           <span>$${fmtAR(Math.abs(entrada),2)}</span>
-          <span style="color:${pnlOp>=0?'var(--green)':'var(--red)'};font-weight:500">$${fmtAR(pnlOp,2)}</span>
+          <span style="color:${pnlOp>=0?'var(--green)':'var(--red)'};font-weight:500" title="${op.patas?.some(l=>l.symbol&&rtPriceMap[l.symbol])?'Precio de mercado':'Precio teórico BS'}">$${fmtAR(pnlOp,2)} <span style="font-size:8px;opacity:0.6">${op.patas?.some(l=>l.symbol&&rtPriceMap[l.symbol])?'RT':'BS'}</span></span>
           <span style="color:var(--blue)">${opDelta.toFixed(2)}</span>
           <span style="color:var(--red)">${'$'+fmtAR(opTheta,2)}</span>
           <button class="btn btn-outline" style="font-size:8px;padding:3px 8px" onclick="esCerrarOp('${op.id}')">Cerrar</button>
