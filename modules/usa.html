@@ -249,6 +249,10 @@
         <button class="rrg-mode-btn stab active" onclick="rrgSwitchMode('weekly',this)">Semanal</button>
         <button class="rrg-mode-btn stab"        onclick="rrgSwitchMode('daily',this)">Diario</button>
       </div>
+      <button id="rrg-filter-btn" onclick="rrgSwitchFilter(this)"
+        style="padding:3px 10px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;transition:all .15s">
+        ↑ Mejorando
+      </button>
     </div>
     <div style="font-size:9px;color:var(--text4)" id="rrg-meta">—</div>
   </div>
@@ -992,12 +996,25 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
 let rrgLoaded  = false;
 let rrgTab     = 'sectores';
 let rrgMode    = 'weekly'; // 'weekly' | 'daily'
+let rrgFilter  = 'all';   // 'all' | 'improving'
 let rrgData    = {sectores:[], acciones:[], sectores_d:[], acciones_d:[]};
 let rrgRange   = {min:95, max:106};
 
 const RRG_SECTORS  = ['XLK','XLF','XLE','XLV','XLY','XLP','XLI','XLB','XLRE','XLU','XLC'];
-const RRG_ACCIONES = ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','TSLA','JPM','V','UNH','AVGO','MA'];
-const RRG_COLORS   = ['#38c8ff','#00e5a8','#ffc84a','#ff3f5e','#a855f7','#fb923c','#f472b6','#34d399','#60a5fa','#facc15','#e879f9','#818cf8'];
+const RRG_ACCIONES = [
+  'AAPL','MSFT','NVDA','GOOGL','META','AMZN','AVGO','ORCL','AMD','NFLX','CRM',
+  'JPM','V','MA','BAC','GS',
+  'UNH','LLY','JNJ','ABBV',
+  'TSLA','COST','WMT','HD',
+  'XOM','CVX',
+];
+const RRG_COLORS = [
+  '#38c8ff','#00e5a8','#ffc84a','#ff3f5e','#a855f7','#fb923c',
+  '#f472b6','#34d399','#60a5fa','#facc15','#e879f9','#818cf8',
+  '#ef4444','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ec4899',
+  '#14b8a6','#f97316','#84cc16','#6366f1','#06b6d4','#d946ef',
+  '#22c55e','#eab308',
+];
 const RRG_PAD      = {top:36, right:44, bottom:46, left:52};
 const RRG_CENTER   = 100;
 const RRG_TAIL     = 8;
@@ -1203,8 +1220,18 @@ function rrgRender() {
   ctx.save(); ctx.translate(13,RRG_PAD.top+ph/2); ctx.rotate(-Math.PI/2);
   ctx.fillText('RS-Momentum →',0,0); ctx.restore();
 
-  // Symbols
-  rrgData[rrgKey].forEach(({s,c,p})=>{
+  // Symbols (filtro mejorando si activo)
+  const rrgVisible = rrgData[rrgKey].filter(({p})=>{
+    if(rrgFilter==='all') return true;
+    if(!p.length) return false;
+    const [r,m]=p[p.length-1];
+    // Improving: ratio<100, momentum>=100
+    if(r<RRG_CENTER&&m>=RRG_CENTER) return true;
+    // Lagging pero con momentum subiendo (camino a Improving)
+    if(r<RRG_CENTER&&m<RRG_CENTER&&p.length>=2) return m>p[p.length-2][1];
+    return false;
+  });
+  rrgVisible.forEach(({s,c,p})=>{
     if(p.length<2) return;
     const n=p.length, rgb=parseInt(c.slice(1),16);
     const r=(rgb>>16)&255,g=(rgb>>8)&255,b=rgb&255;
@@ -1236,11 +1263,19 @@ function rrgBuildLegend() {
   const el=document.getElementById('rrg-legend'); if(!el) return;
   el.innerHTML='';
   const rrgKey = rrgMode === 'daily' ? rrgTab+'_d' : rrgTab;
-  rrgData[rrgKey].forEach(({s,c,p})=>{
-    if(!p.length) return;
+  const allEntries = rrgData[rrgKey].filter(({p})=>p.length);
+  // Ordenar: Improving primero, luego Leading, Weakening, Lagging
+  const qOrder = {Improving:0,Leading:1,Weakening:2,Lagging:3};
+  allEntries.sort((a,b)=>{
+    const qa=rrgQ(a.p[a.p.length-1][0],a.p[a.p.length-1][1]);
+    const qb=rrgQ(b.p[b.p.length-1][0],b.p[b.p.length-1][1]);
+    return (qOrder[qa.name]??4)-(qOrder[qb.name]??4);
+  });
+  allEntries.forEach(({s,c,p})=>{
     const last=p[p.length-1];
     const {name,color}=rrgQ(last[0],last[1]);
-    el.innerHTML+=`<div style="display:flex;align-items:center;gap:5px;font-size:9px">
+    const dimmed = rrgFilter==='improving' && name!=='Improving' && !(last[0]<RRG_CENTER&&last[1]<RRG_CENTER&&p.length>=2&&last[1]>p[p.length-2][1]);
+    el.innerHTML+=`<div style="display:flex;align-items:center;gap:5px;font-size:9px;opacity:${dimmed?.35:1}">
       <div style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0"></div>
       <span style="color:#a8bdd0">${s}</span>
       <span style="color:${color};font-size:8px">${name}</span>
@@ -1295,6 +1330,15 @@ window.rrgSwitchMode = function(mode,btn){
   btn.classList.add('active');
   const bm = document.getElementById('rrg-benchmark');
   if(bm) bm.textContent = mode==='weekly' ? 'EMA 10/26 · Cola 8w' : 'EMA 5/13 · Cola 5d';
+  rrgRender(); rrgBuildLegend();
+};
+
+window.rrgSwitchFilter = function(btn){
+  rrgFilter = rrgFilter==='all' ? 'improving' : 'all';
+  const on = rrgFilter==='improving';
+  btn.style.background    = on ? 'rgba(56,200,255,.15)' : 'var(--bg2)';
+  btn.style.borderColor   = on ? '#38c8ff' : 'var(--border)';
+  btn.style.color         = on ? '#38c8ff' : 'var(--text3)';
   rrgRender(); rrgBuildLegend();
 };
 
