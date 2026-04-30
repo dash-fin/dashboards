@@ -317,13 +317,17 @@ async function sbDelete(table, params){
 // ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
-async function alCargarPreciosIniciales() {
+async function alCargarPreciosIniciales(evaluar = false) {
   try {
     const [arsRows, usaRows, optRows] = await Promise.all([
       window.sbAll('mercado', 'settlement=eq.24hs&select=symbol,last').catch(()=>[]),
       window.sbAll('mercado_usa', 'select=symbol,last').catch(()=>[]),
       window.sb('opciones_rt', 'select=symbol,last,bid,ask&limit=500').catch(()=>[])
     ]);
+
+    // Snapshot de precios anteriores para detectar cruces si evaluar=true
+    const prevSnapshot = evaluar ? {...AL.prevPrices} : null;
+
     [...(arsRows||[]), ...(usaRows||[])].forEach(r => {
       const sym = alCleanTicker(r.symbol);
       if(sym && r.last != null) AL.prevPrices[sym] = Number(r.last);
@@ -333,9 +337,24 @@ async function alCargarPreciosIniciales() {
       const price = Number(r.last||0) || Number(r.bid||0);
       if(sym && price) AL.prevPrices[sym] = price;
     });
+
+    // Fallback: evaluar alertas precio para tickers cuyo precio cambió
+    if(evaluar && prevSnapshot){
+      const alertTickers = new Set(
+        AL.alerts.filter(a => a.activa && a.tipo === 'precio').map(a => alCleanTicker(a.ticker))
+      );
+      for(const sym of alertTickers){
+        const cur  = AL.prevPrices[sym];
+        const prev = prevSnapshot[sym];
+        if(cur !== undefined && prev !== undefined && cur !== prev){
+          await alEvaluarAlertas(sym, cur, prev, 0, 0);
+        }
+      }
+    }
+
     alRenderActivas();
   } catch(e) {
-    console.error("Error cargando precios iniciales:", e);
+    console.error("Error cargando precios:", e);
   }
 }
 
@@ -349,8 +368,8 @@ async function alInit(){
   alRtConnectUsa();
   alRtConnectOpt();
   alFormPreview();
-  // Refresh visual de precios cada 10s — NO dispara alertas, solo actualiza tabla
-  setInterval(alCargarPreciosIniciales, 10000);
+  // Refresh cada 10s: visual + fallback de evaluación (cooldown evita doble disparo si RT también funciona)
+  setInterval(() => alCargarPreciosIniciales(true), 10000);
 }
 
 alInit();
@@ -481,7 +500,7 @@ function alRtConnectOpt(){
   if(AL.rtChannelOpt){ try{ AL.rtChannelOpt.unsubscribe(); }catch(e){} }
   AL.rtChannelOpt = window.sbAuth
     .channel('opciones-rt-alertas')
-    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'opciones_rt' }, async payload => {
+    .on('postgres_changes', { event:'*', schema:'public', table:'opciones_rt' }, async payload => {
       const row = payload.new;
       if(!row) return;
       const sym = alCleanTicker(row.symbol);
