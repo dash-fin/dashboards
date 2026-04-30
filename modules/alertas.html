@@ -349,6 +349,8 @@ async function alInit(){
   alRtConnectUsa();
   alRtConnectOpt();
   alFormPreview();
+  // Refresh visual de precios cada 10s — NO dispara alertas, solo actualiza tabla
+  setInterval(alCargarPreciosIniciales, 10000);
 }
 
 alInit();
@@ -396,7 +398,7 @@ function alRtConnect(){
 }
 
 // Evaluador compartido entre mercado ARS, USA y opciones
-async function alEvaluarAlertas(sym, cur, change, turnover){
+async function alEvaluarAlertas(sym, cur, prev, change, turnover){
   const alertasDelTicker = AL.alerts.filter(a => a.activa && alCleanTicker(a.ticker) === sym);
   if(!alertasDelTicker.length) return;
 
@@ -405,7 +407,7 @@ async function alEvaluarAlertas(sym, cur, change, turnover){
 
   for(const alerta of alertasDelTicker){
     let disparado = false, condDesc = '';
-    if(alerta.tipo === 'precio')     [disparado, condDesc] = evalPrecio(alerta, cur, cur);
+    if(alerta.tipo === 'precio')     [disparado, condDesc] = evalPrecio(alerta, cur, prev);
     else if(alerta.tipo === 'ma')    [disparado, condDesc] = await evalMA(alerta, sym);
     else if(alerta.tipo === 'variacion') [disparado, condDesc] = evalVariacion(alerta, change);
     else if(alerta.tipo === 'volumen')   [disparado, condDesc] = evalVolumen(alerta, turnover);
@@ -448,8 +450,9 @@ async function alOnMercadoUpdate(payload){
   const tsStr = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   const krtEl = document.getElementById('al-kpi-rt');
   if(krtEl) krtEl.textContent = sym + ' ' + tsStr.slice(0,5);
+  const prev = AL.prevPrices[sym];
   AL.prevPrices[sym] = cur;
-  await alEvaluarAlertas(sym, cur, Number(row.change||0), Number(row.turnover||0));
+  await alEvaluarAlertas(sym, cur, prev, Number(row.change||0), Number(row.turnover||0));
   alRenderActivas();
 }
 
@@ -463,8 +466,9 @@ function alRtConnectUsa(){
       const sym = alCleanTicker(row.symbol);
       const cur = Number(row.last);
       if(!sym || isNaN(cur)) return;
+      const prev = AL.prevPrices[sym];
       AL.prevPrices[sym] = cur;
-      await alEvaluarAlertas(sym, cur, Number(row.change_pct||row.change||0), 0);
+      await alEvaluarAlertas(sym, cur, prev, Number(row.change_pct||row.change||0), 0);
       alRenderActivas();
     })
     .subscribe(status => {
@@ -483,8 +487,9 @@ function alRtConnectOpt(){
       const sym = alCleanTicker(row.symbol);
       const price = Number(row.last||0) || Number(row.bid||0);
       if(!sym || !price) return;
+      const prev = AL.prevPrices[sym];
       AL.prevPrices[sym] = price;
-      await alEvaluarAlertas(sym, price, 0, 0);
+      await alEvaluarAlertas(sym, price, prev, 0, 0);
       alRenderActivas();
     })
     .subscribe(status => {
@@ -517,15 +522,18 @@ function evalPrecio(a, cur, prev){
   const val = a.params.valor;
   const dir = a.params.dir;
   let ok = false;
-  
-  if(dir === 'gt' || dir === 'cross_up') ok = cur >= val;
-  if(dir === 'lt' || dir === 'cross_dn') ok = cur <= val;
+
+  if(dir === 'gt') ok = cur >= val;
+  if(dir === 'lt') ok = cur <= val;
+  // cross: requiere precio anterior conocido y que haya cruzado el umbral
+  if(dir === 'cross_up') ok = prev !== undefined && prev < val && cur >= val;
+  if(dir === 'cross_dn') ok = prev !== undefined && prev > val && cur <= val;
 
   const labels = {
     gt:`superó $${fmtAR(val,2)}`,
     lt:`bajó de $${fmtAR(val,2)}`,
-    cross_up:`↑ superó $${fmtAR(val,2)}`,
-    cross_dn:`↓ bajó de $${fmtAR(val,2)}`
+    cross_up:`↑ cruzó hacia arriba $${fmtAR(val,2)}`,
+    cross_dn:`↓ cruzó hacia abajo $${fmtAR(val,2)}`
   };
   return [ok, `Precio ${labels[dir]||dir}`];
 }
