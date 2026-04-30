@@ -618,18 +618,20 @@ function pfCalc(pos) {
 
 // ── KPIs con opciones parcheados (se llama después de pfRenderOpciones) ──
 function pfPatchOpsKpis() {
+  const opsUsd = isNaN(pfOpsUsdPnl) ? 0 : pfOpsUsdPnl;
   const fmt = v => 'U$S '+Math.round(v).toLocaleString('es-AR');
-  const totAct = pfBaseAct + pfOpsUsdPnl;
+  const totAct = pfBaseAct + opsUsd;
   document.getElementById('pfk-actual').textContent = fmt(totAct);
-  const ganTotal    = pfBaseGan + pfOpsUsdPnl + pfGanRealizada;
+  const ganTotal    = pfBaseGan + opsUsd + pfGanRealizada;
   const ganTotalPct = pfBaseInv > 0 ? ganTotal / pfBaseInv : null;
   const sign = ganTotal>=0?'+':'';
   document.getElementById('pfk-gain').textContent     = sign+fmt(ganTotal);
   document.getElementById('pfk-gain-pct').textContent = ganTotalPct!=null?(sign+(ganTotalPct*100).toFixed(2)+'%'):'—';
   document.getElementById('pfk-gain-box').style.setProperty('--accent', ganTotal>=0?'var(--green)':'var(--red)');
+  const opsLabel = isNaN(pfOpsUsdPnl) ? '— (sin precio spot)' : `${opsUsd>=0?'+':''}U$S ${Math.round(opsUsd).toLocaleString('es-AR')}`;
   document.getElementById('pfk-gain').title =
     `No realizada (acciones/bonos): ${pfBaseGan>=0?'+':''}U$S ${Math.round(pfBaseGan).toLocaleString('es-AR')}\n`
-    + `Opciones: ${pfOpsUsdPnl>=0?'+':''}U$S ${Math.round(pfOpsUsdPnl).toLocaleString('es-AR')}\n`
+    + `Opciones: ${opsLabel}\n`
     + `Realizada: ${pfGanRealizada>=0?'+':''}U$S ${Math.round(pfGanRealizada).toLocaleString('es-AR')}`;
 }
 
@@ -912,24 +914,31 @@ async function pfFetchOpsData() {
 
   let totPnL = 0;
   const rows = (ops||[]).map(op=>{
-    const optSz = op.patas?.[0]?.option_size||100;
+    const optSz = Number(op.patas?.[0]?.option_size)||100;
     let pnl=0;
     const legRows = (op.patas||[]).map(leg=>{
-      const K=leg.strike, tipo=leg.kind==='call'?'call':'put';
-      const key=`${tipo}_${K}`;
-      let curPrice = rtIdx[key] || 0;
+      const K     = Number(leg.strike) || 0;
+      const prima = Number(leg.prima)  || 0;
+      const qty   = Number(leg.qty)    || 0;
+      const tipo  = leg.kind==='call'?'call':'put';
+      const key   = `${tipo}_${K}`;
+      let curPrice = Number(rtIdx[key]) || 0;
       let src = curPrice ? 'RT' : 'BS';
-      if(!curPrice){
+      if(!curPrice && S > 0 && K > 0){
         const T=_T(leg.vto);
-        const iv=_iv(leg.prima,S,K,T,0.70,tipo);
-        curPrice=_bsP(S,K,T,0.70,iv,tipo);
+        if(T > 0){
+          const iv=_iv(prima,S,K,T,0.70,tipo);
+          const bs=_bsP(S,K,T,0.70,iv,tipo);
+          if(!isNaN(bs) && bs >= 0) curPrice = bs;
+        }
+        src = 'BS';
       }
-      const legPnl = (leg.action==='buy'?1:-1)*(curPrice-leg.prima)*leg.qty*optSz;
+      const legPnl = (leg.action==='buy'?1:-1)*(curPrice-prima)*qty*optSz;
       pnl += legPnl;
-      return { leg, curPrice, legPnl, src };
+      return { leg: {...leg, prima, qty, strike:K}, curPrice, legPnl, src };
     });
     totPnL+=pnl;
-    const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz);
+    const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?Number(l.prima)*Number(l.qty):-Number(l.prima)*Number(l.qty)),0)*optSz);
     return{op,pnl,entrada,legRows};
   });
 
@@ -971,9 +980,9 @@ function pfBuildOpsTableHTML(rows, withClose) {
         return `<tr style="border-bottom:1px solid rgba(30,42,56,.3)">
           ${firstCell}
           <td style="padding:5px 10px;font-size:9px">${pataDesc}</td>
-          <td style="padding:5px 10px;text-align:right;color:var(--text3)">$${leg.prima?.toFixed(2)}</td>
+          <td style="padding:5px 10px;text-align:right;color:var(--text3)">${leg.prima>0?'$'+leg.prima.toFixed(2):'—'}</td>
           <td style="padding:5px 10px;text-align:right">${curPrice>0?'$'+curPrice.toFixed(2):'—'}${srcBadge}</td>
-          <td style="padding:5px 10px;text-align:right;color:${lc};font-weight:600">${legPnl>=0?'+':''}$${Math.round(legPnl).toLocaleString('es-AR')}</td>
+          <td style="padding:5px 10px;text-align:right;color:${lc};font-weight:600">${isNaN(legPnl)?'—':(legPnl>=0?'+':'')+'$'+Math.round(legPnl).toLocaleString('es-AR')}</td>
         </tr>`;
       }).join('');
       return legHtml;
@@ -993,11 +1002,18 @@ async function pfRenderOpciones() {
       pfOpsUsdPnl = 0; pfPatchOpsKpis();
       return;
     }
-    pfOpsUsdPnl = pfMep && pfMep > 0 ? totPnL / pfMep : (pfOpsSpot > 0 ? totPnL / pfOpsSpot : 0);
+    const pnlArs = isNaN(totPnL) ? null : totPnL;
+    pfOpsUsdPnl = pnlArs != null
+      ? (pfMep && pfMep > 0 ? pnlArs / pfMep : (pfOpsSpot > 0 ? pnlArs / pfOpsSpot : NaN))
+      : NaN;
     pfPatchOpsKpis();
-    const sign=totPnL>=0?'+':'';
-    elTotal.textContent=sign+'$'+Math.round(totPnL).toLocaleString('es-AR');
-    elTotal.style.color=totPnL>=0?'var(--green)':'var(--red)';
+    if(pnlArs == null) {
+      elTotal.textContent='sin precio'; elTotal.style.color='var(--text3)';
+    } else {
+      const sign=pnlArs>=0?'+':'';
+      elTotal.textContent=sign+'$'+Math.round(pnlArs).toLocaleString('es-AR');
+      elTotal.style.color=pnlArs>=0?'var(--green)':'var(--red)';
+    }
     el.innerHTML = pfBuildOpsTableHTML(rows, false);
   } catch(e) {
     el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
