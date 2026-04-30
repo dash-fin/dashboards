@@ -587,12 +587,9 @@ function pfCalc(pos) {
     const sign  = (pos.cantidad || 0) >= 0 ? 1 : -1;
     const prima = pos.precio_compra_ars || 0;
     const pnlARS = (precioActual && prima > 0) ? sign * (precioActual - prima) * qty : null;
-    const mepRef = pos.mep_compra || pfMep;
-    const usdInv = (mepRef && prima > 0) ? (prima * qty) / mepRef : null;
-    const usdAct = (pnlARS != null && pfMep) ? ((prima * qty) + pnlARS) / pfMep : null;
-    const gan    = (usdAct != null && usdInv != null) ? usdAct - usdInv : null;
-    const pct    = (gan != null && usdInv > 0) ? gan / usdInv : null;
-    return {...pos, precioActual, changeLocal:null, pnlARS, usdInv, usdAct, gan, pct,
+    // usdInv/usdAct/gan son 0 para no duplicar con pfOpsUsdPnl que viene de operaciones
+    return {...pos, precioActual, changeLocal:null, pnlARS,
+            usdInv: 0, usdAct: 0, gan: null, pct: null,
             adrActual:null, adrChangePct:null, adrGan:null, adrPct:null, betaAdr:null, adrInv:null};
   }
 
@@ -933,16 +930,19 @@ async function pfFetchOpsData() {
         }
         src = 'BS';
       }
-      const legPnl = (leg.action==='buy'?1:-1)*(curPrice-prima)*qty*optSz;
-      pnl += legPnl;
+      // Si no hay precio disponible, no mostrar PnL (evita mostrar prima como ganancia máxima)
+      const legPnl = curPrice > 0 ? (leg.action==='buy'?1:-1)*(curPrice-prima)*qty*optSz : null;
+      if(legPnl != null) pnl += legPnl;
       return { leg: {...leg, prima, qty, strike:K}, curPrice, legPnl, src };
     });
-    totPnL+=pnl;
+    const anyNull = legRows.some(r => r.legPnl == null);
+    if(!anyNull) totPnL += pnl;
     const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?Number(l.prima)*Number(l.qty):-Number(l.prima)*Number(l.qty)),0)*optSz);
-    return{op,pnl,entrada,legRows};
+    return{op,pnl,entrada,legRows,anyNull};
   });
 
-  return { ops: ops||[], rows, totPnL, S };
+  const hasPricedRows = rows.some(r => !r.anyNull);
+  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, S };
 }
 
 // Builds the legs table HTML. withClose=true adds ⊠ close button alongside ✕ delete
@@ -1002,17 +1002,16 @@ async function pfRenderOpciones() {
       pfOpsUsdPnl = 0; pfPatchOpsKpis();
       return;
     }
-    const pnlArs = isNaN(totPnL) ? null : totPnL;
-    pfOpsUsdPnl = pnlArs != null
-      ? (pfMep && pfMep > 0 ? pnlArs / pfMep : (pfOpsSpot > 0 ? pnlArs / pfOpsSpot : NaN))
+    pfOpsUsdPnl = totPnL != null
+      ? (pfMep && pfMep > 0 ? totPnL / pfMep : (pfOpsSpot > 0 ? totPnL / pfOpsSpot : NaN))
       : NaN;
     pfPatchOpsKpis();
-    if(pnlArs == null) {
+    if(totPnL == null) {
       elTotal.textContent='sin precio'; elTotal.style.color='var(--text3)';
     } else {
-      const sign=pnlArs>=0?'+':'';
-      elTotal.textContent=sign+'$'+Math.round(pnlArs).toLocaleString('es-AR');
-      elTotal.style.color=pnlArs>=0?'var(--green)':'var(--red)';
+      const sign=totPnL>=0?'+':'';
+      elTotal.textContent=sign+'$'+Math.round(totPnL).toLocaleString('es-AR');
+      elTotal.style.color=totPnL>=0?'var(--green)':'var(--red)';
     }
     el.innerHTML = pfBuildOpsTableHTML(rows, false);
   } catch(e) {
@@ -1032,11 +1031,12 @@ async function pfRenderOpsInline() {
       el.innerHTML='<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:20px">Sin posiciones activas. Cargalas desde el módulo de Opciones.</div>';
       return;
     }
-    const sign=totPnL>=0?'+':'';
-    const totColor=totPnL>=0?'var(--green)':'var(--red)';
+    const totLabel = totPnL != null
+      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${totPnL>=0?'var(--green)':'var(--red)'}">${totPnL>=0?'+':''}$${Math.round(totPnL).toLocaleString('es-AR')}</span>`
+      : `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">sin precio disponible</span>`;
     el.innerHTML = `<div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 12px 4px;gap:8px">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:1px">P&amp;L total</span>
-      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${totColor}">${sign}$${Math.round(totPnL).toLocaleString('es-AR')}</span>
+      ${totLabel}
     </div>` + pfBuildOpsTableHTML(rows, true);
   } catch(e) {
     el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
