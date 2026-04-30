@@ -7,6 +7,7 @@
   <div id="al-engine-status" style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
     <span id="al-rt-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
     <span id="al-rt-label">Conectando...</span>
+    <span id="al-refresh-ts" style="color:var(--text4)">—</span>
     <span id="al-no-canal-badge" style="display:none;background:rgba(240,165,0,.15);color:var(--amber);border:1px solid rgba(240,165,0,.3);border-radius:3px;padding:2px 8px;font-size:8px;letter-spacing:.5px">⚠ Sin canal — alertas no se enviarán</span>
   </div>
 </div>
@@ -319,14 +320,14 @@ async function sbDelete(table, params){
 // ─────────────────────────────────────────────
 async function alCargarPreciosIniciales(evaluar = false) {
   try {
+    // Snapshot ANTES de actualizar (para detectar cruces)
+    const prevSnapshot = evaluar ? {...AL.prevPrices} : null;
+
     const [arsRows, usaRows, optRows] = await Promise.all([
       window.sbAll('mercado', 'settlement=eq.24hs&select=symbol,last').catch(()=>[]),
       window.sbAll('mercado_usa', 'select=symbol,last').catch(()=>[]),
-      window.sb('opciones_rt', 'select=symbol,last,bid,ask&limit=500').catch(()=>[])
+      window.sb('opciones_rt', 'select=symbol,last,bid&order=updated_at.desc&limit=500').catch(()=>[])
     ]);
-
-    // Snapshot de precios anteriores para detectar cruces si evaluar=true
-    const prevSnapshot = evaluar ? {...AL.prevPrices} : null;
 
     [...(arsRows||[]), ...(usaRows||[])].forEach(r => {
       const sym = alCleanTicker(r.symbol);
@@ -338,7 +339,24 @@ async function alCargarPreciosIniciales(evaluar = false) {
       if(sym && price) AL.prevPrices[sym] = price;
     });
 
-    // Fallback: evaluar alertas precio para tickers cuyo precio cambió
+    // Fetch puntual de tickers con alerta activa que aún no tienen precio
+    // (evita depender de que caigan dentro del limit=500 general)
+    const sinPrecio = AL.alerts
+      .filter(a => a.activa)
+      .map(a => alCleanTicker(a.ticker))
+      .filter((s, i, arr) => arr.indexOf(s) === i && AL.prevPrices[s] === undefined);
+    if(sinPrecio.length){
+      const extra = await window.sb('opciones_rt',
+        `symbol=in.(${sinPrecio.join(',')})&select=symbol,last,bid&limit=50`
+      ).catch(()=>[]);
+      (extra||[]).forEach(r => {
+        const sym = alCleanTicker(r.symbol);
+        const price = Number(r.last||0) || Number(r.bid||0);
+        if(sym && price) AL.prevPrices[sym] = price;
+      });
+    }
+
+    // Fallback: evaluar alertas de precio para tickers cuyo precio cambió
     if(evaluar && prevSnapshot){
       const alertTickers = new Set(
         AL.alerts.filter(a => a.activa && a.tipo === 'precio').map(a => alCleanTicker(a.ticker))
@@ -351,6 +369,10 @@ async function alCargarPreciosIniciales(evaluar = false) {
         }
       }
     }
+
+    // Timestamp de último refresh
+    const tsEl = document.getElementById('al-refresh-ts');
+    if(tsEl) tsEl.textContent = '↺ ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 
     alRenderActivas();
   } catch(e) {
