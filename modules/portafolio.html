@@ -422,6 +422,8 @@ let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de refer
 let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
 let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart1 = null, pfLineChart2 = null;
+// Opciones: PnL en USD del bloque de estrategias (se suma a los KPIs generales)
+let pfOpsUsdPnl = 0, pfBaseInv = 0, pfBaseAct = 0, pfBaseGan = 0;
 let pfSort = { col: null, dir: 1 };
 let pfGanRealizada = 0;
 
@@ -567,6 +569,7 @@ window.pfLoadAll = async () => {
     document.getElementById('pfMeta').textContent =
       `${pfPositions.length} posiciones · ${new Date().toLocaleTimeString('es-AR')}`;
     pfRender();
+    pfRenderOpciones(); // async — actualiza pfOpsUsdPnl y parchea KPIs al resolver
     pfLoadHistory(); // WTD/YTD — async, no bloquea el render principal
   } catch(e) {
     document.getElementById('pfMeta').textContent = 'Error al cargar';
@@ -612,6 +615,23 @@ function pfCalc(pos) {
   return {...pos, precioActual, changeLocal, adrActual, adrChangePct, usdInv, usdAct, gan, pct, adrInv, adrGan, adrPct, betaAdr};
 }
 
+// ── KPIs con opciones parcheados (se llama después de pfRenderOpciones) ──
+function pfPatchOpsKpis() {
+  const fmt = v => 'U$S '+Math.round(v).toLocaleString('es-AR');
+  const totAct = pfBaseAct + pfOpsUsdPnl;
+  document.getElementById('pfk-actual').textContent = fmt(totAct);
+  const ganTotal    = pfBaseGan + pfOpsUsdPnl + pfGanRealizada;
+  const ganTotalPct = pfBaseInv > 0 ? ganTotal / pfBaseInv : null;
+  const sign = ganTotal>=0?'+':'';
+  document.getElementById('pfk-gain').textContent     = sign+fmt(ganTotal);
+  document.getElementById('pfk-gain-pct').textContent = ganTotalPct!=null?(sign+(ganTotalPct*100).toFixed(2)+'%'):'—';
+  document.getElementById('pfk-gain-box').style.setProperty('--accent', ganTotal>=0?'var(--green)':'var(--red)');
+  document.getElementById('pfk-gain').title =
+    `No realizada (acciones/bonos): ${pfBaseGan>=0?'+':''}U$S ${Math.round(pfBaseGan).toLocaleString('es-AR')}\n`
+    + `Opciones: ${pfOpsUsdPnl>=0?'+':''}U$S ${Math.round(pfOpsUsdPnl).toLocaleString('es-AR')}\n`
+    + `Realizada: ${pfGanRealizada>=0?'+':''}U$S ${Math.round(pfGanRealizada).toLocaleString('es-AR')}`;
+}
+
 // ── Render principal ─────────────────────────────────────
 function pfRender() {
   const calced = pfPositions.map(pfCalc);
@@ -619,6 +639,9 @@ function pfRender() {
   const totAct = calced.reduce((s,p)=>s+(p.usdAct||0),0);
   const totGan = totAct - totInv;
   const totPct = totInv>0 ? totGan/totInv : null;
+
+  // Guardar base para que pfPatchOpsKpis() pueda sumar opciones después
+  pfBaseInv = totInv; pfBaseAct = totAct; pfBaseGan = totGan;
 
   // Variación diaria del portafolio
   const varDiariaUSD = calced.reduce((s, p) => {
@@ -701,7 +724,6 @@ function pfRender() {
   pfRenderDonut(byTipo, totAct, totGan);
   pfRenderAlloc(byTipo, totAct);
   pfRenderTypeDistribs(calced);
-  pfRenderOpciones();
   pfRenderPositions(calced);
 }
 
@@ -919,6 +941,10 @@ async function pfRenderOpciones() {
       return{op,pnl,entrada,legRows};
     });
 
+    // Actualizar PnL global en USD y parchear KPIs del portafolio
+    pfOpsUsdPnl = pfMep && pfMep > 0 ? totPnL / pfMep : (pfOpsSpot > 0 ? totPnL / pfOpsSpot : 0);
+    pfPatchOpsKpis();
+
     const sign=totPnL>=0?'+':'';
     elTotal.textContent=sign+'$'+Math.round(totPnL).toLocaleString('es-AR');
     elTotal.style.color=totPnL>=0?'var(--green)':'var(--red)';
@@ -931,6 +957,7 @@ async function pfRenderOpciones() {
         <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Prima entrada</th>
         <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Precio actual</th>
         <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">P&amp;L ($)</th>
+        <th style="padding:6px 4px;width:28px"></th>
       </tr></thead>
       <tbody>${rows.map(({op,pnl,entrada,legRows})=>{
         const opColor=pnl>=0?'var(--green)':'var(--red)';
@@ -942,8 +969,11 @@ async function pfRenderOpciones() {
             : `<span style="font-size:7px;background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.2);border-radius:2px;padding:1px 4px;margin-left:4px">BS</span>`;
           const lc = legPnl>=0?'var(--green)':'var(--red)';
           const firstCell = i===0
-            ? `<td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text3);vertical-align:top">${op.fecha}</td>
-               <td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text);font-weight:500;vertical-align:top">${op.nombre||'—'}</td>`
+            ? `<td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text3);vertical-align:top;white-space:nowrap">${op.fecha}</td>
+               <td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text);font-weight:500;vertical-align:top">${op.nombre||'—'}</td>
+               <td rowspan="${legRows.length}" style="padding:4px;vertical-align:top;text-align:center">
+                 <button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .15s" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>
+               </td>`
             : '';
           return `<tr style="border-bottom:1px solid rgba(30,42,56,.3)">
             ${firstCell}
@@ -960,6 +990,24 @@ async function pfRenderOpciones() {
     el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
   }
 }
+
+// ── Borrar estrategia de opciones ────────────────────────
+window.pfDeleteOp = async function(id) {
+  if(!confirm('¿Borrar esta estrategia del portafolio?')) return;
+  try {
+    const session = await sbAuth.auth.getSession();
+    const token = session?.data?.session?.access_token || CFG.SB_KEY;
+    await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: { apikey: CFG.SB_KEY, Authorization: 'Bearer ' + token }
+    });
+    pfOpsUsdPnl = 0;
+    pfPatchOpsKpis();
+    await pfRenderOpciones();
+  } catch(e) {
+    alert('Error al borrar: ' + e.message);
+  }
+};
 
 // ── Panel columnas ────────────────────────────────────────
 window.pfToggleColPanel = () => {
