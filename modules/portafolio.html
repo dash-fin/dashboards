@@ -424,7 +424,7 @@ let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
 let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart1 = null, pfLineChart2 = null;
 // Opciones: PnL en USD del bloque de estrategias (se suma a los KPIs generales)
-let pfOpsUsdPnl = 0, pfBaseInv = 0, pfBaseAct = 0, pfBaseGan = 0;
+let pfOpsUsdPnl = 0, pfOpsDailyUSD = 0, pfBaseInv = 0, pfBaseAct = 0, pfBaseGan = 0, pfBaseDailyUSD = 0;
 let pfSort = { col: null, dir: 1 };
 let pfGanRealizada = 0;
 
@@ -613,12 +613,29 @@ function pfCalc(pos) {
   return {...pos, precioActual, changeLocal, adrActual, adrChangePct, usdInv, usdAct, gan, pct, adrInv, adrGan, adrPct, betaAdr};
 }
 
+// ── KPI diario (helper reutilizado por pfRender y pfPatchOpsKpis) ──────────
+function pfRenderDailyKpi(dailyUSD, totActUSD) {
+  const pct    = totActUSD > 0 ? (dailyUSD / totActUSD) * 100 : null;
+  const sign   = dailyUSD >= 0 ? '+' : '';
+  const color  = dailyUSD >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('pfk-daily').textContent     = sign + 'U$S ' + Math.abs(Math.round(dailyUSD)).toLocaleString('es-AR');
+  document.getElementById('pfk-daily').style.color     = color;
+  document.getElementById('pfk-daily-pct').textContent = pct != null ? (sign + pct.toFixed(2) + '%') : 'variación diaria USD';
+  document.getElementById('pfk-daily-pct').style.color = color;
+  document.getElementById('pfk-daily-box').style.setProperty('--accent', color);
+}
+
 // ── KPIs con opciones parcheados (se llama después de pfRenderOpciones) ──
 function pfPatchOpsKpis() {
-  const opsUsd = isNaN(pfOpsUsdPnl) ? 0 : pfOpsUsdPnl;
+  const opsUsd      = isNaN(pfOpsUsdPnl) ? 0 : pfOpsUsdPnl;
+  const opsDailyUsd = isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD;
   const fmt = v => 'U$S '+Math.round(v).toLocaleString('es-AR');
+
+  // Valuación actual
   const totAct = pfBaseAct + opsUsd;
   document.getElementById('pfk-actual').textContent = fmt(totAct);
+
+  // Ganancia total
   const ganTotal    = pfBaseGan + opsUsd + pfGanRealizada;
   const ganTotalPct = pfBaseInv > 0 ? ganTotal / pfBaseInv : null;
   const sign = ganTotal>=0?'+':'';
@@ -630,6 +647,15 @@ function pfPatchOpsKpis() {
     `No realizada (acciones/bonos): ${pfBaseGan>=0?'+':''}U$S ${Math.round(pfBaseGan).toLocaleString('es-AR')}\n`
     + `Opciones: ${opsLabel}\n`
     + `Realizada: ${pfGanRealizada>=0?'+':''}U$S ${Math.round(pfGanRealizada).toLocaleString('es-AR')}`;
+
+  // Variación diaria con opciones
+  const dailyTotal = pfBaseDailyUSD + opsDailyUsd;
+  pfRenderDailyKpi(dailyTotal, totAct);
+  const opsDailyLabel = pfOpsDailyUSD === 0 ? '—'
+    : `${opsDailyUsd>=0?'+':''}U$S ${Math.round(opsDailyUsd).toLocaleString('es-AR')}`;
+  document.getElementById('pfk-daily').title =
+    `Acciones/bonos: ${pfBaseDailyUSD>=0?'+':''}U$S ${Math.round(pfBaseDailyUSD).toLocaleString('es-AR')}\n`
+    + `Opciones: ${opsDailyLabel}`;
 }
 
 // ── Render principal ─────────────────────────────────────
@@ -643,14 +669,14 @@ function pfRender() {
   // Guardar base para que pfPatchOpsKpis() pueda sumar opciones después
   pfBaseInv = totInv; pfBaseAct = totAct; pfBaseGan = totGan;
 
-  // Variación diaria del portafolio
+  // Variación diaria del portafolio (sin opciones — se suman en pfPatchOpsKpis)
   const varDiariaUSD = calced.reduce((s, p) => {
     if (p.usdAct != null && p.changeLocal != null) {
       return s + (p.usdAct * Number(p.changeLocal) / 100);
     }
     return s;
   }, 0);
-  const varDiariaPct = totAct > 0 ? (varDiariaUSD / totAct) * 100 : null;
+  pfBaseDailyUSD = varDiariaUSD;
 
   const fmt = v => 'U$S '+Math.round(v).toLocaleString('es-AR');
   document.getElementById('pfk-invested').textContent = fmt(totInv);
@@ -666,14 +692,8 @@ function pfRender() {
     `No realizada: ${totGan>=0?'+':''}U$S ${Math.round(totGan).toLocaleString('es-AR')}\n`
     + `Realizada: ${pfGanRealizada>=0?'+':''}U$S ${Math.round(pfGanRealizada).toLocaleString('es-AR')}`;
 
-  // KPI variación diaria
-  const varSign  = varDiariaUSD >= 0 ? '+' : '';
-  const varColor = varDiariaUSD >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('pfk-daily').textContent = varSign + 'U$S ' + Math.abs(Math.round(varDiariaUSD)).toLocaleString('es-AR');
-  document.getElementById('pfk-daily').style.color = varColor;
-  document.getElementById('pfk-daily-pct').textContent = varDiariaPct != null ? (varSign + varDiariaPct.toFixed(2) + '%') : 'variación diaria USD';
-  document.getElementById('pfk-daily-pct').style.color = varColor;
-  document.getElementById('pfk-daily-box').style.setProperty('--accent', varColor);
+  // Renderizar KPI diario (parcial, sin opciones — pfPatchOpsKpis lo completa)
+  pfRenderDailyKpi(varDiariaUSD, totAct);
 
   document.getElementById('pfk-pos').textContent      = pfPositions.length;
   document.getElementById('pfk-pos-sub').textContent  =
@@ -885,12 +905,13 @@ async function pfFetchOpsData() {
   const [ops, spotR, optRT] = await Promise.all([
     sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
-    sb('opciones_rt','select=symbol,last,bid,ask,strike&order=symbol.asc'),
+    sb('opciones_rt','select=symbol,last,bid,ask,strike,change&order=symbol.asc'),
   ]);
   const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
   pfOpsSpot = S || pfOpsSpot;
 
-  const rtIdx = {};
+  // Índice de precios: last con fallback a bid
+  const rtIdx = {}, dailyIdx = {};
   (optRT||[]).forEach(r => {
     const sym = (r.symbol||'').toUpperCase();
     if(sym.length < 5) return;
@@ -899,8 +920,10 @@ async function pfFetchOpsData() {
     if(!kind) return;
     const strike = Number(r.strike) || 0;
     if(!strike) return;
-    const price = Number(r.last||0) || 0;
+    const price = Number(r.last||0) || Number(r.bid||0);  // last con fallback a bid
     if(price > 0) rtIdx[`${kind}_${strike}`] = price;
+    const chg = r.change != null ? Number(r.change) : null;
+    if(chg != null && !isNaN(chg)) dailyIdx[`${kind}_${strike}`] = chg;
   });
 
   const _norm=x=>{const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const s=x<0?-1:1;x=Math.abs(x)/Math.SQRT2;const t=1/(1+p*x);return 0.5*(1+s*(1-t*Math.exp(-x*x)*(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)));};
@@ -933,16 +956,23 @@ async function pfFetchOpsData() {
       // Si no hay precio disponible, no mostrar PnL (evita mostrar prima como ganancia máxima)
       const legPnl = curPrice > 0 ? (leg.action==='buy'?1:-1)*(curPrice-prima)*qty*optSz : null;
       if(legPnl != null) pnl += legPnl;
-      return { leg: {...leg, prima, qty, strike:K}, curPrice, legPnl, src };
+      // PnL diario: usar campo change de opciones_rt si está disponible
+      const dailyChg = dailyIdx[key];
+      const legDailyPnl = (dailyChg != null) ? (leg.action==='buy'?1:-1)*dailyChg*qty*optSz : null;
+      return { leg: {...leg, prima, qty, strike:K}, curPrice, legPnl, legDailyPnl, src };
     });
     const anyNull = legRows.some(r => r.legPnl == null);
     if(!anyNull) totPnL += pnl;
+    const dailyPnl = legRows.reduce((s,r) => r.legDailyPnl != null ? s + r.legDailyPnl : s, 0);
+    const hasDailyPnl = legRows.some(r => r.legDailyPnl != null);
     const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?Number(l.prima)*Number(l.qty):-Number(l.prima)*Number(l.qty)),0)*optSz);
-    return{op,pnl,entrada,legRows,anyNull};
+    return{op,pnl,entrada,legRows,anyNull,dailyPnl,hasDailyPnl};
   });
 
   const hasPricedRows = rows.some(r => !r.anyNull);
-  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, S };
+  const totDailyPnL   = rows.reduce((s,r) => r.hasDailyPnl ? s + r.dailyPnl : s, 0);
+  const hasDailyData  = rows.some(r => r.hasDailyPnl);
+  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, dailyPnL: hasDailyData ? totDailyPnL : null, S };
 }
 
 // Builds the legs table HTML. withClose=true adds ⊠ close button alongside ✕ delete
@@ -995,16 +1025,16 @@ async function pfRenderOpciones() {
   const elTotal = document.getElementById('pfOpsPnlTotal');
   if(!el) return;
   try {
-    const { ops, rows, totPnL } = await pfFetchOpsData();
+    const { ops, rows, totPnL, dailyPnL } = await pfFetchOpsData();
     if(!ops.length){
       el.innerHTML='<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:12px">Sin posiciones abiertas. Cargalas desde el módulo de Opciones.</div>';
       elTotal.textContent='—'; elTotal.style.color='var(--text3)';
-      pfOpsUsdPnl = 0; pfPatchOpsKpis();
+      pfOpsUsdPnl = 0; pfOpsDailyUSD = 0; pfPatchOpsKpis();
       return;
     }
-    pfOpsUsdPnl = totPnL != null
-      ? (pfMep && pfMep > 0 ? totPnL / pfMep : (pfOpsSpot > 0 ? totPnL / pfOpsSpot : NaN))
-      : NaN;
+    const mepOrSpot = pfMep > 0 ? pfMep : pfOpsSpot;
+    pfOpsUsdPnl   = totPnL   != null && mepOrSpot > 0 ? totPnL   / mepOrSpot : NaN;
+    pfOpsDailyUSD = dailyPnL != null && mepOrSpot > 0 ? dailyPnL / mepOrSpot : 0;
     pfPatchOpsKpis();
     if(totPnL == null) {
       elTotal.textContent='sin precio'; elTotal.style.color='var(--text3)';
@@ -1024,7 +1054,11 @@ async function pfRenderOpsInline() {
   if(!el) return;
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:20px">Cargando...</div>';
   try {
-    const { ops, rows, totPnL } = await pfFetchOpsData();
+    const { ops, rows, totPnL, dailyPnL } = await pfFetchOpsData();
+    const mepOrSpot = pfMep > 0 ? pfMep : pfOpsSpot;
+    pfOpsUsdPnl   = totPnL   != null && mepOrSpot > 0 ? totPnL   / mepOrSpot : NaN;
+    pfOpsDailyUSD = dailyPnL != null && mepOrSpot > 0 ? dailyPnL / mepOrSpot : 0;
+    pfPatchOpsKpis();
     const cnt = rows.length;
     document.getElementById('pfPosCount').textContent = `${cnt} estrategia${cnt!==1?'s':''}`;
     if(!ops.length){
