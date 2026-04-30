@@ -347,7 +347,7 @@
         </div>
       </div>
     </div>
-    <div class="table-wrap" style="overflow-x:auto">
+    <div class="table-wrap" id="pfTableWrap" style="overflow-x:auto">
       <table style="min-width:1400px" id="pfPosTable">
         <thead id="pfPosHead"><tr></tr></thead>
         <tbody id="pfPosTbody">
@@ -355,6 +355,7 @@
         </tbody>
       </table>
     </div>
+    <div id="pfOpsInlineView" style="display:none"></div>
   </div>
 </div>
 
@@ -879,113 +880,148 @@ function pfRenderTypeDistribs(calced) {
 
 // ── Opciones GGAL en portafolio ───────────────────────────
 let pfOpsSpot = 0;
+
+// Fetches open strategies + GGAL spot + RT prices, computes rows + totPnL
+async function pfFetchOpsData() {
+  const [ops, spotR, optRT] = await Promise.all([
+    sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
+    sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
+    sb('opciones_rt','select=symbol,last,bid,ask,strike&order=symbol.asc'),
+  ]);
+  const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
+  pfOpsSpot = S || pfOpsSpot;
+
+  const rtIdx = {};
+  (optRT||[]).forEach(r => {
+    const sym = (r.symbol||'').toUpperCase();
+    if(sym.length < 5) return;
+    const kindChar = sym[3];
+    const kind = kindChar === 'C' ? 'call' : kindChar === 'P' ? 'put' : null;
+    if(!kind) return;
+    const strike = Number(r.strike) || 0;
+    if(!strike) return;
+    const price = Number(r.last||0) || 0;
+    if(price > 0) rtIdx[`${kind}_${strike}`] = price;
+  });
+
+  const _norm=x=>{const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const s=x<0?-1:1;x=Math.abs(x)/Math.SQRT2;const t=1/(1+p*x);return 0.5*(1+s*(1-t*Math.exp(-x*x)*(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)));};
+  const _bsP=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return Math.max(tipo==='call'?S-K:K-S,0);const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?S*_norm(d1)-K*Math.exp(-r*T)*_norm(d2):K*Math.exp(-r*T)*_norm(-d2)-S*_norm(-d1);};
+  const _vega=(S,K,T,r,sig)=>{if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*Math.exp(-d1*d1/2)/Math.sqrt(2*Math.PI)*Math.sqrt(T);};
+  const _iv=(price,S,K,T,r,tipo)=>{if(T<=0||price<=0)return 0.60;let sig=0.60;for(let i=0;i<80;i++){const p=_bsP(S,K,T,r,sig),v=_vega(S,K,T,r,sig);if(Math.abs(v)<1e-8)break;sig-=(p-price)/v;if(sig<0.01)sig=0.01;if(sig>15)return 0.60;}return sig;};
+  const _T=vto=>{const e=new Date(String(vto).slice(0,10)+'T12:00:00');return(e-new Date())/(1000*60*60*24*365);};
+
+  let totPnL = 0;
+  const rows = (ops||[]).map(op=>{
+    const optSz = op.patas?.[0]?.option_size||100;
+    let pnl=0;
+    const legRows = (op.patas||[]).map(leg=>{
+      const K=leg.strike, tipo=leg.kind==='call'?'call':'put';
+      const key=`${tipo}_${K}`;
+      let curPrice = rtIdx[key] || 0;
+      let src = curPrice ? 'RT' : 'BS';
+      if(!curPrice){
+        const T=_T(leg.vto);
+        const iv=_iv(leg.prima,S,K,T,0.70,tipo);
+        curPrice=_bsP(S,K,T,0.70,iv,tipo);
+      }
+      const legPnl = (leg.action==='buy'?1:-1)*(curPrice-leg.prima)*leg.qty*optSz;
+      pnl += legPnl;
+      return { leg, curPrice, legPnl, src };
+    });
+    totPnL+=pnl;
+    const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz);
+    return{op,pnl,entrada,legRows};
+  });
+
+  return { ops: ops||[], rows, totPnL, S };
+}
+
+// Builds the legs table HTML. withClose=true adds ⊠ close button alongside ✕ delete
+function pfBuildOpsTableHTML(rows, withClose) {
+  return `<table style="width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Fecha</th>
+      <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Estrategia</th>
+      <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Pata</th>
+      <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Prima entrada</th>
+      <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Precio actual</th>
+      <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">P&amp;L ($)</th>
+      <th style="padding:6px 4px;width:${withClose?52:28}px"></th>
+    </tr></thead>
+    <tbody>${rows.map(({op,pnl,legRows})=>{
+      const legHtml = legRows.map(({leg,curPrice,legPnl,src},i)=>{
+        const legDir = leg.action==='buy' ? `<span style="color:var(--green)">▲ COMPRA</span>` : `<span style="color:var(--red)">▼ VENTA</span>`;
+        const pataDesc = `${legDir} ${leg.qty} ${leg.kind?.toUpperCase()} K${Math.round(leg.strike)}`;
+        const srcBadge = src==='RT'
+          ? `<span style="font-size:7px;background:rgba(0,229,168,.15);color:var(--green);border:1px solid rgba(0,229,168,.3);border-radius:2px;padding:1px 4px;margin-left:4px">RT</span>`
+          : `<span style="font-size:7px;background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.2);border-radius:2px;padding:1px 4px;margin-left:4px">BS</span>`;
+        const lc = legPnl>=0?'var(--green)':'var(--red)';
+        const btnStyle = 'background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .15s';
+        const closBtn = withClose
+          ? `<button onclick="pfCloseOpcion('${op.id}')" title="Cerrar estrategia" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text4)'">⊠</button>`
+          : '';
+        const firstCell = i===0
+          ? `<td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text3);vertical-align:top;white-space:nowrap">${op.fecha}</td>
+             <td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text);font-weight:500;vertical-align:top">${op.nombre||'—'}</td>
+             <td rowspan="${legRows.length}" style="padding:4px;vertical-align:top;text-align:center;white-space:nowrap">
+               ${closBtn}
+               <button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>
+             </td>`
+          : '';
+        return `<tr style="border-bottom:1px solid rgba(30,42,56,.3)">
+          ${firstCell}
+          <td style="padding:5px 10px;font-size:9px">${pataDesc}</td>
+          <td style="padding:5px 10px;text-align:right;color:var(--text3)">$${leg.prima?.toFixed(2)}</td>
+          <td style="padding:5px 10px;text-align:right">${curPrice>0?'$'+curPrice.toFixed(2):'—'}${srcBadge}</td>
+          <td style="padding:5px 10px;text-align:right;color:${lc};font-weight:600">${legPnl>=0?'+':''}$${Math.round(legPnl).toLocaleString('es-AR')}</td>
+        </tr>`;
+      }).join('');
+      return legHtml;
+    }).join('')}</tbody>
+  </table>`;
+}
+
 async function pfRenderOpciones() {
   const el = document.getElementById('pfOpcionesBody');
   const elTotal = document.getElementById('pfOpsPnlTotal');
   if(!el) return;
   try {
-    const [ops, spotR, optRT] = await Promise.all([
-      sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
-      sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
-      sb('opciones_rt','select=symbol,last,bid,ask,strike&order=symbol.asc'),
-    ]);
-    const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
-    pfOpsSpot = S || pfOpsSpot;
-    if(!ops?.length){
+    const { ops, rows, totPnL } = await pfFetchOpsData();
+    if(!ops.length){
       el.innerHTML='<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:12px">Sin posiciones abiertas. Cargalas desde el módulo de Opciones.</div>';
       elTotal.textContent='—'; elTotal.style.color='var(--text3)';
+      pfOpsUsdPnl = 0; pfPatchOpsKpis();
       return;
     }
-
-    // Índice de precios RT por (kind_strike) → { price, src }
-    const rtIdx = {};
-    (optRT||[]).forEach(r => {
-      const sym = (r.symbol||'').toUpperCase();
-      if(sym.length < 5) return;
-      const kindChar = sym[3];
-      const kind = kindChar === 'C' ? 'call' : kindChar === 'P' ? 'put' : null;
-      if(!kind) return;
-      const strike = Number(r.strike) || 0;
-      if(!strike) return;
-      const price = Number(r.last||0) || 0;
-      if(price > 0) rtIdx[`${kind}_${strike}`] = price;
-    });
-
-    // BS como fallback cuando no hay precio RT
-    const _norm=x=>{const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const s=x<0?-1:1;x=Math.abs(x)/Math.SQRT2;const t=1/(1+p*x);return 0.5*(1+s*(1-t*Math.exp(-x*x)*(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)));};
-    const _bsP=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return Math.max(tipo==='call'?S-K:K-S,0);const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?S*_norm(d1)-K*Math.exp(-r*T)*_norm(d2):K*Math.exp(-r*T)*_norm(-d2)-S*_norm(-d1);};
-    const _vega=(S,K,T,r,sig)=>{if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*Math.exp(-d1*d1/2)/Math.sqrt(2*Math.PI)*Math.sqrt(T);};
-    const _iv=(price,S,K,T,r,tipo)=>{if(T<=0||price<=0)return 0.60;let sig=0.60;for(let i=0;i<80;i++){const p=_bsP(S,K,T,r,sig),v=_vega(S,K,T,r,sig);if(Math.abs(v)<1e-8)break;sig-=(p-price)/v;if(sig<0.01)sig=0.01;if(sig>15)return 0.60;}return sig;};
-    const _T=vto=>{const e=new Date(String(vto).slice(0,10)+'T12:00:00');return(e-new Date())/(1000*60*60*24*365);};
-
-    let totPnL = 0;
-    const rows = ops.map(op=>{
-      const optSz = op.patas?.[0]?.option_size||100;
-      let pnl=0;
-      const legRows = (op.patas||[]).map(leg=>{
-        const K=leg.strike, tipo=leg.kind==='call'?'call':'put';
-        const key=`${tipo}_${K}`;
-        let curPrice = rtIdx[key] || 0;
-        let src = curPrice ? 'RT' : 'BS';
-        if(!curPrice){
-          const T=_T(leg.vto);
-          const iv=_iv(leg.prima,S,K,T,0.70,tipo);
-          curPrice=_bsP(S,K,T,0.70,iv,tipo);
-        }
-        const legPnl = (leg.action==='buy'?1:-1)*(curPrice-leg.prima)*leg.qty*optSz;
-        pnl += legPnl;
-        return { leg, curPrice, legPnl, src };
-      });
-      totPnL+=pnl;
-      const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz);
-      return{op,pnl,entrada,legRows};
-    });
-
-    // Actualizar PnL global en USD y parchear KPIs del portafolio
     pfOpsUsdPnl = pfMep && pfMep > 0 ? totPnL / pfMep : (pfOpsSpot > 0 ? totPnL / pfOpsSpot : 0);
     pfPatchOpsKpis();
-
     const sign=totPnL>=0?'+':'';
     elTotal.textContent=sign+'$'+Math.round(totPnL).toLocaleString('es-AR');
     elTotal.style.color=totPnL>=0?'var(--green)':'var(--red)';
+    el.innerHTML = pfBuildOpsTableHTML(rows, false);
+  } catch(e) {
+    el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
+  }
+}
 
-    el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px">
-      <thead><tr style="border-bottom:1px solid var(--border)">
-        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Fecha</th>
-        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Estrategia</th>
-        <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Pata</th>
-        <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Prima entrada</th>
-        <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Precio actual</th>
-        <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">P&amp;L ($)</th>
-        <th style="padding:6px 4px;width:28px"></th>
-      </tr></thead>
-      <tbody>${rows.map(({op,pnl,entrada,legRows})=>{
-        const opColor=pnl>=0?'var(--green)':'var(--red)';
-        const legHtml = legRows.map(({leg,curPrice,legPnl,src},i)=>{
-          const legDir = leg.action==='buy' ? `<span style="color:var(--green)">▲ COMPRA</span>` : `<span style="color:var(--red)">▼ VENTA</span>`;
-          const pataDesc = `${legDir} ${leg.qty} ${leg.kind?.toUpperCase()} K${Math.round(leg.strike)}`;
-          const srcBadge = src==='RT'
-            ? `<span style="font-size:7px;background:rgba(0,229,168,.15);color:var(--green);border:1px solid rgba(0,229,168,.3);border-radius:2px;padding:1px 4px;margin-left:4px">RT</span>`
-            : `<span style="font-size:7px;background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.2);border-radius:2px;padding:1px 4px;margin-left:4px">BS</span>`;
-          const lc = legPnl>=0?'var(--green)':'var(--red)';
-          const firstCell = i===0
-            ? `<td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text3);vertical-align:top;white-space:nowrap">${op.fecha}</td>
-               <td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text);font-weight:500;vertical-align:top">${op.nombre||'—'}</td>
-               <td rowspan="${legRows.length}" style="padding:4px;vertical-align:top;text-align:center">
-                 <button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .15s" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>
-               </td>`
-            : '';
-          return `<tr style="border-bottom:1px solid rgba(30,42,56,.3)">
-            ${firstCell}
-            <td style="padding:5px 10px;font-size:9px">${pataDesc}</td>
-            <td style="padding:5px 10px;text-align:right;color:var(--text3)">$${leg.prima?.toFixed(2)}</td>
-            <td style="padding:5px 10px;text-align:right">${curPrice>0?'$'+curPrice.toFixed(2):'—'}${srcBadge}</td>
-            <td style="padding:5px 10px;text-align:right;color:${lc};font-weight:600">${legPnl>=0?'+':''}$${Math.round(legPnl).toLocaleString('es-AR')}</td>
-          </tr>`;
-        }).join('');
-        return legHtml;
-      }).join('')}</tbody>
-    </table>`;
+async function pfRenderOpsInline() {
+  const el = document.getElementById('pfOpsInlineView');
+  if(!el) return;
+  el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:20px">Cargando...</div>';
+  try {
+    const { ops, rows, totPnL } = await pfFetchOpsData();
+    const cnt = rows.length;
+    document.getElementById('pfPosCount').textContent = `${cnt} estrategia${cnt!==1?'s':''}`;
+    if(!ops.length){
+      el.innerHTML='<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:20px">Sin posiciones activas. Cargalas desde el módulo de Opciones.</div>';
+      return;
+    }
+    const sign=totPnL>=0?'+':'';
+    const totColor=totPnL>=0?'var(--green)':'var(--red)';
+    el.innerHTML = `<div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 12px 4px;gap:8px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:1px">P&amp;L total</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${totColor}">${sign}$${Math.round(totPnL).toLocaleString('es-AR')}</span>
+    </div>` + pfBuildOpsTableHTML(rows, true);
   } catch(e) {
     el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
   }
@@ -1004,6 +1040,7 @@ window.pfDeleteOp = async function(id) {
     pfOpsUsdPnl = 0;
     pfPatchOpsKpis();
     await pfRenderOpciones();
+    if(pfFilter === 'OPCION') await pfRenderOpsInline();
   } catch(e) {
     alert('Error al borrar: ' + e.message);
   }
@@ -1041,6 +1078,14 @@ window.pfSortBy = (colId) => {
 
 // ── Tabla posiciones ──────────────────────────────────────
 function pfRenderPositions(calced) {
+  if(pfFilter === 'OPCION') {
+    document.getElementById('pfTableWrap').style.display = 'none';
+    document.getElementById('pfOpsInlineView').style.display = '';
+    pfRenderOpsInline();
+    return;
+  }
+  document.getElementById('pfTableWrap').style.display = '';
+  document.getElementById('pfOpsInlineView').style.display = 'none';
   let rows = pfFilter==='all' ? calced : calced.filter(p=>p.tipo===pfFilter);
 
   if(pfSort.col) {
@@ -1145,7 +1190,15 @@ window.pfSetFilter = (f, btn) => {
   pfFilter = f;
   document.querySelectorAll('#pfTipoFilter .flt').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
-  pfRenderPositions(pfPositions.map(pfCalc));
+  if(f === 'OPCION') {
+    document.getElementById('pfTableWrap').style.display = 'none';
+    document.getElementById('pfOpsInlineView').style.display = '';
+    pfRenderOpsInline();
+  } else {
+    document.getElementById('pfTableWrap').style.display = '';
+    document.getElementById('pfOpsInlineView').style.display = 'none';
+    pfRenderPositions(pfPositions.map(pfCalc));
+  }
 };
 
 // ── Modal: abrir ──────────────────────────────────────────
