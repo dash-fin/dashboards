@@ -905,7 +905,7 @@ async function pfFetchOpsData() {
   const [ops, spotR, optRT] = await Promise.all([
     sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
-    sb('opciones_rt','select=symbol,last,bid,ask,strike,previous_close&order=symbol.asc'),
+    sb('opciones_rt','select=symbol,kind,last,bid,ask,strike,previous_close&order=symbol.asc'),
   ]);
   const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
   pfOpsSpot = S || pfOpsSpot;
