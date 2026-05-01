@@ -911,12 +911,10 @@ async function pfFetchOpsData() {
   pfOpsSpot = S || pfOpsSpot;
 
   // Índice de precios (last con fallback a bid) y cierre anterior
+  // Usa r.kind de la tabla (CALL/PUT) en vez de parsear el símbolo — en Argentina puts usan 'V' no 'P'
   const rtIdx = {}, closeIdx = {};
   (optRT||[]).forEach(r => {
-    const sym = (r.symbol||'').toUpperCase();
-    if(sym.length < 5) return;
-    const kindChar = sym[3];
-    const kind = kindChar === 'C' ? 'call' : kindChar === 'P' ? 'put' : null;
+    const kind = (r.kind||'').toUpperCase() === 'CALL' ? 'call' : (r.kind||'').toUpperCase() === 'PUT' ? 'put' : null;
     if(!kind) return;
     const strike = Number(r.strike) || 0;
     if(!strike) return;
