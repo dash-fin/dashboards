@@ -217,11 +217,13 @@
       <div class="kpi-label">Ganancia / Pérdida</div>
       <div class="kpi-val" id="pfk-gain">—</div>
       <div class="kpi-sub" id="pfk-gain-pct">—</div>
+      <div id="pfk-gain-detail" style="font-size:9px;color:var(--text4);margin-top:3px;line-height:1.5;font-family:'IBM Plex Mono',monospace"></div>
     </div>
     <div class="kpi" id="pfk-daily-box" style="--accent:var(--cyan)">
       <div class="kpi-label">Variación hoy</div>
       <div class="kpi-val" id="pfk-daily">—</div>
       <div class="kpi-sub" id="pfk-daily-pct">variación diaria USD</div>
+      <div id="pfk-daily-detail" style="font-size:9px;color:var(--text4);margin-top:3px;line-height:1.5;font-family:'IBM Plex Mono',monospace"></div>
     </div>
     <div class="kpi" id="pfk-wtd-box" style="--accent:var(--text4)">
       <div class="kpi-label">WTD</div>
@@ -642,20 +644,30 @@ function pfPatchOpsKpis() {
   document.getElementById('pfk-gain').textContent     = sign+fmt(ganTotal);
   document.getElementById('pfk-gain-pct').textContent = ganTotalPct!=null?(sign+(ganTotalPct*100).toFixed(2)+'%'):'—';
   document.getElementById('pfk-gain-box').style.setProperty('--accent', ganTotal>=0?'var(--green)':'var(--red)');
-  const opsLabel = isNaN(pfOpsUsdPnl) ? '— (sin precio spot)' : `${opsUsd>=0?'+':''}U$S ${Math.round(opsUsd).toLocaleString('es-AR')}`;
-  document.getElementById('pfk-gain').title =
-    `No realizada (acciones/bonos): ${pfBaseGan>=0?'+':''}U$S ${Math.round(pfBaseGan).toLocaleString('es-AR')}\n`
-    + `Opciones: ${opsLabel}\n`
-    + `Realizada: ${pfGanRealizada>=0?'+':''}U$S ${Math.round(pfGanRealizada).toLocaleString('es-AR')}`;
+
+  // Desglose ganancia (siempre visible, sin hover)
+  const fmtS = v => (v>=0?'+':'')+fmt(v);
+  const gainDetail = document.getElementById('pfk-gain-detail');
+  if(gainDetail) {
+    const lines = [];
+    if(pfBaseGan !== 0)    lines.push(`Acc/Bonos ${fmtS(pfBaseGan)}`);
+    if(opsUsd !== 0)       lines.push(`Opciones ${fmtS(opsUsd)}`);
+    if(pfGanRealizada !== 0) lines.push(`Realizada ${fmtS(pfGanRealizada)}`);
+    gainDetail.innerHTML = lines.join('<br>');
+  }
 
   // Variación diaria con opciones
   const dailyTotal = pfBaseDailyUSD + opsDailyUsd;
   pfRenderDailyKpi(dailyTotal, totAct);
-  const opsDailyLabel = pfOpsDailyUSD === 0 ? '—'
-    : `${opsDailyUsd>=0?'+':''}U$S ${Math.round(opsDailyUsd).toLocaleString('es-AR')}`;
-  document.getElementById('pfk-daily').title =
-    `Acciones/bonos: ${pfBaseDailyUSD>=0?'+':''}U$S ${Math.round(pfBaseDailyUSD).toLocaleString('es-AR')}\n`
-    + `Opciones: ${opsDailyLabel}`;
+
+  // Desglose diario (siempre visible)
+  const dailyDetail = document.getElementById('pfk-daily-detail');
+  if(dailyDetail) {
+    const lines = [];
+    if(pfBaseDailyUSD !== 0) lines.push(`Acc/Bonos ${fmtS(pfBaseDailyUSD)}`);
+    if(opsDailyUsd !== 0)    lines.push(`Opciones ${fmtS(opsDailyUsd)}`);
+    dailyDetail.innerHTML = lines.join('<br>');
+  }
 }
 
 // ── Render principal ─────────────────────────────────────
