@@ -81,10 +81,16 @@
         </div>
       </div>
 
-      <!-- Stop loss -->
-      <div style="margin-bottom:16px">
-        <div class="field-label">Stop Loss ADR (opcional)</div>
-        <input class="field-input" id="pfmStopLoss" type="number" step="any" placeholder="0.00">
+      <!-- Stop loss / Take profit -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div>
+          <div class="field-label">Stop Loss ADR (opcional)</div>
+          <input class="field-input" id="pfmStopLoss" type="number" step="any" placeholder="0.00">
+        </div>
+        <div>
+          <div class="field-label">Take Profit ADR (opcional)</div>
+          <input class="field-input" id="pfmTakeProfit" type="number" step="any" placeholder="0.00">
+        </div>
       </div>
 
       <!-- Notas -->
@@ -748,6 +754,7 @@ function pfRender() {
 
   const byTipo = {};
   calced.forEach(p => {
+    if(p.tipo === 'OPCION') return;
     if(!byTipo[p.tipo]) byTipo[p.tipo]={inv:0,act:0};
     byTipo[p.tipo].inv += p.usdInv||0;
     byTipo[p.tipo].act += p.usdAct||0;
@@ -834,9 +841,10 @@ function pfRenderTypeDistribs(calced) {
   Object.values(pfTypeCharts).forEach(c=>{ try{c.destroy();}catch(e){} });
   pfTypeCharts = {};
 
-  // Agrupar por tipo → tickers
+  // Agrupar por tipo → tickers (sin opciones)
   const byTipo = {};
   calced.forEach(p => {
+    if(p.tipo === 'OPCION') return;
     if(!byTipo[p.tipo]) byTipo[p.tipo] = {};
     const t = p.ticker_ars || p.ticker_usd || '?';
     byTipo[p.tipo][t] = (byTipo[p.tipo][t]||0) + (p.usdAct||0);
@@ -1285,9 +1293,10 @@ window.pfModalOpen = (id) => {
     document.getElementById('pfmPrecioAdr').value   = pos.precio_adr_compra||'';
     document.getElementById('pfmRatio').value        = pos.ratio_cedear||'';
     document.getElementById('pfmStopLoss').value    = pos.stop_loss||'';
+    document.getElementById('pfmTakeProfit').value  = pos.take_profit||'';
     document.getElementById('pfmNotas').value        = pos.notas||'';
   } else {
-    ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmNotas'].forEach(id=>document.getElementById(id).value='');
+    ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmTakeProfit','pfmNotas'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('pfmTipo').value = 'CEDEAR';
     document.getElementById('pfmFecha').value = new Date().toISOString().slice(0,10);
     if(pfMep) document.getElementById('pfmMepCompra').value = Math.round(pfMep);
@@ -1342,6 +1351,7 @@ window.pfModalSave = async () => {
     precio_adr_compra: n('pfmPrecioAdr'),
     ratio_cedear:     g('pfmRatio') || null,
     stop_loss:        n('pfmStopLoss'),
+    take_profit:      n('pfmTakeProfit'),
     notas:            g('pfmNotas') || null,
     activo:           true,
   };
@@ -1355,6 +1365,7 @@ window.pfModalSave = async () => {
     } else {
       await sbInsert('portafolio', body);
     }
+    pfAutoCreateAlerts(body).catch(()=>{});
     pfModalHide();
     await pfLoadAll();
   } catch(e) {
@@ -1372,6 +1383,36 @@ function pfShowMsg(type, text) {
   el.style.background = type==='error' ? 'var(--redDim)' : 'var(--greenDim)';
   el.style.color = type==='error' ? 'var(--red)' : 'var(--green)';
   el.style.border = `1px solid ${type==='error'?'rgba(255,63,94,.3)':'rgba(0,229,168,.3)'}`;
+}
+
+async function pfAutoCreateAlerts(body) {
+  const mep = pfMep || body.mep_compra;
+  if(!mep || !body.ticker_ars) return;
+  const ratio = body.ratio_cedear ? parseFloat(body.ratio_cedear) : 1;
+  const uid   = window.currentUser?.id || 'anon';
+  const ts    = () => new Date().toISOString();
+
+  const makeAlert = (dir, val, label) => ({
+    id:          'al_' + Date.now() + '_' + (dir === '<=' ? 'sl' : 'tp'),
+    user_id:     uid,
+    ticker:      body.ticker_ars,
+    tipo:        'precio',
+    params:      { dir, valor: Math.round(val), cooldown: 60 },
+    activa:      true,
+    cooldown:    60,
+    mensaje:     `${label} — ${body.ticker_ars}`,
+    fired_count: 0,
+    last_fired:  null,
+    created_at:  ts(),
+  });
+
+  if(body.stop_loss) {
+    try { await sbInsert('alertas', makeAlert('<=', body.stop_loss * ratio * mep, 'Stop Loss')); } catch(e) { console.warn('[pf] SL alert', e); }
+  }
+  if(body.take_profit) {
+    await new Promise(r => setTimeout(r, 2));
+    try { await sbInsert('alertas', makeAlert('>=', body.take_profit * ratio * mep, 'Take Profit')); } catch(e) { console.warn('[pf] TP alert', e); }
+  }
 }
 
 // ── Cerrar estrategia de opciones (ambos lados) ──────────
