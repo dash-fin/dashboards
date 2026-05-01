@@ -425,7 +425,6 @@ let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart1 = null, pfLineChart2 = null;
 // Opciones: PnL en USD del bloque de estrategias (se suma a los KPIs generales)
 let pfOpsUsdPnl = 0, pfOpsDailyUSD = 0, pfBaseInv = 0, pfBaseAct = 0, pfBaseGan = 0, pfBaseDailyUSD = 0;
-let pfOpsBaselineUSD = null; // PnL de opciones al inicio de sesión (para calcular variación diaria)
 let pfSort = { col: null, dir: 1 };
 let pfGanRealizada = 0;
 
@@ -906,13 +905,13 @@ async function pfFetchOpsData() {
   const [ops, spotR, optRT] = await Promise.all([
     sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
-    sb('opciones_rt','select=symbol,last,bid,ask,strike&order=symbol.asc'),
+    sb('opciones_rt','select=symbol,last,bid,ask,strike,close&order=symbol.asc'),
   ]);
   const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
   pfOpsSpot = S || pfOpsSpot;
 
-  // Índice de precios: last con fallback a bid (siempre hay algo en opciones_rt)
-  const rtIdx = {};
+  // Índice de precios (last con fallback a bid) y cierre anterior
+  const rtIdx = {}, closeIdx = {};
   (optRT||[]).forEach(r => {
     const sym = (r.symbol||'').toUpperCase();
     if(sym.length < 5) return;
@@ -923,6 +922,8 @@ async function pfFetchOpsData() {
     if(!strike) return;
     const price = Number(r.last||0) || Number(r.bid||0);
     if(price > 0) rtIdx[`${kind}_${strike}`] = price;
+    const cls = Number(r.close||0);
+    if(cls > 0) closeIdx[`${kind}_${strike}`] = cls;
   });
 
   const _norm=x=>{const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;const s=x<0?-1:1;x=Math.abs(x)/Math.SQRT2;const t=1/(1+p*x);return 0.5*(1+s*(1-t*Math.exp(-x*x)*(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)));};
@@ -952,19 +953,28 @@ async function pfFetchOpsData() {
         }
         src = 'BS';
       }
-      // Si no hay precio disponible no calcular PnL (evita mostrar prima entera como ganancia)
+      // PnL total (desde entrada): null si sin precio para no mostrar nro engañoso
       const legPnl = curPrice > 0 ? (leg.action==='buy'?1:-1)*(curPrice-prima)*qty*optSz : null;
       if(legPnl != null) pnl += legPnl;
-      return { leg: {...leg, prima, qty, strike:K}, curPrice, legPnl, src };
+      // PnL diario: (last - close_anterior) × qty × optSz — igual que CEDEARs con changeLocal
+      const prevClose = closeIdx[key];
+      const legDailyPnl = (curPrice > 0 && prevClose > 0)
+        ? (leg.action==='buy'?1:-1)*(curPrice-prevClose)*qty*optSz
+        : null;
+      return { leg: {...leg, prima, qty, strike:K}, curPrice, legPnl, legDailyPnl, src };
     });
     const anyNull = legRows.some(r => r.legPnl == null);
     if(!anyNull) totPnL += pnl;
+    const legsDailySum = legRows.reduce((s,r) => r.legDailyPnl != null ? s + r.legDailyPnl : s, 0);
+    const hasDailyPnl  = legRows.some(r => r.legDailyPnl != null);
     const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?Number(l.prima)*Number(l.qty):-Number(l.prima)*Number(l.qty)),0)*optSz);
-    return{op,pnl,entrada,legRows,anyNull};
+    return{op,pnl,entrada,legRows,anyNull,legsDailySum,hasDailyPnl};
   });
 
-  const hasPricedRows = rows.some(r => !r.anyNull);
-  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, S };
+  const hasPricedRows  = rows.some(r => !r.anyNull);
+  const totDailyPnL    = rows.reduce((s,r) => r.hasDailyPnl ? s + r.legsDailySum : s, 0);
+  const hasDailyData   = rows.some(r => r.hasDailyPnl);
+  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, dailyPnL: hasDailyData ? totDailyPnL : null, S };
 }
 
 // Builds the legs table HTML. withClose=true adds ⊠ close button alongside ✕ delete
@@ -1012,18 +1022,11 @@ function pfBuildOpsTableHTML(rows, withClose) {
   </table>`;
 }
 
-// Aplica totPnL de operaciones → pfOpsUsdPnl, baseline diario, pfOpsDailyUSD, parchea KPIs
-function pfApplyOpsData(totPnL) {
+// Aplica totPnL + dailyPnL de operaciones → pfOpsUsdPnl, pfOpsDailyUSD, parchea KPIs
+function pfApplyOpsData(totPnL, dailyPnL) {
   const mepOrSpot = pfMep > 0 ? pfMep : pfOpsSpot;
-  pfOpsUsdPnl = totPnL != null && mepOrSpot > 0 ? totPnL / mepOrSpot : NaN;
-  if(!isNaN(pfOpsUsdPnl)) {
-    const key = 'pfOpsBaseline_' + new Date().toISOString().slice(0, 10);
-    if(!sessionStorage.getItem(key)) sessionStorage.setItem(key, pfOpsUsdPnl);
-    pfOpsBaselineUSD = Number(sessionStorage.getItem(key));
-    pfOpsDailyUSD = pfOpsUsdPnl - pfOpsBaselineUSD;
-  } else {
-    pfOpsDailyUSD = 0;
-  }
+  pfOpsUsdPnl   = totPnL   != null && mepOrSpot > 0 ? totPnL   / mepOrSpot : NaN;
+  pfOpsDailyUSD = dailyPnL != null && mepOrSpot > 0 ? dailyPnL / mepOrSpot : 0;
   pfPatchOpsKpis();
 }
 
@@ -1032,14 +1035,14 @@ async function pfRenderOpciones() {
   const elTotal = document.getElementById('pfOpsPnlTotal');
   if(!el) return;
   try {
-    const { ops, rows, totPnL } = await pfFetchOpsData();
+    const { ops, rows, totPnL, dailyPnL } = await pfFetchOpsData();
     if(!ops.length){
       el.innerHTML='<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:12px">Sin posiciones abiertas. Cargalas desde el módulo de Opciones.</div>';
       elTotal.textContent='—'; elTotal.style.color='var(--text3)';
       pfOpsUsdPnl = 0; pfOpsDailyUSD = 0; pfPatchOpsKpis();
       return;
     }
-    pfApplyOpsData(totPnL);
+    pfApplyOpsData(totPnL, dailyPnL);
     if(totPnL == null) {
       elTotal.textContent='sin precio'; elTotal.style.color='var(--text3)';
     } else {
@@ -1058,8 +1061,8 @@ async function pfRenderOpsInline() {
   if(!el) return;
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:20px">Cargando...</div>';
   try {
-    const { ops, rows, totPnL } = await pfFetchOpsData();
-    pfApplyOpsData(totPnL);
+    const { ops, rows, totPnL, dailyPnL } = await pfFetchOpsData();
+    pfApplyOpsData(totPnL, dailyPnL);
     const cnt = rows.length;
     document.getElementById('pfPosCount').textContent = `${cnt} estrategia${cnt!==1?'s':''}`;
     if(!ops.length){
