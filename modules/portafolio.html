@@ -28,7 +28,7 @@
         </div>
         <div>
           <div class="field-label">Ticker ARS (ej. PG, AL30)</div>
-          <input class="field-input" id="pfmTickerArs" type="text" placeholder="PG" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+          <input class="field-input" id="pfmTickerArs" type="text" placeholder="PG" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase();pfAutoFillRatio()">
         </div>
       </div>
 
@@ -1316,6 +1316,31 @@ window.pfModalHide = () => {
 
 window.pfModalClose = (e) => {
   if(e.target.id==='pfModalOverlay') pfModalHide();
+};
+
+// ── Auto-fill ratio desde cedear_ratios ──────────────────
+let _ratioCache = {};
+window.pfAutoFillRatio = async () => {
+  const tipo   = document.getElementById('pfmTipo').value;
+  if(tipo !== 'CEDEAR') return;
+  const ticker = document.getElementById('pfmTickerArs').value.trim().toUpperCase();
+  if(!ticker || ticker.length < 2) return;
+
+  // Solo busca si el campo ratio está vacío (no pisar lo que ya cargó el usuario)
+  const ratioEl = document.getElementById('pfmRatio');
+  if(ratioEl.value) return;
+
+  if(_ratioCache[ticker] !== undefined) {
+    if(_ratioCache[ticker]) ratioEl.value = _ratioCache[ticker];
+    return;
+  }
+
+  try {
+    const rows = await sb('cedear_ratios', `ticker=eq.${ticker}&select=ratio`);
+    const ratio = rows?.[0]?.ratio ?? null;
+    _ratioCache[ticker] = ratio;
+    if(ratio != null) ratioEl.value = ratio % 1 === 0 ? ratio : parseFloat(ratio.toFixed(4));
+  } catch(e) {}
 };
 
 // ── Modal: cambio de tipo ─────────────────────────────────
