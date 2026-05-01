@@ -432,6 +432,7 @@ let pfPositions = [], pfPrices = {}, pfAdrPrices = {}, pfOptPrices = {}, pfMep =
 let pfRefCloses = {}; // { ticker_ars: { wtd: number|null, ytd: number|null } }
 let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de referencia
 let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
+let pfMepSeries  = []; // serie MEP desde mep_historico: [{fecha, mep}]
 let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart1 = null, pfLineChart2 = null;
 // Opciones: PnL en USD del bloque de estrategias (se suma a los KPIs generales)
@@ -1717,8 +1718,10 @@ async function pfLoadHistory() {
 
   const { ytd, wtd } = pfGetRefDates();
   const portfolioTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
-  const symbols = [...new Set([...portfolioTickers, 'AL30', 'AL30D'])];
+  const symbols = [...new Set(portfolioTickers)];
 
+  const now      = new Date();
+  const ytdStart = `${now.getFullYear()}-01-01`;
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 
   const setHistErr = (msg) => {
@@ -1735,15 +1738,21 @@ async function pfLoadHistory() {
   try {
     const session = await window.sbAuth?.auth?.getSession();
     const token   = session?.data?.session?.access_token || SB_KEY;
-    const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SB_KEY },
-      body: JSON.stringify({ mode: 'rava-series', symbols }),
-    });
-    if (!res.ok) { console.warn('[pf-history] error HTTP', res.status, await res.text()); setHistErr('sin conexión'); return; }
-    const data = await res.json();
+    const [ravaRes, mepSeriesRows, mepYtdRows, mepWtdRows] = await Promise.all([
+      fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SB_KEY },
+        body: JSON.stringify({ mode: 'rava-series', symbols }),
+      }),
+      sb('mep_historico', `fecha=gte.${ytdStart}&order=fecha.asc&select=fecha,mep`),
+      sb('mep_historico', `fecha=lte.${ytd}&order=fecha.desc&limit=1&select=fecha,mep`),
+      sb('mep_historico', `fecha=lte.${wtd}&order=fecha.desc&limit=1&select=fecha,mep`),
+    ]);
+    if (!ravaRes.ok) { console.warn('[pf-history] error HTTP', ravaRes.status, await ravaRes.text()); setHistErr('sin conexión'); return; }
+    const data = await ravaRes.json();
     if (data.error) { console.warn('[pf-history]', data.error); setHistErr('API error'); return; }
     pfSeriesData = data;
+    pfMepSeries  = mepSeriesRows || [];
 
     // Pre-ordenar cada serie
     const sorted = {};
@@ -1751,23 +1760,17 @@ async function pfLoadHistory() {
       sorted[sym] = [...(data[sym] || [])].sort((a,b) => a.fecha.localeCompare(b.fecha));
     }
 
-    const al30s  = sorted['AL30']  || [];
-    const al30ds = sorted['AL30D'] || [];
-
-    const mepAt = (date) => {
-      const a = closestBefore(al30s, date);
-      const d = closestBefore(al30ds, date);
-      return (a && d && d > 0) ? a / d : null;
-    };
-
     // Cierres de referencia para KPIs WTD/YTD
     pfRefCloses = {};
     for (const sym of portfolioTickers) {
       const arr = sorted[sym] || [];
       pfRefCloses[sym] = { ytd: closestBefore(arr, ytd), wtd: closestBefore(arr, wtd) };
     }
-    pfMepRef = { ytd: mepAt(ytd), wtd: mepAt(wtd) };
-    console.log('[pf-history] MEP ref → ytd:', pfMepRef.ytd, 'wtd:', pfMepRef.wtd);
+    pfMepRef = {
+      ytd: mepYtdRows?.[0]?.mep ?? null,
+      wtd: mepWtdRows?.[0]?.mep ?? null,
+    };
+    console.log('[pf-history] MEP ref → ytd:', pfMepRef.ytd, '(', mepYtdRows?.[0]?.fecha, ') wtd:', pfMepRef.wtd, '(', mepWtdRows?.[0]?.fecha, ')');
   } catch(e) { console.warn('[pf-history]', e.message); setHistErr('error'); return; }
 
   pfRenderPeriodKPIs();
@@ -1851,18 +1854,14 @@ function pfRenderCharts() {
     sorted[sym] = [...(pfSeriesData[sym] || [])].sort((a,b) => a.fecha.localeCompare(b.fecha));
   }
 
-  const al30s  = sorted['AL30']  || [];
-  const al30ds = sorted['AL30D'] || [];
-
-  // MEP por fecha (usando las fechas de AL30 como ancla)
+  // MEP por fecha desde mep_historico
   const mepByDate = {};
-  for (const r of al30s) {
-    const d = closestBefore(al30ds, r.fecha);
-    if (d && d > 0) mepByDate[r.fecha] = r.cierre / d;
+  for (const r of pfMepSeries) {
+    mepByDate[r.fecha] = r.mep;
   }
 
-  // Eje temporal: fechas de AL30 dentro del año actual
-  const chartDates = al30s.map(r => r.fecha).filter(d => d >= ytdStart && d <= today);
+  // Eje temporal: fechas de mep_historico dentro del año actual
+  const chartDates = pfMepSeries.map(r => r.fecha).filter(d => d >= ytdStart && d <= today);
   const setStatus = (id, txt) => { const el=document.getElementById(id); if(el) el.textContent=txt; };
 
   if (chartDates.length < 5) {
@@ -1975,11 +1974,7 @@ function pfRenderCharts() {
   const portfolioTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
   const PALETTE = ['#00b4d8','#00e5a8','#f0a500','#b39dff','#ff6b9d','#4da6ff','#ff9a3c','#7fffd4','#c8a2c8','#ff3f5e','#ffd700','#a8e063'];
 
-  const mepRefYtd = (() => {
-    const a = closestBefore(al30s, ytdRef);
-    const d = closestBefore(al30ds, ytdRef);
-    return (a && d && d > 0) ? a / d : null;
-  })();
+  const mepRefYtd = pfMepRef.ytd;
 
   const tickerDatasets = portfolioTickers.map((ticker, i) => {
     const arr = sorted[ticker] || [];

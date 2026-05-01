@@ -42,8 +42,20 @@ async function getYahooCrumb(): Promise<{ crumb: string; cookie: string }> {
 }
 
 // ── Rava histórico (API interna admin.rava.com) ───────────────────
-// Devuelve ~225 filas con toda la historia disponible (1 año aprox.)
-// La API ignora el rango de fechas, se filtra acá.
+//
+// URL:    https://admin.rava.com/api/v3/publico/cotizaciones/historicos
+// Method: POST, Content-Type: application/x-www-form-urlencoded
+// Params: access_token, especie (ticker BYMA), desde (YYYY-MM-DD), hasta (YYYY-MM-DD)
+// Token:  fedd65202420d32e4c00e6d4fcd525e3  (api_public_key público de Rava)
+//
+// Response: JSON con array en body|data|historicos|cotizaciones o raíz del objeto
+// Cada fila: { fecha: "YYYY-MM-DD", apertura, maximo, minimo, ultimo, cierre, volumen, timestamp }
+//
+// Nota: la API ignora el rango de fechas y devuelve ~225 filas (~1 año de datos diarios).
+// Se puede usar para bonos (AL30, AL30D, GD30, etc.) y CEDEARs listados en BYMA.
+// El MEP diario (AL30.cierre / AL30D.cierre) ya está en la tabla mep_historico de Supabase.
+// Solo se necesita Rava si se quieren series de precios ARS de otros instrumentos.
+//
 const RAVA_TOKEN = "fedd65202420d32e4c00e6d4fcd525e3"; // api_public_key de Rava
 
 // Alias para tickers cuyo especie en Rava difiere del ticker usado en el dashboard
