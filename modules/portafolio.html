@@ -82,15 +82,18 @@
       </div>
 
       <!-- Stop loss / Take profit -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
         <div>
-          <div class="field-label">Stop Loss ADR (opcional)</div>
+          <div class="field-label" id="pfmSlLabel">Stop Loss (opcional)</div>
           <input class="field-input" id="pfmStopLoss" type="number" step="any" placeholder="0.00">
         </div>
         <div>
-          <div class="field-label">Take Profit ADR (opcional)</div>
+          <div class="field-label" id="pfmTpLabel">Take Profit (opcional)</div>
           <input class="field-input" id="pfmTakeProfit" type="number" step="any" placeholder="0.00">
         </div>
+      </div>
+      <div id="pfmSlTpHint" style="font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;margin-bottom:14px">
+        USD (ADR) si completaste el ticker ADR · ARS si no
       </div>
 
       <!-- Notas -->
@@ -1386,32 +1389,36 @@ function pfShowMsg(type, text) {
 }
 
 async function pfAutoCreateAlerts(body) {
-  const mep = pfMep || body.mep_compra;
-  if(!mep || !body.ticker_ars) return;
-  const ratio = body.ratio_cedear ? parseFloat(body.ratio_cedear) : 1;
-  const uid   = window.currentUser?.id || 'anon';
-  const ts    = () => new Date().toISOString();
+  if(!body.ticker_ars) return;
+
+  // Si tiene ADR: alerta en USD contra mercado_usa (valor directo)
+  // Si no: alerta en ARS contra mercado (valor directo en pesos)
+  const hasAdr = !!(body.ticker_adr && body.precio_adr_compra);
+  const ticker = hasAdr ? body.ticker_adr : body.ticker_ars;
+
+  const uid = window.currentUser?.id || 'anon';
+  const ts  = () => new Date().toISOString();
 
   const makeAlert = (dir, val, label) => ({
     id:          'al_' + Date.now() + '_' + (dir === '<=' ? 'sl' : 'tp'),
     user_id:     uid,
-    ticker:      body.ticker_ars,
+    ticker,
     tipo:        'precio',
-    params:      { dir, valor: Math.round(val), cooldown: 60 },
+    params:      { dir, valor: hasAdr ? val : Math.round(val), cooldown: 60 },
     activa:      true,
     cooldown:    60,
-    mensaje:     `${label} — ${body.ticker_ars}`,
+    mensaje:     `${label} — ${ticker}`,
     fired_count: 0,
     last_fired:  null,
     created_at:  ts(),
   });
 
   if(body.stop_loss) {
-    try { await sbInsert('alertas', makeAlert('<=', body.stop_loss * ratio * mep, 'Stop Loss')); } catch(e) { console.warn('[pf] SL alert', e); }
+    try { await sbInsert('alertas', makeAlert('<=', body.stop_loss, 'Stop Loss')); } catch(e) { console.warn('[pf] SL alert', e); }
   }
   if(body.take_profit) {
     await new Promise(r => setTimeout(r, 2));
-    try { await sbInsert('alertas', makeAlert('>=', body.take_profit * ratio * mep, 'Take Profit')); } catch(e) { console.warn('[pf] TP alert', e); }
+    try { await sbInsert('alertas', makeAlert('>=', body.take_profit, 'Take Profit')); } catch(e) { console.warn('[pf] TP alert', e); }
   }
 }
 
