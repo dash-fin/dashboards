@@ -397,6 +397,11 @@
       </table>
     </div>
     <div id="pfCalendarWrap" style="display:none;padding:16px 12px">
+      <div style="display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:14px">
+        <button onclick="pfCalNav(-1)" style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 10px;border:1px solid var(--border2);background:transparent;color:var(--text3);border-radius:2px;cursor:pointer">◀</button>
+        <span id="pfCalYearLabel" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);min-width:36px;text-align:center"></span>
+        <button id="pfCalNavNext" onclick="pfCalNav(1)" style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 10px;border:1px solid var(--border2);background:transparent;color:var(--text3);border-radius:2px;cursor:pointer">▶</button>
+      </div>
       <div id="pfCalendarBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px"></div>
     </div>
     <div id="pfBenchWrap" style="display:none;padding:16px 12px">
@@ -1669,6 +1674,13 @@ function pfCloseMsgShow(type, text) {
 
 // ── P&L Calendar ─────────────────────────────────────────────────
 let pfHistCurrentView = 'tabla';
+let pfCalYear = new Date().getFullYear();
+
+window.pfCalNav = (delta) => {
+  const now = new Date().getFullYear();
+  pfCalYear = Math.min(now, pfCalYear + delta);
+  pfRenderCalendar();
+};
 
 window.pfHistView = (view) => {
   pfHistCurrentView = view;
@@ -1684,6 +1696,7 @@ window.pfHistView = (view) => {
     el.style.borderColor = active ? 'var(--cyan)' : 'var(--border2)';
   });
   if(view==='bench') pfRenderBenchmark();
+  if(view==='cal')   pfRenderCalendar();
 };
 
 async function pfRenderCalendar() {
@@ -1691,42 +1704,48 @@ async function pfRenderCalendar() {
   if(!el) return;
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:12px">Cargando...</div>';
 
-  const year = new Date().getFullYear();
+  const year = pfCalYear;
+  // Update nav UI
+  const lbl = document.getElementById('pfCalYearLabel');
+  if(lbl) lbl.textContent = year;
+  const nxt = document.getElementById('pfCalNavNext');
+  if(nxt) nxt.style.opacity = year >= new Date().getFullYear() ? '0.3' : '1';
+
   const ytdStart = `${year}-01-01`;
+  const ytdEnd   = `${year}-12-31`;
   let rows = [];
   try {
     const _calEmail = encodeURIComponent(window.currentUser?.email||'');
-    rows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${ytdStart}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
+    rows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${ytdStart}&fecha=lte.${ytdEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
   } catch(e) { console.warn('[pnl-cal]', e); }
 
   if(!rows.length) {
-    el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:20px;text-align:center">Sin datos aún — el snapshot se guarda cada día al cierre del mercado (17:10).</div>';
+    el.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);padding:20px;text-align:center">Sin datos para ${year}.</div>`;
     return;
   }
 
-  // Índice por fecha
   const byDate = {};
   rows.forEach(r => { byDate[r.fecha] = r; });
   const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl_usd||0)), 1);
 
   const DOWS   = ['D','L','M','X','J','V','S'];
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const fmtPnl = n => (n>=0?'+':'')+n.toFixed(0);
-  const fmtPct = n => (n>=0?'+':'')+n.toFixed(2)+'%';
+  const fmtPnl = n => (n>=0?'+':'')+Math.round(Math.abs(n)).toLocaleString('es-AR');
+  const fmtPct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
 
   el.innerHTML = Array.from({length:12},(_,m) => {
     const daysInMonth = new Date(year,m+1,0).getDate();
     const firstDow    = new Date(year,m,1).getDay();
 
-    // Monthly aggregate
     let monthPnl = 0, monthDays = 0;
     for(let d=1;d<=daysInMonth;d++){
       const key=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       if(byDate[key]?.pnl_usd != null){ monthPnl += byDate[key].pnl_usd; monthDays++; }
     }
     const monthC = monthPnl>=0?'var(--green)':'var(--red)';
+    const monthSign = monthPnl>=0?'+':'-';
     const monthTag = monthDays > 0
-      ? `<span style="color:${monthC};font-size:9px;font-weight:600">${fmtPnl(monthPnl)} USD</span>`
+      ? `<span style="color:${monthC};font-size:9px;font-weight:600">${monthSign}U$S ${Math.round(Math.abs(monthPnl)).toLocaleString('es-AR')}</span>`
       : `<span style="color:var(--text4);font-size:9px">sin datos</span>`;
 
     const dowH = DOWS.map(d=>`<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:3px">${d}</div>`).join('');
@@ -1736,16 +1755,17 @@ async function pfRenderCalendar() {
       const key = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       const row = byDate[key];
       if(!row || row.pnl_usd == null) {
-        return `<div style="height:30px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${d}</div>`;
+        return `<div style="height:40px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${d}</div>`;
       }
       const pnl = row.pnl_usd;
       const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
       const bg  = pnl>=0?`rgba(0,229,168,${intensity.toFixed(2)})`:`rgba(255,63,94,${intensity.toFixed(2)})`;
       const txt = pnl>=0?'#0d1117':'#fff';
-      const tip = `${key}\nP&L: ${fmtPnl(pnl)} USD (${fmtPct(row.pnl_pct||0)})\nPortafolio: ${Math.round(row.valor_usd||0).toLocaleString('es-AR')} USD`;
-      return `<div title="${tip}" style="height:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:${txt};border-radius:2px;cursor:default;font-size:7px;line-height:1.3;gap:1px">
+      const tip = `${key}\nP&L: ${pnl>=0?'+':'-'}U$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
+      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:${txt};border-radius:2px;cursor:default;line-height:1.2;gap:0">
         <span style="font-size:8px;font-weight:600">${d}</span>
-        <span>${fmtPnl(pnl)}</span>
+        <span style="font-size:7px">${pnl>=0?'+':'-'}U$S ${fmtPnl(pnl)}</span>
+        <span style="font-size:7px;opacity:0.9">${fmtPct(row.pnl_pct||0)}</span>
       </div>`;
     }).join('');
 
@@ -1781,9 +1801,9 @@ async function pfRenderBenchmark() {
   kpis.innerHTML = '<span style="color:var(--text4)">Cargando...</span>';
   cWrap.innerHTML = '';
 
-  // Portafolio histórico desde pnl_diario (filtrado por usuario)
+  // Portafolio histórico desde pnl_diario — usamos pnl_pct para excluir inyecciones de capital
   const _email = encodeURIComponent(window.currentUser?.email||'');
-  const pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,valor_usd`) || [];
+  const pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct`) || [];
   if(!pnlRows.length) {
     kpis.innerHTML = '';
     cWrap.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);padding:40px;text-align:center">Sin datos aún — el snapshot se guarda cada día al cierre (17:10).</div>`;
@@ -1791,7 +1811,15 @@ async function pfRenderBenchmark() {
   }
 
   const startDate = pnlRows[0].fecha;
-  const startVal  = Number(pnlRows[0].valor_usd);
+
+  // Construir índice de retorno compuesto (base 100) a partir de pnl_pct
+  // Día 1 = 100, cada día siguiente: prev * (1 + pnl_pct/100)
+  const pfByDate = {};
+  let compVal = 100;
+  pnlRows.forEach((r, i) => {
+    if(i > 0 && r.pnl_pct != null) compVal = compVal * (1 + Number(r.pnl_pct) / 100);
+    pfByDate[r.fecha] = +compVal.toFixed(4);
+  });
 
   // SPY histórico vía edge function
   const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
@@ -1807,43 +1835,35 @@ async function pfRenderBenchmark() {
     spyHistory = (await r.json())?.SPY || [];
   } catch(e){ console.warn('[bench-spy]',e); }
 
-  // Índices por fecha
-  const pfByDate  = {}; pnlRows.forEach(r => { pfByDate[r.fecha]  = Number(r.valor_usd); });
   const spyByDate = {}; spyHistory.forEach(r => { spyByDate[r.fecha] = r.close; });
   const spyStart  = spyByDate[startDate] || spyHistory.find(r => r.fecha >= startDate)?.close || null;
 
   // Unión de fechas ordenadas
   const allDates = [...new Set([...Object.keys(pfByDate),...Object.keys(spyByDate)])].sort();
-  const pfLine   = allDates.map(d => pfByDate[d]  != null ? +(pfByDate[d]  / startVal * 100).toFixed(2) : null);
+  const pfLine   = allDates.map(d => pfByDate[d]  != null ? +pfByDate[d].toFixed(2)  : null);
   const spyLine  = allDates.map(d => spyByDate[d] != null && spyStart ? +(spyByDate[d] / spyStart * 100).toFixed(2) : null);
 
-  // KPIs base
+  // KPIs
   const pfLast  = [...pfLine].reverse().find(v => v!=null);
   const spyLast = [...spyLine].reverse().find(v => v!=null);
   const pfRet   = pfLast  ? (pfLast  - 100).toFixed(1) : null;
   const spyRet  = spyLast ? (spyLast - 100).toFixed(1) : null;
-  const alpha   = pfRet != null && spyRet != null ? (pfRet - spyRet).toFixed(1) : null;
+  const alpha   = pfRet != null && spyRet != null ? (Number(pfRet) - Number(spyRet)).toFixed(1) : null;
 
-  // Sharpe ratio (anualizado, rf=0)
+  // Sharpe ratio (anualizado, rf=0) — usa pnl_pct/100 como retorno diario
   let sharpe = null;
-  if(pnlRows.length >= 10) {
-    const rets = [];
-    for(let i=1;i<pnlRows.length;i++){
-      const v0=Number(pnlRows[i-1].valor_usd), v1=Number(pnlRows[i].valor_usd);
-      if(v0>0) rets.push((v1-v0)/v0);
-    }
-    if(rets.length >= 5){
-      const mean = rets.reduce((s,r)=>s+r,0)/rets.length;
-      const std  = Math.sqrt(rets.reduce((s,r)=>s+(r-mean)**2,0)/rets.length);
-      if(std>0) sharpe = (mean/std*Math.sqrt(252)).toFixed(2);
-    }
+  const dailyRets = pnlRows.filter(r => r.pnl_pct != null).map(r => Number(r.pnl_pct)/100);
+  if(dailyRets.length >= 10) {
+    const mean = dailyRets.reduce((s,r)=>s+r,0)/dailyRets.length;
+    const std  = Math.sqrt(dailyRets.reduce((s,r)=>s+(r-mean)**2,0)/dailyRets.length);
+    if(std>0) sharpe = (mean/std*Math.sqrt(252)).toFixed(2);
   }
 
-  // Max drawdown
+  // Max drawdown sobre la serie compuesta
   let maxDD = null;
-  if(pnlRows.length >= 2){
+  if(pfLine.filter(v=>v!=null).length >= 2){
     let peak=0, dd=0;
-    pnlRows.forEach(r=>{ const v=Number(r.valor_usd); if(v>peak)peak=v; const d=peak>0?(peak-v)/peak:0; if(d>dd)dd=d; });
+    pfLine.forEach(v=>{ if(v==null)return; if(v>peak)peak=v; const d=peak>0?(peak-v)/peak:0; if(d>dd)dd=d; });
     maxDD = (dd*100).toFixed(1);
   }
 
