@@ -419,7 +419,7 @@
           <th>Apertura</th><th>Cierre</th>
           <th class="th-left">Patas</th>
           <th>Spot entrada</th><th>Spot cierre</th>
-          <th>P&amp;L neto</th>
+          <th>P&amp;L neto</th><th></th>
         </tr></thead>
         <tbody id="pfHistOpsTbody"></tbody>
       </table>
@@ -1153,7 +1153,7 @@ async function pfRenderOpsInline() {
 
 // ── Borrar estrategia de opciones ────────────────────────
 window.pfDeleteOp = async function(id) {
-  if(!confirm('¿Borrar esta estrategia del portafolio?')) return;
+  if(!confirm('¿Borrar esta estrategia?')) return;
   try {
     const session = await sbAuth.auth.getSession();
     const token = session?.data?.session?.access_token || CFG.SB_KEY;
@@ -1165,6 +1165,7 @@ window.pfDeleteOp = async function(id) {
     pfPatchOpsKpis();
     await pfRenderOpciones();
     if(pfFilter === 'OPCION') await pfRenderOpsInline();
+    if(document.getElementById('pfHistOpsSection')) await pfLoadHistorial();
   } catch(e) {
     alert('Error al borrar: ' + e.message);
   }
@@ -2080,6 +2081,7 @@ async function pfLoadHistorial() {
           <td>$${Number(op.spot_entrada||0).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
           <td>${op.spot_cierre ? '$'+Number(op.spot_cierre).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
           <td style="color:${cc}">${costoNeto<=0?'+':''}$${Math.round(-costoNeto).toLocaleString('es-AR')}</td>
+          <td><button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text4);padding:0 4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button></td>
         </tr>`;
       }).join('');
     }
