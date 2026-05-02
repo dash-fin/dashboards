@@ -926,13 +926,16 @@ let pfOpsSpot = 0;
 
 // Fetches open strategies + GGAL spot + RT prices, computes rows + totPnL
 async function pfFetchOpsData() {
-  const [ops, spotR, optRT] = await Promise.all([
+  const [ops, spotR, optRT, caucR] = await Promise.all([
     sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
     sb('opciones_rt','select=symbol,kind,last,bid,ask,strike,previous_close&order=symbol.asc'),
+    sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=last&limit=5'),
   ]);
   const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
   pfOpsSpot = S || pfOpsSpot;
+  const caucTna = caucR?.length ? caucR.reduce((s,r)=>s+Number(r.last||0),0)/caucR.length : 0;
+  const rfRate  = caucTna > 0 ? caucTna / 100 : 0.45;
 
   // Índice de precios (last con fallback a bid) y cierre anterior
   // Usa r.kind de la tabla (CALL/PUT) en vez de parsear el símbolo — en Argentina puts usan 'V' no 'P'
@@ -969,8 +972,8 @@ async function pfFetchOpsData() {
       if(!curPrice && S > 0 && K > 0){
         const T=_T(leg.vto);
         if(T > 0){
-          const iv=_iv(prima,S,K,T,0.70,tipo);
-          const bs=_bsP(S,K,T,0.70,iv,tipo);
+          const iv=_iv(prima,S,K,T,rfRate,tipo);
+          const bs=_bsP(S,K,T,rfRate,iv,tipo);
           if(!isNaN(bs) && bs >= 0) curPrice = bs;
         }
         src = 'BS';
