@@ -400,7 +400,10 @@
       <div id="pfCalendarBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px"></div>
     </div>
     <div id="pfBenchWrap" style="display:none;padding:16px 12px">
-      <div id="pfBenchKpis" style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+        <div id="pfBenchKpis" style="display:flex;flex-wrap:wrap;gap:20px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
+        <button id="pfBenchPrivacy" data-on="0" onclick="pfTogglePrivacy()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:1px;white-space:nowrap;flex-shrink:0">OCULTAR MONTOS</button>
+      </div>
       <div style="position:relative;height:280px"><canvas id="pfBenchCanvas"></canvas></div>
     </div>
   </div>
@@ -1691,7 +1694,8 @@ async function pfRenderCalendar() {
   const ytdStart = `${year}-01-01`;
   let rows = [];
   try {
-    rows = await sb('pnl_diario', `fecha=gte.${ytdStart}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
+    const _calEmail = encodeURIComponent(window.currentUser?.email||'');
+    rows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${ytdStart}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
   } catch(e) { console.warn('[pnl-cal]', e); }
 
   if(!rows.length) {
@@ -1755,6 +1759,17 @@ async function pfRenderCalendar() {
 }
 
 // ── Benchmark: Portafolio vs S&P 500 ─────────────────────────────
+window.pfTogglePrivacy = () => {
+  const btn = document.getElementById('pfBenchPrivacy');
+  if(!btn) return;
+  const on = btn.dataset.on === '1';
+  btn.dataset.on   = on ? '0' : '1';
+  btn.textContent  = on ? 'OCULTAR MONTOS' : 'MOSTRAR MONTOS';
+  btn.style.color  = on ? 'var(--text4)' : 'var(--cyan)';
+  btn.style.borderColor = on ? 'var(--border2)' : 'var(--cyan)';
+  pfRenderBenchmark();
+};
+
 let _benchChart = null;
 async function pfRenderBenchmark() {
   const wrap  = document.getElementById('pfBenchWrap');
@@ -1765,8 +1780,9 @@ async function pfRenderBenchmark() {
   kpis.innerHTML = '<span style="color:var(--text4)">Cargando...</span>';
   cWrap.innerHTML = '';
 
-  // Portafolio histórico desde pnl_diario
-  const pnlRows = await sb('pnl_diario','order=fecha.asc&select=fecha,valor_usd') || [];
+  // Portafolio histórico desde pnl_diario (filtrado por usuario)
+  const _email = encodeURIComponent(window.currentUser?.email||'');
+  const pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,valor_usd`) || [];
   if(!pnlRows.length) {
     kpis.innerHTML = '';
     cWrap.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);padding:40px;text-align:center">Sin datos aún — el snapshot se guarda cada día al cierre (17:10).</div>`;
@@ -1841,17 +1857,26 @@ async function pfRenderBenchmark() {
     maxDD  != null ? `<span>Max DD <b style="color:var(--red)">-${maxDD}%</b></span>` : '',
   ].join('');
 
+  // Privacy mode toggle
+  const privacy = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
+
   // Chart
   cWrap.innerHTML = '<canvas id="pfBenchCanvas"></canvas>';
   if(_benchChart){ _benchChart.destroy(); _benchChart=null; }
   const mono = "'IBM Plex Mono',monospace";
   const labels = allDates.map(d => { const [,m,day]=d.split('-'); return `${day}/${m}`; });
+
+  // En modo privacy: convertir valores indexados (100=base) a retorno pct (0=base)
+  const toDisplay = v => v == null ? null : privacy ? +(v-100).toFixed(2) : +v.toFixed(2);
+  const pfDisp  = pfLine.map(toDisplay);
+  const spyDisp = spyLine.map(toDisplay);
+
   _benchChart = new Chart(document.getElementById('pfBenchCanvas').getContext('2d'), {
     type:'line',
     data:{ labels, datasets:[
-      { label:'Portafolio', data:pfLine,  borderColor:'#38c8ff', backgroundColor:'rgba(56,200,255,0.07)',
+      { label:'Portafolio',     data:pfDisp,  borderColor:'#38c8ff', backgroundColor:'rgba(56,200,255,0.07)',
         borderWidth:2, pointRadius:0, tension:0.2, fill:true, spanGaps:true },
-      { label:'S&P 500 (SPY)', data:spyLine, borderColor:'#ffc84a', backgroundColor:'transparent',
+      { label:'S&P 500 (SPY)', data:spyDisp, borderColor:'#ffc84a', backgroundColor:'transparent',
         borderWidth:1.5, pointRadius:0, tension:0.2, spanGaps:true }
     ]},
     options:{
@@ -1865,13 +1890,21 @@ async function pfRenderBenchmark() {
           titleFont:{family:mono,size:9}, bodyFont:{family:mono,size:10},
           callbacks:{ label: ctx => {
             const v=ctx.raw; if(v==null) return '';
-            const r=(v-100).toFixed(1); return ` ${ctx.dataset.label}: ${v.toFixed(1)}  (${Number(r)>=0?'+':''}${r}%)`;
+            const pct = privacy ? v : v-100;
+            return ` ${ctx.dataset.label}: ${(pct>=0?'+':'')+pct.toFixed(1)}%`;
           }}
         }
       },
       scales:{
         x:{ ticks:{color:'#8899a6',font:{family:mono,size:9},maxTicksLimit:10}, grid:{color:'rgba(30,42,56,0.8)'} },
-        y:{ ticks:{color:'#8899a6',font:{family:mono,size:9},callback:v=>v.toFixed(0)}, grid:{color:'rgba(30,42,56,0.8)'} }
+        y:{
+          beginAtZero: false,
+          ticks:{
+            color:'#8899a6', font:{family:mono,size:9},
+            callback: v => privacy ? (v>=0?'+':'')+v.toFixed(1)+'%' : v.toFixed(0)
+          },
+          grid:{color:'rgba(30,42,56,0.8)'}
+        }
       }
     }
   });
