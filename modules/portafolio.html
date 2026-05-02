@@ -400,7 +400,10 @@
       <div id="pfCalendarBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px"></div>
     </div>
     <div id="pfBenchWrap" style="display:none;padding:16px 12px">
-      <div id="pfBenchKpis" style="display:flex;gap:24px;margin-bottom:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div id="pfBenchKpis" style="display:flex;flex-wrap:wrap;gap:20px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
+        <button id="pfBackfillBtn" onclick="pfBackfillPnL()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 10px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:1px;white-space:nowrap">CALCULAR HISTÓRICO</button>
+      </div>
       <div style="position:relative;height:280px"><canvas id="pfBenchCanvas"></canvas></div>
     </div>
   </div>
@@ -1800,12 +1803,36 @@ async function pfRenderBenchmark() {
   const pfLine   = allDates.map(d => pfByDate[d]  != null ? +(pfByDate[d]  / startVal * 100).toFixed(2) : null);
   const spyLine  = allDates.map(d => spyByDate[d] != null && spyStart ? +(spyByDate[d] / spyStart * 100).toFixed(2) : null);
 
-  // KPIs
+  // KPIs base
   const pfLast  = [...pfLine].reverse().find(v => v!=null);
   const spyLast = [...spyLine].reverse().find(v => v!=null);
   const pfRet   = pfLast  ? (pfLast  - 100).toFixed(1) : null;
   const spyRet  = spyLast ? (spyLast - 100).toFixed(1) : null;
   const alpha   = pfRet != null && spyRet != null ? (pfRet - spyRet).toFixed(1) : null;
+
+  // Sharpe ratio (anualizado, rf=0)
+  let sharpe = null;
+  if(pnlRows.length >= 10) {
+    const rets = [];
+    for(let i=1;i<pnlRows.length;i++){
+      const v0=Number(pnlRows[i-1].valor_usd), v1=Number(pnlRows[i].valor_usd);
+      if(v0>0) rets.push((v1-v0)/v0);
+    }
+    if(rets.length >= 5){
+      const mean = rets.reduce((s,r)=>s+r,0)/rets.length;
+      const std  = Math.sqrt(rets.reduce((s,r)=>s+(r-mean)**2,0)/rets.length);
+      if(std>0) sharpe = (mean/std*Math.sqrt(252)).toFixed(2);
+    }
+  }
+
+  // Max drawdown
+  let maxDD = null;
+  if(pnlRows.length >= 2){
+    let peak=0, dd=0;
+    pnlRows.forEach(r=>{ const v=Number(r.valor_usd); if(v>peak)peak=v; const d=peak>0?(peak-v)/peak:0; if(d>dd)dd=d; });
+    maxDD = (dd*100).toFixed(1);
+  }
+
   const clr = n => Number(n) >= 0 ? 'var(--green)' : 'var(--red)';
   const fmt = n => (Number(n)>=0?'+':'')+n+'%';
   kpis.innerHTML = [
@@ -1813,6 +1840,8 @@ async function pfRenderBenchmark() {
     pfRet  != null ? `<span>Portafolio <b style="color:${clr(pfRet)}">${fmt(pfRet)}</b></span>` : '',
     spyRet != null ? `<span>S&P 500 <b style="color:${clr(spyRet)}">${fmt(spyRet)}</b></span>` : '',
     alpha  != null ? `<span>Alpha <b style="color:${clr(alpha)}">${fmt(alpha)}</b></span>` : '',
+    sharpe != null ? `<span>Sharpe <b style="color:${clr(sharpe)}">${sharpe}</b></span>` : '',
+    maxDD  != null ? `<span>Max DD <b style="color:var(--red)">-${maxDD}%</b></span>` : '',
   ].join('');
 
   // Chart
@@ -1849,6 +1878,119 @@ async function pfRenderBenchmark() {
       }
     }
   });
+}
+
+// ── Backfill histórico pnl_diario desde posiciones + Rava ────────
+async function pfBackfillPnL() {
+  const btn = document.getElementById('pfBackfillBtn');
+  const orig = btn.textContent;
+  btn.textContent = 'Calculando...'; btn.disabled = true;
+  try {
+    const email = window.currentUser?.email;
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1. Posiciones activas + trades cerrados (para rangos de fechas)
+    const [posRows, tradeRows] = await Promise.all([
+      sb('portafolio', 'activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,fecha_compra'),
+      sb('trades', `user_email=eq.${encodeURIComponent(email)}&select=ticker_ars,tipo,cantidad,fecha,fecha_cierre`),
+    ]);
+
+    // Unificar: { ticker, tipo, cantidad, openDate, closeDate }
+    const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
+    const allPos = [
+      ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:today})),
+      ...(tradeRows||[]).filter(t=>t.tipo!=='OPCION').map(t=>({ticker:t.ticker_ars,tipo:t.tipo,qty:Number(t.cantidad),open:t.fecha,close:t.fecha_cierre||today})),
+    ].filter(p=>p.ticker&&p.qty>0&&p.open);
+
+    if(!allPos.length) throw new Error('Sin posiciones');
+    const startDate = allPos.reduce((m,p)=>p.open<m?p.open:m, allPos[0].open);
+
+    // 2. Días ya guardados (no sobreescribir)
+    const existing = await sb('pnl_diario',`fecha=gte.${startDate}&select=fecha`) || [];
+    const existingSet = new Set(existing.map(r=>r.fecha));
+
+    // 3. Precios históricos Rava + MEP histórico
+    const tickers = [...new Set(allPos.map(p=>p.ticker))];
+    const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    const SB_URL  = 'https://endymbpdayeidromxayb.supabase.co';
+    const sess    = await window.supabase?.auth?.getSession?.();
+    const tok     = sess?.data?.session?.access_token || SB_KEY;
+    const edgeH   = {'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY};
+
+    const [seriesResp, mepRows] = await Promise.all([
+      fetch(`${SB_URL}/functions/v1/yahoo-prices`,{method:'POST',headers:edgeH,body:JSON.stringify({mode:'rava-series',symbols:tickers})}).then(r=>r.json()),
+      sb('mep_historico',`fecha=gte.${startDate}&order=fecha.asc&select=fecha,mep`),
+    ]);
+
+    // Lookups: priceByTk[ticker][fecha]=cierre, mepByDate[fecha]=mep
+    const priceByTk = {};
+    for(const [tk,rows] of Object.entries(seriesResp||{})){
+      priceByTk[tk]={};
+      (rows||[]).forEach(r=>{ priceByTk[tk][r.fecha]=r.cierre; });
+    }
+    const mepByDate = {}; (mepRows||[]).forEach(r=>{ mepByDate[r.fecha]=Number(r.mep); });
+
+    const closestBefore = (map, date) => {
+      const keys = Object.keys(map).filter(d=>d<=date).sort();
+      return keys.length ? map[keys[keys.length-1]] : null;
+    };
+
+    // 4. Calcular valor USD por cada fecha con MEP disponible
+    const toInsert = [];
+    const mepDates = (mepRows||[]).map(r=>r.fecha).filter(d=>d>=startDate&&!existingSet.has(d));
+
+    for(const date of mepDates){
+      const mep = mepByDate[date]; if(!mep||mep<=0) continue;
+      let totalUsd=0, hasPx=false;
+      for(const p of allPos){
+        if(p.open>date||p.close<date) continue; // fuera del rango de esta posición
+        const px = closestBefore(priceByTk[p.ticker]||{}, date);
+        if(!px) continue;
+        const factor = BONOS.includes(p.tipo)?100:1;
+        totalUsd += (p.qty*px)/(factor*mep);
+        hasPx=true;
+      }
+      if(!hasPx||totalUsd<=0) continue;
+      toInsert.push({fecha:date, valor_usd:Math.round(totalUsd*100)/100});
+    }
+
+    // 5. Calcular pnl_usd / pnl_pct vs día anterior
+    // Combinar existentes + nuevos para poder calcular delta
+    const allKnown = {};
+    (await sb('pnl_diario','order=fecha.asc&select=fecha,valor_usd')||[]).forEach(r=>{ allKnown[r.fecha]=Number(r.valor_usd); });
+    toInsert.forEach(r=>{ allKnown[r.fecha]=r.valor_usd; });
+    const sortedAll = Object.keys(allKnown).sort();
+
+    const finalRows = toInsert.map(row=>{
+      const idx = sortedAll.indexOf(row.fecha);
+      const prev = idx>0 ? allKnown[sortedAll[idx-1]] : null;
+      return {
+        fecha: row.fecha, valor_usd: row.valor_usd,
+        pnl_usd: prev ? Math.round((row.valor_usd-prev)*100)/100 : null,
+        pnl_pct: prev&&prev>0 ? Math.round((row.valor_usd-prev)/prev*100*10000)/10000 : null,
+      };
+    });
+
+    // 6. Upsert en lotes de 100
+    if(finalRows.length){
+      for(let i=0;i<finalRows.length;i+=100){
+        await fetch(`${SB_URL}/rest/v1/pnl_diario`,{
+          method:'POST',
+          headers:{...edgeH,'Prefer':'resolution=merge-duplicates,return=minimal'},
+          body:JSON.stringify(finalRows.slice(i,i+100))
+        });
+      }
+    }
+
+    btn.textContent = finalRows.length ? `✓ ${finalRows.length} días cargados` : '✓ Sin días nuevos';
+    await pfRenderBenchmark();
+  } catch(e){
+    console.error('[backfill]',e);
+    btn.textContent = 'Error — ver consola';
+    setTimeout(()=>{ btn.textContent=orig; btn.disabled=false; },3000);
+    return;
+  }
+  setTimeout(()=>{ btn.textContent=orig; btn.disabled=false; },4000);
 }
 
 // ── Historial de trades ───────────────────────────────────────────
