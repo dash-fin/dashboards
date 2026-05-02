@@ -161,6 +161,34 @@ serve(async (req) => {
       });
     }
 
+    // ── Modo 5: histórico Yahoo Finance (benchmark) ─────────
+    if (mode === "yahoo-history") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+      const startDate = (body as any).startDate || new Date(Date.now() - 365*86400*1000).toISOString().split("T")[0];
+      const { crumb, cookie } = await getYahooCrumb();
+      const period1 = Math.floor(new Date(startDate).getTime() / 1000);
+      const period2 = Math.floor(Date.now() / 1000);
+      const result: Record<string, Array<{fecha: string; close: number}>> = {};
+      await Promise.all(symbols.map(async (sym) => {
+        try {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?period1=${period1}&period2=${period2}&interval=1d&crumb=${encodeURIComponent(crumb)}`;
+          const resp = await fetch(url, { headers: { "User-Agent": UA, "Cookie": cookie } });
+          if (!resp.ok) { result[sym] = []; return; }
+          const data = await resp.json();
+          const chart = data?.chart?.result?.[0];
+          if (!chart) { result[sym] = []; return; }
+          const timestamps: number[] = chart.timestamp || [];
+          const closes: number[] = chart.indicators?.quote?.[0]?.close || [];
+          result[sym] = timestamps
+            .map((ts, i) => ({ fecha: new Date(ts * 1000).toISOString().split("T")[0], close: closes[i] ?? null }))
+            .filter((r): r is {fecha: string; close: number} => r.close != null);
+        } catch { result[sym] = []; }
+      }));
+      return new Response(JSON.stringify(result), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Modo 1: precios actuales vía Yahoo ──────────────────
     if (!symbols?.length) throw new Error("symbols requerido");
 

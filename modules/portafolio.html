@@ -377,7 +377,8 @@
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Trades cerrados</span>
       <div style="display:flex;align-items:center;gap:6px">
         <button id="pfHistBtnTbl" onclick="pfHistView('tabla')" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--cyan);background:var(--cyan);color:#0d1117;border-radius:2px;cursor:pointer;letter-spacing:1px">TABLA</button>
-        <button id="pfHistBtnCal" onclick="pfHistView('cal')"   style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text3);border-radius:2px;cursor:pointer;letter-spacing:1px">CALENDARIO</button>
+        <button id="pfHistBtnCal"   onclick="pfHistView('cal')"   style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text3);border-radius:2px;cursor:pointer;letter-spacing:1px">CALENDARIO</button>
+        <button id="pfHistBtnBench" onclick="pfHistView('bench')" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text3);border-radius:2px;cursor:pointer;letter-spacing:1px">RENDIMIENTO</button>
         <span id="pfHistStats" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"></span>
       </div>
     </div>
@@ -397,6 +398,10 @@
     </div>
     <div id="pfCalendarWrap" style="display:none;padding:16px 12px">
       <div id="pfCalendarBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px"></div>
+    </div>
+    <div id="pfBenchWrap" style="display:none;padding:16px 12px">
+      <div id="pfBenchKpis" style="display:flex;gap:24px;margin-bottom:12px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
+      <div style="position:relative;height:280px"><canvas id="pfBenchCanvas"></canvas></div>
     </div>
   </div>
 
@@ -1663,17 +1668,18 @@ let pfHistCurrentView = 'tabla';
 
 window.pfHistView = (view) => {
   pfHistCurrentView = view;
-  const isTbl = view === 'tabla';
-  document.getElementById('pfHistTbody').closest('.table-wrap').style.display = isTbl ? '' : 'none';
-  document.getElementById('pfCalendarWrap').style.display  = isTbl ? 'none' : '';
-  const bTbl = document.getElementById('pfHistBtnTbl');
-  const bCal = document.getElementById('pfHistBtnCal');
-  bTbl.style.background = isTbl ? 'var(--cyan)' : 'transparent';
-  bTbl.style.color      = isTbl ? '#0d1117' : 'var(--text3)';
-  bTbl.style.borderColor= isTbl ? 'var(--cyan)' : 'var(--border2)';
-  bCal.style.background = isTbl ? 'transparent' : 'var(--cyan)';
-  bCal.style.color      = isTbl ? 'var(--text3)' : '#0d1117';
-  bCal.style.borderColor= isTbl ? 'var(--border2)' : 'var(--cyan)';
+  document.getElementById('pfHistTbody').closest('.table-wrap').style.display = view==='tabla' ? '' : 'none';
+  document.getElementById('pfCalendarWrap').style.display = view==='cal'   ? '' : 'none';
+  document.getElementById('pfBenchWrap').style.display    = view==='bench' ? '' : 'none';
+  ['Tbl','Cal','Bench'].forEach(k => {
+    const id = 'pfHistBtn'+k;
+    const active = (k==='Tbl'&&view==='tabla')||(k==='Cal'&&view==='cal')||(k==='Bench'&&view==='bench');
+    const el = document.getElementById(id); if(!el) return;
+    el.style.background  = active ? 'var(--cyan)' : 'transparent';
+    el.style.color       = active ? '#0d1117' : 'var(--text3)';
+    el.style.borderColor = active ? 'var(--cyan)' : 'var(--border2)';
+  });
+  if(view==='bench') pfRenderBenchmark();
 };
 
 async function pfRenderCalendar() {
@@ -1746,6 +1752,103 @@ async function pfRenderCalendar() {
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${dowH}${empties}${dayCells}</div>
     </div>`;
   }).join('');
+}
+
+// ── Benchmark: Portafolio vs S&P 500 ─────────────────────────────
+let _benchChart = null;
+async function pfRenderBenchmark() {
+  const wrap  = document.getElementById('pfBenchWrap');
+  const kpis  = document.getElementById('pfBenchKpis');
+  const cWrap = wrap?.querySelector('div:last-child');
+  if(!wrap || !cWrap) return;
+
+  kpis.innerHTML = '<span style="color:var(--text4)">Cargando...</span>';
+  cWrap.innerHTML = '';
+
+  // Portafolio histórico desde pnl_diario
+  const pnlRows = await sb('pnl_diario','order=fecha.asc&select=fecha,valor_usd') || [];
+  if(!pnlRows.length) {
+    kpis.innerHTML = '';
+    cWrap.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);padding:40px;text-align:center">Sin datos aún — el snapshot se guarda cada día al cierre (17:10).</div>`;
+    return;
+  }
+
+  const startDate = pnlRows[0].fecha;
+  const startVal  = Number(pnlRows[0].valor_usd);
+
+  // SPY histórico vía edge function
+  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+  let spyHistory = [];
+  try {
+    const sess = await window.supabase?.auth?.getSession?.();
+    const tok  = sess?.data?.session?.access_token || SB_KEY;
+    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY},
+      body: JSON.stringify({mode:'yahoo-history', symbols:['SPY'], startDate})
+    });
+    spyHistory = (await r.json())?.SPY || [];
+  } catch(e){ console.warn('[bench-spy]',e); }
+
+  // Índices por fecha
+  const pfByDate  = {}; pnlRows.forEach(r => { pfByDate[r.fecha]  = Number(r.valor_usd); });
+  const spyByDate = {}; spyHistory.forEach(r => { spyByDate[r.fecha] = r.close; });
+  const spyStart  = spyByDate[startDate] || spyHistory.find(r => r.fecha >= startDate)?.close || null;
+
+  // Unión de fechas ordenadas
+  const allDates = [...new Set([...Object.keys(pfByDate),...Object.keys(spyByDate)])].sort();
+  const pfLine   = allDates.map(d => pfByDate[d]  != null ? +(pfByDate[d]  / startVal * 100).toFixed(2) : null);
+  const spyLine  = allDates.map(d => spyByDate[d] != null && spyStart ? +(spyByDate[d] / spyStart * 100).toFixed(2) : null);
+
+  // KPIs
+  const pfLast  = [...pfLine].reverse().find(v => v!=null);
+  const spyLast = [...spyLine].reverse().find(v => v!=null);
+  const pfRet   = pfLast  ? (pfLast  - 100).toFixed(1) : null;
+  const spyRet  = spyLast ? (spyLast - 100).toFixed(1) : null;
+  const alpha   = pfRet != null && spyRet != null ? (pfRet - spyRet).toFixed(1) : null;
+  const clr = n => Number(n) >= 0 ? 'var(--green)' : 'var(--red)';
+  const fmt = n => (Number(n)>=0?'+':'')+n+'%';
+  kpis.innerHTML = [
+    `<span>Desde <b style="color:var(--text2)">${startDate}</b></span>`,
+    pfRet  != null ? `<span>Portafolio <b style="color:${clr(pfRet)}">${fmt(pfRet)}</b></span>` : '',
+    spyRet != null ? `<span>S&P 500 <b style="color:${clr(spyRet)}">${fmt(spyRet)}</b></span>` : '',
+    alpha  != null ? `<span>Alpha <b style="color:${clr(alpha)}">${fmt(alpha)}</b></span>` : '',
+  ].join('');
+
+  // Chart
+  cWrap.innerHTML = '<canvas id="pfBenchCanvas"></canvas>';
+  if(_benchChart){ _benchChart.destroy(); _benchChart=null; }
+  const mono = "'IBM Plex Mono',monospace";
+  const labels = allDates.map(d => { const [,m,day]=d.split('-'); return `${day}/${m}`; });
+  _benchChart = new Chart(document.getElementById('pfBenchCanvas').getContext('2d'), {
+    type:'line',
+    data:{ labels, datasets:[
+      { label:'Portafolio', data:pfLine,  borderColor:'#38c8ff', backgroundColor:'rgba(56,200,255,0.07)',
+        borderWidth:2, pointRadius:0, tension:0.2, fill:true, spanGaps:true },
+      { label:'S&P 500 (SPY)', data:spyLine, borderColor:'#ffc84a', backgroundColor:'transparent',
+        borderWidth:1.5, pointRadius:0, tension:0.2, spanGaps:true }
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{ labels:{ color:'#8899a6', font:{family:mono,size:10}, boxWidth:12 } },
+        tooltip:{
+          backgroundColor:'#111827', borderColor:'#1e2a38', borderWidth:1,
+          titleColor:'#8899a6', bodyColor:'#e2eaf4',
+          titleFont:{family:mono,size:9}, bodyFont:{family:mono,size:10},
+          callbacks:{ label: ctx => {
+            const v=ctx.raw; if(v==null) return '';
+            const r=(v-100).toFixed(1); return ` ${ctx.dataset.label}: ${v.toFixed(1)}  (${Number(r)>=0?'+':''}${r}%)`;
+          }}
+        }
+      },
+      scales:{
+        x:{ ticks:{color:'#8899a6',font:{family:mono,size:9},maxTicksLimit:10}, grid:{color:'rgba(30,42,56,0.8)'} },
+        y:{ ticks:{color:'#8899a6',font:{family:mono,size:9},callback:v=>v.toFixed(0)}, grid:{color:'rgba(30,42,56,0.8)'} }
+      }
+    }
+  });
 }
 
 // ── Historial de trades ───────────────────────────────────────────
