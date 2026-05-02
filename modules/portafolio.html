@@ -975,7 +975,7 @@ async function pfFetchOpsData() {
   const _bsP=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return Math.max(tipo==='call'?S-K:K-S,0);const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?S*_norm(d1)-K*Math.exp(-r*T)*_norm(d2):K*Math.exp(-r*T)*_norm(-d2)-S*_norm(-d1);};
   const _vega=(S,K,T,r,sig)=>{if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*Math.exp(-d1*d1/2)/Math.sqrt(2*Math.PI)*Math.sqrt(T);};
   const _iv=(price,S,K,T,r,tipo)=>{if(T<=0||price<=0)return 0.60;let sig=0.60;for(let i=0;i<80;i++){const p=_bsP(S,K,T,r,sig),v=_vega(S,K,T,r,sig);if(Math.abs(v)<1e-8)break;sig-=(p-price)/v;if(sig<0.01)sig=0.01;if(sig>15)return 0.60;}return sig;};
-  const _T=vto=>{const e=new Date(String(vto).slice(0,10)+'T12:00:00');return(e-new Date())/(1000*60*60*24*365);};
+  const _T=vto=>{let s=String(vto);if(/^\d{2}\/\d{4}$/.test(s)){const[mm,yy]=s.split('/');s=new Date(+yy,+mm,0).toISOString().split('T')[0];}const e=new Date(s.slice(0,10)+'T12:00:00');return(e-new Date())/(1000*60*60*24*365);};
   const _phi=x=>Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI);
   const _delta=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return tipo==='call'?(S>=K?1:0):(S>=K?0:-1);const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));return tipo==='call'?_norm(d1):_norm(d1)-1;};
   const _theta=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?(-S*_phi(d1)*sig/(2*Math.sqrt(T))-r*K*Math.exp(-r*T)*_norm(d2))/365:(-S*_phi(d1)*sig/(2*Math.sqrt(T))+r*K*Math.exp(-r*T)*_norm(-d2))/365;};
