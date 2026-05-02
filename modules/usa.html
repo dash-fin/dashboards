@@ -29,6 +29,7 @@
     <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
     <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
     <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
+    <button class="stab"        id="ustab-topology" onclick="usTab('topology',this)">Market Topology</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -237,6 +238,93 @@
   <div style="margin-top:8px;font-size:10px;color:var(--text3);font-family:monospace">* OI/Vol: open interest cuando disponible, volumen del dia como proxy cuando OI es null</div>
 </div>
 
+<!-- ══ MARKET TOPOLOGY ══ -->
+<div class="sub-panel" id="uspanel-topology">
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px">
+    <div class="kpi" style="--accent:var(--green)">
+      <div class="kpi-label">S&amp;P 500 (SPY)</div>
+      <div class="kpi-val" id="tkpi-spy">—</div>
+      <div class="kpi-sub" id="tkpi-spy-chg">—</div>
+    </div>
+    <div class="kpi" style="--accent:var(--cyan)">
+      <div class="kpi-label">Amplitud EMA200</div>
+      <div class="kpi-val" id="tkpi-amp">—</div>
+      <div class="kpi-sub">acciones sobre EMA200</div>
+    </div>
+    <div class="kpi" style="--accent:var(--amber)">
+      <div class="kpi-label">VIXY</div>
+      <div class="kpi-val" id="tkpi-vixy">—</div>
+      <div class="kpi-sub" id="tkpi-vixy-chg">—</div>
+    </div>
+    <div class="kpi" style="--accent:var(--blue)">
+      <div class="kpi-label">Subiendo</div>
+      <div class="kpi-val" id="tkpi-up">—</div>
+      <div class="kpi-sub" id="tkpi-up-sub">—</div>
+    </div>
+    <div class="kpi" style="--accent:var(--red)">
+      <div class="kpi-label">Bajando</div>
+      <div class="kpi-val" id="tkpi-dn">—</div>
+      <div class="kpi-sub" id="tkpi-dn-sub">—</div>
+    </div>
+    <div class="kpi" style="--accent:var(--purple)">
+      <div class="kpi-label">RSI &gt; 70</div>
+      <div class="kpi-val" id="tkpi-rsi70">—</div>
+      <div class="kpi-sub" id="tkpi-rsi30">—</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start">
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;overflow:hidden">
+      <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px">Momentum 20d vs Volatilidad Relativa</span>
+        <div style="display:flex;gap:12px">
+          <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;background:rgba(22,184,94,.85)"></div>Alcista</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;background:rgba(184,42,42,.85)"></div>Bajista</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;border:1px dashed rgba(240,165,0,.7)"></div>Vol &gt;2x</div>
+        </div>
+      </div>
+      <canvas id="topoScatter" height="460" style="display:block;width:100%;cursor:crosshair"></canvas>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;overflow:hidden">
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px">Sectores</div>
+        <div id="topo-sector-list" style="padding:10px 0"></div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Amplitud de mercado</div>
+        <div style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:5px">% sobre EMA 200</div>
+        <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:6px">
+          <div id="topo-breadth-fill" style="height:100%;border-radius:4px;width:0%;transition:width .8s ease"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3);margin-bottom:10px">
+          <span>0%</span><span id="topo-breadth-val" style="font-weight:500">—</span><span>100%</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
+            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Sobre EMA50</div>
+            <div id="topo-b-sma50" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500">—</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
+            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Sobre EMA200</div>
+            <div id="topo-b-sma200" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500">—</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
+            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">RSI &gt; 70</div>
+            <div id="topo-b-rsi70" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">—</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
+            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">RSI &lt; 30</div>
+            <div id="topo-b-rsi30" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--blue)">—</div>
+          </div>
+        </div>
+      </div>
+      <div id="topo-regime" style="border-radius:8px;padding:14px 16px;border:1px solid var(--border);background:var(--bg2)">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;color:var(--text3)">Régimen de mercado</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text3)">Sin datos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ RRG ══ -->
 <div class="sub-panel" id="uspanel-rrg">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
@@ -303,6 +391,19 @@
       <div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Iniciando scan…</div>
     </div>
   </div>
+  <!-- Rotation clock -->
+  <div style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px">Reloj de Rotación Sectorial</span>
+      <div style="display:flex;gap:14px">
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(0,229,168,.6)"></div>Leading</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(240,165,0,.6)"></div>Weakening</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(255,63,94,.6)"></div>Lagging</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(77,166,255,.6)"></div>Improving</div>
+      </div>
+    </div>
+    <canvas id="rotationClock" height="420" style="display:block;width:100%"></canvas>
+  </div>
 </div>
 <div id="rrg-tooltip" style="position:fixed;background:#0f1822;border:1px solid var(--border2);border-radius:6px;padding:9px 13px;font-size:10px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .12s;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5)"></div>
 
@@ -328,7 +429,8 @@ window.usTab = (name, btn) => {
   btn.classList.add('active');
   if(name==='sectores') usRenderSectores();
   if(name==='opciones') usRenderOpciones();
-  if(name==='rrg') { if(!rrgLoaded) rrgLoad(); else rrgRender(); }
+  if(name==='rrg')      { if(!rrgLoaded) rrgLoad(); else { rrgRender(); usDrawRotationClock(); } }
+  if(name==='topology') usRenderTopology();
 };
 
 // ── Load ──
@@ -374,8 +476,9 @@ window.usLoadAll = async () => {
 
   // Render active panel
   const activePanel = document.querySelector('[id^="uspanel-"].active')?.id?.replace('uspanel-','');
-  if(activePanel==='sectores') usRenderSectores();
-  if(activePanel==='opciones') usRenderOpciones();
+  if(activePanel==='sectores')  usRenderSectores();
+  if(activePanel==='opciones')  usRenderOpciones();
+  if(activePanel==='topology')  usRenderTopology();
 };
 
 // ── Rankings ──
@@ -1155,6 +1258,7 @@ async function rrgLoad() {
     rrgRender();
     rrgBuildLegend();
     rrgSetupTooltip();
+    if(document.getElementById('uspanel-rrg')?.classList.contains('active')) usDrawRotationClock();
   } catch(e) {
     console.error('[rrg]',e);
     document.getElementById('rrg-meta').textContent = 'Error: '+e.message;
@@ -1603,6 +1707,8 @@ window.rrgScanSP500 = async function(){
 
 window.addEventListener('resize',()=>{
   if(document.getElementById('uspanel-rrg')?.classList.contains('active')) rrgRender();
+  if(document.getElementById('uspanel-topology')?.classList.contains('active')) usDrawTopoScatter();
+  if(document.getElementById('uspanel-rrg')?.classList.contains('active')) usDrawRotationClock();
 });
 
 // Close autocomplete on outside click
@@ -1610,6 +1716,392 @@ document.addEventListener('click', e => {
   const wrap = document.getElementById('rrg-add-wrap');
   if (wrap && !wrap.contains(e.target)) rrgAddHideAc();
 });
+
+// ── Market Topology ─────────────────────────────────────────
+
+function usRenderTopology() {
+  if (!usAllData.length) return;
+  const withChg = usAllData.filter(r => r.change_pct != null);
+  const total   = withChg.length;
+
+  // SPY KPI
+  const spy = usAllData.find(r => r.symbol === 'SPY');
+  const spyEl = document.getElementById('tkpi-spy');
+  const spyChgEl = document.getElementById('tkpi-spy-chg');
+  if (spy && spyEl) {
+    spyEl.textContent = spy.last ? Number(spy.last).toFixed(2) : '—';
+    if (spyChgEl) {
+      const chg = Number(spy.change_pct || 0);
+      spyChgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+      spyChgEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+  }
+
+  // VIXY KPI
+  const vixy = usAllData.find(r => r.symbol === 'VIXY');
+  const vixyEl    = document.getElementById('tkpi-vixy');
+  const vixyChgEl = document.getElementById('tkpi-vixy-chg');
+  if (vixy) {
+    if (vixyEl) vixyEl.textContent = vixy.last ? Number(vixy.last).toFixed(2) : '—';
+    if (vixyChgEl) {
+      const chg = Number(vixy.change_pct || 0);
+      vixyChgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+      vixyChgEl.style.color = chg >= 0 ? 'var(--red)' : 'var(--green)'; // VIX up = bad
+    }
+  }
+
+  // Up / Down KPIs
+  const ups = withChg.filter(r => r.change_pct > 0).length;
+  const dns = withChg.filter(r => r.change_pct < 0).length;
+  const upEl  = document.getElementById('tkpi-up');
+  const dnEl  = document.getElementById('tkpi-dn');
+  const upSub = document.getElementById('tkpi-up-sub');
+  const dnSub = document.getElementById('tkpi-dn-sub');
+  if (upEl)  upEl.textContent  = ups;
+  if (dnEl)  dnEl.textContent  = dns;
+  if (upSub) upSub.textContent = `de ${total} activos`;
+  if (dnSub) dnSub.textContent = `de ${total} activos`;
+
+  // Breadth stats
+  const withSma200 = usAllData.filter(r => r.above_sma200 != null);
+  const withSma50  = usAllData.filter(r => r.above_sma50  != null);
+  const withRsiAll = usAllData.filter(r => r.rsi_14 != null);
+  const n200 = withSma200.length || 1;
+  const n50  = withSma50.length  || 1;
+  const nRsi = withRsiAll.length || 1;
+
+  const aboveSma200 = withSma200.filter(r => r.above_sma200 === true).length;
+  const aboveSma50  = withSma50.filter(r => r.above_sma50  === true).length;
+  const rsiOB = withRsiAll.filter(r => r.rsi_14 >= 70).length;
+  const rsiOS = withRsiAll.filter(r => r.rsi_14 <= 30).length;
+
+  const pctSma200 = Math.round(aboveSma200 / n200 * 100);
+  const pctSma50  = Math.round(aboveSma50  / n50  * 100);
+  const pctRsi70  = Math.round(rsiOB / nRsi * 100);
+  const pctRsi30  = Math.round(rsiOS / nRsi * 100);
+
+  // Amplitud KPI
+  const ampEl = document.getElementById('tkpi-amp');
+  if (ampEl) ampEl.textContent = pctSma200 + '%';
+
+  // RSI KPIs
+  const rsi70El = document.getElementById('tkpi-rsi70');
+  const rsi30El = document.getElementById('tkpi-rsi30');
+  if (rsi70El) rsi70El.textContent = rsiOB;
+  if (rsi30El) rsi30El.textContent = `RSI < 30: ${rsiOS}`;
+
+  // Breadth gauge
+  const fillEl = document.getElementById('topo-breadth-fill');
+  const valEl  = document.getElementById('topo-breadth-val');
+  const bColor = pctSma200 >= 60 ? 'var(--green)' : pctSma200 >= 40 ? 'var(--amber)' : 'var(--red)';
+  if (fillEl) { fillEl.style.width = pctSma200 + '%'; fillEl.style.background = bColor; }
+  if (valEl)  { valEl.textContent = pctSma200 + '%'; valEl.style.color = bColor; }
+
+  const b50 = document.getElementById('topo-b-sma50');
+  const b200 = document.getElementById('topo-b-sma200');
+  const br70 = document.getElementById('topo-b-rsi70');
+  const br30 = document.getElementById('topo-b-rsi30');
+  if (b50)  { b50.textContent  = pctSma50  + '%'; b50.style.color  = pctSma50  >= 60 ? 'var(--green)' : pctSma50  >= 40 ? 'var(--amber)' : 'var(--red)'; }
+  if (b200) { b200.textContent = pctSma200 + '%'; b200.style.color = bColor; }
+  if (br70) { br70.textContent = pctRsi70  + '%'; }
+  if (br30) { br30.textContent = pctRsi30  + '%'; br30.style.color = 'var(--blue)'; }
+
+  // Regime card
+  const regEl = document.getElementById('topo-regime');
+  if (regEl) {
+    let label, desc, col, bg, border;
+    if (pctSma200 >= 65 && ups > dns * 1.4) {
+      label='⬆ Risk On'; desc='Amplitud positiva. Mayoría de activos sobre medias clave.';
+      col='var(--green)'; bg='rgba(0,229,168,.06)'; border='rgba(0,229,168,.3)';
+    } else if (pctSma200 <= 35 || dns > ups * 1.4) {
+      label='⬇ Risk Off'; desc='Amplitud negativa. Mayoría de activos bajo sus medias.';
+      col='var(--red)'; bg='rgba(255,63,94,.06)'; border='rgba(255,63,94,.3)';
+    } else {
+      label='⟷ Neutral'; desc='Mercado mixto. Sin dirección clara en amplitud ni momentum.';
+      col='var(--amber)'; bg='rgba(240,165,0,.06)'; border='rgba(240,165,0,.3)';
+    }
+    regEl.style.background   = bg;
+    regEl.style.borderColor  = border;
+    regEl.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;color:${col};opacity:.7">Régimen de mercado</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${col}">${label}</div>
+      <div style="font-size:10px;margin-top:5px;line-height:1.6;color:${col};opacity:.8">${desc}</div>`;
+  }
+
+  usRenderTopoSectors();
+  usDrawTopoScatter();
+  _topoSetupTip();
+}
+
+function usDrawTopoScatter() {
+  const canvas = document.getElementById('topoScatter');
+  if (!canvas || !usAllData.length) return;
+  const W = canvas.offsetWidth;
+  if (!W) return;
+  canvas.width = W;
+  canvas.height = +canvas.getAttribute('height') || 460;
+  const H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = {top:30, right:20, bottom:40, left:48};
+  const pw = W - pad.left - pad.right;
+  const ph = H - pad.top - pad.bottom;
+  const cx = pad.left + pw / 2;
+  const cy = pad.top  + ph / 2;
+
+  // Center axes
+  ctx.strokeStyle = 'rgba(50,61,80,.8)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, pad.top); ctx.lineTo(cx, H - pad.bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.left, cy); ctx.lineTo(W - pad.right, cy); ctx.stroke();
+
+  // Quadrant labels
+  ctx.font = "8px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = 'rgba(110,136,168,.35)';
+  ctx.textAlign = 'center';
+  ctx.fillText('ALCISTA / BAJA VOL',   cx + pw * .27, pad.top + 14);
+  ctx.fillText('BAJISTA / BAJA VOL',   cx - pw * .27, pad.top + 14);
+  ctx.fillText('ALCISTA / ALTA VOL',   cx + pw * .27, H - pad.bottom - 8);
+  ctx.fillText('BAJISTA / ALTA VOL',   cx - pw * .27, H - pad.bottom - 8);
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(110,136,168,.6)';
+  ctx.fillText('← Variación % (momentum) →', cx, H - pad.bottom + 22);
+  ctx.save(); ctx.translate(14, cy); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('← Volumen Relativo →', 0, 0); ctx.restore();
+
+  // Data: exclude index ETFs
+  const ETF_SKIP = new Set(['SPY','QQQ','IWM','DIA','VIXY','VXX','GLD','SLV','TLT','BND']);
+  const stocks = usAllData.filter(r =>
+    r.change_pct != null && r.volume_rel != null && !ETF_SKIP.has(r.symbol)
+  );
+  if (!stocks.length) return;
+
+  const maxChg = Math.max(...stocks.map(r => Math.abs(Number(r.change_pct))), 4);
+  const maxVol = Math.max(...stocks.map(r => Number(r.volume_rel)), 3);
+
+  function ptColor(chg, alpha) {
+    if (chg >= 4)    return `rgba(13,107,53,${alpha})`;
+    if (chg >= 2)    return `rgba(18,146,74,${alpha})`;
+    if (chg >= 0.5)  return `rgba(22,184,94,${alpha})`;
+    if (chg >= 0)    return `rgba(15,82,40,${alpha})`;
+    if (chg >= -0.5) return `rgba(107,21,21,${alpha})`;
+    if (chg >= -2)   return `rgba(146,32,32,${alpha})`;
+    if (chg >= -4)   return `rgba(184,42,42,${alpha})`;
+    return `rgba(217,53,53,${alpha})`;
+  }
+
+  const hitPoints = [];
+  stocks.forEach(s => {
+    const chg = Number(s.change_pct);
+    const vol = Number(s.volume_rel);
+    const x = cx + (chg / maxChg) * (pw / 2);
+    const y = pad.top + (vol / maxVol) * ph; // high vol = bottom
+    const r = 3.5;
+
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = ptColor(chg, .75);
+    ctx.fill();
+
+    if (vol > 2) {
+      ctx.beginPath();
+      ctx.arc(x, y, r + 3.5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(240,165,0,.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (Math.abs(chg) >= 5 || vol >= 3) {
+      ctx.font = "7px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = 'rgba(238,242,248,.8)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(s.symbol, x, y - r - 3);
+    }
+
+    hitPoints.push({x, y, r: r + 5, sym: s.symbol, chg, vol, rsi: s.rsi_14});
+  });
+
+  canvas._hitPoints = hitPoints;
+}
+
+function usRenderTopoSectors() {
+  const el = document.getElementById('topo-sector-list');
+  if (!el || !usSectors.length) return;
+  const sorted = [...usSectors].filter(r => r.change_pct != null)
+    .sort((a, b) => b.change_pct - a.change_pct);
+  const maxAbs = Math.max(...sorted.map(r => Math.abs(r.change_pct || 0)), 1);
+  el.innerHTML = sorted.map(r => {
+    const chg  = Number(r.change_pct || 0);
+    const w    = (Math.abs(chg) / maxAbs * 100).toFixed(1);
+    const col  = chg >= 0 ? 'var(--green)' : 'var(--red)';
+    const sign = chg >= 0 ? '+' : '';
+    const name = r.name || r.symbol;
+    return `<div style="display:grid;grid-template-columns:100px 1fr 52px;align-items:center;gap:8px;padding:4px 14px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+      <div style="height:4px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;border-radius:2px;width:${w}%;background:${col};transition:width .6s"></div></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:right;color:${col}">${sign}${chg.toFixed(2)}%</div>
+    </div>`;
+  }).join('');
+}
+
+function usDrawRotationClock() {
+  const canvas = document.getElementById('rotationClock');
+  if (!canvas) return;
+  const W = canvas.offsetWidth;
+  if (!W) return;
+  canvas.width = W;
+  canvas.height = +canvas.getAttribute('height') || 420;
+  const H = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H / 2;
+  const outerR = Math.min(W, H) / 2 - 50;
+
+  // Concentric grid circles
+  [.33, .66, 1].forEach(f => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerR * f, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(30,37,48,.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Quadrant dividers
+  ctx.strokeStyle = 'rgba(40,48,63,.8)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(cx - outerR - 15, cy); ctx.lineTo(cx + outerR + 15, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - outerR - 15); ctx.lineTo(cx, cy + outerR + 15); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Quadrant labels
+  const qLabs = [
+    {angle: 45,  label: 'LEADING',   color: 'rgba(0,229,168,.8)'},
+    {angle: 135, label: 'WEAKENING', color: 'rgba(240,165,0,.8)'},
+    {angle: 225, label: 'LAGGING',   color: 'rgba(255,63,94,.8)'},
+    {angle: 315, label: 'IMPROVING', color: 'rgba(77,166,255,.8)'},
+  ];
+  qLabs.forEach(q => {
+    const rad = (q.angle - 90) * Math.PI / 180;
+    const lx = cx + Math.cos(rad) * outerR * .62;
+    const ly = cy + Math.sin(rad) * outerR * .62;
+    ctx.font = "600 8px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = q.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(q.label, lx, ly);
+  });
+
+  // Center label
+  ctx.font = "500 9px 'IBM Plex Mono', monospace";
+  ctx.fillStyle = 'rgba(110,136,168,.5)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('SECTOR', cx, cy - 7);
+  ctx.fillText('ROTATION', cx, cy + 7);
+
+  const sectors = rrgData.sectores.filter(d => d.p && d.p.length);
+  if (!sectors.length) {
+    ctx.font = "10px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = 'rgba(110,136,168,.5)';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Sin datos RRG', cx, cy + 40);
+    return;
+  }
+
+  // Dynamic scale: fit all points within outerR * 0.85
+  const allPts = sectors.map(d => d.p[d.p.length - 1]);
+  const maxDx = Math.max(...allPts.map(p => Math.abs(p[0] - 100)), 0.5);
+  const maxDy = Math.max(...allPts.map(p => Math.abs(p[1] - 100)), 0.5);
+  const scale = Math.min(outerR * 0.85 / maxDx, outerR * 0.85 / maxDy);
+
+  const colMap = {Leading:'rgba(0,229,168,1)', Weakening:'rgba(240,165,0,1)', Lagging:'rgba(255,63,94,1)', Improving:'rgba(77,166,255,1)'};
+
+  sectors.forEach(({s, p}) => {
+    const last   = p[p.length - 1];
+    const {name: qname} = rrgQ(last[0], last[1]);
+    const col    = colMap[qname] || 'rgba(110,136,168,1)';
+    const colDim = col.replace(',1)', ',.12)');
+
+    let dx = (last[0] - 100) * scale;
+    let dy = -(last[1] - 100) * scale; // canvas y inverted
+    const dist = Math.hypot(dx, dy);
+    if (dist > outerR * .92) { dx *= outerR * .92 / dist; dy *= outerR * .92 / dist; }
+    const x = cx + dx, y = cy + dy;
+
+    // Trailing tail (last 4 points)
+    if (p.length >= 2) {
+      const tail = p.slice(-Math.min(5, p.length));
+      for (let i = 0; i < tail.length - 1; i++) {
+        const alpha = (i + 1) / (tail.length - 1) * 0.45;
+        const tx1 = cx + (tail[i][0]   - 100) * scale;
+        const ty1 = cy - (tail[i][1]   - 100) * scale;
+        const tx2 = cx + (tail[i+1][0] - 100) * scale;
+        const ty2 = cy - (tail[i+1][1] - 100) * scale;
+        ctx.beginPath();
+        ctx.moveTo(tx1, ty1);
+        ctx.lineTo(tx2, ty2);
+        ctx.strokeStyle = col.replace(',1)', `,${alpha})`);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // Dot
+    ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.fillStyle = colDim; ctx.fill();
+    ctx.strokeStyle = col.replace(',1)', ',.6)');
+    ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Label
+    ctx.font = "600 8px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s, x, y - 4);
+
+    const sec = usSectors.find(r => r.symbol === s);
+    if (sec && sec.change_pct != null) {
+      const chg  = Number(sec.change_pct);
+      const sign = chg >= 0 ? '+' : '';
+      ctx.font = "400 7px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = col;
+      ctx.fillText(`${sign}${chg.toFixed(1)}%`, x, y + 7);
+    }
+  });
+}
+
+let _topoTipSetup = false;
+function _topoSetupTip() {
+  if (_topoTipSetup) return;
+  const canvas = document.getElementById('topoScatter');
+  if (!canvas) return;
+  _topoTipSetup = true;
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position:fixed;background:#0f1822;border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-family:IBM Plex Mono,monospace;font-size:10px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .12s;z-index:400;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5)';
+  document.body.appendChild(tip);
+  canvas.addEventListener('mousemove', e => {
+    const pts = canvas._hitPoints;
+    if (!pts) { tip.style.opacity='0'; return; }
+    const hit = pts.find(h => Math.hypot(e.offsetX - h.x, e.offsetY - h.y) < h.r);
+    if (hit) {
+      const col  = hit.chg >= 0 ? 'var(--green)' : 'var(--red)';
+      const sign = hit.chg >= 0 ? '+' : '';
+      tip.innerHTML = `<div style="font-weight:600;margin-bottom:5px">${hit.sym}</div>
+        <div style="color:var(--text3);margin-bottom:2px">Variación: <span style="color:${col}">${sign}${hit.chg.toFixed(2)}%</span></div>
+        <div style="color:var(--text3);margin-bottom:2px">Vol rel: <span style="color:var(--text)">${Number(hit.vol).toFixed(1)}x</span></div>
+        ${hit.rsi != null ? `<div style="color:var(--text3)">RSI: <span style="color:var(--text)">${Number(hit.rsi).toFixed(0)}</span></div>` : ''}`;
+      tip.style.opacity = '1';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY - 20) + 'px';
+    } else { tip.style.opacity = '0'; }
+  });
+  canvas.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+}
 
 // ── Init ──
 usLoadAll();
