@@ -1728,6 +1728,7 @@ async function pfRenderCalendar() {
   rows.forEach(r => { byDate[r.fecha] = r; });
   const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl_usd||0)), 1);
 
+  const privacy = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
   const DOWS   = ['D','L','M','X','J','V','S'];
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const fmtPnl = n => (n>=0?'+':'')+Math.round(n).toLocaleString('es-AR');
@@ -1737,15 +1738,23 @@ async function pfRenderCalendar() {
     const daysInMonth = new Date(year,m+1,0).getDate();
     const firstDow    = new Date(year,m,1).getDay();
 
-    let monthPnl = 0, monthDays = 0;
+    let monthPnl = 0, monthDays = 0, monthCompound = 1;
     for(let d=1;d<=daysInMonth;d++){
       const key=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      if(byDate[key]?.pnl_usd != null){ monthPnl += byDate[key].pnl_usd; monthDays++; }
+      const row = byDate[key];
+      if(row?.pnl_usd != null){
+        monthPnl += row.pnl_usd;
+        monthDays++;
+        if(row.pnl_pct != null) monthCompound *= (1 + row.pnl_pct/100);
+      }
     }
-    const monthC = monthPnl>=0?'var(--green)':'var(--red)';
-    const monthSign = monthPnl>=0?'+':'-';
+    const monthPct = (monthCompound - 1) * 100;
+    const monthC   = monthPnl>=0 ? 'var(--green)' : 'var(--red)';
+    const monthSign = monthPnl>=0 ? '+' : '-';
     const monthTag = monthDays > 0
-      ? `<span style="color:${monthC};font-size:9px;font-weight:600">${monthSign}U$S ${Math.round(Math.abs(monthPnl)).toLocaleString('es-AR')}</span>`
+      ? privacy
+        ? `<span style="color:${monthC};font-size:9px;font-weight:600">${fmtPct(monthPct)}</span>`
+        : `<span style="color:${monthC};font-size:9px;font-weight:600">${monthSign}U$S ${Math.round(Math.abs(monthPnl)).toLocaleString('es-AR')}</span>`
       : `<span style="color:var(--text4);font-size:9px">sin datos</span>`;
 
     const dowH = DOWS.map(d=>`<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:3px">${d}</div>`).join('');
@@ -1763,7 +1772,7 @@ async function pfRenderCalendar() {
       const tip = `${key}\nP&L: U$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
       return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden">
         <span style="font-size:8px;font-weight:600;text-align:center">${d}</span>
-        <span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>
+        ${!privacy ? `<span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>` : ''}
         <span style="font-size:7px;opacity:0.85;white-space:nowrap;text-align:center">${fmtPct(row.pnl_pct||0)}</span>
       </div>`;
     }).join('');
@@ -1789,6 +1798,7 @@ window.pfTogglePrivacy = () => {
   btn.style.borderColor = on ? 'var(--border2)' : 'var(--cyan)';
   const amtEl = document.getElementById('pfHistTotalGanAmt');
   if(amtEl) amtEl.style.filter = on ? '' : 'blur(5px)';
+  if(pfHistCurrentView === 'cal') pfRenderCalendar();
   pfRenderBenchmark();
 };
 
