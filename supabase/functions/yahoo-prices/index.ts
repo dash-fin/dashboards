@@ -140,6 +140,27 @@ serve(async (req) => {
       });
     }
 
+    // ── Modo 4: earnings dates vía Yahoo ────────────────────
+    // Devuelve próxima fecha de earnings por símbolo para alertas Telegram
+    if (mode === "earnings") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+      const { crumb, cookie } = await getYahooCrumb();
+      const url = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}&crumb=${encodeURIComponent(crumb)}&fields=earningsTimestamp,earningsTimestampStart,earningsTimestampEnd`;
+      const resp = await fetch(url, { headers: { "User-Agent": UA, "Cookie": cookie } });
+      if (!resp.ok) throw new Error(`Yahoo HTTP ${resp.status}`);
+      const data = await resp.json();
+      const toDate = (ts: number | null) => ts ? new Date(ts * 1000).toISOString().split("T")[0] : null;
+      const result = (data?.quoteResponse?.result ?? []).map((q: any) => ({
+        symbol:       q.symbol,
+        earningsDate: toDate(q.earningsTimestamp),
+        dateStart:    toDate(q.earningsTimestampStart),
+        dateEnd:      toDate(q.earningsTimestampEnd),
+      }));
+      return new Response(JSON.stringify(result), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Modo 1: precios actuales vía Yahoo ──────────────────
     if (!symbols?.length) throw new Error("symbols requerido");
 

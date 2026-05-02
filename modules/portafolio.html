@@ -375,7 +375,11 @@
   <div class="card">
     <div class="toolbar" style="justify-content:space-between">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Trades cerrados</span>
-      <span id="pfHistStats" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"></span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button id="pfHistBtnTbl" onclick="pfHistView('tabla')" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--cyan);background:var(--cyan);color:#0d1117;border-radius:2px;cursor:pointer;letter-spacing:1px">TABLA</button>
+        <button id="pfHistBtnCal" onclick="pfHistView('cal')"   style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text3);border-radius:2px;cursor:pointer;letter-spacing:1px">CALENDARIO</button>
+        <span id="pfHistStats" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"></span>
+      </div>
     </div>
     <div class="table-wrap">
       <table>
@@ -390,6 +394,9 @@
           <tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Cargando...</td></tr>
         </tbody>
       </table>
+    </div>
+    <div id="pfCalendarWrap" style="display:none;padding:16px 12px">
+      <div id="pfCalendarBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px"></div>
     </div>
   </div>
 
@@ -956,6 +963,10 @@ async function pfFetchOpsData() {
   const _vega=(S,K,T,r,sig)=>{if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));return S*Math.exp(-d1*d1/2)/Math.sqrt(2*Math.PI)*Math.sqrt(T);};
   const _iv=(price,S,K,T,r,tipo)=>{if(T<=0||price<=0)return 0.60;let sig=0.60;for(let i=0;i<80;i++){const p=_bsP(S,K,T,r,sig),v=_vega(S,K,T,r,sig);if(Math.abs(v)<1e-8)break;sig-=(p-price)/v;if(sig<0.01)sig=0.01;if(sig>15)return 0.60;}return sig;};
   const _T=vto=>{const e=new Date(String(vto).slice(0,10)+'T12:00:00');return(e-new Date())/(1000*60*60*24*365);};
+  const _phi=x=>Math.exp(-0.5*x*x)/Math.sqrt(2*Math.PI);
+  const _delta=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return tipo==='call'?(S>=K?1:0):(S>=K?0:-1);const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));return tipo==='call'?_norm(d1):_norm(d1)-1;};
+  const _theta=(S,K,T,r,sig,tipo)=>{if(T<=0||sig<=0)return 0;const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T)),d2=d1-sig*Math.sqrt(T);return tipo==='call'?(-S*_phi(d1)*sig/(2*Math.sqrt(T))-r*K*Math.exp(-r*T)*_norm(d2))/365:(-S*_phi(d1)*sig/(2*Math.sqrt(T))+r*K*Math.exp(-r*T)*_norm(-d2))/365;};
+  let portDelta=0, portTheta=0, portVega=0, portHasGreeks=false;
 
   let totPnL = 0;
   const rows = (ops||[]).map(op=>{
@@ -978,6 +989,8 @@ async function pfFetchOpsData() {
         }
         src = 'BS';
       }
+      // Greeks — IV desde precio RT si disponible, desde prima de entrada como fallback
+      {const _tG=_T(leg.vto);if(_tG>0&&S>0&&K>0){const _prIv=curPrice>0?curPrice:prima;if(_prIv>0){const gIv=_iv(_prIv,S,K,_tG,rfRate,tipo);if(gIv>0.01&&gIv<12){const dir=leg.action==='buy'?1:-1;portDelta+=_delta(S,K,_tG,rfRate,gIv,tipo)*dir*qty*optSz;portTheta+=_theta(S,K,_tG,rfRate,gIv,tipo)*dir*qty*optSz;portVega+=_vega(S,K,_tG,rfRate,gIv)*dir*qty*optSz/100;portHasGreeks=true;}}}}
       // PnL total (desde entrada): null si sin precio para no mostrar nro engañoso
       const legPnl = curPrice > 0 ? (leg.action==='buy'?1:-1)*(curPrice-prima)*qty*optSz : null;
       if(legPnl != null) pnl += legPnl;
@@ -999,7 +1012,31 @@ async function pfFetchOpsData() {
   const hasPricedRows  = rows.some(r => !r.anyNull);
   const totDailyPnL    = rows.reduce((s,r) => r.hasDailyPnl ? s + r.legsDailySum : s, 0);
   const hasDailyData   = rows.some(r => r.hasDailyPnl);
-  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, dailyPnL: hasDailyData ? totDailyPnL : null, S };
+  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, dailyPnL: hasDailyData ? totDailyPnL : null, S, greeks: portHasGreeks ? {delta:portDelta, theta:portTheta, vega:portVega} : null };
+}
+
+// Barra de Greeks del portafolio de opciones
+function pfGreeksBar(g) {
+  if(!g) return '';
+  const fmt = (n,dp=2) => (n>=0?'+':'')+n.toFixed(dp);
+  const fc  = n => n>=0?'var(--green)':'var(--red)';
+  return `<div style="display:flex;gap:0;border-bottom:1px solid var(--border);border-top:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px">
+    <div style="padding:8px 14px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:7px;color:var(--text4);letter-spacing:1.5px;text-transform:uppercase">Δ Delta</span>
+      <span style="font-weight:600;color:${fc(g.delta)}">${fmt(g.delta,1)}</span>
+      <span style="font-size:8px;color:var(--text4)">acciones equiv.</span>
+    </div>
+    <div style="padding:8px 14px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:7px;color:var(--text4);letter-spacing:1.5px;text-transform:uppercase">Θ Theta</span>
+      <span style="font-weight:600;color:${fc(g.theta)}">${fmt(g.theta,0)}$</span>
+      <span style="font-size:8px;color:var(--text4)">por día</span>
+    </div>
+    <div style="padding:8px 14px;display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:7px;color:var(--text4);letter-spacing:1.5px;text-transform:uppercase">ν Vega</span>
+      <span style="font-weight:600;color:${fc(g.vega)}">${fmt(g.vega,0)}$</span>
+      <span style="font-size:8px;color:var(--text4)">por 1% vol</span>
+    </div>
+  </div>`;
 }
 
 // Builds the legs table HTML. withClose=true adds ⊠ close button alongside ✕ delete
@@ -1060,7 +1097,7 @@ async function pfRenderOpciones() {
   const elTotal = document.getElementById('pfOpsPnlTotal');
   if(!el) return;
   try {
-    const { ops, rows, totPnL, dailyPnL } = await pfFetchOpsData();
+    const { ops, rows, totPnL, dailyPnL, greeks } = await pfFetchOpsData();
     if(!ops.length){
       el.innerHTML='<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:12px">Sin posiciones abiertas. Cargalas desde el módulo de Opciones.</div>';
       elTotal.textContent='—'; elTotal.style.color='var(--text3)';
@@ -1075,7 +1112,7 @@ async function pfRenderOpciones() {
       elTotal.textContent=sign+'$'+Math.round(totPnL).toLocaleString('es-AR');
       elTotal.style.color=totPnL>=0?'var(--green)':'var(--red)';
     }
-    el.innerHTML = pfBuildOpsTableHTML(rows, false);
+    el.innerHTML = pfGreeksBar(greeks) + pfBuildOpsTableHTML(rows, false);
   } catch(e) {
     el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
   }
@@ -1086,7 +1123,7 @@ async function pfRenderOpsInline() {
   if(!el) return;
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);text-align:center;padding:20px">Cargando...</div>';
   try {
-    const { ops, rows, totPnL, dailyPnL } = await pfFetchOpsData();
+    const { ops, rows, totPnL, dailyPnL, greeks } = await pfFetchOpsData();
     pfApplyOpsData(totPnL, dailyPnL);
     const cnt = rows.length;
     document.getElementById('pfPosCount').textContent = `${cnt} estrategia${cnt!==1?'s':''}`;
@@ -1100,7 +1137,7 @@ async function pfRenderOpsInline() {
     el.innerHTML = `<div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 12px 4px;gap:8px">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:1px">P&amp;L total</span>
       ${totLabel}
-    </div>` + pfBuildOpsTableHTML(rows, true);
+    </div>` + pfGreeksBar(greeks) + pfBuildOpsTableHTML(rows, true);
   } catch(e) {
     el.innerHTML=`<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--red);padding:12px">Error: ${e.message}</div>`;
   }
@@ -1621,6 +1658,57 @@ function pfCloseMsgShow(type, text) {
   el.style.border     = `1px solid ${type==='error'?'rgba(255,63,94,.3)':'rgba(0,229,168,.3)'}`;
 }
 
+// ── P&L Calendar ─────────────────────────────────────────────────
+let pfHistCurrentView = 'tabla';
+
+window.pfHistView = (view) => {
+  pfHistCurrentView = view;
+  const isTbl = view === 'tabla';
+  document.getElementById('pfHistTbody').closest('.table-wrap').style.display = isTbl ? '' : 'none';
+  document.getElementById('pfCalendarWrap').style.display  = isTbl ? 'none' : '';
+  const bTbl = document.getElementById('pfHistBtnTbl');
+  const bCal = document.getElementById('pfHistBtnCal');
+  bTbl.style.background = isTbl ? 'var(--cyan)' : 'transparent';
+  bTbl.style.color      = isTbl ? '#0d1117' : 'var(--text3)';
+  bTbl.style.borderColor= isTbl ? 'var(--cyan)' : 'var(--border2)';
+  bCal.style.background = isTbl ? 'transparent' : 'var(--cyan)';
+  bCal.style.color      = isTbl ? 'var(--text3)' : '#0d1117';
+  bCal.style.borderColor= isTbl ? 'var(--border2)' : 'var(--cyan)';
+};
+
+function pfRenderCalendar(trades) {
+  const el = document.getElementById('pfCalendarBody');
+  if(!el) return;
+  const byDate = {};
+  (trades||[]).forEach(r => {
+    const d = (r.fecha_cierre||'').slice(0,10);
+    if(!d) return;
+    byDate[d] = (byDate[d]||0) + (r.ganancia_usd||0);
+  });
+  const maxAbs = Math.max(...Object.values(byDate).map(Math.abs), 1);
+  const year = new Date().getFullYear();
+  const DOWS = ['D','L','M','X','J','V','S'];
+  const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  el.innerHTML = Array.from({length:12},(_,m) => {
+    const days = new Date(year,m+1,0).getDate();
+    const firstDow = new Date(year,m,1).getDay();
+    const dowH = DOWS.map(d=>`<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:2px">${d}</div>`).join('');
+    const empties = Array(firstDow).fill('<div></div>').join('');
+    const dayCells = Array.from({length:days},(_,i)=>{
+      const d=i+1;
+      const key=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const pnl=byDate[key];
+      if(pnl===undefined) return `<div style="height:28px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4);border-radius:2px">${d}</div>`;
+      const intensity=Math.min(Math.abs(pnl)/maxAbs,1)*0.7+0.15;
+      const bg=pnl>=0?`rgba(0,229,168,${intensity.toFixed(2)})`:`rgba(255,63,94,${intensity.toFixed(2)})`;
+      const txt=pnl>=0?'#0d1117':'#fff';
+      const sign=pnl>=0?'+':'';
+      return `<div title="${key}: ${sign}U$S${Math.round(pnl).toLocaleString('es-AR')}" style="height:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:${txt};border-radius:2px;cursor:default;font-size:7px;line-height:1.2"><span style="font-size:8px;font-weight:600">${d}</span><span>${sign}${Math.abs(Math.round(pnl))}</span></div>`;
+    }).join('');
+    return `<div><div style="font-size:9px;font-weight:600;color:var(--text2);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">${MONTHS[m]} ${year}</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${dowH}${empties}${dayCells}</div></div>`;
+  }).join('');
+}
+
 // ── Historial de trades ───────────────────────────────────────────
 async function pfLoadHistorial() {
   const email = window.currentUser?.email;
@@ -1692,6 +1780,7 @@ async function pfLoadHistorial() {
   } else if(opsEl) {
     opsEl.style.display = 'none';
   }
+  pfRenderCalendar(rows);
 }
 
 // ── WTD / YTD ────────────────────────────────────────────────────
