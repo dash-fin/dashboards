@@ -1730,7 +1730,7 @@ async function pfRenderCalendar() {
 
   const DOWS   = ['D','L','M','X','J','V','S'];
   const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const fmtPnl = n => (n>=0?'+':'')+Math.round(Math.abs(n)).toLocaleString('es-AR');
+  const fmtPnl = n => (n>=0?'+':'')+Math.round(n).toLocaleString('es-AR');
   const fmtPct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
 
   el.innerHTML = Array.from({length:12},(_,m) => {
@@ -1760,12 +1760,11 @@ async function pfRenderCalendar() {
       const pnl = row.pnl_usd;
       const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
       const bg  = pnl>=0?`rgba(0,229,168,${intensity.toFixed(2)})`:`rgba(255,63,94,${intensity.toFixed(2)})`;
-      const txt = pnl>=0?'#0d1117':'#fff';
-      const tip = `${key}\nP&L: ${pnl>=0?'+':'-'}U$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
-      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:${txt};border-radius:2px;cursor:default;line-height:1.2;gap:0">
-        <span style="font-size:8px;font-weight:600">${d}</span>
-        <span style="font-size:7px">${pnl>=0?'+':'-'}U$S ${fmtPnl(pnl)}</span>
-        <span style="font-size:7px;opacity:0.9">${fmtPct(row.pnl_pct||0)}</span>
+      const tip = `${key}\nP&L: U$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
+      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden">
+        <span style="font-size:8px;font-weight:600;text-align:center">${d}</span>
+        <span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>
+        <span style="font-size:7px;opacity:0.85;white-space:nowrap;text-align:center">${fmtPct(row.pnl_pct||0)}</span>
       </div>`;
     }).join('');
 
