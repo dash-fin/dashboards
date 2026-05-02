@@ -1787,6 +1787,8 @@ window.pfTogglePrivacy = () => {
   btn.textContent  = on ? 'OCULTAR MONTOS' : 'MOSTRAR MONTOS';
   btn.style.color  = on ? 'var(--text4)' : 'var(--cyan)';
   btn.style.borderColor = on ? 'var(--border2)' : 'var(--cyan)';
+  const amtEl = document.getElementById('pfHistTotalGanAmt');
+  if(amtEl) amtEl.style.filter = on ? '' : 'blur(5px)';
   pfRenderBenchmark();
 };
 
@@ -2056,9 +2058,12 @@ async function pfLoadHistorial() {
     const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length;
     const sGan   = totGan>=0?'+':'';
     const color  = totGan>=0?'var(--green)':'var(--red)';
-    if(statsEl) statsEl.innerHTML =
-      `${rows.length} trades · Win rate: ${((wins/rows.length)*100).toFixed(0)}% · `
-      + `Total realizado: <span style="color:${color};font-weight:500">${sGan}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
+    if(statsEl) {
+      const _priv = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
+      statsEl.innerHTML =
+        `${rows.length} trades · Win rate: ${((wins/rows.length)*100).toFixed(0)}% · `
+        + `Total realizado: <span id="pfHistTotalGanAmt" style="color:${color};font-weight:500;filter:${_priv?'blur(5px)':''}">${sGan}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
+    }
     tbody.innerHTML = rows.map(r => {
       const gan = r.ganancia_usd||0, pct = r.ganancia_pct||0;
       const gc  = gan>=0?'var(--green)':'var(--red)', gs = gan>=0?'+':'';
