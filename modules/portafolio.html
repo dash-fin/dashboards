@@ -1676,36 +1676,75 @@ window.pfHistView = (view) => {
   bCal.style.borderColor= isTbl ? 'var(--border2)' : 'var(--cyan)';
 };
 
-function pfRenderCalendar(trades) {
+async function pfRenderCalendar() {
   const el = document.getElementById('pfCalendarBody');
   if(!el) return;
-  const byDate = {};
-  (trades||[]).forEach(r => {
-    const d = (r.fecha_cierre||'').slice(0,10);
-    if(!d) return;
-    byDate[d] = (byDate[d]||0) + (r.ganancia_usd||0);
-  });
-  const maxAbs = Math.max(...Object.values(byDate).map(Math.abs), 1);
+  el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:12px">Cargando...</div>';
+
   const year = new Date().getFullYear();
-  const DOWS = ['D','L','M','X','J','V','S'];
-  const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const ytdStart = `${year}-01-01`;
+  let rows = [];
+  try {
+    rows = await sb('pnl_diario', `fecha=gte.${ytdStart}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
+  } catch(e) { console.warn('[pnl-cal]', e); }
+
+  if(!rows.length) {
+    el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:20px;text-align:center">Sin datos aún — el snapshot se guarda cada día al cierre del mercado (17:10).</div>';
+    return;
+  }
+
+  // Índice por fecha
+  const byDate = {};
+  rows.forEach(r => { byDate[r.fecha] = r; });
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl_usd||0)), 1);
+
+  const DOWS   = ['D','L','M','X','J','V','S'];
+  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const fmtPnl = n => (n>=0?'+':'')+n.toFixed(0);
+  const fmtPct = n => (n>=0?'+':'')+n.toFixed(2)+'%';
+
   el.innerHTML = Array.from({length:12},(_,m) => {
-    const days = new Date(year,m+1,0).getDate();
-    const firstDow = new Date(year,m,1).getDay();
-    const dowH = DOWS.map(d=>`<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:2px">${d}</div>`).join('');
-    const empties = Array(firstDow).fill('<div></div>').join('');
-    const dayCells = Array.from({length:days},(_,i)=>{
-      const d=i+1;
+    const daysInMonth = new Date(year,m+1,0).getDate();
+    const firstDow    = new Date(year,m,1).getDay();
+
+    // Monthly aggregate
+    let monthPnl = 0, monthDays = 0;
+    for(let d=1;d<=daysInMonth;d++){
       const key=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const pnl=byDate[key];
-      if(pnl===undefined) return `<div style="height:28px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4);border-radius:2px">${d}</div>`;
-      const intensity=Math.min(Math.abs(pnl)/maxAbs,1)*0.7+0.15;
-      const bg=pnl>=0?`rgba(0,229,168,${intensity.toFixed(2)})`:`rgba(255,63,94,${intensity.toFixed(2)})`;
-      const txt=pnl>=0?'#0d1117':'#fff';
-      const sign=pnl>=0?'+':'';
-      return `<div title="${key}: ${sign}U$S${Math.round(pnl).toLocaleString('es-AR')}" style="height:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:${txt};border-radius:2px;cursor:default;font-size:7px;line-height:1.2"><span style="font-size:8px;font-weight:600">${d}</span><span>${sign}${Math.abs(Math.round(pnl))}</span></div>`;
+      if(byDate[key]?.pnl_usd != null){ monthPnl += byDate[key].pnl_usd; monthDays++; }
+    }
+    const monthC = monthPnl>=0?'var(--green)':'var(--red)';
+    const monthTag = monthDays > 0
+      ? `<span style="color:${monthC};font-size:9px;font-weight:600">${fmtPnl(monthPnl)} USD</span>`
+      : `<span style="color:var(--text4);font-size:9px">sin datos</span>`;
+
+    const dowH = DOWS.map(d=>`<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:3px">${d}</div>`).join('');
+    const empties = Array(firstDow).fill('<div></div>').join('');
+    const dayCells = Array.from({length:daysInMonth},(_,i)=>{
+      const d = i+1;
+      const key = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const row = byDate[key];
+      if(!row || row.pnl_usd == null) {
+        return `<div style="height:30px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${d}</div>`;
+      }
+      const pnl = row.pnl_usd;
+      const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
+      const bg  = pnl>=0?`rgba(0,229,168,${intensity.toFixed(2)})`:`rgba(255,63,94,${intensity.toFixed(2)})`;
+      const txt = pnl>=0?'#0d1117':'#fff';
+      const tip = `${key}\nP&L: ${fmtPnl(pnl)} USD (${fmtPct(row.pnl_pct||0)})\nPortafolio: ${Math.round(row.valor_usd||0).toLocaleString('es-AR')} USD`;
+      return `<div title="${tip}" style="height:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:${txt};border-radius:2px;cursor:default;font-size:7px;line-height:1.3;gap:1px">
+        <span style="font-size:8px;font-weight:600">${d}</span>
+        <span>${fmtPnl(pnl)}</span>
+      </div>`;
     }).join('');
-    return `<div><div style="font-size:9px;font-weight:600;color:var(--text2);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase">${MONTHS[m]} ${year}</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${dowH}${empties}${dayCells}</div></div>`;
+
+    return `<div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <span style="font-size:9px;font-weight:600;color:var(--text2);letter-spacing:1px;text-transform:uppercase">${MONTHS[m]}</span>
+        ${monthTag}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${dowH}${empties}${dayCells}</div>
+    </div>`;
   }).join('');
 }
 
