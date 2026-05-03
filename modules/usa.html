@@ -1750,18 +1750,6 @@ function usRenderTopology() {
     }
   }
 
-  // Up / Down KPIs
-  const ups = withChg.filter(r => r.change_pct > 0).length;
-  const dns = withChg.filter(r => r.change_pct < 0).length;
-  const upEl  = document.getElementById('tkpi-up');
-  const dnEl  = document.getElementById('tkpi-dn');
-  const upSub = document.getElementById('tkpi-up-sub');
-  const dnSub = document.getElementById('tkpi-dn-sub');
-  if (upEl)  upEl.textContent  = ups;
-  if (dnEl)  dnEl.textContent  = dns;
-  if (upSub) upSub.textContent = `de ${total} activos`;
-  if (dnSub) dnSub.textContent = `de ${total} activos`;
-
   // Amplitud: % advancing — disponible para todos los símbolos (no depende de indicadores)
   const ups = withChg.filter(r => r.change_pct > 0).length;
   const dns = withChg.filter(r => r.change_pct < 0).length;
