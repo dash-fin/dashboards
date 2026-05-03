@@ -247,12 +247,12 @@
       <div class="kpi-sub" id="tkpi-spy-chg">—</div>
     </div>
     <div class="kpi" style="--accent:var(--cyan)">
-      <div class="kpi-label">Amplitud EMA200</div>
+      <div class="kpi-label">Amplitud</div>
       <div class="kpi-val" id="tkpi-amp">—</div>
-      <div class="kpi-sub">acciones sobre EMA200</div>
+      <div class="kpi-sub">acciones subiendo hoy</div>
     </div>
     <div class="kpi" style="--accent:var(--amber)">
-      <div class="kpi-label">VIXY</div>
+      <div class="kpi-label">VXX</div>
       <div class="kpi-val" id="tkpi-vixy">—</div>
       <div class="kpi-sub" id="tkpi-vixy-chg">—</div>
     </div>
@@ -291,7 +291,7 @@
       </div>
       <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Amplitud de mercado</div>
-        <div style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:5px">% sobre EMA 200</div>
+        <div style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:5px">% acciones en alza hoy</div>
         <div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:6px">
           <div id="topo-breadth-fill" style="height:100%;border-radius:4px;width:0%;transition:width .8s ease"></div>
         </div>
@@ -1724,8 +1724,8 @@ function usRenderTopology() {
   const withChg = usAllData.filter(r => r.change_pct != null);
   const total   = withChg.length;
 
-  // SPY KPI
-  const spy = usAllData.find(r => r.symbol === 'SPY');
+  // SPY KPI — buscar en usAllData o usSectors
+  const spy = usAllData.find(r => r.symbol === 'SPY') || usSectors.find(r => r.symbol === 'SPY');
   const spyEl = document.getElementById('tkpi-spy');
   const spyChgEl = document.getElementById('tkpi-spy-chg');
   if (spy && spyEl) {
@@ -1737,16 +1737,16 @@ function usRenderTopology() {
     }
   }
 
-  // VIXY KPI
-  const vixy = usAllData.find(r => r.symbol === 'VIXY');
+  // VXX KPI (el script usa VXX/UVXY, no VIXY)
+  const vxx = usAllData.find(r => r.symbol === 'VXX') || usAllData.find(r => r.symbol === 'UVXY');
   const vixyEl    = document.getElementById('tkpi-vixy');
   const vixyChgEl = document.getElementById('tkpi-vixy-chg');
-  if (vixy) {
-    if (vixyEl) vixyEl.textContent = vixy.last ? Number(vixy.last).toFixed(2) : '—';
+  if (vxx) {
+    if (vixyEl) vixyEl.textContent = vxx.last ? Number(vxx.last).toFixed(2) : '—';
     if (vixyChgEl) {
-      const chg = Number(vixy.change_pct || 0);
+      const chg = Number(vxx.change_pct || 0);
       vixyChgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
-      vixyChgEl.style.color = chg >= 0 ? 'var(--red)' : 'var(--green)'; // VIX up = bad
+      vixyChgEl.style.color = chg >= 0 ? 'var(--red)' : 'var(--green)';
     }
   }
 
@@ -1762,66 +1762,80 @@ function usRenderTopology() {
   if (upSub) upSub.textContent = `de ${total} activos`;
   if (dnSub) dnSub.textContent = `de ${total} activos`;
 
-  // Breadth stats
-  const withSma200 = usAllData.filter(r => r.above_sma200 != null);
-  const withSma50  = usAllData.filter(r => r.above_sma50  != null);
-  const withRsiAll = usAllData.filter(r => r.rsi_14 != null);
-  const n200 = withSma200.length || 1;
-  const n50  = withSma50.length  || 1;
-  const nRsi = withRsiAll.length || 1;
-
-  const aboveSma200 = withSma200.filter(r => r.above_sma200 === true).length;
-  const aboveSma50  = withSma50.filter(r => r.above_sma50  === true).length;
-  const rsiOB = withRsiAll.filter(r => r.rsi_14 >= 70).length;
-  const rsiOS = withRsiAll.filter(r => r.rsi_14 <= 30).length;
-
-  const pctSma200 = Math.round(aboveSma200 / n200 * 100);
-  const pctSma50  = Math.round(aboveSma50  / n50  * 100);
-  const pctRsi70  = Math.round(rsiOB / nRsi * 100);
-  const pctRsi30  = Math.round(rsiOS / nRsi * 100);
-
-  // Amplitud KPI
+  // Amplitud: % advancing — disponible para todos los símbolos (no depende de indicadores)
+  const ups = withChg.filter(r => r.change_pct > 0).length;
+  const dns = withChg.filter(r => r.change_pct < 0).length;
+  const pctUps = total > 0 ? Math.round(ups / total * 100) : 0;
   const ampEl = document.getElementById('tkpi-amp');
-  if (ampEl) ampEl.textContent = pctSma200 + '%';
+  if (ampEl) ampEl.textContent = pctUps + '%';
+
+  // Up / Down KPIs
+  const upEl  = document.getElementById('tkpi-up');
+  const dnEl  = document.getElementById('tkpi-dn');
+  const upSub = document.getElementById('tkpi-up-sub');
+  const dnSub = document.getElementById('tkpi-dn-sub');
+  if (upEl)  upEl.textContent  = ups;
+  if (dnEl)  dnEl.textContent  = dns;
+  if (upSub) upSub.textContent = `de ${total} activos`;
+  if (dnSub) dnSub.textContent = `de ${total} activos`;
+
+  // SMA/RSI — el script solo calcula indicadores para ~50 símbolos por ciclo.
+  // Calcular client-side desde last/sma_XX cuando above_smaXX es null.
+  const withSma200 = usAllData.filter(r => r.above_sma200 != null || (r.last != null && r.sma_200 != null));
+  const withSma50  = usAllData.filter(r => r.above_sma50  != null || (r.last != null && r.sma_50  != null));
+  const withRsiAll = usAllData.filter(r => r.rsi_14 != null);
+  const abv200 = r => r.above_sma200 != null ? r.above_sma200 === true : Number(r.last) > Number(r.sma_200);
+  const abv50  = r => r.above_sma50  != null ? r.above_sma50  === true : Number(r.last) > Number(r.sma_50);
+  const n200 = withSma200.length, n50 = withSma50.length, nRsi = withRsiAll.length;
+  const pctSma200 = n200 >= 20 ? Math.round(withSma200.filter(abv200).length / n200 * 100) : null;
+  const pctSma50  = n50  >= 20 ? Math.round(withSma50.filter(abv50).length   / n50  * 100) : null;
+  const rsiOB = withRsiAll.filter(r => Number(r.rsi_14) >= 70).length;
+  const rsiOS = withRsiAll.filter(r => Number(r.rsi_14) <= 30).length;
+  const pctRsi70 = nRsi >= 20 ? Math.round(rsiOB / nRsi * 100) : null;
 
   // RSI KPIs
   const rsi70El = document.getElementById('tkpi-rsi70');
   const rsi30El = document.getElementById('tkpi-rsi30');
-  if (rsi70El) rsi70El.textContent = rsiOB;
-  if (rsi30El) rsi30El.textContent = `RSI < 30: ${rsiOS}`;
+  if (rsi70El) rsi70El.textContent = nRsi >= 20 ? rsiOB : '—';
+  if (rsi30El) rsi30El.textContent = nRsi >= 20 ? `RSI < 30: ${rsiOS}` : 'Sin datos RSI';
 
-  // Breadth gauge
+  // Breadth gauge principal — % advancing (cubre todos los símbolos)
   const fillEl = document.getElementById('topo-breadth-fill');
   const valEl  = document.getElementById('topo-breadth-val');
-  const bColor = pctSma200 >= 60 ? 'var(--green)' : pctSma200 >= 40 ? 'var(--amber)' : 'var(--red)';
-  if (fillEl) { fillEl.style.width = pctSma200 + '%'; fillEl.style.background = bColor; }
-  if (valEl)  { valEl.textContent = pctSma200 + '%'; valEl.style.color = bColor; }
+  const bColor = pctUps >= 60 ? 'var(--green)' : pctUps >= 40 ? 'var(--amber)' : 'var(--red)';
+  if (fillEl) { fillEl.style.width = pctUps + '%'; fillEl.style.background = bColor; }
+  if (valEl)  { valEl.textContent = pctUps + '%'; valEl.style.color = bColor; }
 
-  const b50 = document.getElementById('topo-b-sma50');
+  // Sub-stats de breadth (muestra muestra disponible entre paréntesis)
+  const b50  = document.getElementById('topo-b-sma50');
   const b200 = document.getElementById('topo-b-sma200');
   const br70 = document.getElementById('topo-b-rsi70');
   const br30 = document.getElementById('topo-b-rsi30');
-  if (b50)  { b50.textContent  = pctSma50  + '%'; b50.style.color  = pctSma50  >= 60 ? 'var(--green)' : pctSma50  >= 40 ? 'var(--amber)' : 'var(--red)'; }
-  if (b200) { b200.textContent = pctSma200 + '%'; b200.style.color = bColor; }
-  if (br70) { br70.textContent = pctRsi70  + '%'; }
-  if (br30) { br30.textContent = pctRsi30  + '%'; br30.style.color = 'var(--blue)'; }
+  const smaC = v => v >= 60 ? 'var(--green)' : v >= 40 ? 'var(--amber)' : 'var(--red)';
+  const fmtB = (v, col, n) => v != null
+    ? `<span style="color:${col};font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500">${v}%</span><span style="font-size:8px;color:var(--text4)"> n=${n}</span>`
+    : `<span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--text4)">—</span>`;
+  if (b50)  b50.innerHTML  = fmtB(pctSma50,  pctSma50  != null ? smaC(pctSma50)  : '', n50);
+  if (b200) b200.innerHTML = fmtB(pctSma200, pctSma200 != null ? smaC(pctSma200) : '', n200);
+  if (br70) br70.innerHTML = fmtB(pctRsi70, 'var(--red)', nRsi);
+  if (br30) br30.innerHTML = fmtB(nRsi >= 20 ? Math.round(rsiOS/nRsi*100) : null, 'var(--blue)', nRsi);
 
-  // Regime card
+  // Regime card — basado en advancing ratio (datos completos)
   const regEl = document.getElementById('topo-regime');
   if (regEl) {
     let label, desc, col, bg, border;
-    if (pctSma200 >= 65 && ups > dns * 1.4) {
-      label='⬆ Risk On'; desc='Amplitud positiva. Mayoría de activos sobre medias clave.';
+    if (pctUps >= 65) {
+      label='⬆ Risk On'; desc='Más del 65% de activos subiendo. Amplitud de mercado positiva.';
       col='var(--green)'; bg='rgba(0,229,168,.06)'; border='rgba(0,229,168,.3)';
-    } else if (pctSma200 <= 35 || dns > ups * 1.4) {
-      label='⬇ Risk Off'; desc='Amplitud negativa. Mayoría de activos bajo sus medias.';
+    } else if (pctUps <= 35) {
+      label='⬇ Risk Off'; desc='Más del 65% de activos bajando. Amplitud de mercado negativa.';
       col='var(--red)'; bg='rgba(255,63,94,.06)'; border='rgba(255,63,94,.3)';
     } else {
-      label='⟷ Neutral'; desc='Mercado mixto. Sin dirección clara en amplitud ni momentum.';
+      label='⟷ Neutral'; desc='Mercado mixto. Sin dirección clara de amplitud.';
       col='var(--amber)'; bg='rgba(240,165,0,.06)'; border='rgba(240,165,0,.3)';
     }
-    regEl.style.background   = bg;
-    regEl.style.borderColor  = border;
+    regEl.style.background  = bg;
+    regEl.style.borderColor = border;
     regEl.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:8px;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;color:${col};opacity:.7">Régimen de mercado</div>
       <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${col}">${label}</div>
       <div style="font-size:10px;margin-top:5px;line-height:1.6;color:${col};opacity:.8">${desc}</div>`;
@@ -1870,15 +1884,18 @@ function usDrawTopoScatter() {
   ctx.save(); ctx.translate(14, cy); ctx.rotate(-Math.PI / 2);
   ctx.fillText('← Volumen Relativo →', 0, 0); ctx.restore();
 
-  // Data: exclude index ETFs
-  const ETF_SKIP = new Set(['SPY','QQQ','IWM','DIA','VIXY','VXX','GLD','SLV','TLT','BND']);
-  const stocks = usAllData.filter(r =>
-    r.change_pct != null && r.volume_rel != null && !ETF_SKIP.has(r.symbol)
-  );
+  // Data: exclude index/vol ETFs
+  const ETF_SKIP = new Set(['SPY','QQQ','IWM','DIA','VIXY','VXX','UVXY','GLD','SLV','TLT','BND','TQQQ','SQQQ','USO']);
+  const stocks = usAllData.filter(r => r.change_pct != null && r.volume != null && !ETF_SKIP.has(r.symbol));
   if (!stocks.length) return;
 
+  // volume_rel: usar el campo si existe, sino calcular desde mediana de volumen
+  const vols = stocks.map(r => Number(r.volume)).filter(Boolean).sort((a,b) => a-b);
+  const medVol = vols[Math.floor(vols.length / 2)] || 1;
+  const getVolRel = r => r.volume_rel != null ? Number(r.volume_rel) : Number(r.volume) / medVol;
+
   const maxChg = Math.max(...stocks.map(r => Math.abs(Number(r.change_pct))), 4);
-  const maxVol = Math.max(...stocks.map(r => Number(r.volume_rel)), 3);
+  const maxVol = Math.max(...stocks.map(r => getVolRel(r)), 3);
 
   function ptColor(chg, alpha) {
     if (chg >= 4)    return `rgba(13,107,53,${alpha})`;
@@ -1894,7 +1911,7 @@ function usDrawTopoScatter() {
   const hitPoints = [];
   stocks.forEach(s => {
     const chg = Number(s.change_pct);
-    const vol = Number(s.volume_rel);
+    const vol = getVolRel(s);
     const x = cx + (chg / maxChg) * (pw / 2);
     const y = pad.top + (vol / maxVol) * ph; // high vol = bottom
     const r = 3.5;
@@ -1952,11 +1969,16 @@ function usDrawRotationClock() {
   const canvas = document.getElementById('rotationClock');
   if (!canvas) return;
   const W = canvas.offsetWidth;
-  if (!W) return;
-  canvas.width = W;
-  canvas.height = +canvas.getAttribute('height') || 420;
-  const H = canvas.height;
+  if (!W) { setTimeout(usDrawRotationClock, 150); return; } // esperar layout
+  const dpr = window.devicePixelRatio || 1;
+  const cssH = +canvas.getAttribute('height') || 420;
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = cssH + 'px';
+  const H = cssH;
   const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
   const cx = W / 2, cy = H / 2;
@@ -2013,64 +2035,67 @@ function usDrawRotationClock() {
     return;
   }
 
-  // Dynamic scale: fit all points within outerR * 0.85
+  // Posicionamiento polar: ángulo desde atan2 (preserva cuadrante real del RRG),
+  // radio amplificado con mínimo del 38% de outerR para garantizar visibilidad.
   const allPts = sectors.map(d => d.p[d.p.length - 1]);
-  const maxDx = Math.max(...allPts.map(p => Math.abs(p[0] - 100)), 0.5);
-  const maxDy = Math.max(...allPts.map(p => Math.abs(p[1] - 100)), 0.5);
-  const scale = Math.min(outerR * 0.85 / maxDx, outerR * 0.85 / maxDy);
+  const maxDev = Math.max(...allPts.map(p => Math.hypot(p[0] - 100, p[1] - 100)), 0.1);
 
   const colMap = {Leading:'rgba(0,229,168,1)', Weakening:'rgba(240,165,0,1)', Lagging:'rgba(255,63,94,1)', Improving:'rgba(77,166,255,1)'};
 
   sectors.forEach(({s, p}) => {
-    const last   = p[p.length - 1];
+    const last  = p[p.length - 1];
     const {name: qname} = rrgQ(last[0], last[1]);
     const col    = colMap[qname] || 'rgba(110,136,168,1)';
     const colDim = col.replace(',1)', ',.12)');
 
-    let dx = (last[0] - 100) * scale;
-    let dy = -(last[1] - 100) * scale; // canvas y inverted
-    const dist = Math.hypot(dx, dy);
-    if (dist > outerR * .92) { dx *= outerR * .92 / dist; dy *= outerR * .92 / dist; }
-    const x = cx + dx, y = cy + dy;
+    // Ángulo natural: rsRatio en X, rsMom en Y (invertir Y para canvas)
+    const angle = Math.atan2(-(last[1] - 100), last[0] - 100);
+    const dev   = Math.hypot(last[0] - 100, last[1] - 100);
+    // Radio: entre 38% y 88% de outerR según intensidad relativa
+    const plotR = outerR * (0.38 + (dev / maxDev) * 0.50);
+    const x = cx + Math.cos(angle) * plotR;
+    const y = cy + Math.sin(angle) * plotR;
 
-    // Trailing tail (last 4 points)
+    // Trailing tail usando misma lógica polar
     if (p.length >= 2) {
       const tail = p.slice(-Math.min(5, p.length));
       for (let i = 0; i < tail.length - 1; i++) {
-        const alpha = (i + 1) / (tail.length - 1) * 0.45;
-        const tx1 = cx + (tail[i][0]   - 100) * scale;
-        const ty1 = cy - (tail[i][1]   - 100) * scale;
-        const tx2 = cx + (tail[i+1][0] - 100) * scale;
-        const ty2 = cy - (tail[i+1][1] - 100) * scale;
+        const alpha = (i + 1) / (tail.length - 1) * 0.4;
+        const a1 = Math.atan2(-(tail[i][1]   - 100), tail[i][0]   - 100);
+        const a2 = Math.atan2(-(tail[i+1][1] - 100), tail[i+1][0] - 100);
+        const d1 = Math.hypot(tail[i][0]   - 100, tail[i][1]   - 100);
+        const d2 = Math.hypot(tail[i+1][0] - 100, tail[i+1][1] - 100);
+        const r1 = outerR * (0.38 + (d1 / maxDev) * 0.50);
+        const r2 = outerR * (0.38 + (d2 / maxDev) * 0.50);
         ctx.beginPath();
-        ctx.moveTo(tx1, ty1);
-        ctx.lineTo(tx2, ty2);
+        ctx.moveTo(cx + Math.cos(a1)*r1, cy + Math.sin(a1)*r1);
+        ctx.lineTo(cx + Math.cos(a2)*r2, cy + Math.sin(a2)*r2);
         ctx.strokeStyle = col.replace(',1)', `,${alpha})`);
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
     }
 
     // Dot
-    ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2);
     ctx.fillStyle = colDim; ctx.fill();
-    ctx.strokeStyle = col.replace(',1)', ',.6)');
+    ctx.strokeStyle = col.replace(',1)', ',.65)');
     ctx.lineWidth = 1.5; ctx.stroke();
 
     // Label
-    ctx.font = "600 8px 'IBM Plex Mono', monospace";
+    ctx.font = "600 9px 'IBM Plex Mono', monospace";
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(s, x, y - 4);
+    ctx.fillText(s, x, y - 5);
 
     const sec = usSectors.find(r => r.symbol === s);
     if (sec && sec.change_pct != null) {
       const chg  = Number(sec.change_pct);
       const sign = chg >= 0 ? '+' : '';
-      ctx.font = "400 7px 'IBM Plex Mono', monospace";
+      ctx.font = "400 8px 'IBM Plex Mono', monospace";
       ctx.fillStyle = col;
-      ctx.fillText(`${sign}${chg.toFixed(1)}%`, x, y + 7);
+      ctx.fillText(`${sign}${chg.toFixed(1)}%`, x, y + 8);
     }
   });
 }
