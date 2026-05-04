@@ -1756,15 +1756,13 @@ window.pfModalSave = async () => {
       // 1) Crear en operaciones
       const opBody = {
         user_id:      window.currentUser?.id,
-        tipo:         `compra_${_pfmKind}`,
         nombre,
         subyacente,
         fecha:        fecha || new Date().toISOString().split('T')[0],
         estado:       'abierta',
         patas:        [pata],
         spot_entrada: spotE || null,
-        costo_neto:   costoNeto,
-        notas,
+        nota:         notas || null,
       };
       const session = await window.sbAuth?.auth?.getSession();
       const token = session?.data?.session?.access_token;
