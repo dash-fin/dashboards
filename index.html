@@ -86,7 +86,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .app{display:grid;grid-template-rows:auto 1fr;min-height:100vh}
 .header{position:sticky;top:0;z-index:200;background:var(--bg2)}
 .header-top{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border)}
-.logo{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text)}
+.logo{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text)}
 .logo span{color:var(--green)}
 .header-top-right{display:flex;align-items:center;gap:12px}
 .clock{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);letter-spacing:1px}
@@ -115,7 +115,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .mtab-dot{width:5px;height:5px;border-radius:50%;background:var(--green);opacity:.7}
 .mtab-badge{font-size:7px;padding:1px 5px;border-radius:2px;background:var(--bg4);color:var(--text4);border:1px solid var(--border);letter-spacing:.5px}
 .content{overflow-y:auto}
-.module-wrap{padding:20px 24px;display:flex;flex-direction:column;gap:16px;max-width:1600px;width:100%;margin:0 auto}
+.module-wrap{padding:20px 24px;display:flex;flex-direction:column;gap:16px;max-width:1600px;width:100%;margin:0 auto;overflow-x:hidden}
 /* Sub-tabs */
 .sub-tabs{display:flex;gap:1px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:3px;width:fit-content}
 .stab{padding:5px 16px;font-size:10px;font-family:'IBM Plex Mono',monospace;border-radius:4px;cursor:pointer;color:var(--text3);border:none;background:transparent;transition:all .15s;letter-spacing:.8px;text-transform:uppercase;font-weight:500;white-space:nowrap}
@@ -314,7 +314,11 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 .pkpi-val{font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:-0.5px;line-height:1}
 .pkpi-sub{font-size:10px;font-family:'IBM Plex Mono',monospace;margin-top:4px}
 .main-row{display:grid;gap:12px}
-.cols-4{grid-template-columns:180px 1fr 1fr 1fr}
+.cols-4{grid-template-columns:180px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
+.cols-4>*{min-width:0}
+@media(max-width:1100px){.cols-4{grid-template-columns:180px 1fr 1fr}}
+@media(max-width:800px){.cols-4{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.cols-4{grid-template-columns:1fr}}
 .sec-label{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;display:flex;align-items:center;gap:10px}
 .sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
 .dl-row{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border)}
@@ -1055,7 +1059,7 @@ async function renderHome(){
     <div class="card">
       <div class="card-head"><div class="card-title">Breaking &amp; Market News</div><span style="font-size:10px;color:var(--text3)" id="h-news-count">—</span></div>
       <div class="news-search-wrap"><span class="news-search-icon">🔍</span><input class="news-search-input" id="h-news-search" placeholder="Filtrar por palabra clave..." oninput="homeFilterNews(this.value)"><span class="news-count" id="h-news-vis"></span></div>
-      <div id="h-news"><div style="padding:16px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div id="h-news" style="max-height:280px;overflow-y:auto"><div style="padding:16px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
     </div>
   </div>`;
 
@@ -1148,7 +1152,7 @@ async function loadHomePortfolio(){
     const pct=totalVal>0?(totalPnl/(totalVal-totalPnl))*100:0;
     const usd=mepVal?totalPnl/mepVal:null;
     if(pv)pv.innerHTML=`<span style="color:${col}">${totalPnl>=0?'+':''}\$${fmtAR(Math.abs(totalPnl),0)}</span>`;
-    if(ps)ps.innerHTML=`<span style="color:${col}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`+(usd?`<span style="color:var(--text3);margin-left:8px">≈ USD <span style="color:${col}">${usd>=0?'+':''}${fmtUSD(Math.abs(usd),0)}</span></span>`:'');
+    if(ps)ps.innerHTML=`<span style="color:${col}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`+(usd?`<span style="color:var(--text3);margin-left:6px">≈ USD <span style="color:${col}">${usd>=0?'+':''}${fmtUSD(Math.abs(usd),0)}</span></span>`:'')+'<span style="color:var(--text4);font-size:9px;margin-left:6px">base</span>';
     if(enriched.length){
       const best=enriched.reduce((a,b)=>b.chg>a.chg?b:a);
       const worst=enriched.reduce((a,b)=>b.chg<a.chg?b:a);
@@ -1185,23 +1189,37 @@ async function loadHomeSectores(){
   const [secRows,comRows,breadthRows]=await Promise.all([
     sb('sectores_usa','select=symbol,name,change_pct&order=change_pct.desc.nullslast'),
     sb('mercado_usa','symbol=in.("GLD","SLV","USO")&select=symbol,last,change_pct'),
-    sb('mercado_usa','symbol=in.("SPY")&select=symbol,last,change_pct'),
+    sb('mercado_usa','symbol=in.("SPY","QQQ","VIXY")&select=symbol,last,change_pct'),
   ]);
 
-  // Breadth (static estimates from S&P breadth indicators)
+  // Breadth
   const bEl=document.getElementById('h-breadth');
-  if(bEl&&secRows){
-    const above=secRows.filter(r=>Number(r.change_pct||0)>=0).length;
-    const total=secRows.length||1;
-    const advPct=Math.round(above/total*100);
+  if(bEl){
+    const above=secRows?secRows.filter(r=>Number(r.change_pct||0)>=0).length:0;
+    const total=secRows?secRows.length:0;
+    const advPct=total?Math.round(above/total*100):0;
     const rEl=document.getElementById('h-breadth-regime');
     const regime=advPct>=60?'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(16,232,152,.1);color:var(--green);border:1px solid rgba(16,232,152,.25)">● Alcista</span>':advPct>=40?'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.25)">⚠ Cautious</span>':'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(255,64,96,.1);color:var(--red);border:1px solid rgba(255,64,96,.25)">● Bajista</span>';
     if(rEl)rEl.innerHTML=regime;
-    const spyChg=Number(breadthRows?.[0]?.change_pct||0);
+    const bMap={};(breadthRows||[]).forEach(r=>{bMap[r.symbol]=r;});
+    const spyChg=Number(bMap['SPY']?.change_pct||0);
+    const qqqChg=Number(bMap['QQQ']?.change_pct||0);
+    const vixyLast=Number(bMap['VIXY']?.last||0);
+    const vixyChg=Number(bMap['VIXY']?.change_pct||0);
+    const mkRow=(label,val,pct,isAbsol)=>{
+      const w=Math.min(Math.abs(pct)*10,100).toFixed(0);
+      const cls=pct>=0?'up':'dn';
+      const txt=isAbsol?`$${fmtUSD(val,0)}`:`${pct>=0?'+':''}${pct.toFixed(2)}%`;
+      return `<div class="brow"><div class="blbl">${label}</div><div class="btrack"><div class="bfill" style="background:${pct>=0?'var(--green)':'var(--red)'}" data-w="${w}"></div></div><div class="bnum ${cls}">${txt}</div></div>`;
+    };
     bEl.innerHTML=`<div style="padding:6px 0">
-      <div class="brow"><div class="blbl">Avanzando</div><div class="btrack"><div class="bfill" style="background:var(--green)" data-w="${advPct}"></div></div><div class="bnum up">${advPct}%</div></div>
-      <div class="brow"><div class="blbl">SPY hoy</div><div class="btrack"><div class="bfill" style="background:${spyChg>=0?'var(--green)':'var(--red)'}" data-w="${Math.min(Math.abs(spyChg)*10,100).toFixed(0)}"></div></div><div class="bnum ${spyChg>=0?'up':'dn'}">${spyChg>=0?'+':''}${spyChg.toFixed(2)}%</div></div>
+      <div class="brow"><div class="blbl">Sectores ↑</div><div class="btrack"><div class="bfill" style="background:var(--green)" data-w="${advPct}"></div></div><div class="bnum ${advPct>=50?'up':'dn'}">${above}/${total}</div></div>
+      ${mkRow('Avanzando',0,advPct,false)}
+      ${mkRow('SPY',0,spyChg,false)}
+      ${mkRow('QQQ',0,qqqChg,false)}
+      ${vixyLast>0?`<div class="brow"><div class="blbl">VIX/VIXY</div><div class="btrack"><div class="bfill" style="background:var(--amber)" data-w="${Math.min(vixyLast*2,100).toFixed(0)}"></div></div><div class="bnum ${vixyChg>=0?'dn':'up'}" style="color:var(--amber)">$${fmtUSD(vixyLast,2)}</div></div>`:''}
     </div>`;
+    setTimeout(()=>{bEl.querySelectorAll('[data-w]').forEach(b=>{b.style.width=b.dataset.w+'%';});},60);
   }
 
   if(!secRows||!secRows.length){el.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin datos</div>';return;}
@@ -1263,10 +1281,10 @@ window.switchHomeUSA=function(dir,btn){
 // ── Home: Renta Fija ──
 const RF_SYMS={
   bonos:{'AL30':'Bono USD 2030 Ley Arg.','GD30':'Bono Global 2030','AL35':'Bono USD 2035 Ley Arg.','GD35':'Bono Global 2035','AE38':'Bono USD 2038 Ley Arg.','GD38':'Bono Global 2038','AL41':'Bono USD 2041 Ley Arg.','GD41':'Bono Global 2041','GD46':'Bono Global 2046','GD48':'Bono Global 2048','GD29':'Bono Global 2029','DICA':'Discount Ley Arg.','DICY':'Discount Ley NY'},
-  duales:{'TTS26':'Dual Sep-2026','TTJ26':'Dual Jun-2026','TTD26':'Dual Dic-2026','TDJ25':'Dual Jul-2025','TDG25':'Dual Ago-2025','TDE25':'Dual Sep-2025'},
-  linked:{'TV25':'Dólar-Linked Jun-2025','TZV25':'Dólar-Linked Dic-2025','TZV26':'Dólar-Linked 2026','TVY26':'Dólar-Linked May-2026'},
-  cer:{'TX26':'BONCER Feb-2026','TX28':'BONCER Ago-2028','TC26':'BONCER Jun-2026','DICP':'Discount CER','TC25':'BONCER Jun-2025','TC27':'BONCER Mar-2027'},
-  letras:{'S17A6':'LECAP Abr-2026','S30A6':'LECAP Abr-2026b','S15Y6':'LECAP May-2026','S31L6':'LECAP Jul-2026','S31G6':'LECAP Ago-2026','T30J6':'BONCAP Jun-2026','T15E7':'BONCAP Ene-2027','T30A7':'BONCAP Abr-2027'},
+  duales:{'TTS26':'Dual Sep-2026','TTJ26':'Dual Jun-2026','TTD26':'Dual Dic-2026'},
+  linked:{'TZV26':'Dólar-Linked Dic-2026','TZV27':'Dólar-Linked Dic-2027','TZV28':'Dólar-Linked Dic-2028'},
+  cer:{'TX26':'BONCER 2026','TX28':'BONCER Ago-2028','TX31':'BONCER 2031','TZX26':'BONCER CER Dic-2026','TZX27':'BONCER CER Dic-2027','TZX28':'BONCER CER Dic-2028','DICP':'Discount CER','CUAP':'Cuasipar CER'},
+  letras:{'S17A6':'LECAP Abr-2026','S30A6':'LECAP Abr-2026b','S15Y6':'LECAP May-2026','S29Y6':'LECAP May-2026b','S31L6':'LECAP Jul-2026','S31G6':'LECAP Ago-2026','S30S6':'LECAP Sep-2026','S30O6':'LECAP Oct-2026','S30N6':'LECAP Nov-2026','T30J6':'BONCAP Jun-2026','T15E7':'BONCAP Ene-2027','T30A7':'BONCAP Abr-2027','T31Y7':'BONCAP May-2027','T30J7':'BONCAP Jun-2027','TO26':'Tasa Fija Oct-2026'},
 };
 const _rfState={dir:'suba',cat:'todos',data:{}};
 
