@@ -83,7 +83,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:var(--border3);border-radius:2px}
-.app{display:grid;grid-template-rows:auto 1fr;min-height:100vh}
+.app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100vh;overflow-x:hidden}
 .header{position:sticky;top:0;z-index:200;background:var(--bg2)}
 .header-top{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border)}
 .logo{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text)}
@@ -1171,11 +1171,11 @@ async function loadHomePortfolio(){
           const optPrices=await sb('mercado',`symbol=in.(${optSyms.map(s=>'"'+s+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change`);
           const optPm={};if(optPrices)optPrices.forEach(r=>{optPm[r.symbol]=r;});
           ops.forEach(op=>{
-            const optSz=Number(op.patas?.[0]?.option_size||100);
             (op.patas||[]).forEach(leg=>{
               const pr=optPm[leg.symbol];if(!pr||!pr.last)return;
               const sign=leg.action==='buy'?1:-1;
               const last=Number(pr.last),chg=Number(pr.change||0);
+              const optSz=Number(leg.option_size||100);
               totalPnl+=sign*last*(chg/100)*Number(leg.qty||0)*optSz;
             });
           });
