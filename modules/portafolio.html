@@ -1189,9 +1189,11 @@ function pfBuildOpsTableHTML(rows, withClose) {
       <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Prima entrada</th>
       <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Precio actual</th>
       <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">P&amp;L ($)</th>
-      <th style="padding:6px 4px;width:${withClose?52:28}px"></th>
+      <th style="padding:6px 4px;width:${withClose?76:28}px"></th>
     </tr></thead>
     <tbody>${rows.map(({op,pnl,legRows})=>{
+      const pfPos = pfPositions.find(p=>p.operacion_id===op.id);
+      const pfId  = pfPos?.id;
       const legHtml = legRows.map(({leg,curPrice,legPnl,src},i)=>{
         const legDir = leg.action==='buy' ? `<span style="color:var(--green)">▲ COMPRA</span>` : `<span style="color:var(--red)">▼ VENTA</span>`;
         const pataDesc = `${legDir} ${leg.qty} ${leg.kind?.toUpperCase()} K${Math.round(leg.strike)}`;
@@ -1200,15 +1202,18 @@ function pfBuildOpsTableHTML(rows, withClose) {
           : `<span style="font-size:7px;background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.2);border-radius:2px;padding:1px 4px;margin-left:4px">BS</span>`;
         const lc = legPnl>=0?'var(--green)':'var(--red)';
         const btnStyle = 'background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .15s';
+        const editBtn = withClose && pfId
+          ? `<button onclick="pfModalOpen('${pfId}')" title="Editar" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text4)'">✎</button>`
+          : '';
         const closBtn = withClose
-          ? `<button onclick="pfCloseOpcion('${op.id}')" title="Cerrar estrategia" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text4)'">⊠</button>`
+          ? `<button onclick="pfCloseOpcion('${op.id}')" title="Cerrar" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text4)'">⊠</button>`
           : '';
         const firstCell = i===0
           ? `<td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text3);vertical-align:top;white-space:nowrap">${op.fecha}</td>
              <td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text);font-weight:500;vertical-align:top">${op.nombre||'—'}</td>
              <td rowspan="${legRows.length}" style="padding:4px;vertical-align:top;text-align:center;white-space:nowrap">
-               ${closBtn}
-               <button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>
+               ${editBtn}${closBtn}
+               <button onclick="pfDeleteOp('${op.id}')" title="Eliminar" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>
              </td>`
           : '';
         return `<tr style="border-bottom:1px solid rgba(30,42,56,.3)">
@@ -1285,21 +1290,21 @@ async function pfRenderOpsInline() {
 
 // ── Borrar estrategia de opciones ────────────────────────
 window.pfDeleteOp = async function(id) {
-  if(!confirm('¿Borrar esta estrategia?')) return;
+  if(!confirm('¿Eliminar esta posición/estrategia?')) return;
   try {
     const session = await sbAuth.auth.getSession();
     const token = session?.data?.session?.access_token || CFG.SB_KEY;
-    await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}`, {
-      method: 'DELETE',
-      headers: { apikey: CFG.SB_KEY, Authorization: 'Bearer ' + token }
-    });
+    const headers = { apikey: CFG.SB_KEY, Authorization: 'Bearer ' + token };
+    await Promise.all([
+      fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}`, { method:'DELETE', headers }),
+      fetch(`${CFG.SB_URL}/rest/v1/portafolio?operacion_id=eq.${id}`, { method:'DELETE', headers }),
+    ]);
     pfOpsUsdPnl = 0;
     pfPatchOpsKpis();
-    await pfRenderOpciones();
-    if(pfFilter === 'OPCION') await pfRenderOpsInline();
+    await pfLoadAll();
     if(document.getElementById('pfHistOpsSection')) await pfLoadHistorial();
   } catch(e) {
-    alert('Error al borrar: ' + e.message);
+    alert('Error al eliminar: ' + e.message);
   }
 };
 
@@ -1343,7 +1348,7 @@ function pfRenderPositions(calced) {
   }
   document.getElementById('pfTableWrap').style.display = '';
   document.getElementById('pfOpsInlineView').style.display = 'none';
-  let rows = pfFilter==='all' ? calced : calced.filter(p=>p.tipo===pfFilter);
+  let rows = (pfFilter==='all' ? calced : calced.filter(p=>p.tipo===pfFilter)).filter(p=>p.tipo!=='OPCION');
 
   if(pfSort.col) {
     const col = PF_COLS.find(c=>c.id===pfSort.col);
@@ -1459,7 +1464,7 @@ window.pfSetFilter = (f, btn) => {
 };
 
 // ── Modal: abrir ──────────────────────────────────────────
-window.pfModalOpen = (id) => {
+window.pfModalOpen = async (id) => {
   pfEditId = id || null;
   document.getElementById('pfModalTitle').textContent = id ? 'Editar posición' : 'Nueva posición';
   document.getElementById('pfmMsg').style.display = 'none';
@@ -1467,19 +1472,48 @@ window.pfModalOpen = (id) => {
   if(id) {
     const pos = pfPositions.find(p=>p.id===id);
     if(!pos) return;
-    document.getElementById('pfmTipo').value        = pos.tipo;
-    document.getElementById('pfmTickerArs').value   = pos.ticker_ars||'';
-    document.getElementById('pfmTickerUsd').value   = pos.ticker_usd||'';
-    document.getElementById('pfmTickerAdr').value   = pos.ticker_adr||'';
-    document.getElementById('pfmFecha').value        = pos.fecha_compra||'';
-    document.getElementById('pfmCantidad').value    = pos.cantidad||'';
-    document.getElementById('pfmPrecioArs').value   = pos.precio_compra_ars||'';
-    document.getElementById('pfmMepCompra').value   = pos.mep_compra||'';
-    document.getElementById('pfmPrecioAdr').value   = pos.precio_adr_compra||'';
-    document.getElementById('pfmRatio').value        = pos.ratio_cedear||'';
-    document.getElementById('pfmStopLoss').value    = pos.stop_loss||'';
-    document.getElementById('pfmTakeProfit').value  = pos.take_profit||'';
-    document.getElementById('pfmNotas').value        = pos.notas||'';
+    document.getElementById('pfmTipo').value  = pos.tipo;
+    document.getElementById('pfmFecha').value = pos.fecha_compra||'';
+    document.getElementById('pfmNotas').value = pos.notas||'';
+
+    if(pos.tipo === 'OPCION') {
+      // Load pata data from operacion
+      if(pos.operacion_id) {
+        const opRows = await sb('operaciones', `id=eq.${pos.operacion_id}&select=subyacente,patas,spot_entrada`);
+        const op = opRows?.[0];
+        const pata = op?.patas?.[0] || {};
+        document.getElementById('pfmSubyacente').value = (op?.subyacente||'').toUpperCase();
+        _pfmKind = pata.kind || 'call';
+        document.getElementById('pfmKindCall').className = _pfmKind==='call' ? 'flt on-green on' : 'flt';
+        document.getElementById('pfmKindPut').className  = _pfmKind==='put'  ? 'flt on-red on'  : 'flt';
+        document.getElementById('pfmPrima').value       = pata.prima || '';
+        document.getElementById('pfmQtyOpt').value      = pata.qty   || '';
+        document.getElementById('pfmSpotEntrada').value = op?.spot_entrada || '';
+        document.getElementById('pfmMepCompraOpt').value = pos.mep_compra || '';
+        document.getElementById('pfmTickerUsdOpt').value = pata.symbol || pos.ticker_usd || '';
+        // Strike dropdown — static option with stored value
+        const strikeEl = document.getElementById('pfmStrikeSelect');
+        if(strikeEl && pata.strike) {
+          strikeEl.innerHTML = `<option value="${pata.strike}">$${Number(pata.strike).toLocaleString('es-AR')}</option>`;
+        }
+        // Vto from ticker_ars: SUBYACENTE_KIND_STRIKE_VTO or SUBYACENTE_KIND_STRIKE
+        const parts = (pos.ticker_ars||'').split('_');
+        const vto = parts.length >= 4 ? parts.slice(3).join('_') : '';
+        const vtoEl = document.getElementById('pfmVtoSelect');
+        if(vtoEl) vtoEl.innerHTML = vto ? `<option value="${vto}">${vto}</option>` : '<option value="">—</option>';
+      }
+    } else {
+      document.getElementById('pfmTickerArs').value   = pos.ticker_ars||'';
+      document.getElementById('pfmTickerUsd').value   = pos.ticker_usd||'';
+      document.getElementById('pfmTickerAdr').value   = pos.ticker_adr||'';
+      document.getElementById('pfmCantidad').value    = pos.cantidad||'';
+      document.getElementById('pfmPrecioArs').value   = pos.precio_compra_ars||'';
+      document.getElementById('pfmMepCompra').value   = pos.mep_compra||'';
+      document.getElementById('pfmPrecioAdr').value   = pos.precio_adr_compra||'';
+      document.getElementById('pfmRatio').value       = pos.ratio_cedear||'';
+      document.getElementById('pfmStopLoss').value    = pos.stop_loss||'';
+      document.getElementById('pfmTakeProfit').value  = pos.take_profit||'';
+    }
   } else {
     ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmTakeProfit','pfmNotas',
      'pfmSubyacente','pfmTickerUsdOpt','pfmPrecioUsdOpt','pfmPrima','pfmQtyOpt','pfmSpotEntrada','pfmMepCompraOpt'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
@@ -1672,10 +1706,45 @@ window.pfModalSave = async () => {
     const precioUsd   = n('pfmPrecioUsdOpt');
     const notas       = g('pfmNotas') || null;
 
+    if(!prima)  { pfShowMsg('error','Ingresá la prima de entrada'); return; }
+    if(!qty)    { pfShowMsg('error','Ingresá la cantidad de lotes'); return; }
+
+    // ── Editar opción existente ───────────────────────────
+    if(pfEditId) {
+      btn.disabled = true; btn.textContent = 'Guardando...';
+      try {
+        await sbPatch('portafolio', `id=eq.${pfEditId}`, {
+          precio_compra_ars: prima,
+          cantidad: qty,
+          mep_compra: mep || null,
+          ticker_usd: tickerUsd || null,
+          notas: notas || null,
+        });
+        const pos = pfPositions.find(p=>p.id===pfEditId);
+        if(pos?.operacion_id) {
+          const opRows = await sb('operaciones', `id=eq.${pos.operacion_id}&select=patas`);
+          const op = opRows?.[0];
+          if(op?.patas?.length) {
+            const updatedPatas = op.patas.map(p => ({...p, prima, qty, symbol: tickerUsd||p.symbol}));
+            const session = await window.sbAuth?.auth?.getSession();
+            const token = session?.data?.session?.access_token;
+            const h = { ...CFG.SBH, 'Content-Type':'application/json' };
+            if(token) h['Authorization'] = 'Bearer '+token;
+            await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${pos.operacion_id}`, { method:'PATCH', headers:h, body:JSON.stringify({patas:updatedPatas, spot_entrada:spotE||null}) });
+          }
+        }
+        pfModalHide();
+        await pfLoadAll();
+      } catch(e) {
+        pfShowMsg('error', e.message || 'Error al guardar');
+      } finally {
+        btn.disabled = false; btn.textContent = 'Guardar posición';
+      }
+      return;
+    }
+
     if(!subyacente) { pfShowMsg('error','Ingresá el subyacente'); return; }
     if(!strike)     { pfShowMsg('error','Seleccioná el strike'); return; }
-    if(!prima)      { pfShowMsg('error','Ingresá la prima de entrada'); return; }
-    if(!qty)        { pfShowMsg('error','Ingresá la cantidad de lotes'); return; }
 
     const kindLabel = _pfmKind.toUpperCase();
     const nombre    = `${subyacente} ${kindLabel} $${Math.round(strike)}${venc ? ' '+venc : ''}`;
