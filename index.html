@@ -114,7 +114,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .mtab.disabled{opacity:.35;cursor:default;pointer-events:none}
 .mtab-dot{width:5px;height:5px;border-radius:50%;background:var(--green);opacity:.7}
 .mtab-badge{font-size:7px;padding:1px 5px;border-radius:2px;background:var(--bg4);color:var(--text4);border:1px solid var(--border);letter-spacing:.5px}
-.content{overflow-y:auto;overflow-x:hidden}
+.content{overflow-y:auto;overflow-x:hidden;min-width:0;width:100%}
 .module-wrap{padding:20px 24px;display:flex;flex-direction:column;gap:16px;max-width:1600px;width:100%;margin:0 auto;overflow-x:hidden}
 /* Sub-tabs */
 .sub-tabs{display:flex;gap:1px;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;padding:3px;width:fit-content}
@@ -318,7 +318,6 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 .main-row{display:grid;gap:12px;overflow:hidden}
 .cols-4{grid-template-columns:180px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
 .cols-4>*{min-width:0}
-@media(max-width:950px){.cols-4{grid-template-columns:180px 1fr 1fr}}
 @media(max-width:800px){.cols-4{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.cols-4{grid-template-columns:1fr}}
 .sec-label{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;display:flex;align-items:center;gap:10px}
@@ -1165,19 +1164,20 @@ async function loadHomePortfolio(){
     }).filter(Boolean);
     // Opciones abiertas: suma PnL del día
     try{
-      const ops=await sb('operaciones',`estado=eq.abierta&user_email=eq.${encodeURIComponent(email)}&select=patas`);
+      const ops=await sb('operaciones','estado=eq.abierta&select=patas');
       if(ops&&ops.length){
-        const allPatas=ops.flatMap(o=>o.patas||[]).filter(p=>p.serie);
-        const optSyms=[...new Set(allPatas.map(p=>p.serie))];
+        const optSyms=[...new Set(ops.flatMap(o=>(o.patas||[]).map(p=>p.symbol).filter(Boolean)))];
         if(optSyms.length){
           const optPrices=await sb('mercado',`symbol=in.(${optSyms.map(s=>'"'+s+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change`);
           const optPm={};if(optPrices)optPrices.forEach(r=>{optPm[r.symbol]=r;});
-          allPatas.forEach(p=>{
-            const pr=optPm[p.serie];if(!pr||!pr.last)return;
-            const sign=(p.action==='buy'||p.action==='compra')?1:-1;
-            const last=Number(pr.last),chg=Number(pr.change||0);
-            const qty=Number(p.qty||0),optSz=Number(p.option_size||100);
-            totalPnl+=sign*last*(chg/100)*qty*optSz;
+          ops.forEach(op=>{
+            const optSz=Number(op.patas?.[0]?.option_size||100);
+            (op.patas||[]).forEach(leg=>{
+              const pr=optPm[leg.symbol];if(!pr||!pr.last)return;
+              const sign=leg.action==='buy'?1:-1;
+              const last=Number(pr.last),chg=Number(pr.change||0);
+              totalPnl+=sign*last*(chg/100)*Number(leg.qty||0)*optSz;
+            });
           });
         }
       }
