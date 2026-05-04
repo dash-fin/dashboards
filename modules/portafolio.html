@@ -27,14 +27,14 @@
             <option value="OPCION">Opción</option>
           </select>
         </div>
-        <div>
+        <div id="pfmTickerArsWrap">
           <div class="field-label">Ticker ARS (ej. PG, AL30)</div>
           <input class="field-input" id="pfmTickerArs" type="text" placeholder="PG" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase();pfAutoFillRatio()">
         </div>
       </div>
 
       <!-- Fila 2: ticker USD + ticker ADR (CEDEARs) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div id="pfmRow2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
           <div class="field-label">Ticker USD (ej. PGD, AL30D)</div>
           <input class="field-input" id="pfmTickerUsd" type="text" placeholder="PGD" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
@@ -51,14 +51,14 @@
           <div class="field-label">Fecha de compra</div>
           <input class="field-input" id="pfmFecha" type="date">
         </div>
-        <div>
+        <div id="pfmCantWrap">
           <div class="field-label" id="pfmCantLabel">Cantidad / Nominales</div>
           <input class="field-input" id="pfmCantidad" type="number" step="any" placeholder="0">
         </div>
       </div>
 
       <!-- Fila 4: precio compra + MEP compra -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div id="pfmRow4" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
           <div class="field-label">Precio compra ARS</div>
           <input class="field-input" id="pfmPrecioArs" type="number" step="any" placeholder="0.00">
@@ -83,7 +83,7 @@
       </div>
 
       <!-- Stop loss / Take profit -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
+      <div id="pfmSlTpRow" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">
         <div>
           <div class="field-label" id="pfmSlLabel">Stop Loss (opcional)</div>
           <input class="field-input" id="pfmStopLoss" type="number" step="any" placeholder="0.00">
@@ -100,61 +100,72 @@
       <!-- Campos específicos OPCION (ocultos por defecto) -->
       <div id="pfmOpcionFields" style="display:none;border:1px solid var(--border2);border-radius:7px;padding:14px;margin-bottom:12px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--amber);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">Datos de la opción</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+
+        <!-- Fila A: Subyacente + Ticker USA + Precio USD entrada -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           <div>
             <div class="field-label">Subyacente</div>
-            <input class="field-input" id="pfmSubyacente" type="text" placeholder="GGAL" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+            <input class="field-input" id="pfmSubyacente" type="text" placeholder="GGAL" style="text-transform:uppercase"
+              oninput="this.value=this.value.toUpperCase();pfmOptLoadStrikes()">
           </div>
           <div>
-            <div class="field-label">Strike</div>
-            <input class="field-input" id="pfmStrike" type="number" step="any" placeholder="2600">
+            <div class="field-label">Ticker USA (opcional)</div>
+            <input class="field-input" id="pfmTickerUsdOpt" type="text" placeholder="GGAL" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div>
+            <div class="field-label">Precio USA entrada (opcional)</div>
+            <input class="field-input" id="pfmPrecioUsdOpt" type="number" step="any" placeholder="0.00">
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+
+        <!-- Fila B: CALL/PUT + Strike dropdown + Vencimiento dropdown -->
+        <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:12px;margin-bottom:12px;align-items:end">
           <div>
             <div class="field-label">Tipo</div>
             <div style="display:flex;gap:6px;margin-top:4px">
               <button class="flt on-green on" id="pfmKindCall" onclick="pfmSetKind('call',this)">CALL</button>
-              <button class="flt" id="pfmKindPut" onclick="pfmSetKind('put',this)" data-cls="on-red">PUT</button>
+              <button class="flt" id="pfmKindPut" onclick="pfmSetKind('put',this)">PUT</button>
             </div>
           </div>
           <div>
-            <div class="field-label">Acción</div>
-            <div style="display:flex;gap:6px;margin-top:4px">
-              <button class="flt on-green on" id="pfmActBuy" onclick="pfmSetAct('buy',this)">Compra</button>
-              <button class="flt" id="pfmActSell" onclick="pfmSetAct('sell',this)" data-cls="on-red">Venta</button>
-            </div>
+            <div class="field-label">Strike</div>
+            <select class="field-input" id="pfmStrikeSelect" onchange="pfmOptLoadVtos()" style="cursor:pointer">
+              <option value="">— cargá subyacente —</option>
+            </select>
           </div>
           <div>
-            <div class="field-label">Option Size</div>
-            <input class="field-input" id="pfmOptSz" type="number" placeholder="100" value="100">
+            <div class="field-label">Vencimiento</div>
+            <select class="field-input" id="pfmVtoSelect" onchange="pfmOptAutoFillPrima()" style="cursor:pointer">
+              <option value="">—</option>
+            </select>
           </div>
         </div>
+
+        <!-- Fila C: Prima + Lotes + Spot ARS -->
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
           <div>
             <div class="field-label">Prima entrada (ARS/lote)</div>
             <input class="field-input" id="pfmPrima" type="number" step="any" placeholder="0.00" oninput="pfmOptPreview()">
           </div>
           <div>
-            <div class="field-label">Contratos</div>
+            <div class="field-label">Lotes</div>
             <input class="field-input" id="pfmQtyOpt" type="number" step="1" min="1" placeholder="1" oninput="pfmOptPreview()">
           </div>
           <div>
-            <div class="field-label">Vencimiento</div>
-            <input class="field-input" id="pfmVenc" type="date">
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px">
-          <div>
-            <div class="field-label">Spot subyacente al comprar (opcional)</div>
+            <div class="field-label">Spot subyacente entrada (opcional)</div>
             <input class="field-input" id="pfmSpotEntrada" type="number" step="any" placeholder="0.00">
           </div>
+        </div>
+
+        <!-- Fila D: MEP -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px">
           <div>
             <div class="field-label">MEP al momento de compra</div>
             <input class="field-input" id="pfmMepCompraOpt" type="number" step="any" placeholder="0.00">
             <div style="margin-top:4px;font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace" id="pfmMepHintOpt"></div>
           </div>
         </div>
+
         <div id="pfmOptPreviewBox" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);padding:8px 10px;background:var(--bg3);border-radius:5px;margin-top:6px"></div>
       </div>
 
@@ -1471,17 +1482,20 @@ window.pfModalOpen = (id) => {
     document.getElementById('pfmNotas').value        = pos.notas||'';
   } else {
     ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmTakeProfit','pfmNotas',
-     'pfmSubyacente','pfmStrike','pfmPrima','pfmQtyOpt','pfmVenc','pfmSpotEntrada','pfmMepCompraOpt'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-    document.getElementById('pfmOptSz').value = '100';
+     'pfmSubyacente','pfmTickerUsdOpt','pfmPrecioUsdOpt','pfmPrima','pfmQtyOpt','pfmSpotEntrada','pfmMepCompraOpt'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
     document.getElementById('pfmTipo').value = 'CEDEAR';
     document.getElementById('pfmFecha').value = new Date().toISOString().slice(0,10);
     if(pfMep) document.getElementById('pfmMepCompra').value = Math.round(pfMep);
-    // Reset kind/action toggles
-    _pfmKind = 'call'; _pfmAct = 'buy';
+    // Reset kind toggle
+    _pfmKind = 'call';
     document.getElementById('pfmKindCall').className = 'flt on-green on';
     document.getElementById('pfmKindPut').className  = 'flt';
-    document.getElementById('pfmActBuy').className   = 'flt on-green on';
-    document.getElementById('pfmActSell').className  = 'flt';
+    // Reset dropdowns
+    ['pfmStrikeSelect','pfmVtoSelect'].forEach(id => {
+      const el = document.getElementById(id); if(!el) return;
+      el.innerHTML = id==='pfmStrikeSelect' ? '<option value="">— cargá subyacente —</option>' : '<option value="">—</option>';
+    });
+    pfmOptData = [];
     if(document.getElementById('pfmOptPreviewBox')) document.getElementById('pfmOptPreviewBox').style.display='none';
   }
   if(pfMep) document.getElementById('pfmMepHint').textContent = `MEP actual: $${Math.round(pfMep).toLocaleString('es-AR')}`;
@@ -1530,12 +1544,12 @@ window.pfModalTipoChange = () => {
   const esCedear = tipo==='CEDEAR' || tipo==='ACCION';
 
   document.getElementById('pfmOpcionFields').style.display = esOpcion ? 'block' : 'none';
-  // En modo OPCION ocultamos los campos que no aplican
-  ['pfmAdrGroup','pfmCedearExtra','pfmSlTpHint'].forEach(id => {
+
+  // Filas estándar que se ocultan en modo OPCION
+  ['pfmTickerArsWrap','pfmRow2','pfmCantWrap','pfmRow4','pfmCedearExtra','pfmSlTpRow','pfmSlTpHint'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.style.display = esOpcion ? 'none' : '';
   });
-  document.getElementById('pfmStopLoss').closest('div').parentElement.style.display = esOpcion ? 'none' : '';
 
   if(!esOpcion) {
     document.getElementById('pfmAdrGroup').style.opacity = esCedear?'1':'0.4';
@@ -1544,7 +1558,6 @@ window.pfModalTipoChange = () => {
   document.getElementById('pfmCantLabel').textContent = (tipo==='BONO_SOBERANO'||tipo==='DOLAR_LINKED'||tipo==='BONO_CER'||tipo==='BONO_DUAL')
     ? 'Nominales' : 'Acciones';
 
-  // Pre-fill MEP hint for opcion modal
   if(esOpcion && pfMep) {
     const hintOpt = document.getElementById('pfmMepHintOpt');
     if(hintOpt) hintOpt.textContent = 'MEP actual: $' + Math.round(pfMep).toLocaleString('es-AR');
@@ -1553,8 +1566,9 @@ window.pfModalTipoChange = () => {
   }
 };
 
-// ── Toggle kind/action para modal OPCION ──────────────────
-let _pfmKind = 'call', _pfmAct = 'buy';
+// ── Toggle kind para modal OPCION ────────────────────────
+let _pfmKind = 'call';
+let pfmOptData = [];
 window.pfmSetKind = (k, btn) => {
   _pfmKind = k;
   ['pfmKindCall','pfmKindPut'].forEach(id => {
@@ -1562,26 +1576,77 @@ window.pfmSetKind = (k, btn) => {
     if(el) el.className = 'flt';
   });
   btn.className = 'flt ' + (k==='call'?'on-green':'on-red') + ' on';
+  pfmOptLoadStrikes();
 };
-window.pfmSetAct = (a, btn) => {
-  _pfmAct = a;
-  ['pfmActBuy','pfmActSell'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.className = 'flt';
+
+window.pfmOptLoadStrikes = async () => {
+  const sub = (document.getElementById('pfmSubyacente')?.value||'').trim().toUpperCase();
+  const strikeEl = document.getElementById('pfmStrikeSelect');
+  const vtoEl    = document.getElementById('pfmVtoSelect');
+  if(!strikeEl||!vtoEl) return;
+  if(!sub) {
+    strikeEl.innerHTML = '<option value="">— cargá subyacente —</option>';
+    vtoEl.innerHTML    = '<option value="">—</option>';
+    pfmOptData = [];
+    return;
+  }
+  try {
+    const rows = await sb('opciones_rt', `underlying_asset=ilike.${sub}*&select=symbol,kind,strike,expiration,last,bid,ask`);
+    pfmOptData = (rows||[]).filter(r => (r.kind||'').toUpperCase() === _pfmKind.toUpperCase());
+    const strikes = [...new Set(pfmOptData.map(r=>Number(r.strike)).filter(Boolean))].sort((a,b)=>a-b);
+    strikeEl.innerHTML = strikes.length
+      ? strikes.map(s=>`<option value="${s}">$${s.toLocaleString('es-AR')}</option>`).join('')
+      : '<option value="">— sin datos —</option>';
+    vtoEl.innerHTML = '<option value="">—</option>';
+    if(strikes.length) pfmOptLoadVtos();
+  } catch(e) { console.warn('pfmOptLoadStrikes',e); }
+};
+
+window.pfmOptLoadVtos = () => {
+  const strike    = parseFloat(document.getElementById('pfmStrikeSelect')?.value||'0');
+  const vtoEl     = document.getElementById('pfmVtoSelect');
+  if(!vtoEl||!strike) return;
+  const forStrike = pfmOptData.filter(r => Number(r.strike)===strike);
+  const vtos = [...new Set(forStrike.map(r=>{
+    if(!r.expiration) return null;
+    const d = new Date(r.expiration);
+    return `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }).filter(Boolean))].sort();
+  vtoEl.innerHTML = vtos.length
+    ? vtos.map(v=>`<option value="${v}">${v}</option>`).join('')
+    : '<option value="">—</option>';
+  if(vtos.length) pfmOptAutoFillPrima();
+};
+
+window.pfmOptAutoFillPrima = () => {
+  const strike = parseFloat(document.getElementById('pfmStrikeSelect')?.value||'0');
+  const vto    = document.getElementById('pfmVtoSelect')?.value||'';
+  if(!strike||!vto) return;
+  const match = pfmOptData.find(r => {
+    if(Number(r.strike)!==strike) return false;
+    const d = new Date(r.expiration);
+    const rv = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    return rv===vto;
   });
-  btn.className = 'flt ' + (a==='buy'?'on-green':'on-red') + ' on';
+  if(!match) return;
+  const price = Number(match.last||0)||Number(match.bid||0)||Number(match.ask||0);
+  const primaEl = document.getElementById('pfmPrima');
+  if(primaEl && price) primaEl.value = price;
+  // Also fill ticker symbol
+  const symEl = document.getElementById('pfmTickerUsdOpt');
+  if(symEl && !symEl.value && match.symbol) symEl.value = match.symbol;
+  pfmOptPreview();
 };
+
 window.pfmOptPreview = () => {
   const prima = parseFloat(document.getElementById('pfmPrima')?.value||'0')||0;
   const qty   = parseInt(document.getElementById('pfmQtyOpt')?.value||'0')||0;
-  const optSz = parseInt(document.getElementById('pfmOptSz')?.value||'100')||100;
   const box   = document.getElementById('pfmOptPreviewBox');
   if(!box) return;
   if(!prima || !qty) { box.style.display='none'; return; }
-  const costoTotal = prima * qty * optSz;
-  const sign = _pfmAct === 'buy' ? 'Débito' : 'Crédito';
+  const costoTotal = prima * qty * 100;
   box.style.display = 'block';
-  box.textContent = `${sign}: $${Math.round(costoTotal).toLocaleString('es-AR')} ARS (${qty} contrato${qty>1?'s':''} × $${prima} × ${optSz})`;
+  box.textContent = `Débito estimado: $${Math.round(costoTotal).toLocaleString('es-AR')} ARS (${qty} lote${qty>1?'s':''} × $${prima} × 100)`;
 };
 
 // ── Modal: guardar ────────────────────────────────────────
@@ -1594,34 +1659,35 @@ window.pfModalSave = async () => {
 
   if(tipo === 'OPCION') {
     // ── Guardar opción ────────────────────────────────────
-    const subyacente = g('pfmSubyacente');
-    const strike     = n('pfmStrike');
-    const prima      = n('pfmPrima');
-    const qty        = parseInt(g('pfmQtyOpt'))||0;
-    const optSz      = parseInt(g('pfmOptSz'))||100;
-    const fecha      = g('pfmFecha');
-    const mep        = n('pfmMepCompraOpt');
-    const spotE      = n('pfmSpotEntrada');
-    const venc       = g('pfmVenc') || null;
-    const notas      = g('pfmNotas') || null;
+    const subyacente  = g('pfmSubyacente');
+    const strikeStr   = document.getElementById('pfmStrikeSelect')?.value || '';
+    const strike      = strikeStr ? parseFloat(strikeStr) : null;
+    const venc        = document.getElementById('pfmVtoSelect')?.value || null;
+    const prima       = n('pfmPrima');
+    const qty         = parseInt(g('pfmQtyOpt'))||0;
+    const fecha       = g('pfmFecha');
+    const mep         = n('pfmMepCompraOpt');
+    const spotE       = n('pfmSpotEntrada');
+    const tickerUsd   = g('pfmTickerUsdOpt') || null;
+    const precioUsd   = n('pfmPrecioUsdOpt');
+    const notas       = g('pfmNotas') || null;
 
     if(!subyacente) { pfShowMsg('error','Ingresá el subyacente'); return; }
-    if(!strike)     { pfShowMsg('error','Ingresá el strike'); return; }
+    if(!strike)     { pfShowMsg('error','Seleccioná el strike'); return; }
     if(!prima)      { pfShowMsg('error','Ingresá la prima de entrada'); return; }
-    if(!qty)        { pfShowMsg('error','Ingresá la cantidad de contratos'); return; }
+    if(!qty)        { pfShowMsg('error','Ingresá la cantidad de lotes'); return; }
 
     const kindLabel = _pfmKind.toUpperCase();
-    const actLabel  = _pfmAct === 'buy' ? 'Compra' : 'Venta';
-    const nombre    = `${subyacente} ${kindLabel} $${Math.round(strike)} ${actLabel}`;
-    const pata      = { kind: _pfmKind, action: _pfmAct, strike, prima, qty, option_size: optSz, symbol: null };
-    const costoNeto = (_pfmAct==='buy' ? prima*qty : -prima*qty) * optSz;
+    const nombre    = `${subyacente} ${kindLabel} $${Math.round(strike)}${venc ? ' '+venc : ''}`;
+    const pata      = { kind: _pfmKind, action: 'buy', strike, prima, qty, option_size: 100, symbol: tickerUsd };
+    const costoNeto = prima * qty * 100;
 
     btn.disabled = true; btn.textContent = 'Guardando...';
     try {
       // 1) Crear en operaciones
       const opBody = {
         user_id:      window.currentUser?.id,
-        tipo:         `${_pfmAct === 'buy' ? 'compra' : 'venta'}_${_pfmKind}`,
+        tipo:         `compra_${_pfmKind}`,
         nombre,
         subyacente,
         fecha:        fecha || new Date().toISOString().split('T')[0],
@@ -1643,9 +1709,11 @@ window.pfModalSave = async () => {
       const pfBody = {
         user_email:        email,
         tipo:              'OPCION',
-        ticker_ars:        `${subyacente}_${kindLabel}_${Math.round(strike)}`,
+        ticker_ars:        `${subyacente}_${kindLabel}_${Math.round(strike)}${venc?'_'+venc:''}`,
+        ticker_usd:        tickerUsd || null,
+        precio_usd_entrada: precioUsd || null,
         fecha_compra:      fecha || new Date().toISOString().split('T')[0],
-        cantidad:          _pfmAct === 'buy' ? qty : -qty,
+        cantidad:          qty,
         precio_compra_ars: prima,
         mep_compra:        mep || null,
         notas,
