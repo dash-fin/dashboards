@@ -311,6 +311,36 @@
   </div>
 </div>
 
+<!-- ── Modal: Cerrar pata individual ─────────────── -->
+<div id="pfcLegOverlay" onclick="if(event.target.id==='pfcLegOverlay')pfCloseOneLegHide()"
+  style="display:none;position:fixed;inset:0;z-index:1002;background:rgba(0,0,0,.8);
+  backdrop-filter:blur(3px);align-items:center;justify-content:center">
+  <div class="modal" style="max-width:380px;width:100%;margin:20px" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <span class="modal-title" id="pfcLegTitle">Cerrar pata</span>
+      <button class="modal-close" onclick="pfCloseOneLegHide()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pfcLegDesc" style="background:var(--bg3);border-radius:6px;padding:10px 12px;
+        margin-bottom:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);line-height:1.7"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div>
+          <div class="field-label">Fecha de cierre</div>
+          <input class="field-input" id="pfcLegFecha" type="date">
+        </div>
+        <div>
+          <div class="field-label">Prima de cierre (ARS)</div>
+          <input class="field-input" id="pfcLegPrima" type="number" step="any" placeholder="0.00">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-outline" onclick="pfCloseOneLegHide()">Cancelar</button>
+        <button class="btn-prim" id="pfcLegSaveBtn" onclick="pfCloseOneLegSave()">Cerrar pata</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── Sub-tabs ──────────────────────────────────── -->
 <div class="sub-tabs-row">
   <div class="sub-tabs">
@@ -1179,52 +1209,91 @@ function pfGreeksBar(g) {
   </div>`;
 }
 
-// Builds the legs table HTML. withClose=true adds ⊠ close button alongside ✕ delete
+// Builds the legs table HTML. withClose=true adds action buttons
 function pfBuildOpsTableHTML(rows, withClose) {
+  const bs = 'background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .15s';
+  const th = (txt, right) => `<th style="padding:6px 10px;${right?'text-align:right;':'text-align:left;'}color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">${txt}</th>`;
+
   return `<table style="width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px">
     <thead><tr style="border-bottom:1px solid var(--border)">
-      <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Fecha</th>
-      <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Estrategia</th>
-      <th style="padding:6px 10px;text-align:left;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Pata</th>
-      <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Prima entrada</th>
-      <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">Precio actual</th>
-      <th style="padding:6px 10px;text-align:right;color:var(--text4);font-weight:400;font-size:8px;text-transform:uppercase">P&amp;L ($)</th>
-      <th style="padding:6px 4px;width:${withClose?76:28}px"></th>
+      ${th('Fecha')}${th('Posición')}${th('Pata')}${th('Prima',true)}${th('Actual',true)}${th('P&amp;L',true)}
+      <th style="padding:6px 4px;width:76px"></th>
     </tr></thead>
-    <tbody>${rows.map(({op,pnl,legRows})=>{
-      const pfPos = pfPositions.find(p=>p.operacion_id===op.id);
-      const pfId  = pfPos?.id;
-      const legHtml = legRows.map(({leg,curPrice,legPnl,src},i)=>{
-        const legDir = leg.action==='buy' ? `<span style="color:var(--green)">▲ COMPRA</span>` : `<span style="color:var(--red)">▼ VENTA</span>`;
+    <tbody>${rows.map(({op,pnl,legRows,anyNull})=>{
+      const pfPos  = pfPositions.find(p=>p.operacion_id===op.id);
+      const pfId   = pfPos?.id;
+      const isMulti = legRows.length > 1;
+      let html = '';
+
+      if(isMulti && withClose) {
+        // ── Strategy header row ─────────────────────────────
+        const pnlStr   = anyNull ? 'sin precio' : (pnl>=0?'+':'')+'$'+Math.round(pnl).toLocaleString('es-AR');
+        const pnlColor = anyNull ? 'var(--text3)' : (pnl>=0?'var(--green)':'var(--red)');
+        const editBtnH = pfId
+          ? `<button onclick="pfModalOpen('${pfId}')" title="Editar" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text4)'">✎</button>`
+          : '';
+        html += `<tr style="background:var(--bg2);border-top:2px solid var(--border2);border-bottom:1px solid var(--border)">
+          <td colspan="6" style="padding:7px 12px">
+            <span style="font-weight:600;font-size:11px;color:var(--text)">${op.nombre||'—'}</span>
+            <span style="color:var(--text4);margin-left:12px;font-size:9px">${op.fecha||''}</span>
+            <span style="font-weight:600;margin-left:14px;font-size:11px;color:${pnlColor}">${pnlStr}</span>
+          </td>
+          <td style="padding:4px 6px;text-align:right;white-space:nowrap">
+            ${editBtnH}
+            <button onclick="pfCloseOpcion('${op.id}')" title="Cerrar estrategia completa" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text4)'">⊠</button>
+            <button onclick="pfDeleteOp('${op.id}')" title="Eliminar estrategia" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>
+          </td>
+        </tr>`;
+      }
+
+      // ── Leg rows ────────────────────────────────────────
+      html += legRows.map(({leg,curPrice,legPnl,src},i)=>{
+        const legDir   = leg.action==='buy'
+          ? `<span style="color:var(--green)">▲ COMPRA</span>`
+          : `<span style="color:var(--red)">▼ VENTA</span>`;
         const pataDesc = `${legDir} ${leg.qty} ${leg.kind?.toUpperCase()} K${Math.round(leg.strike)}`;
         const srcBadge = src==='RT'
           ? `<span style="font-size:7px;background:rgba(0,229,168,.15);color:var(--green);border:1px solid rgba(0,229,168,.3);border-radius:2px;padding:1px 4px;margin-left:4px">RT</span>`
           : `<span style="font-size:7px;background:rgba(77,166,255,.1);color:var(--blue);border:1px solid rgba(77,166,255,.2);border-radius:2px;padding:1px 4px;margin-left:4px">BS</span>`;
-        const lc = legPnl>=0?'var(--green)':'var(--red)';
-        const btnStyle = 'background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;transition:color .15s';
-        const editBtn = withClose && pfId
-          ? `<button onclick="pfModalOpen('${pfId}')" title="Editar" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text4)'">✎</button>`
-          : '';
-        const closBtn = withClose
-          ? `<button onclick="pfCloseOpcion('${op.id}')" title="Cerrar" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text4)'">⊠</button>`
-          : '';
-        const firstCell = i===0
-          ? `<td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text3);vertical-align:top;white-space:nowrap">${op.fecha}</td>
-             <td rowspan="${legRows.length}" style="padding:7px 10px;color:var(--text);font-weight:500;vertical-align:top">${op.nombre||'—'}</td>
-             <td rowspan="${legRows.length}" style="padding:4px;vertical-align:top;text-align:center;white-space:nowrap">
-               ${editBtn}${closBtn}
-               <button onclick="pfDeleteOp('${op.id}')" title="Eliminar" style="${btnStyle};color:var(--text4)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>
-             </td>`
-          : '';
-        return `<tr style="border-bottom:1px solid rgba(30,42,56,.3)">
-          ${firstCell}
+        const lc     = legPnl != null ? (legPnl>=0?'var(--green)':'var(--red)') : 'var(--text3)';
+        const pnlTxt = legPnl != null ? (legPnl>=0?'+':'')+'$'+Math.round(legPnl).toLocaleString('es-AR') : '—';
+
+        let actions = '';
+        if(withClose) {
+          if(isMulti) {
+            actions =
+              `<button onclick="pfCloseOneLeg('${op.id}',${i})" title="Cerrar esta pata" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text4)'">⊠</button>` +
+              `<button onclick="pfDeleteOneLeg('${op.id}',${i})" title="Eliminar pata" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>`;
+          } else {
+            const editBtn = pfId
+              ? `<button onclick="pfModalOpen('${pfId}')" title="Editar" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--text4)'">✎</button>`
+              : '';
+            actions =
+              editBtn +
+              `<button onclick="pfCloseOpcion('${op.id}')" title="Cerrar posición" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--text4)'">⊠</button>` +
+              `<button onclick="pfDeleteOp('${op.id}')" title="Eliminar" style="${bs};color:var(--text4)" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button>`;
+          }
+        }
+
+        const rowStyle = isMulti
+          ? 'border-bottom:1px solid rgba(30,42,56,.15)'
+          : 'border-bottom:1px solid rgba(30,42,56,.3)';
+        const dateCell  = isMulti ? '' : op.fecha;
+        const nameCell  = isMulti ? '' : (op.nombre||'—');
+        const nameFw    = isMulti ? '' : 'font-weight:500;';
+
+        return `<tr style="${rowStyle}">
+          <td style="padding:5px 10px;color:var(--text3);white-space:nowrap">${dateCell}</td>
+          <td style="padding:5px 10px;${nameFw}color:var(--text)">${nameCell}</td>
           <td style="padding:5px 10px;font-size:9px">${pataDesc}</td>
           <td style="padding:5px 10px;text-align:right;color:var(--text3)">${leg.prima>0?'$'+leg.prima.toFixed(2):'—'}</td>
           <td style="padding:5px 10px;text-align:right">${curPrice>0?'$'+curPrice.toFixed(2):'—'}${srcBadge}</td>
-          <td style="padding:5px 10px;text-align:right;color:${lc};font-weight:600">${isNaN(legPnl)?'—':(legPnl>=0?'+':'')+'$'+Math.round(legPnl).toLocaleString('es-AR')}</td>
+          <td style="padding:5px 10px;text-align:right;color:${lc};font-weight:600">${pnlTxt}</td>
+          <td style="padding:4px 6px;text-align:right;white-space:nowrap">${actions}</td>
         </tr>`;
       }).join('');
-      return legHtml;
+
+      return html;
     }).join('')}</tbody>
   </table>`;
 }
@@ -1306,6 +1375,82 @@ window.pfDeleteOp = async function(id) {
   } catch(e) {
     alert('Error al eliminar: ' + e.message);
   }
+};
+
+// ── Cerrar / eliminar una pata individual ─────────────────
+let _pfcOneLeg = null;
+
+window.pfCloseOneLeg = async (opId, legIdx) => {
+  const opRows = await sb('operaciones', `id=eq.${opId}&select=patas,nombre`);
+  const op = opRows?.[0];
+  if(!op) return;
+  const leg = op.patas?.[legIdx];
+  if(!leg) return;
+  _pfcOneLeg = { opId, legIdx, op };
+  const dir = leg.action==='buy' ? '▲ COMPRA' : '▼ VENTA';
+  document.getElementById('pfcLegTitle').textContent = `Cerrar pata — ${op.nombre||''}`;
+  document.getElementById('pfcLegDesc').innerHTML =
+    `<b>${dir} ${leg.qty} ${(leg.kind||'').toUpperCase()} K${Math.round(leg.strike)}</b><br>` +
+    `Prima entrada: <b>$${Number(leg.prima).toFixed(2)}</b> · ${leg.qty} lote${leg.qty>1?'s':''} × 100`;
+  document.getElementById('pfcLegFecha').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pfcLegPrima').value = '';
+  document.getElementById('pfcLegOverlay').style.display = 'flex';
+};
+
+window.pfCloseOneLegHide = () => {
+  document.getElementById('pfcLegOverlay').style.display = 'none';
+  _pfcOneLeg = null;
+};
+
+window.pfCloseOneLegSave = async () => {
+  if(!_pfcOneLeg) return;
+  const primaCierre = parseFloat(document.getElementById('pfcLegPrima').value);
+  if(isNaN(primaCierre) || primaCierre < 0) { alert('Ingresá la prima de cierre'); return; }
+  const btn = document.getElementById('pfcLegSaveBtn');
+  btn.disabled = true;
+  try {
+    const { opId, legIdx, op } = _pfcOneLeg;
+    const updatedPatas = op.patas.map((p,i) => i===legIdx ? {...p, prima_cierre: primaCierre} : p);
+    const allClosed   = updatedPatas.every(p => p.prima_cierre != null);
+    const session = await window.sbAuth?.auth?.getSession();
+    const token   = session?.data?.session?.access_token;
+    const h = { ...CFG.SBH, 'Content-Type':'application/json' };
+    if(token) h['Authorization'] = 'Bearer '+token;
+    const opPatch = { patas: updatedPatas };
+    if(allClosed) {
+      const optSz  = updatedPatas[0]?.option_size || 100;
+      const pnlReal = updatedPatas.reduce((s,p)=>s+(p.action==='buy'?1:-1)*(p.prima_cierre-p.prima)*p.qty*optSz, 0);
+      opPatch.estado        = 'cerrada';
+      opPatch.fecha_cierre  = document.getElementById('pfcLegFecha').value;
+      opPatch.pnl_realizado = pnlReal;
+    }
+    await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${opId}`, { method:'PATCH', headers:h, body:JSON.stringify(opPatch) });
+    if(allClosed) await sbPatch('portafolio', `operacion_id=eq.${opId}`, { activo: false });
+    pfCloseOneLegHide();
+    await pfLoadAll();
+    if(document.getElementById('pfHistOpsSection')) await pfLoadHistorial();
+  } catch(e) {
+    alert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+window.pfDeleteOneLeg = async (opId, legIdx) => {
+  const opRows = await sb('operaciones', `id=eq.${opId}&select=patas,nombre`);
+  const op = opRows?.[0];
+  if(!op) return;
+  if(op.patas.length === 1) { await pfDeleteOp(opId); return; }
+  const leg = op.patas[legIdx];
+  const dir = leg.action==='buy' ? '▲ COMPRA' : '▼ VENTA';
+  if(!confirm(`¿Eliminar pata: ${dir} ${leg.qty} ${(leg.kind||'').toUpperCase()} K${Math.round(leg.strike)}?`)) return;
+  const updatedPatas = op.patas.filter((_,i)=>i!==legIdx);
+  const session = await window.sbAuth?.auth?.getSession();
+  const token   = session?.data?.session?.access_token;
+  const h = { ...CFG.SBH, 'Content-Type':'application/json' };
+  if(token) h['Authorization'] = 'Bearer '+token;
+  await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${opId}`, { method:'PATCH', headers:h, body:JSON.stringify({patas:updatedPatas}) });
+  await pfLoadAll();
 };
 
 // ── Panel columnas ────────────────────────────────────────
