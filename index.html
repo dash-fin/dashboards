@@ -316,7 +316,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 .pkpi-val{font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;letter-spacing:-0.5px;line-height:1}
 .pkpi-sub{font-size:10px;font-family:'IBM Plex Mono',monospace;margin-top:4px}
 .main-row{display:grid;gap:12px;overflow:hidden}
-.cols-4{grid-template-columns:180px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
+.cols-4{grid-template-columns:160px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
 .cols-4>*{min-width:0}
 @media(max-width:800px){.cols-4{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.cols-4{grid-template-columns:1fr}}
@@ -349,7 +349,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 .sec-bar{height:100%;border-radius:2px;width:0;transition:width 1.1s cubic-bezier(.4,0,.2,1)}
 .sec-pct{font-size:12px;font-weight:600;font-family:'IBM Plex Mono',monospace;width:54px;text-align:right;flex-shrink:0}
 .sec-sep{border-top:1px solid var(--border);margin:4px 0}
-.ins-row{display:grid;grid-template-columns:64px minmax(0,1fr) 80px 62px;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);transition:background .12s}
+.ins-row{display:grid;grid-template-columns:52px minmax(0,1fr) 68px 54px;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--border);transition:background .12s}
 .ins-row:last-child{border-bottom:none}
 .ins-row:hover{background:rgba(255,255,255,.02)}
 .ins-sym{font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--text)}
@@ -1049,7 +1049,7 @@ async function renderHome(){
       <div class="card"><div class="card-head"><div class="card-title">Sectores USA</div><span style="font-size:10px;color:var(--text3)">retorno hoy</span></div><div id="h-sectores"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div></div>
       <div class="card">
         <div class="card-head"><div class="card-title">Mercado USA</div><div class="tab-bar"><button class="tab tab-sm on" onclick="switchHomeUSA('subas',this)">Subas</button><button class="tab tab-sm" onclick="switchHomeUSA('bajas',this)">Bajas</button></div></div>
-        <div class="th-row" style="grid-template-columns:52px minmax(0,1fr) 80px 62px"><span class="th">Ticker</span><span class="th">Empresa</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
+        <div class="th-row" style="grid-template-columns:52px minmax(0,1fr) 68px 54px;gap:6px;padding:6px 10px"><span class="th">Ticker</span><span class="th">Empresa</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
         <div id="h-usa-subas"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
         <div id="h-usa-bajas" style="display:none"></div>
       </div>
@@ -1063,7 +1063,7 @@ async function renderHome(){
           <button class="cpill" onclick="homeRFCat('cer',this)">CER</button>
           <button class="cpill" onclick="homeRFCat('letras',this)">Letras</button>
         </div>
-        <div class="th-row" style="grid-template-columns:64px 1fr 80px 62px"><span class="th">Ticker</span><span class="th">Instrumento</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
+        <div class="th-row" style="grid-template-columns:52px 1fr 68px 54px;gap:6px;padding:6px 10px"><span class="th">Ticker</span><span class="th">Instrumento</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
         <div id="h-rf-list" style="max-height:340px;overflow-y:auto;overflow-x:hidden"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
       </div>
     </div>
@@ -1100,7 +1100,10 @@ async function loadHomeKPIs(){
 
   if(u.SPY){const chg=Number(u.SPY.change_pct);setKPI('h-kpi-spy',chg>=0?'var(--greenG)':'var(--redG)','SPY',`${chg>=0?'+':''}${chg.toFixed(2)}<span>%</span>`,chg>=0?'up':'dn','','$'+fmtUSD(u.SPY.last),'');}
   if(u.QQQ){const chg=Number(u.QQQ.change_pct);setKPI('h-kpi-qqq',chg>=0?'var(--greenG)':'var(--redG)','QQQ',`${chg>=0?'+':''}${chg.toFixed(2)}<span>%</span>`,chg>=0?'up':'dn','','$'+fmtUSD(u.QQQ.last),'');}
-  if(u.VIXY){const chg=Number(u.VIXY.change_pct);setKPI('h-kpi-vix','linear-gradient(135deg,var(--cyan),var(--blue))','VIX / VIXY',fmtUSD(u.VIXY.last,2),'','var(--cyan)',`${chg>=0?'+':''}${chg.toFixed(2)}% hoy`,chg>=0?'dn':'up');}
+  if(u.VIXY&&u.VIXY.last!=null){
+    const chg=u.VIXY.change_pct!=null?Number(u.VIXY.change_pct):null;
+    setKPI('h-kpi-vix','linear-gradient(135deg,var(--cyan),var(--blue))','VIX / VIXY',fmtUSD(u.VIXY.last,2),'','var(--cyan)',chg!=null?`${chg>=0?'+':''}${chg.toFixed(2)}% hoy`:' ',chg!=null?(chg>=0?'dn':'up'):'');
+  }
 
   // Fear & Greed
   try{
@@ -1119,14 +1122,16 @@ async function loadHomeKPIs(){
   const al30=a['AL30'],al30c=a['AL30C'],al30d=a['AL30D'],merval=a['MERVAL'];
   const ccl=al30&&al30c&&Number(al30c.last)>0?Number(al30.last)/Number(al30c.last):null;
   const mep=al30&&al30d&&Number(al30d.last)>0?Number(al30.last)/Number(al30d.last):null;
-  if(merval&&ccl){
-    const mUSD=Number(merval.last)/ccl;
+  if(merval){
     const chg=Number(merval.change||0);
-    setKPI('h-kpi-merval',chg>=0?'var(--greenG)':'var(--redG)','Merval USD <span style="font-size:8px;opacity:.5">ARS/CCL</span>',fmtAR(mUSD,0)+'<span> pts</span>',chg>=0?'up':'dn','',`${chg>=0?'+':''}${chg.toFixed(2)}% hoy`,chg>=0?'up':'dn');
+    const mUSD=ccl?Number(merval.last)/ccl:null;
+    const valStr=mUSD?fmtAR(mUSD,0)+'<span> pts</span>':fmtAR(Number(merval.last),0)+'<span> ARS</span>';
+    const lbl=mUSD?'Merval <span style="font-size:8px;opacity:.5">USD</span>':'Merval <span style="font-size:8px;opacity:.5">ARS</span>';
+    setKPI('h-kpi-merval',chg>=0?'var(--greenG)':'var(--redG)',lbl,valStr,chg>=0?'up':'dn','',`${chg>=0?'+':''}${chg.toFixed(2)}% hoy`,chg>=0?'up':'dn');
   }
   if(mep&&ccl){
     const spread=((ccl-mep)/mep)*100;
-    setKPI('h-kpi-mep','linear-gradient(135deg,var(--green),var(--cyan))','MEP / CCL <span style="font-size:8px;opacity:.5">spread</span>','$'+fmtAR(mep,0),'','var(--green)','Spread CCL: <span class="amb">+'+spread.toFixed(2)+'%</span>','');
+    setKPI('h-kpi-mep','linear-gradient(135deg,var(--green),var(--cyan))','MEP / CCL <span style="font-size:8px;opacity:.5">spread</span>','$'+fmtAR(mep,0),'','var(--green)','Spread: <span class="amb">+'+spread.toFixed(2)+'%</span>','');
   }
 }
 
@@ -1162,21 +1167,32 @@ async function loadHomePortfolio(){
       totalPnl+=pnl;totalVal+=val;
       return{ticker:p.ticker_ars,last,chg,pnl};
     }).filter(Boolean);
-    // Opciones abiertas: suma PnL del día
+    // Opciones abiertas: PnL diario via opciones_rt (kind_strike + previous_close)
     try{
       const ops=await sb('operaciones','estado=eq.abierta&select=patas');
       if(ops&&ops.length){
-        const optSyms=[...new Set(ops.flatMap(o=>(o.patas||[]).map(p=>p.symbol).filter(Boolean)))];
-        if(optSyms.length){
-          const optPrices=await sb('mercado',`symbol=in.(${optSyms.map(s=>'"'+s+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change`);
-          const optPm={};if(optPrices)optPrices.forEach(r=>{optPm[r.symbol]=r;});
+        const allLegs=ops.flatMap(o=>o.patas||[]);
+        const allStrikes=[...new Set(allLegs.map(l=>Number(l.strike)||0).filter(s=>s>0))];
+        if(allStrikes.length){
+          const optRT=await sb('opciones_rt',`strike=in.(${allStrikes.join(',')})&select=kind,last,bid,previous_close,strike`);
+          const rtIdx={},closeIdx={};
+          (optRT||[]).forEach(r=>{
+            const kind=(r.kind||'').toUpperCase()==='CALL'?'call':(r.kind||'').toUpperCase()==='PUT'?'put':null;
+            if(!kind||!r.strike)return;
+            const price=Number(r.last||0)||Number(r.bid||0);
+            const key=`${kind}_${Number(r.strike)}`;
+            if(price>0)rtIdx[key]=price;
+            const cls=Number(r.previous_close||0);
+            if(cls>0)closeIdx[key]=cls;
+          });
           ops.forEach(op=>{
+            const optSz=Number(op.patas?.[0]?.option_size)||100;
             (op.patas||[]).forEach(leg=>{
-              const pr=optPm[leg.symbol];if(!pr||!pr.last)return;
+              const key=`${leg.kind}_${Number(leg.strike)}`;
+              const cur=rtIdx[key],prev=closeIdx[key];
+              if(!cur||!prev)return;
               const sign=leg.action==='buy'?1:-1;
-              const last=Number(pr.last),chg=Number(pr.change||0);
-              const optSz=Number(leg.option_size||100);
-              totalPnl+=sign*last*(chg/100)*Number(leg.qty||0)*optSz;
+              totalPnl+=sign*(cur-prev)*Number(leg.qty||0)*optSz;
             });
           });
         }
@@ -1300,7 +1316,7 @@ function renderHomeUSAList(dir){
   if(!rows.length){el.innerHTML='<div style="padding:12px;text-align:center;font-size:11px;color:var(--text3)">Sin datos</div>';return;}
   el.innerHTML=rows.map((r,i)=>{
     const chg=Number(r.change_pct||0),cls=chg>0?'up':chg<0?'dn':'neu';
-    return `<div style="display:grid;grid-template-columns:52px minmax(0,1fr) 80px 62px;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);opacity:0;transform:translateY(4px);transition:opacity .25s ${i*45}ms,transform .25s ${i*45}ms" class="h-usa-r">
+    return `<div style="display:grid;grid-template-columns:52px minmax(0,1fr) 68px 54px;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--border);opacity:0;transform:translateY(4px);transition:opacity .25s ${i*45}ms,transform .25s ${i*45}ms" class="h-usa-r">
       <span style="font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--text)">${r.symbol}</span>
       <span style="font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name||''}</span>
       <span style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--text2);text-align:right">$${fmtUSD(r.last)}</span>
