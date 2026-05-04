@@ -24,6 +24,7 @@
             <option value="BONO_CER">Bono CER</option>
             <option value="BONO_DUAL">Bono Dual</option>
             <option value="ACCION">Acción</option>
+            <option value="OPCION">Opción</option>
           </select>
         </div>
         <div>
@@ -94,6 +95,67 @@
       </div>
       <div id="pfmSlTpHint" style="font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;margin-bottom:14px">
         USD (ADR) si completaste el ticker ADR · ARS si no
+      </div>
+
+      <!-- Campos específicos OPCION (ocultos por defecto) -->
+      <div id="pfmOpcionFields" style="display:none;border:1px solid var(--border2);border-radius:7px;padding:14px;margin-bottom:12px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--amber);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">Datos de la opción</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div class="field-label">Subyacente</div>
+            <input class="field-input" id="pfmSubyacente" type="text" placeholder="GGAL" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div>
+            <div class="field-label">Strike</div>
+            <input class="field-input" id="pfmStrike" type="number" step="any" placeholder="2600">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div class="field-label">Tipo</div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="flt on-green on" id="pfmKindCall" onclick="pfmSetKind('call',this)">CALL</button>
+              <button class="flt" id="pfmKindPut" onclick="pfmSetKind('put',this)" data-cls="on-red">PUT</button>
+            </div>
+          </div>
+          <div>
+            <div class="field-label">Acción</div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="flt on-green on" id="pfmActBuy" onclick="pfmSetAct('buy',this)">Compra</button>
+              <button class="flt" id="pfmActSell" onclick="pfmSetAct('sell',this)" data-cls="on-red">Venta</button>
+            </div>
+          </div>
+          <div>
+            <div class="field-label">Option Size</div>
+            <input class="field-input" id="pfmOptSz" type="number" placeholder="100" value="100">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <div class="field-label">Prima entrada (ARS/lote)</div>
+            <input class="field-input" id="pfmPrima" type="number" step="any" placeholder="0.00" oninput="pfmOptPreview()">
+          </div>
+          <div>
+            <div class="field-label">Contratos</div>
+            <input class="field-input" id="pfmQtyOpt" type="number" step="1" min="1" placeholder="1" oninput="pfmOptPreview()">
+          </div>
+          <div>
+            <div class="field-label">Vencimiento</div>
+            <input class="field-input" id="pfmVenc" type="date">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px">
+          <div>
+            <div class="field-label">Spot subyacente al comprar (opcional)</div>
+            <input class="field-input" id="pfmSpotEntrada" type="number" step="any" placeholder="0.00">
+          </div>
+          <div>
+            <div class="field-label">MEP al momento de compra</div>
+            <input class="field-input" id="pfmMepCompraOpt" type="number" step="any" placeholder="0.00">
+            <div style="margin-top:4px;font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace" id="pfmMepHintOpt"></div>
+          </div>
+        </div>
+        <div id="pfmOptPreviewBox" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);padding:8px 10px;background:var(--bg3);border-radius:5px;margin-top:6px"></div>
       </div>
 
       <!-- Notas -->
@@ -179,6 +241,60 @@
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button class="btn-outline" onclick="pfCloseHide()">Cancelar</button>
         <button class="btn-prim" id="pfcSaveBtn" onclick="pfCloseSave()">Registrar cierre</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Cerrar estrategia de opciones ──────── -->
+<div id="pfCloseOpcionOverlay" onclick="if(event.target.id==='pfCloseOpcionOverlay')pfCloseOpcionHide()"
+  style="display:none;position:fixed;inset:0;z-index:1001;background:rgba(0,0,0,.75);
+  backdrop-filter:blur(3px);align-items:center;justify-content:center">
+  <div class="modal" style="max-width:560px;width:100%;margin:20px;max-height:90vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <span class="modal-title" id="pfcOpNombre">Cerrar estrategia</span>
+      <button class="modal-close" onclick="pfCloseOpcionHide()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="pfcOpSummary" style="background:var(--bg3);border-radius:6px;padding:12px 14px;
+        margin-bottom:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;
+        color:var(--text2);line-height:1.8"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div>
+          <div class="field-label">Fecha de cierre</div>
+          <input class="field-input" id="pfcOpFecha" type="date">
+        </div>
+        <div>
+          <div class="field-label">Spot subyacente al cierre (ARS)</div>
+          <input class="field-input" id="pfcOpSpot" type="number" step="any" placeholder="0.00" oninput="pfCloseOpcionCalc()">
+        </div>
+      </div>
+      <div class="field-label" style="margin-bottom:8px">Prima de cierre por pata</div>
+      <div id="pfcOpLegs" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+      <div id="pfcOpPreview" style="display:none;border-radius:6px;padding:14px 16px;
+        margin-bottom:14px;border:1px solid">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);
+          text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Preview P&amp;L realizado</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+          <div>
+            <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Costo neto entrada</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px" id="pfcOpCosto">—</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Valor cierre</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px" id="pfcOpValCierre">—</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:var(--text3);margin-bottom:3px">P&amp;L ARS</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600" id="pfcOpPnl">—</div>
+          </div>
+        </div>
+      </div>
+      <div id="pfcOpMsg" style="display:none;font-size:10px;font-family:'IBM Plex Mono',monospace;
+        padding:8px 12px;border-radius:5px;margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-outline" onclick="pfCloseOpcionHide()">Cancelar</button>
+        <button class="btn-prim" id="pfcOpSaveBtn" onclick="pfCloseOpcionSave()">Registrar cierre</button>
       </div>
     </div>
   </div>
@@ -1354,10 +1470,19 @@ window.pfModalOpen = (id) => {
     document.getElementById('pfmTakeProfit').value  = pos.take_profit||'';
     document.getElementById('pfmNotas').value        = pos.notas||'';
   } else {
-    ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmTakeProfit','pfmNotas'].forEach(id=>document.getElementById(id).value='');
+    ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmTakeProfit','pfmNotas',
+     'pfmSubyacente','pfmStrike','pfmPrima','pfmQtyOpt','pfmVenc','pfmSpotEntrada','pfmMepCompraOpt'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('pfmOptSz').value = '100';
     document.getElementById('pfmTipo').value = 'CEDEAR';
     document.getElementById('pfmFecha').value = new Date().toISOString().slice(0,10);
     if(pfMep) document.getElementById('pfmMepCompra').value = Math.round(pfMep);
+    // Reset kind/action toggles
+    _pfmKind = 'call'; _pfmAct = 'buy';
+    document.getElementById('pfmKindCall').className = 'flt on-green on';
+    document.getElementById('pfmKindPut').className  = 'flt';
+    document.getElementById('pfmActBuy').className   = 'flt on-green on';
+    document.getElementById('pfmActSell').className  = 'flt';
+    if(document.getElementById('pfmOptPreviewBox')) document.getElementById('pfmOptPreviewBox').style.display='none';
   }
   if(pfMep) document.getElementById('pfmMepHint').textContent = `MEP actual: $${Math.round(pfMep).toLocaleString('es-AR')}`;
   pfModalTipoChange();
@@ -1401,29 +1526,154 @@ window.pfAutoFillRatio = async () => {
 // ── Modal: cambio de tipo ─────────────────────────────────
 window.pfModalTipoChange = () => {
   const tipo = document.getElementById('pfmTipo').value;
+  const esOpcion = tipo === 'OPCION';
   const esCedear = tipo==='CEDEAR' || tipo==='ACCION';
-  document.getElementById('pfmAdrGroup').style.opacity = esCedear?'1':'0.4';
-  document.getElementById('pfmCedearExtra').style.opacity = esCedear?'1':'0.4';
+
+  document.getElementById('pfmOpcionFields').style.display = esOpcion ? 'block' : 'none';
+  // En modo OPCION ocultamos los campos que no aplican
+  ['pfmAdrGroup','pfmCedearExtra','pfmSlTpHint'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = esOpcion ? 'none' : '';
+  });
+  document.getElementById('pfmStopLoss').closest('div').parentElement.style.display = esOpcion ? 'none' : '';
+
+  if(!esOpcion) {
+    document.getElementById('pfmAdrGroup').style.opacity = esCedear?'1':'0.4';
+    document.getElementById('pfmCedearExtra').style.opacity = esCedear?'1':'0.4';
+  }
   document.getElementById('pfmCantLabel').textContent = (tipo==='BONO_SOBERANO'||tipo==='DOLAR_LINKED'||tipo==='BONO_CER'||tipo==='BONO_DUAL')
     ? 'Nominales' : 'Acciones';
+
+  // Pre-fill MEP hint for opcion modal
+  if(esOpcion && pfMep) {
+    const hintOpt = document.getElementById('pfmMepHintOpt');
+    if(hintOpt) hintOpt.textContent = 'MEP actual: $' + Math.round(pfMep).toLocaleString('es-AR');
+    const mepOptEl = document.getElementById('pfmMepCompraOpt');
+    if(mepOptEl && !mepOptEl.value) mepOptEl.value = Math.round(pfMep);
+  }
+};
+
+// ── Toggle kind/action para modal OPCION ──────────────────
+let _pfmKind = 'call', _pfmAct = 'buy';
+window.pfmSetKind = (k, btn) => {
+  _pfmKind = k;
+  ['pfmKindCall','pfmKindPut'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.className = 'flt';
+  });
+  btn.className = 'flt ' + (k==='call'?'on-green':'on-red') + ' on';
+};
+window.pfmSetAct = (a, btn) => {
+  _pfmAct = a;
+  ['pfmActBuy','pfmActSell'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.className = 'flt';
+  });
+  btn.className = 'flt ' + (a==='buy'?'on-green':'on-red') + ' on';
+};
+window.pfmOptPreview = () => {
+  const prima = parseFloat(document.getElementById('pfmPrima')?.value||'0')||0;
+  const qty   = parseInt(document.getElementById('pfmQtyOpt')?.value||'0')||0;
+  const optSz = parseInt(document.getElementById('pfmOptSz')?.value||'100')||100;
+  const box   = document.getElementById('pfmOptPreviewBox');
+  if(!box) return;
+  if(!prima || !qty) { box.style.display='none'; return; }
+  const costoTotal = prima * qty * optSz;
+  const sign = _pfmAct === 'buy' ? 'Débito' : 'Crédito';
+  box.style.display = 'block';
+  box.textContent = `${sign}: $${Math.round(costoTotal).toLocaleString('es-AR')} ARS (${qty} contrato${qty>1?'s':''} × $${prima} × ${optSz})`;
 };
 
 // ── Modal: guardar ────────────────────────────────────────
 window.pfModalSave = async () => {
   const btn = document.getElementById('pfmSaveBtn');
-
-  const g = id => document.getElementById(id).value.trim();
+  const g = id => document.getElementById(id)?.value?.trim() || '';
   const n = id => { const v=parseFloat(g(id)); return isNaN(v)?null:v; };
+  const tipo = g('pfmTipo');
+  const email = window.currentUser?.email;
 
+  if(tipo === 'OPCION') {
+    // ── Guardar opción ────────────────────────────────────
+    const subyacente = g('pfmSubyacente');
+    const strike     = n('pfmStrike');
+    const prima      = n('pfmPrima');
+    const qty        = parseInt(g('pfmQtyOpt'))||0;
+    const optSz      = parseInt(g('pfmOptSz'))||100;
+    const fecha      = g('pfmFecha');
+    const mep        = n('pfmMepCompraOpt');
+    const spotE      = n('pfmSpotEntrada');
+    const venc       = g('pfmVenc') || null;
+    const notas      = g('pfmNotas') || null;
+
+    if(!subyacente) { pfShowMsg('error','Ingresá el subyacente'); return; }
+    if(!strike)     { pfShowMsg('error','Ingresá el strike'); return; }
+    if(!prima)      { pfShowMsg('error','Ingresá la prima de entrada'); return; }
+    if(!qty)        { pfShowMsg('error','Ingresá la cantidad de contratos'); return; }
+
+    const kindLabel = _pfmKind.toUpperCase();
+    const actLabel  = _pfmAct === 'buy' ? 'Compra' : 'Venta';
+    const nombre    = `${subyacente} ${kindLabel} $${Math.round(strike)} ${actLabel}`;
+    const pata      = { kind: _pfmKind, action: _pfmAct, strike, prima, qty, option_size: optSz, symbol: null };
+    const costoNeto = (_pfmAct==='buy' ? prima*qty : -prima*qty) * optSz;
+
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try {
+      // 1) Crear en operaciones
+      const opBody = {
+        user_id:      window.currentUser?.id,
+        tipo:         `${_pfmAct === 'buy' ? 'compra' : 'venta'}_${_pfmKind}`,
+        nombre,
+        subyacente,
+        fecha:        fecha || new Date().toISOString().split('T')[0],
+        estado:       'abierta',
+        patas:        [pata],
+        spot_entrada: spotE || null,
+        costo_neto:   costoNeto,
+        notas,
+      };
+      const session = await window.sbAuth?.auth?.getSession();
+      const token = session?.data?.session?.access_token;
+      const h = { ...CFG.SBH, 'Content-Type':'application/json', 'Prefer':'return=representation' };
+      if(token) h['Authorization'] = 'Bearer '+token;
+      const res = await fetch(`${CFG.SB_URL}/rest/v1/operaciones`, { method:'POST', headers:h, body:JSON.stringify(opBody) });
+      const opCreada = await res.json();
+      const opId = Array.isArray(opCreada) ? opCreada[0]?.id : opCreada?.id;
+
+      // 2) Crear en portafolio vinculado
+      const pfBody = {
+        user_email:        email,
+        tipo:              'OPCION',
+        ticker_ars:        `${subyacente}_${kindLabel}_${Math.round(strike)}`,
+        fecha_compra:      fecha || new Date().toISOString().split('T')[0],
+        cantidad:          _pfmAct === 'buy' ? qty : -qty,
+        precio_compra_ars: prima,
+        mep_compra:        mep || null,
+        notas,
+        activo:            true,
+        operacion_id:      opId || null,
+      };
+      Object.keys(pfBody).forEach(k=>{ if(pfBody[k]===null||pfBody[k]==='') delete pfBody[k]; });
+      await sbInsert('portafolio', pfBody);
+
+      pfModalHide();
+      await pfLoadAll();
+    } catch(e) {
+      pfShowMsg('error', e.message || 'Error al guardar');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar posición';
+    }
+    return;
+  }
+
+  // ── Guardar instrumento normal ────────────────────────
   if(!g('pfmTickerArs'))   { pfShowMsg('error','Completá el ticker ARS'); return; }
   if(!n('pfmCantidad'))    { pfShowMsg('error','Ingresá la cantidad'); return; }
   if(!n('pfmPrecioArs'))   { pfShowMsg('error','Ingresá el precio de compra ARS'); return; }
   if(!n('pfmMepCompra'))   { pfShowMsg('error','Ingresá el MEP al momento de compra'); return; }
 
-  const email = window.currentUser?.email;
   const body  = {
     user_email:       email,
-    tipo:             g('pfmTipo'),
+    tipo,
     ticker_ars:       g('pfmTickerArs').toUpperCase(),
     ticker_usd:       g('pfmTickerUsd').toUpperCase() || null,
     ticker_adr:       g('pfmTickerAdr').toUpperCase() || null,
@@ -1502,27 +1752,149 @@ async function pfAutoCreateAlerts(body) {
   }
 }
 
-// ── Cerrar estrategia de opciones (ambos lados) ──────────
+// ── Cerrar estrategia de opciones — con modal de precios ──
+let _pfcOpCurrent = null;
+
 window.pfCloseOpcion = async (operacionId) => {
-  if(!confirm('¿Cerrar esta estrategia de opciones? Se marcará cerrada en Estrategias también.')) return;
+  try {
+    const rows = await sb('operaciones', `id=eq.${operacionId}&select=*`);
+    const op = rows?.[0];
+    if(!op) { alert('No se encontró la operación'); return; }
+    _pfcOpCurrent = op;
+
+    document.getElementById('pfcOpNombre').textContent = op.nombre || 'Cerrar estrategia';
+    document.getElementById('pfcOpFecha').value = new Date().toISOString().slice(0,10);
+    document.getElementById('pfcOpSpot').value = '';
+    document.getElementById('pfcOpMsg').style.display = 'none';
+    document.getElementById('pfcOpPreview').style.display = 'none';
+
+    const spotE = op.spot_entrada ? `$${Number(op.spot_entrada).toLocaleString('es-AR',{maximumFractionDigits:0})}` : '—';
+    document.getElementById('pfcOpSummary').innerHTML =
+      `<b>${op.subyacente||op.nombre||'—'}</b> · ${op.fecha||'—'} → hoy<br>`
+      + `Spot entrada: ${spotE} · Patas: ${(op.patas||[]).length}`;
+
+    // Generar inputs por pata
+    const legsDiv = document.getElementById('pfcOpLegs');
+    const optSz = op.patas?.[0]?.option_size || 100;
+    legsDiv.innerHTML = (op.patas||[]).map((l, i) => {
+      const dir   = l.action==='buy' ? '▲ Compra' : '▼ Venta';
+      const kind  = (l.kind||'')[0]?.toUpperCase() || '?';
+      const label = `${dir} ${l.qty} ${kind}@$${Math.round(l.strike||0)} (prima entrada: $${l.prima||0})`;
+      // Pre-fill con precio RT si disponible
+      const sym   = l.symbol || `${op.subyacente}_${l.kind}_${l.strike}`;
+      const rtPrice = pfOptPrices[sym] || pfOptPrices[l.symbol] || '';
+      return `<div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;
+        padding:10px 12px;background:var(--bg3);border-radius:6px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2)">${label}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:9px;color:var(--text3)">Prima cierre:</div>
+          <input type="number" step="any" placeholder="0.00"
+            id="pfcOpLeg_${i}" value="${rtPrice}"
+            oninput="pfCloseOpcionCalc()"
+            style="width:100px;padding:5px 8px;border-radius:4px;border:1px solid var(--border2);
+            background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px">
+        </div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('pfCloseOpcionOverlay').style.display = 'flex';
+    pfCloseOpcionCalc();
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+window.pfCloseOpcionHide = () => {
+  document.getElementById('pfCloseOpcionOverlay').style.display = 'none';
+  _pfcOpCurrent = null;
+};
+
+window.pfCloseOpcionCalc = () => {
+  const op = _pfcOpCurrent;
+  if(!op || !op.patas?.length) return;
+  const optSz = op.patas[0]?.option_size || 100;
+  let costoEntrada = 0, valorCierre = 0, allFilled = true;
+  op.patas.forEach((l, i) => {
+    const sign = l.action==='buy' ? 1 : -1;
+    costoEntrada += sign * (l.prima||0) * l.qty * optSz;
+    const pcEl = document.getElementById(`pfcOpLeg_${i}`);
+    const pc   = parseFloat(pcEl?.value||'') || null;
+    if(pc == null) { allFilled = false; return; }
+    valorCierre += sign * pc * l.qty * optSz;
+  });
+  const pnl = allFilled ? valorCierre - costoEntrada : null;
+  const prev = document.getElementById('pfcOpPreview');
+  prev.style.display = 'block';
+  const fmtARS = v => '$' + Math.round(Math.abs(v)).toLocaleString('es-AR');
+  const signo = v => v >= 0 ? '+' : '-';
+  const color  = (pnl == null || pnl >= 0) ? 'var(--green)' : 'var(--red)';
+  prev.style.background  = (pnl == null || pnl >= 0) ? 'rgba(0,229,168,.06)' : 'rgba(255,63,94,.06)';
+  prev.style.borderColor = (pnl == null || pnl >= 0) ? 'rgba(0,229,168,.3)'  : 'rgba(255,63,94,.3)';
+  document.getElementById('pfcOpCosto').innerHTML =
+    `<span style="color:${costoEntrada<=0?'var(--green)':'var(--red)'}">${signo(costoEntrada)}${fmtARS(costoEntrada)}</span>`;
+  document.getElementById('pfcOpValCierre').textContent = allFilled ? (signo(valorCierre)+fmtARS(valorCierre)) : '—';
+  document.getElementById('pfcOpPnl').innerHTML = pnl != null
+    ? `<span style="color:${color}">${signo(pnl)}${fmtARS(pnl)}</span>` : '—';
+};
+
+window.pfCloseOpcionSave = async () => {
+  const op = _pfcOpCurrent;
+  if(!op) return;
+  const fecha = document.getElementById('pfcOpFecha').value;
+  const spot  = parseFloat(document.getElementById('pfcOpSpot').value)||null;
+  const btn   = document.getElementById('pfcOpSaveBtn');
+  if(!fecha) { pfcOpMsg('error','Ingresá la fecha de cierre'); return; }
+
+  const optSz = op.patas?.[0]?.option_size || 100;
+  const patasConCierre = (op.patas||[]).map((l, i) => {
+    const pc = parseFloat(document.getElementById(`pfcOpLeg_${i}`)?.value||'')||null;
+    return { ...l, prima_cierre: pc };
+  });
+  const allFilled = patasConCierre.every(l => l.prima_cierre != null);
+  if(!allFilled) { pfcOpMsg('error','Ingresá la prima de cierre de todas las patas'); return; }
+
+  const pnlARS = patasConCierre.reduce((s, l) => {
+    const sign = l.action==='buy' ? 1 : -1;
+    return s + sign * (l.prima_cierre - l.prima) * l.qty * optSz;
+  }, 0);
+
+  btn.disabled = true; btn.textContent = 'Guardando...';
   try {
     const session = await window.sbAuth?.auth?.getSession();
     const token = session?.data?.session?.access_token;
     const h = { ...CFG.SBH, 'Content-Type':'application/json', 'Prefer':'return=minimal' };
     if(token) h['Authorization'] = 'Bearer '+token;
     await Promise.all([
-      fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${operacionId}`, {
+      fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${op.id}`, {
         method:'PATCH', headers:h,
-        body: JSON.stringify({ estado:'cerrada', fecha_cierre: new Date().toISOString().split('T')[0] })
+        body: JSON.stringify({
+          estado: 'cerrada',
+          fecha_cierre: fecha,
+          spot_cierre: spot,
+          patas: patasConCierre,
+          pnl_ars: pnlARS,
+        })
       }),
-      fetch(`${CFG.SB_URL}/rest/v1/portafolio?operacion_id=eq.${operacionId}`, {
+      fetch(`${CFG.SB_URL}/rest/v1/portafolio?operacion_id=eq.${op.id}`, {
         method:'PATCH', headers:h,
         body: JSON.stringify({ activo: false })
       }),
     ]);
+    pfCloseOpcionHide();
     await pfLoadAll();
-  } catch(e) { alert('Error al cerrar: '+e.message); }
+  } catch(e) {
+    pfcOpMsg('error', e.message || 'Error al guardar');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Registrar cierre';
+  }
 };
+
+function pfcOpMsg(type, text) {
+  const el = document.getElementById('pfcOpMsg');
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.background = type==='error' ? 'var(--redDim)' : 'var(--greenDim)';
+  el.style.color      = type==='error' ? 'var(--red)' : 'var(--green)';
+  el.style.border     = `1px solid ${type==='error'?'rgba(255,63,94,.3)':'rgba(0,229,168,.3)'}`;
+}
 
 // ── Eliminar posición (soft delete) ──────────────────────
 window.pfDelete = async (id, ticker) => {
@@ -2053,7 +2425,7 @@ async function pfLoadHistorial() {
   if(!email) return;
   const [rows, opsRows] = await Promise.all([
     sb('trades', `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`),
-    sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre`),
+    sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre,pnl_ars`),
   ]);
   const tbody   = document.getElementById('pfHistTbody');
   const statsEl = document.getElementById('pfHistStats');
@@ -2103,18 +2475,31 @@ async function pfLoadHistorial() {
         const optSz = op.patas?.[0]?.option_size || 100;
         const patas = (op.patas||[]).map(l =>
           `${l.action==='buy'?'▲':'▼'} ${l.qty} ${(l.kind||'')[0]?.toUpperCase()}@$${Math.round(l.strike)}`
+          + (l.prima_cierre != null ? ` → $${l.prima_cierre}` : '')
         ).join(' / ');
-        const costoNeto = (op.patas||[]).reduce((s,l)=>
-          s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz;
-        const cc = costoNeto<=0?'var(--green)':'var(--red)';
+
+        // P&L real: usa prima_cierre por pata si disponible, sino pnl_ars guardado
+        const allHaveCierre = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
+        const pnlReal = allHaveCierre
+          ? (op.patas||[]).reduce((s,l) => {
+              const sign = l.action==='buy' ? 1 : -1;
+              return s + sign * (l.prima_cierre - l.prima) * l.qty * optSz;
+            }, 0)
+          : (op.pnl_ars ?? null);
+        const pc2 = pnlReal != null ? (pnlReal>=0?'var(--green)':'var(--red)') : 'var(--text3)';
+        const ps2 = pnlReal != null ? (pnlReal>=0?'+':'') : '';
+        const pnlStr = pnlReal != null
+          ? `<span style="color:${pc2}">${ps2}$${Math.round(Math.abs(pnlReal)).toLocaleString('es-AR')}</span>`
+          : `<span style="color:var(--text4);font-size:9px">sin datos cierre</span>`;
+
         return `<tr>
           <td class="th-left" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500">${op.nombre||'—'}</td>
           <td style="font-size:10px;color:var(--text3)">${op.subyacente||'—'}</td>
           <td>${fmtD(op.fecha)}</td><td>${fmtD(op.fecha_cierre)}</td>
           <td style="font-size:9px;color:var(--text2)">${patas}</td>
-          <td>$${Number(op.spot_entrada||0).toLocaleString('es-AR',{maximumFractionDigits:0})}</td>
+          <td>${op.spot_entrada ? '$'+Number(op.spot_entrada).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
           <td>${op.spot_cierre ? '$'+Number(op.spot_cierre).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
-          <td style="color:${cc}">${costoNeto<=0?'+':''}$${Math.round(-costoNeto).toLocaleString('es-AR')}</td>
+          <td>${pnlStr}</td>
           <td><button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text4);padding:0 4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button></td>
         </tr>`;
       }).join('');
