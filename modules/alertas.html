@@ -1,6 +1,7 @@
 <div class="sub-tabs-row">
   <div class="sub-tabs">
     <button class="stab active" id="alstab-activas"   onclick="alTab('activas',this)">Activas</button>
+    <button class="stab"        id="alstab-sltp"      onclick="alTab('sltp',this)">SL / TP</button>
     <button class="stab"        id="alstab-nueva"     onclick="alTab('nueva',this)">+ Nueva</button>
     <button class="stab"        id="alstab-historial" onclick="alTab('historial',this)">Historial</button>
   </div>
@@ -86,6 +87,33 @@
     </div>
     <div id="al-log" style="padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);max-height:180px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:3px">
       <span style="color:var(--text4);font-style:italic">Esperando eventos de Supabase Realtime...</span>
+    </div>
+  </div>
+</div>
+
+<div class="sub-panel" id="alpanel-sltp">
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between">
+      <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace">Alertas automáticas de Stop Loss / Take Profit creadas desde el portafolio</span>
+      <button class="btn btn-outline" onclick="alReload()" style="font-size:9px;padding:3px 10px">↺ Recargar</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th>Precio objetivo</th>
+          <th>Precio actual</th>
+          <th>Estado</th>
+          <th>Último disparo</th>
+          <th class="th-left">Acciones</th>
+        </tr></thead>
+        <tbody id="al-sltp-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">
+            <div class="spinner" style="margin:0 auto 8px"></div>Cargando...
+          </td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -405,6 +433,7 @@ window.alTab = function(id, btn){
   document.getElementById('alpanel-'+id).classList.add('active');
   btn.classList.add('active');
   if(id === 'historial') alCargarHistorial();
+  if(id === 'sltp') alRenderSltp();
 };
 
 // ─────────────────────────────────────────────
@@ -676,6 +705,7 @@ async function alCargarAlertas(){
   const rows = await window.sb('alertas', `user_id=eq.${uid}&order=created_at.desc`);
   AL.alerts = rows || [];
   alRenderActivas();
+  alRenderSltp();
   alKpiUpdate();
 }
 
@@ -798,12 +828,62 @@ function alRenderHistorial(rows){
 }
 
 // ─────────────────────────────────────────────
+// DETECCIÓN SL/TP
+// ─────────────────────────────────────────────
+function isSlTpAlert(a) {
+  const id  = a.id || '';
+  const msg = (a.mensaje || '').toLowerCase();
+  return id.endsWith('_sl') || id.endsWith('_tp') ||
+         msg.startsWith('stop loss') || msg.startsWith('take profit');
+}
+
+function alRenderSltp() {
+  const rows = AL.alerts.filter(isSlTpAlert);
+  const tbody = document.getElementById('al-sltp-tbody');
+  if(!tbody) return;
+  if(!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin alertas SL/TP. Se crean automáticamente al guardar una posición con Stop Loss o Take Profit en el portafolio.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(a => {
+    const id   = a.id || '';
+    const isSL = id.endsWith('_sl') || a.params?.dir === '<=';
+    const label = isSL ? '🛑 Stop Loss' : '🎯 Take Profit';
+    const color = isSL ? 'var(--red)' : 'var(--green)';
+    const objetivo = a.params?.valor != null ? '$' + fmtAR(a.params.valor, 2) : '—';
+    const cleanTicker = alCleanTicker(a.ticker);
+    const curPrice = AL.prevPrices[cleanTicker] !== undefined ? '$' + fmtAR(AL.prevPrices[cleanTicker], 2) : '—';
+    const lastF = a.last_fired ? new Date(a.last_fired).toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}) : '—';
+    return `<tr>
+      <td class="td-left" style="font-weight:500;color:var(--text)">${a.ticker}</td>
+      <td class="td-left"><span class="badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${label}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-weight:bold;color:var(--text)">${objetivo}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;color:var(--text2)">${curPrice}</td>
+      <td>
+        <label style="display:flex;align-items:center;justify-content:flex-end;gap:5px;cursor:pointer">
+          <input type="checkbox" ${a.activa?'checked':''} onchange="alToggle('${a.id}',this.checked)" style="accent-color:var(--green)">
+          <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${a.activa?'var(--green)':'var(--text3)'}">${a.activa?'ON':'OFF'}</span>
+        </label>
+      </td>
+      <td style="font-size:9px;color:var(--text3)">${lastF}</td>
+      <td class="td-left">
+        <div style="display:flex;gap:4px">
+          <button class="flt" onclick="alTestAlert('${a.id}')" style="padding:2px 7px;font-size:8px">test</button>
+          <button class="flt" onclick="alEliminar('${a.id}')" style="padding:2px 7px;font-size:8px;color:var(--red)">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
 // RENDER TABLA ACTIVAS
 // ─────────────────────────────────────────────
 window.alRenderActivas = function(){
   const q  = (document.getElementById('al-search')?.value||'').toLowerCase();
   const tf = AL.filtroTipo;
   const rows = AL.alerts.filter(a => {
+    if(isSlTpAlert(a)) return false;
     if(tf !== 'all' && a.tipo !== tf) return false;
     if(q && !a.ticker.toLowerCase().includes(q)) return false;
     return true;
