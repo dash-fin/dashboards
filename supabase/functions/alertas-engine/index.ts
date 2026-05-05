@@ -12,22 +12,30 @@ const SB_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const sb = createClient(SB_URL, SB_SERVICE_KEY)
 
 interface Alerta {
-  id: number
+  id: string
   user_id: string
   ticker: string
   tipo: string           // precio | ma | variacion | volumen
-  condicion: string      // > | < | >= | <= | = | cruz_alza | cruz_baja
-  valor: number | null
-  params: Record<string, any>
+  params: Record<string, any>  // { dir: 'gt'|'lt'|'gte'|'lte'|'eq', valor: number, mensaje?: string, cooldown?: number }
   activa: boolean
-  canal: string          // wa | tg | ambos | ninguno
-  tg_token: string | null
-  tg_chat_id: string | null
-  wa_num: string | null
-  wa_key: string | null
   last_fired: string | null
   fired_count: number
   created_at: string
+}
+
+// Obtener condición y valor desde params
+function getCond(a: Alerta): string {
+  const dirMap: Record<string, string> = { gt: '>', lt: '<', gte: '>=', lte: '<=', eq: '=' }
+  return dirMap[a.params?.dir] || '>'
+}
+function getValor(a: Alerta): number {
+  return Number(a.params?.valor ?? a.params?.val ?? 0)
+}
+function getCanal(a: Alerta): string {
+  return a.params?.canal || 'ambos'
+}
+function getCooldown(a: Alerta): number {
+  return Number(a.params?.cooldown ?? a.cooldown ?? 0)
 }
 
 interface Precio {
@@ -139,20 +147,27 @@ async function enviarWhatsApp(num: string, key: string, msg: string): Promise<bo
   }
 }
 
+// Tokens globales (hardcodeados desde el CFG del proyecto)
+const TG_TOKEN = '8576934070:AAFrb--ocLPcFZh-mOzFDTc5ujYnouA3H3U'
+const TG_CHAT_ID = '6209263987'
+const WA_NUM = '+541162410971'
+const WA_KEY = 'https://api.callmebot.com/whatsapp.php?phone=5491162410971&text=This+is+a+test&apikey=4061538'
+
 async function enviar(a: Alerta, msg: string): Promise<boolean> {
   let ok = false
-  const canal = a.canal || 'ninguno'
-  if ((canal === 'wa' || canal === 'ambos') && a.wa_num && a.wa_key) {
-    ok = (await enviarWhatsApp(a.wa_num, a.wa_key, msg)) || ok
+  const canal = getCanal(a)
+  if (canal === 'wa' || canal === 'ambos') {
+    ok = (await enviarWhatsApp(WA_NUM, WA_KEY, msg)) || ok
   }
-  if ((canal === 'tg' || canal === 'ambos') && a.tg_token && a.tg_chat_id) {
-    ok = (await enviarTelegram(a.tg_token, a.tg_chat_id, msg)) || ok
+  if (canal === 'tg' || canal === 'ambos') {
+    ok = (await enviarTelegram(TG_TOKEN, TG_CHAT_ID, msg)) || ok
   }
   return ok
 }
 
 // ── EVALUACION PRINCIPAL ───────────────────────────────
-async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Promise<void> {
+async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Promise<number> {
+  let disparadas = 0
   for (const a of alertas) {
     if (!a.activa) continue
     const sym = cleanTicker(a.ticker)
@@ -165,26 +180,29 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
     if (isNaN(cur) || cur === 0) continue
 
     // Cooldown check
-    if (a.last_fired && a.params?.cooldown) {
-      const cooldownMs = (a.params.cooldown as number) * 1000
+    const cd = getCooldown(a)
+    if (a.last_fired && cd > 0) {
+      const cooldownMs = cd * 1000
       const lastFired = new Date(a.last_fired).getTime()
       if (Date.now() - lastFired < cooldownMs) continue
     }
 
     let disparado = false, condDesc = ''
-    const valor = Number(a.valor ?? 0)
+    const valor = getValor(a)
 
+    const cond = getCond(a)
     if (a.tipo === 'precio') {
-      [disparado, condDesc] = evalPrecio(cur, valor, a.condicion)
+      [disparado, condDesc] = evalPrecio(cur, valor, cond)
     } else if (a.tipo === 'variacion') {
-      [disparado, condDesc] = evalVariacion(change, valor, a.condicion)
+      [disparado, condDesc] = evalVariacion(change, valor, cond)
     } else if (a.tipo === 'volumen') {
-      [disparado, condDesc] = evalVolumen(turnover, valor, a.condicion)
+      [disparado, condDesc] = evalVolumen(turnover, valor, cond)
     } else if (a.tipo === 'ma') {
-      [disparado, condDesc] = await evalMA(sym, valor, a.condicion, a.params, esUsa)
+      [disparado, condDesc] = await evalMA(sym, valor, cond, a.params, esUsa)
     }
 
     if (!disparado) continue
+    disparadas++
 
     const msg = buildMsg(a, cur, change, condDesc)
     const enviado = await enviar(a, msg)
@@ -203,11 +221,13 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
       tipo: a.tipo,
       cond_desc: condDesc,
       precio: cur,
-      canal: a.canal || 'ninguno',
+      canal: getCanal(a),
       estado: enviado ? '✅ Enviado' : '❌ Error envío',
       fired_at: new Date().toISOString()
     })
+    disparadas++
   }
+  return disparadas
 }
 
 // ── HANDLER ────────────────────────────────────────────
@@ -230,7 +250,7 @@ serve(async (req) => {
   try {
     // 1. Cargar todas las alertas activas con sus configs
     const { data: alertas, error: errA } = await sb.from('alertas')
-      .select('*')
+      .select('id,user_id,ticker,tipo,params,activa,last_fired,fired_count,created_at')
       .eq('activa', true)
 
     if (errA || !alertas?.length) {
@@ -248,48 +268,47 @@ serve(async (req) => {
     const preciosUsa = (mercadoUsa.data || []) as Precio[]
     const preciosOpt = (opciones.data || []) as Precio[]
 
-    // 3. Evaluar cada alerta
-    let disparadas = 0
+    // 3. Clasificar alertas por mercado (sin mutar el array original)
+    const alertasArs: Alerta[] = []
+    const alertasUsa: Alerta[] = []
+    const alertasOpc: { alerta: Alerta; precio: number }[] = []
+    const sinPrecio: string[] = []
+
     for (const a of alertas as Alerta[]) {
       const sym = cleanTicker(a.ticker)
-
-      // Buscar en ARS
-      let found = preciosArs.find(r => cleanTicker(r.symbol) === sym)
-      if (found) {
-        alertas.splice(alertas.indexOf(a), 1)
-        // evaluar contra ARS
-        // (la función evaluar recorre el array, manejamos aparte)
+      const ars = preciosArs.find(r => cleanTicker(r.symbol) === sym)
+      if (ars) {
+        alertasArs.push(a)
         continue
       }
-
-      // Buscar en USA
-      found = preciosUsa.find(r => cleanTicker(r.symbol) === sym)
-      if (found) {
-        await evaluar([a], [found], true)
-        disparadas++
+      const usa = preciosUsa.find(r => cleanTicker(r.symbol) === sym)
+      if (usa) {
+        alertasUsa.push({ ...usa, change_pct: usa.change_pct ?? usa.change ?? 0 } as Precio)
         continue
       }
-
-      // Buscar en opciones
-      found = preciosOpt.find(r => cleanTicker(r.symbol) === sym)
-      if (found) {
-        const price = Number(found.last || 0) || Number(found.bid || 0)
-        if (price) {
-          await evaluar([a], [{ symbol: found.symbol, last: price }], false)
-          disparadas++
-        }
+      const opt = preciosOpt.find(r => cleanTicker(r.symbol) === sym)
+      if (opt) {
+        const price = Number(opt.last || 0) || Number(opt.bid || 0)
+        if (price) alertasOpc.push({ alerta: a, precio: price })
         continue
       }
+      sinPrecio.push(sym)
     }
 
-    // Evaluar alertas ARS
-    const alertasArs = (alertas as Alerta[]).filter(a => {
-      const sym = cleanTicker(a.ticker)
-      return preciosArs.some(r => cleanTicker(r.symbol) === sym)
-    })
+    if (sinPrecio.length) {
+      console.log(`Sin precio para: ${sinPrecio.join(', ')}`)
+    }
+
+    // 4. Evaluar por mercado
+    let disparadas = 0
     if (alertasArs.length) {
-      await evaluar(alertasArs, preciosArs, false)
-      disparadas += alertasArs.length
+      disparadas += await evaluar(alertasArs, preciosArs, false)
+    }
+    if (alertasUsa.length) {
+      disparadas += await evaluar(alertasUsa, preciosUsa, true)
+    }
+    for (const { alerta, precio } of alertasOpc) {
+      disparadas += await evaluar([alerta], [{ symbol: alerta.ticker, last: precio }], false)
     }
 
     return new Response(JSON.stringify({
