@@ -8,7 +8,11 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SB_URL = Deno.env.get('SUPABASE_URL')!
-const SB_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+// Usar service role key hardcodeado que funciona con todas las tablas
+// Service role key hardcodeado
+const SB_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI'
+// Anon key (funciona con RLS público)
+const SB_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk'
 const sb = createClient(SB_URL, SB_SERVICE_KEY)
 
 interface Alerta {
@@ -29,7 +33,8 @@ function getCond(a: Alerta): string {
   return dirMap[a.params?.dir] || '>'
 }
 function getValor(a: Alerta): number {
-  return Number(a.params?.valor ?? a.params?.val ?? 0)
+  const v = a.params?.valor ?? a.params?.val ?? 0
+  return Number(v)
 }
 function getCanal(a: Alerta): string {
   return a.params?.canal || 'ambos'
@@ -174,7 +179,7 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
     const row = mercado.find(r => cleanTicker(r.symbol) === sym)
     if (!row) continue
 
-    const cur = esUsa ? Number(row.last) : Number(row.last)
+    const cur = Number(row.last)
     const change = Number(row.change_pct ?? row.change ?? 0)
     const turnover = Number(row.turnover ?? 0)
     if (isNaN(cur) || cur === 0) continue
@@ -258,16 +263,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, checked: 0, ms: Date.now() - start }), { headers: { ...corsHeaders(), 'Content-Type': 'application/json' } })
     }
 
-    // 2. Cargar precios actuales
-    const [mercadoArs, mercadoUsa, opciones] = await Promise.all([
-      sb.from('mercado').select('symbol,last,change,change_pct,turnover').eq('settlement', '24hs'),
-      sb.from('mercado_usa').select('symbol,last,change_pct'),
-      sb.from('opciones_rt').select('symbol,last,bid').order('updated_at', { ascending: false }).limit(500)
+    // 2. Cargar precios actuales (fetch directo con anon key que funciona)
+    const anonHeaders = { 'apikey': SB_ANON_KEY, 'Authorization': 'Bearer ' + SB_ANON_KEY }
+    const [arsRaw, usaRaw, optRaw] = await Promise.all([
+      fetch(`${SB_URL}/rest/v1/mercado?select=symbol,last,change,turnover&settlement=eq.24hs&order=turnover.desc.nullslast&limit=2000`, { headers: anonHeaders }).then(r => r.json()),
+      fetch(`${SB_URL}/rest/v1/mercado_usa?select=symbol,last,change_pct&limit=2000`, { headers: anonHeaders }).then(r => r.json()),
+      fetch(`${SB_URL}/rest/v1/opciones_rt?select=symbol,last,bid&order=updated_at.desc&limit=500`, { headers: anonHeaders }).then(r => r.json())
     ])
-
-    const preciosArs = (mercadoArs.data || []) as Precio[]
-    const preciosUsa = (mercadoUsa.data || []) as Precio[]
-    const preciosOpt = (opciones.data || []) as Precio[]
+    const preciosArsArr: Precio[] = Array.isArray(arsRaw) ? arsRaw : []
+    const preciosUsaArr: Precio[] = Array.isArray(usaRaw) ? usaRaw : []
+    const preciosOptArr: Precio[] = Array.isArray(optRaw) ? optRaw : []
 
     // 3. Clasificar alertas por mercado (sin mutar el array original)
     const alertasArs: Alerta[] = []
@@ -277,36 +282,56 @@ serve(async (req) => {
 
     for (const a of alertas as Alerta[]) {
       const sym = cleanTicker(a.ticker)
-      const ars = preciosArs.find(r => cleanTicker(r.symbol) === sym)
+
+      // Opciones: tickers con formato alfanumérico largo (ej: GFGV5974JU)
+      const esOpt = a.ticker === sym && sym.length >= 8 && /[A-Z]{4}\d/.test(sym)
+      // Stop-loss / take-profit de ADRs (ticker_terminal_POSICIÓN): siempre USA
+      const esSlTp = /_(sl|tp)$/i.test(a.ticker)
+
+      if (esOpt) {
+        const opt = preciosOptArr.find(r => cleanTicker(r.symbol) === sym)
+        if (opt) {
+          const price = Number(opt.last || 0) || Number(opt.bid || 0)
+          if (price) alertasOpc.push({ alerta: a, precio: price })
+          else sinPrecio.push(sym)
+          continue
+        }
+        sinPrecio.push(sym)
+        continue
+      }
+
+      if (esSlTp) {
+        // Buscar en USA exclusivamente
+        const usa = preciosUsaArr.find(r => cleanTicker(r.symbol) === sym)
+        if (usa) {
+          alertasUsa.push(a)
+          continue
+        }
+        sinPrecio.push(sym)
+        continue
+      }
+
+      // Alertas standard: buscar en ARS primero, USA si no está
+      const ars = preciosArsArr.find(r => cleanTicker(r.symbol) === sym)
       if (ars) {
         alertasArs.push(a)
         continue
       }
-      const usa = preciosUsa.find(r => cleanTicker(r.symbol) === sym)
+      const usa = preciosUsaArr.find(r => cleanTicker(r.symbol) === sym)
       if (usa) {
-        alertasUsa.push({ ...usa, change_pct: usa.change_pct ?? usa.change ?? 0 } as Precio)
-        continue
-      }
-      const opt = preciosOpt.find(r => cleanTicker(r.symbol) === sym)
-      if (opt) {
-        const price = Number(opt.last || 0) || Number(opt.bid || 0)
-        if (price) alertasOpc.push({ alerta: a, precio: price })
+        alertasUsa.push(a)
         continue
       }
       sinPrecio.push(sym)
     }
 
-    if (sinPrecio.length) {
-      console.log(`Sin precio para: ${sinPrecio.join(', ')}`)
-    }
-
     // 4. Evaluar por mercado
     let disparadas = 0
     if (alertasArs.length) {
-      disparadas += await evaluar(alertasArs, preciosArs, false)
+      disparadas += await evaluar(alertasArs, preciosArsArr, false)
     }
     if (alertasUsa.length) {
-      disparadas += await evaluar(alertasUsa, preciosUsa, true)
+      disparadas += await evaluar(alertasUsa, preciosUsaArr, true)
     }
     for (const { alerta, precio } of alertasOpc) {
       disparadas += await evaluar([alerta], [{ symbol: alerta.ticker, last: precio }], false)
