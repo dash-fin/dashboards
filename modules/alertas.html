@@ -522,11 +522,6 @@ async function alEvaluarAlertas(sym, cur, prev, change, turnover){
       }
       alLog(`🔔 ALERTA DISPARADA: ${sym} — ${condDesc}`, 'green');
       alLog(`   → Procesado por edge function en la nube`, 'blue');
-      // No escribimos last_fired/historial desde el browser —
-      // la edge function lo maneja para evitar duplicación
-        user_id: alUserId(), alerta_id: alerta.id, ticker: sym, tipo: alerta.tipo,
-        cond_desc: condDesc, precio: cur, canal, estado, fired_at: new Date().toISOString()
-      });
       alKpiUpdate();
     }
   }
