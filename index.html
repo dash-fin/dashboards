@@ -164,6 +164,38 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .flt.on-red{border-color:var(--red);color:var(--red);background:var(--redDim)}
 .search-input{flex:1;min-width:120px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:5px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text);outline:none;transition:border-color .15s}
 .search-input::placeholder{color:var(--text3)}.search-input:focus{border-color:var(--green)}
+/* ── Buscador ticker multi-mercado ── */
+.tr-wrap{display:flex;flex-direction:column}
+.tr-sep{padding:5px 12px;font-size:8px;font-family:'IBM Plex Mono',monospace;color:var(--text4);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:1px}
+.tr-item{display:grid;grid-template-columns:1fr auto auto auto;gap:6px;align-items:center;padding:7px 12px;cursor:pointer;border-bottom:1px solid rgba(30,37,48,.5);font-family:'IBM Plex Mono',monospace;transition:background .1s;font-size:10px}
+.tr-item:hover,.tr-item.tr-hl{background:rgba(255,255,255,.06)}
+.tr-sym{font-weight:500;color:var(--text);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tr-badge{font-size:7px;padding:1px 5px;border-radius:2px;letter-spacing:.5px;font-weight:600;text-align:center;white-space:nowrap}
+.tr-b-ars{background:rgba(0,229,168,.15);color:var(--green);border:1px solid rgba(0,229,168,.25)}
+.tr-b-usa{background:rgba(77,166,255,.15);color:var(--blue);border:1px solid rgba(77,166,255,.25)}
+.tr-b-opc{background:rgba(153,102,255,.15);color:var(--purple);border:1px solid rgba(153,102,255,.25)}
+.tr-price{text-align:right;color:var(--text);font-size:11px}
+.tr-chg{text-align:right;font-weight:500;min-width:44px}
+.tr-chg.pos{color:var(--green)}
+.tr-chg.neg{color:var(--red)}
+.tr-chg.neu{color:var(--text3)}
+.tr-vol{text-align:right;color:var(--text3);font-size:9px;min-width:40px}
+/* Ticker detail panel */
+.td-wrap{padding:10px 12px;font-family:'IBM Plex Mono',monospace}
+.td-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.td-title{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px}
+.td-close{font-size:10px;color:var(--text3);cursor:pointer;padding:2px 4px}
+.td-close:hover{color:var(--text)}
+.td-g{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.td-cell{background:var(--bg3);border-radius:4px;padding:6px 8px}
+.td-lbl{font-size:7px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.td-val{font-size:13px;font-weight:500;color:var(--text)}
+.td-val.pos{color:var(--green)}
+.td-val.neg{color:var(--red)}
+.td-tag{display:inline-block;font-size:8px;padding:1px 5px;border-radius:2px;margin-left:4px;background:var(--bg4);color:var(--text3)}
+.td-tag-g{background:var(--greenDim);color:var(--green)}
+.td-tag-r{background:var(--redDim);color:var(--red)}
+.td-act{font-size:8px;color:var(--text4);text-align:right;margin-top:6px}
 .row-count{font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3);white-space:nowrap;margin-left:auto}
 .table-wrap{overflow-x:auto;max-height:520px;overflow-y:auto}
 table{width:100%;border-collapse:collapse}
@@ -411,7 +443,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
         <div id="tickerSearch" style="position:relative">
           <div style="display:flex;align-items:center;gap:0;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;overflow:hidden;transition:border-color .15s" id="tickerSearchBox">
             <span style="padding:0 8px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace">🔍</span>
-            <input id="tickerInput" placeholder="Buscar ticker..." autocomplete="off"
+            <input id="tickerInput" placeholder="Buscar ticker..." autocomplete="off" autofocus
               style="background:transparent;border:none;outline:none;padding:5px 8px 5px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);width:130px"
               oninput="tickerSearch(this.value)" onkeydown="tickerKey(event)" onfocus="document.getElementById('tickerSearchBox').style.borderColor='var(--green)'" onblur="setTimeout(()=>{document.getElementById('tickerSearchBox').style.borderColor='';tickerHideResults()},200)">
           </div>
@@ -614,86 +646,208 @@ let _tickerTimer = null;
 window.tickerSearch = async function(q){
   clearTimeout(_tickerTimer);
   const res = document.getElementById('tickerResults');
-  if(!q || q.length < 1){ res.style.display='none'; return; }
+  if(!q || q.length < 1){ res.style.display='none'; _tickerResults=[]; return; }
   res.style.display='block';
   res.innerHTML='<div style="padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3)">Buscando...</div>';
   _tickerTimer = setTimeout(async()=>{
-    const rows = await sb('mercado',
-      `symbol=ilike.${encodeURIComponent(q)}*&settlement=eq.24hs&select=symbol,last,change,turnover&order=turnover.desc.nullslast&limit=12`
-    );
-    if(!rows||!rows.length){
+    const qEnc = encodeURIComponent(q);
+    const [ars, usa, opt] = await Promise.all([
+      sb('mercado', `symbol=ilike.${qEnc}*&settlement=eq.24hs&select=symbol,last,change,turnover,volume,bid,ask,open,high,low&order=turnover.desc.nullslast&limit=8`).catch(()=>[]),
+      sb('mercado_usa', `symbol=ilike.${qEnc}*&select=symbol,last,change_pct,change_1w,volume_rel,volume,volume_avg,sma_200,above_sma200,above_sma50&order=volume.desc.nullslast&limit=8`).catch(()=>[]),
+      sb('opciones_rt', `symbol=ilike.${qEnc}*&select=symbol,last,change,bid,ask,strike,expiration,kind,turnover&order=turnover.desc.nullslast&limit=6`).catch(()=>[])
+    ]);
+
+    _tickerResults = [];
+    let html = '';
+
+    // ARS
+    (ars||[]).forEach(r => {
+      _tickerResults.push({ sym:r.symbol, mercado:'ARS', last:r.last, chg:r.change, extra:r });
+      const chg = Number(r.change||0), cls = chg>0?'pos':chg<0?'neg':'neu';
+      const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
+      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item" onclick="tickerSelectByIndex(${_tickerResults.length-1})" onmouseover="tickerHover(${_tickerResults.length-1})">
+        <span class="tr-sym">${r.symbol}</span>
+        <span class="tr-badge tr-b-ars">ARS</span>
+        <span class="tr-price">$${fmtAR(r.last,2)}</span>
+        <span class="tr-chg ${cls}">${chgStr}</span>
+        <span class="tr-vol">${fmtM(r.turnover||0)}</span>
+      </div>`;
+    });
+
+    // USA
+    if((usa||[]).length && ars?.length) html += '<div class="tr-sep">\u{1F1FA}\u{1F1F8} USA</div>';
+    (usa||[]).forEach(r => {
+      _tickerResults.push({ sym:r.symbol, mercado:'USA', last:r.last, chg:r.change_pct, extra:r });
+      const chg = Number(r.change_pct||0), cls = chg>0?'pos':chg<0?'neg':'neu';
+      const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
+      const vol = r.volume_rel ? (Number(r.volume_rel).toFixed(1)+'x') : fmtM(r.volume||0);
+      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item" onclick="tickerSelectByIndex(${_tickerResults.length-1})" onmouseover="tickerHover(${_tickerResults.length-1})">
+        <span class="tr-sym">${r.symbol}</span>
+        <span class="tr-badge tr-b-usa">USA</span>
+        <span class="tr-price">$${fmtAR(r.last,2)}</span>
+        <span class="tr-chg ${cls}">${chgStr}</span>
+        <span class="tr-vol">${vol}</span>
+      </div>`;
+    });
+
+    // Opciones
+    if((opt||[]).length && (ars||[]).length+(usa||[]).length) html += '<div class="tr-sep">\u{1F4C4} Opciones</div>';
+    (opt||[]).forEach(r => {
+      const label = r.kind === 'CALL' ? '\u{1F7E2}' : r.kind === 'PUT' ? '\u{1F534}' : '\u{1F4C4}';
+      _tickerResults.push({ sym:r.symbol, mercado:'OPC', last:r.last||r.bid||0, chg:r.change, extra:r });
+      const chg = Number(r.change||0), cls = chg>0?'pos':chg<0?'neg':'neu';
+      const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
+      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item" onclick="tickerSelectByIndex(${_tickerResults.length-1})" onmouseover="tickerHover(${_tickerResults.length-1})">
+        <span class="tr-sym">${label} ${r.symbol}</span>
+        <span class="tr-badge tr-b-opc">OPC</span>
+        <span class="tr-price">$${fmtAR(r.last||r.bid||0,2)}</span>
+        <span class="tr-chg ${cls}">${chgStr}</span>
+        <span class="tr-vol">${r.strike ? 'S:'+fmtAR(r.strike,0) : ''}</span>
+      </div>`;
+    });
+
+    if(!_tickerResults.length){
       res.innerHTML='<div style="padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3)">Sin resultados</div>';
       return;
     }
-    res.innerHTML = rows.map(r=>{
-      const chg=Number(r.change||0), cls=chg>0?'var(--green)':chg<0?'var(--red)':'var(--text3)';
-      const chgStr=(chg>=0?'+':'')+chg.toFixed(2)+'%';
-      return `<div onclick="tickerSelect('${r.symbol}')" style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 14px;cursor:pointer;border-bottom:1px solid rgba(30,37,48,.5);font-family:'IBM Plex Mono',monospace;transition:background .1s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
-        <span style="font-size:12px;font-weight:500;color:var(--text)">${r.symbol}</span>
-        <span style="font-size:12px;color:var(--text)">$${fmtAR(r.last,2)}</span>
-        <span style="font-size:11px;color:${cls}">${chgStr}</span>
-      </div>`;
-    }).join('');
+    _tickerIdx = -1;
+    res.innerHTML = `<div class="tr-wrap">${html}</div>`;
   }, 250);
+};
+
+window.tickerHover = function(idx){
+  const items = document.querySelectorAll('.tr-item');
+  items.forEach(el => el.classList.remove('tr-hl'));
+  const el = document.querySelector(`.tr-item[data-idx="${idx}"]`);
+  if(el) el.classList.add('tr-hl');
+  _tickerIdx = idx;
 };
 
 window.tickerHideResults = function(){
   const res = document.getElementById('tickerResults');
   if(res) res.style.display='none';
+  _tickerResults = [];
+  _tickerIdx = -1;
 };
 
 window.tickerKey = function(e){
-  if(e.key==='Escape'){ tickerHideResults(); document.getElementById('tickerInput').blur(); }
+  if(e.key === 'Escape'){ tickerHideResults(); document.getElementById('tickerInput').blur(); return; }
+  if(e.key === 'ArrowDown'){
+    e.preventDefault();
+    _tickerIdx = Math.min(_tickerIdx + 1, _tickerResults.length - 1);
+    tickerHover(_tickerIdx);
+    const el = document.querySelector(`.tr-item[data-idx="${_tickerIdx}"]`);
+    if(el) el.scrollIntoView({ block:'nearest' });
+    return;
+  }
+  if(e.key === 'ArrowUp'){
+    e.preventDefault();
+    _tickerIdx = Math.max(_tickerIdx - 1, 0);
+    tickerHover(_tickerIdx);
+    const el = document.querySelector(`.tr-item[data-idx="${_tickerIdx}"]`);
+    if(el) el.scrollIntoView({ block:'nearest' });
+    return;
+  }
+  if(e.key === 'Enter' && _tickerIdx >= 0 && _tickerResults[_tickerIdx]){
+    e.preventDefault();
+    tickerSelectByIndex(_tickerIdx);
+  }
+};
+
+window.tickerSelectByIndex = function(idx){
+  const r = _tickerResults[idx];
+  if(!r) return;
+  document.getElementById('tickerInput').value = r.sym;
+  tickerHideResults();
+  showTickerDetail(r);
 };
 
 window.tickerSelect = async function(sym){
   document.getElementById('tickerInput').value = sym;
-  const res = document.getElementById('tickerResults');
-  res.style.display='none';
-  // Cargar datos completos del ticker
-  const [mkt] = await Promise.all([
-    sb('mercado', `symbol=eq.${sym}&select=symbol,last,change,turnover,volume,bid,ask&limit=1`)
+  tickerHideResults();
+  const [ars, usa, opt] = await Promise.all([
+    sb('mercado', `symbol=eq.${sym}&settlement=eq.24hs&select=*&limit=1`).catch(()=>[]),
+    sb('mercado_usa', `symbol=eq.${sym}&select=*&limit=1`).catch(()=>[]),
+    sb('opciones_rt', `symbol=eq.${sym}&select=*&limit=1`).catch(()=>[])
   ]);
-  const r = mkt?.[0];
-  if(!r){ res.style.display='block'; res.innerHTML=`<div style="padding:10px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Sin datos para ${sym}</div>`; return; }
-  const chg=Number(r.change||0), cls=chg>0?'var(--green)':chg<0?'var(--red)':'var(--text3)';
-  res.style.display='block';
-  res.innerHTML=`
-    <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <span style="font-size:14px;font-weight:600;color:var(--text)">${r.symbol}</span>
-        <span style="font-size:9px;color:var(--text3);cursor:pointer" onclick="tickerHideResults()">✕ cerrar</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div style="background:var(--bg3);border-radius:5px;padding:8px 10px">
-          <div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Último</div>
-          <div style="font-size:18px;font-weight:500;color:var(--text)">$${fmtAR(r.last,2)}</div>
-        </div>
-        <div style="background:var(--bg3);border-radius:5px;padding:8px 10px">
-          <div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Variación</div>
-          <div style="font-size:18px;font-weight:500;color:${cls}">${chg>=0?'+':''}${chg.toFixed(2)}%</div>
-        </div>
-        ${r.bid>0?`<div style="background:var(--bg3);border-radius:5px;padding:8px 10px"><div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Bid</div><div style="font-size:14px;font-weight:500;color:var(--text)">$${fmtAR(r.bid,2)}</div></div>`:''}
-        ${r.ask>0?`<div style="background:var(--bg3);border-radius:5px;padding:8px 10px"><div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Ask</div><div style="font-size:14px;font-weight:500;color:var(--text)">$${fmtAR(r.ask,2)}</div></div>`:''}
-        ${r.turnover>0?`<div style="background:var(--bg3);border-radius:5px;padding:8px 10px;grid-column:1/-1"><div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Turnover</div><div style="font-size:13px;font-weight:500;color:var(--text2)">${fmtM(r.turnover)}</div></div>`:''}
-      </div>
-      <div style="margin-top:8px;font-size:9px;color:var(--text4);text-align:right">Act: ${new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</div>
-    </div>`;
+  const r = ars?.[0] || usa?.[0] || opt?.[0];
+  if(!r) return;
+  const mercado = ars?.[0] ? 'ARS' : usa?.[0] ? 'USA' : 'OPC';
+  showTickerDetail({ sym: r.symbol, mercado, last: r.last||r.bid||0, chg: r.change||r.change_pct||0, extra: r });
 };
 
+function showTickerDetail(r){
+  const res = document.getElementById('tickerResults');
+  const chg = Number(r.chg||0), pcls = chg>0?'pos':chg<0?'neg':'neu';
+  const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
+  const e = r.extra || {};
+  let extraHtml = '';
 
+  if(r.mercado === 'ARS'){
+    extraHtml = `
+      <div class="td-g">
+        <div class="td-cell"><div class="td-lbl">\u00daltimo</div><div class="td-val">$${fmtAR(r.last,2)}</div></div>
+        <div class="td-cell"><div class="td-lbl">Var %</div><div class="td-val ${pcls}">${chgStr}</div></div>
+        ${e.bid>0?`<div class="td-cell"><div class="td-lbl">Bid</div><div class="td-val">$${fmtAR(e.bid,2)}</div></div>`:''}
+        ${e.ask>0?`<div class="td-cell"><div class="td-lbl">Ask</div><div class="td-val">$${fmtAR(e.ask,2)}</div></div>`:''}
+        ${e.open?`<div class="td-cell"><div class="td-lbl">Apertura</div><div class="td-val">$${fmtAR(e.open,2)}</div></div>`:''}
+        ${e.high?`<div class="td-cell"><div class="td-lbl">M\u00e1x</div><div class="td-val">$${fmtAR(e.high,2)}</div></div>`:''}
+        ${e.low?`<div class="td-cell"><div class="td-lbl">M\u00edn</div><div class="td-val">$${fmtAR(e.low,2)}</div></div>`:''}
+        <div class="td-cell"><div class="td-lbl">Volumen</div><div class="td-val">${fmtM(e.turnover||e.volume||0)}</div></div>
+        ${e.volume>0?`<div class="td-cell"><div class="td-lbl">Operaciones</div><div class="td-val">${Number(e.volume).toLocaleString('es-AR')}</div></div>`:''}
+      </div>`;
+  } else if(r.mercado === 'USA'){
+    const volTag = e.volume_rel ? `<span class="td-tag">${Number(e.volume_rel).toFixed(1)}x promedio</span>` : '';
+    const smaTag = e.above_sma200 ? '<span class="td-tag td-tag-g">\u{1F7E2} Sobre SMA200</span>' : e.sma_200 ? '<span class="td-tag td-tag-r">\u{1F534} Bajo SMA200</span>' : '';
+    extraHtml = `
+      <div class="td-g">
+        <div class="td-cell"><div class="td-lbl">\u00daltimo</div><div class="td-val">$${fmtAR(r.last,2)}</div></div>
+        <div class="td-cell"><div class="td-lbl">Var %</div><div class="td-val ${pcls}">${chgStr}</div></div>
+        ${e.change_1w!=null?`<div class="td-cell"><div class="td-lbl">1 Semana</div><div class="td-val ${Number(e.change_1w)>=0?'pos':'neg'}">${e.change_1w>=0?'+':''}${Number(e.change_1w).toFixed(2)}%</div></div>`:''}
+        ${e.volume?`<div class="td-cell"><div class="td-lbl">Volumen</div><div class="td-val">${Number(e.volume).toLocaleString('en-US')} ${volTag}</div></div>`:''}
+        ${smaTag ? `<div class="td-cell" style="grid-column:1/-1">${smaTag}</div>` : ''}
+        ${e.sma_200?`<div class="td-cell"><div class="td-lbl">SMA200</div><div class="td-val">$${fmtAR(e.sma_200,2)}</div></div>`:''}
+        ${e.sma_50?`<div class="td-cell"><div class="td-lbl">SMA50</div><div class="td-val">$${fmtAR(e.sma_50,2)}</div></div>`:''}
+        ${e.sma_20?`<div class="td-cell"><div class="td-lbl">SMA20</div><div class="td-val">$${fmtAR(e.sma_20,2)}</div></div>`:''}
+        ${e.rsi_14?`<div class="td-cell"><div class="td-lbl">RSI 14</div><div class="td-val">${Number(e.rsi_14).toFixed(1)}</div></div>`:''}
+        ${e.macd?`<div class="td-cell"><div class="td-lbl">MACD</div><div class="td-val">${Number(e.macd).toFixed(2)}</div></div>`:''}
+      </div>`;
+  } else if(r.mercado === 'OPC'){
+    extraHtml = `
+      <div class="td-g">
+        <div class="td-cell"><div class="td-lbl">\u00daltimo</div><div class="td-val">$${fmtAR(r.last,2)}</div></div>
+        <div class="td-cell"><div class="td-lbl">Bid</div><div class="td-val">$${fmtAR(e.bid||0,2)}</div></div>
+        <div class="td-cell"><div class="td-lbl">Ask</div><div class="td-val">$${fmtAR(e.ask||0,2)}</div></div>
+        ${e.strike?`<div class="td-cell"><div class="td-lbl">Strike</div><div class="td-val">$${fmtAR(e.strike,0)}</div></div>`:''}
+        ${e.expiration?`<div class="td-cell"><div class="td-lbl">Venc</div><div class="td-val">${e.expiration}</div></div>`:''}
+        ${e.turnover>0?`<div class="td-cell"><div class="td-lbl">Volumen</div><div class="td-val">${fmtM(e.turnover)}</div></div>`:''}
+      </div>`;
+  }
+
+  res.style.display='block';
+  res.innerHTML = `
+    <div class="td-wrap">
+      <div class="td-head">
+        <span class="td-title"><span class="tr-badge tr-b-${r.mercado.toLowerCase()}">${r.mercado}</span> ${r.sym}</span>
+        <span class="td-close" onclick="tickerHideResults()">\u2715</span>
+      </div>
+      ${extraHtml}
+      <div class="td-act">${new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`;
+
+}
 window.CFG = {
   SB_URL: 'https://endymbpdayeidromxayb.supabase.co',
   SB_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk',
   ANTHROPIC_KEY: '',
   ADMIN_PASSWORD: localStorage.getItem('ap') || 'Ggal2026+',
-  // ── Alertas ──────────────────────────────────
-TG_TOKEN:  '8576934070:AAFrb--ocLPcFZh-mOzFDTc5ujYnouA3H3U',    // ej: 123456789:AABBccDD... 
- TG_CHAT_ID:'6209263987', // ej: 987654321 
- WA_NUM:    '+541162410971',  // ej: +5491112345678 
- WA_KEY:    'https://api.callmebot.com/whatsapp.php?phone=5491162410971&text=This+is+a+test&apikey=4061538',  // ej: 123456 
- AL_CANAL:  'ambos',                // 'tg', 'wa' o 'ambos'
+  TG_TOKEN: '8576934070:AAFrb--ocLPcFZh-mOzFDTc5ujYnouA3H3U',
+  TG_CHAT_ID: '6209263987',
+  WA_NUM: '+541162410971',
+  WA_KEY: 'https://api.callmebot.com/whatsapp.php?phone=5491162410971&text=This+is+a+test&apikey=4061538',
+  AL_CANAL: 'ambos',
 };
+window.CFG.SBH
 window.CFG.SBH = { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + CFG.SB_KEY };
 
 // ── Supabase Auth client ──
