@@ -210,13 +210,16 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
     disparadas++
 
     const msg = buildMsg(a, cur, change, condDesc)
+
+    // Desactivar optimistamente antes de enviar para evitar duplicados
+    await sb.from('alertas').update({ activa: false }).eq('id', a.id)
+
     const enviado = await enviar(a, msg)
 
-    // Actualizar alerta: si se envió, desactivar (notificación única)
+    // Actualizar timestamps
     await sb.from('alertas').update({
       last_fired: new Date().toISOString(),
-      fired_count: (a.fired_count || 0) + 1,
-      ...(enviado ? { activa: false } : {})
+      fired_count: (a.fired_count || 0) + 1
     }).eq('id', a.id)
 
     // Registrar historial
