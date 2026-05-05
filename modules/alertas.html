@@ -809,6 +809,80 @@ window.alEliminar = async function(id){
   alLog('🗑 Alerta eliminada.', 'text3');
 };
 
+window.alCondLabel = function(a) {
+  if (a.tipo === 'sltp') {
+    const sl = a.params?.sl, tp = a.params?.tp;
+    let parts = [];
+    if (sl) parts.push('SL: ≤ $' + fmtAR(sl, 2));
+    if (tp) parts.push('TP: ≥ $' + fmtAR(tp, 2));
+    return parts.join(' / ') || '—';
+  }
+  const dir = a.params?.dir || '>';
+  return '$' + fmtAR(a.params?.valor || 0, 2) + ' ' + dir;
+};
+
+window.alEditar = async function(id){
+  const a = AL.alerts.find(x => x.id === id);
+  if(!a) return;
+  const isSltp = a.tipo === 'sltp';
+  const sl = a.params?.sl ?? '';
+  const tp = a.params?.tp ?? '';
+  const valor = a.params?.valor ?? '';
+  const dir = a.params?.dir || 'gt';
+  const cooldown = a.params?.cooldown ?? '';
+  
+  const campos = isSltp
+    ? `SL: <input id="al-edit-sl" type="number" step="0.01" value="${sl}" style="width:80px">
+       TP: <input id="al-edit-tp" type="number" step="0.01" value="${tp}" style="width:80px">`
+    : `Dir: <select id="al-edit-dir">
+         <option value="gt" ${dir==='gt'||dir==='>'?'selected':''}>Mayor que</option>
+         <option value="lt" ${dir==='lt'||dir==='<'?'selected':''}>Menor que</option>
+         <option value="gte" ${dir==='gte'||dir==='>='?'selected':''}>Mayor o igual</option>
+         <option value="lte" ${dir==='lte'||dir==='<='?'selected':''}>Menor o igual</option>
+       </select>
+       Valor: <input id="al-edit-valor" type="number" step="0.01" value="${valor}" style="width:80px">`;
+  
+  const html = `<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:9999" onclick="if(event.target===this)this.remove()">
+    <div style="background:var(--bg2);padding:20px;border-radius:8px;min-width:300px">
+      <h3 style="margin:0 0 12px">✏️ Editar ${a.ticker}</h3>
+      ${campos}
+      <br><br>
+      Cooldown (seg): <input id="al-edit-cd" type="number" value="${cooldown}" style="width:80px"><br><br>
+      <button class="flt" onclick="alGuardarEdit('${a.id}')" style="padding:6px 16px">💾 Guardar</button>
+      <button class="flt" onclick="this.closest('[style*=\'fixed\']').remove()" style="padding:6px 16px;margin-left:8px">Cancelar</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+
+window.alGuardarEdit = async function(id) {
+  const a = AL.alerts.find(x => x.id === id);
+  if(!a) return;
+  const isSltp = a.tipo === 'sltp';
+  
+  let params = {};
+  if (isSltp) {
+    const sl = parseFloat(document.getElementById('al-edit-sl')?.value);
+    const tp = parseFloat(document.getElementById('al-edit-tp')?.value);
+    params = { sl: sl || null, tp: tp || null, cooldown: parseInt(document.getElementById('al-edit-cd')?.value) || 300 };
+  } else {
+    params = {
+      dir: document.getElementById('al-edit-dir')?.value || 'gt',
+      valor: parseFloat(document.getElementById('al-edit-valor')?.value) || 0,
+      cooldown: parseInt(document.getElementById('al-edit-cd')?.value) || 0
+    };
+  }
+  
+  // Merge con params existentes
+  a.params = { ...a.params, ...params };
+  await sbPatch('alertas', \`id=eq.\${id}\`, { params: a.params });
+  // Cerrar modal
+  document.querySelector('[style*=\'fixed\']')?.remove();
+  alRenderActivas();
+  alRenderSltp();
+  alLog('✅ Parámetros actualizados para ' + a.ticker, 'green');
+};
+
 window.alTestAlert = async function(id){
   const a = AL.alerts.find(x => x.id === id);
   if(!a) return;
@@ -900,6 +974,7 @@ function alRenderSltp() {
       <td class="td-left">
         <div style="display:flex;gap:4px">
           <button class="flt" onclick="alTestAlert('${a.id}')" style="padding:2px 7px;font-size:8px">test</button>
+          <button class="flt" onclick="alEditar('${a.id}')" style="padding:2px 7px;font-size:8px">✏️</button>
           <button class="flt" onclick="alEliminar('${a.id}')" style="padding:2px 7px;font-size:8px;color:var(--red)">🗑</button>
         </div>
       </td>
