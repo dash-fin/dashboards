@@ -207,10 +207,11 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
     const msg = buildMsg(a, cur, change, condDesc)
     const enviado = await enviar(a, msg)
 
-    // Actualizar alerta
+    // Actualizar alerta: si se envió, desactivar (notificación única)
     await sb.from('alertas').update({
       last_fired: new Date().toISOString(),
-      fired_count: (a.fired_count || 0) + 1
+      fired_count: (a.fired_count || 0) + 1,
+      ...(enviado ? { activa: false } : {})
     }).eq('id', a.id)
 
     // Registrar historial
