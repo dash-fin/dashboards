@@ -251,7 +251,7 @@
         padding:8px 12px;border-radius:5px;margin-top:12px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button class="btn-outline" onclick="pfCloseHide()">Cancelar</button>
-        <button class="btn-prim" id="pfcSaveBtn" onclick="pfCloseSave()">Registrar cierre</button>
+        <button class="btn-prim" id="pfcSaveBtn" onclick="pfCloseSave()">✅ Cerrar</button>
       </div>
     </div>
   </div>
@@ -305,7 +305,7 @@
         padding:8px 12px;border-radius:5px;margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" onclick="pfCloseOpcionHide()">Cancelar</button>
-        <button class="btn-prim" id="pfcOpSaveBtn" onclick="pfCloseOpcionSave()">Registrar cierre</button>
+        <button class="btn-prim" id="pfcOpSaveBtn" onclick="pfCloseOpcionSave()">✅ Cerrar</button>
       </div>
     </div>
   </div>
@@ -335,7 +335,7 @@
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" onclick="pfCloseOneLegHide()">Cancelar</button>
-        <button class="btn-prim" id="pfcLegSaveBtn" onclick="pfCloseOneLegSave()">Cerrar pata</button>
+        <button class="btn-prim" id="pfcLegSaveBtn" onclick="pfCloseOneLegSave()">✅ Cerrar pata</button>
       </div>
     </div>
   </div>
@@ -2136,34 +2136,25 @@ window.pfCloseOpcionSave = async () => {
     return s + sign * (l.prima_cierre - l.prima) * l.qty * optSz;
   }, 0);
 
-  btn.disabled = true; btn.textContent = 'Guardando...';
+  btn.disabled = true; btn.textContent = '✅ Cerrando...';
   try {
-    const session = await window.sbAuth?.auth?.getSession();
-    const token = session?.data?.session?.access_token;
-    const h = { ...CFG.SBH, 'Content-Type':'application/json', 'Prefer':'return=minimal' };
-    if(token) h['Authorization'] = 'Bearer '+token;
     await Promise.all([
-      fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${op.id}`, {
-        method:'PATCH', headers:h,
-        body: JSON.stringify({
-          estado: 'cerrada',
-          fecha_cierre: fecha,
-          spot_cierre: spot,
-          patas: patasConCierre,
-          pnl_ars: pnlARS,
-        })
+      sbPatch('operaciones', 'id=eq.'+op.id, {
+        estado: 'cerrada',
+        fecha_cierre: fecha,
+        spot_cierre: spot,
+        patas: patasConCierre,
+        pnl_ars: pnlARS,
       }),
-      fetch(`${CFG.SB_URL}/rest/v1/portafolio?operacion_id=eq.${op.id}`, {
-        method:'PATCH', headers:h,
-        body: JSON.stringify({ activo: false })
-      }),
+      sbPatch('portafolio', 'operacion_id=eq.'+op.id, { activo: false }),
     ]);
     pfCloseOpcionHide();
     await pfLoadAll();
+    alLog?.('✅ Estrategia de ' + op.subyacente + ' cerrada (P&L: $' + Math.round(pnlARS).toLocaleString('es-AR') + ')', 'green');
   } catch(e) {
     pfcOpMsg('error', e.message || 'Error al guardar');
   } finally {
-    btn.disabled = false; btn.textContent = 'Registrar cierre';
+    btn.disabled = false; btn.textContent = '✅ Cerrar';
   }
 };
 
@@ -2302,16 +2293,16 @@ window.pfCloseSave = async () => {
     notas,
   };
 
-  btn.disabled = true; btn.textContent = 'Guardando...';
+  btn.disabled = true; btn.textContent = '✅ Cerrando...';
   try {
     await sbInsert('trades', trade);
-    await sbPatch('portafolio', `id=eq.${pfCloseId}`, { activo: false });
+    await sbPatch('portafolio', 'id=eq.'+pfCloseId, { activo: false });
     pfCloseHide();
     await pfLoadAll();
   } catch(e) {
     pfCloseMsgShow('error', e.message || 'Error al guardar');
   } finally {
-    btn.disabled = false; btn.textContent = 'Registrar cierre';
+    btn.disabled = false; btn.textContent = '✅ Cerrar';
   }
 };
 
