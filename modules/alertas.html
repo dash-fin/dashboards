@@ -32,9 +32,9 @@
       <div class="kpi-sub">símbolos únicos</div>
     </div>
     <div class="kpi" style="--accent:var(--cyan)">
-      <div class="kpi-label">Realtime</div>
+      <div class="kpi-label">Engine</div>
       <div class="kpi-val" id="al-kpi-rt" style="font-size:13px">—</div>
-      <div class="kpi-sub">último evento</div>
+      <div class="kpi-sub">última ejecución</div>
     </div>
     <div class="kpi" style="--accent:var(--purple)">
       <div class="kpi-label">Canal</div>
@@ -449,6 +449,8 @@ async function alHealthCheck(){
     const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/alertas-engine', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
     const d = await r.json();
     if(d.ok){
+      const kpiRt = document.getElementById('al-kpi-rt');
+      if(kpiRt) kpiRt.textContent = d.ms + 'ms | ' + (d.disparadas||0) + ' disp';
       ts.textContent = '⚡ ' + d.alertas + ' alertas | ' + d.ms + 'ms';
       dot.style.background = 'var(--green)';
       dot.className = '';
@@ -462,6 +464,8 @@ async function alHealthCheck(){
     dot.className = '';
     label.textContent = 'Offline';
     label.style.color = 'var(--red)';
+    const kpiRt = document.getElementById('al-kpi-rt');
+    if(kpiRt) kpiRt.textContent = '⛔ error';
     ts.textContent = '⛔ ' + e.message;
   }
 }

@@ -211,7 +211,20 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
 }
 
 // ── HANDLER ────────────────────────────────────────────
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  }
+}
+
 serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders() })
+  }
+
   const start = Date.now()
 
   try {
@@ -221,7 +234,7 @@ serve(async (req) => {
       .eq('activa', true)
 
     if (errA || !alertas?.length) {
-      return new Response(JSON.stringify({ ok: true, checked: 0, ms: Date.now() - start }), { headers: { 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ ok: true, checked: 0, ms: Date.now() - start }), { headers: { ...corsHeaders(), 'Content-Type': 'application/json' } })
     }
 
     // 2. Cargar precios actuales
@@ -284,13 +297,13 @@ serve(async (req) => {
       alertas: alertas?.length || 0,
       disparadas,
       ms: Date.now() - start
-    }), { headers: { 'Content-Type': 'application/json' } })
+    }), { headers: { ...corsHeaders(), 'Content-Type': 'application/json' } })
 
   } catch (err: any) {
     console.error('alertas-engine error:', err)
     return new Response(JSON.stringify({ ok: false, error: err.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders(), 'Content-Type': 'application/json' }
     })
   }
 })
