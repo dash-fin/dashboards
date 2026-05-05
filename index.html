@@ -643,6 +643,18 @@ document.addEventListener('click', e => {
 
 // ── Buscador de tickers ──
 let _tickerTimer = null;
+document.getElementById('tickerResults').addEventListener('click', function(e){
+  const item = e.target.closest('.tr-item');
+  if(!item) return;
+  const idx = parseInt(item.dataset.idx, 10);
+  if(!isNaN(idx) && _tickerResults[idx]){
+    const r = _tickerResults[idx];
+    document.getElementById('tickerInput').value = r.sym;
+    tickerHideResults();
+    showTickerDetail(r);
+  }
+});
+
 window.tickerSearch = async function(q){
   clearTimeout(_tickerTimer);
   const res = document.getElementById('tickerResults');
@@ -665,7 +677,7 @@ window.tickerSearch = async function(q){
       _tickerResults.push({ sym:r.symbol, mercado:'ARS', last:r.last, chg:r.change, extra:r });
       const chg = Number(r.change||0), cls = chg>0?'pos':chg<0?'neg':'neu';
       const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
-      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item" onclick="tickerSelectByIndex(${_tickerResults.length-1})" onmouseover="tickerHover(${_tickerResults.length-1})">
+      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item">
         <span class="tr-sym">${r.symbol}</span>
         <span class="tr-badge tr-b-ars">ARS</span>
         <span class="tr-price">$${fmtAR(r.last,2)}</span>
@@ -681,7 +693,7 @@ window.tickerSearch = async function(q){
       const chg = Number(r.change_pct||0), cls = chg>0?'pos':chg<0?'neg':'neu';
       const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
       const vol = r.volume_rel ? (Number(r.volume_rel).toFixed(1)+'x') : fmtM(r.volume||0);
-      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item" onclick="tickerSelectByIndex(${_tickerResults.length-1})" onmouseover="tickerHover(${_tickerResults.length-1})">
+      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item">
         <span class="tr-sym">${r.symbol}</span>
         <span class="tr-badge tr-b-usa">USA</span>
         <span class="tr-price">$${fmtAR(r.last,2)}</span>
@@ -697,7 +709,7 @@ window.tickerSearch = async function(q){
       _tickerResults.push({ sym:r.symbol, mercado:'OPC', last:r.last||r.bid||0, chg:r.change, extra:r });
       const chg = Number(r.change||0), cls = chg>0?'pos':chg<0?'neg':'neu';
       const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
-      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item" onclick="tickerSelectByIndex(${_tickerResults.length-1})" onmouseover="tickerHover(${_tickerResults.length-1})">
+      html += `<div data-idx="${_tickerResults.length-1}" class="tr-item">
         <span class="tr-sym">${label} ${r.symbol}</span>
         <span class="tr-badge tr-b-opc">OPC</span>
         <span class="tr-price">$${fmtAR(r.last||r.bid||0,2)}</span>
