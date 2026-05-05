@@ -82,11 +82,11 @@
 
   <div class="card">
     <div class="card-head">
-      <div class="card-title">⚡ Log de eventos Realtime</div>
+      <div class="card-title">⚡ Log de eventos</div>
       <button class="btn btn-outline" onclick="alClearLog()" style="font-size:9px;padding:3px 10px">Limpiar</button>
     </div>
     <div id="al-log" style="padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);max-height:180px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:3px">
-      <span style="color:var(--text4);font-style:italic">Esperando eventos de Supabase Realtime...</span>
+      <span style="color:var(--text4);font-style:italic">Log: eventos Realtime y envíos desde la nube</span>
     </div>
   </div>
 </div>
@@ -414,11 +414,9 @@ async function alInit(){
   await alCargarPreciosIniciales();
   await alCargarHistorial();
   alKpiUpdate();
-  alRtConnect();
-  alRtConnectUsa();
-  alRtConnectOpt();
   alFormPreview();
-  // Refresh cada 10s: visual + fallback de evaluación (cooldown evita doble disparo si RT también funciona)
+  alHealthCheck();
+  setInterval(alHealthCheck, 30000);
   setInterval(() => alCargarPreciosIniciales(true), 10000);
 }
 
@@ -437,9 +435,40 @@ window.alTab = function(id, btn){
 };
 
 // ─────────────────────────────────────────────
-// SUPABASE REALTIME
+// HEALTH CHECK — Edge Function en la nube
 // ─────────────────────────────────────────────
-function alRtConnect(){
+async function alHealthCheck(){
+  const dot = document.getElementById('al-hl-dot');
+  const label = document.getElementById('al-hl-label');
+  const ts = document.getElementById('al-heartbeat-ts');
+  const errEl = document.getElementById('al-hl-error');
+  if(!dot) return;
+  try{
+    dot.style.background = 'var(--amber)';
+    label.textContent = 'Consultando...';
+    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/alertas-engine', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    const d = await r.json();
+    if(d.ok){
+      document.getElementById('al-hl-alertas').textContent = d.alertas ?? '—';
+      document.getElementById('al-hl-ms').textContent = d.ms + 'ms';
+      ts.textContent = new Date().toLocaleTimeString('es-AR');
+      dot.style.background = 'var(--green)';
+      label.textContent = 'Online';
+      errEl.style.display = 'none';
+    } else {
+      throw new Error(d.error || 'Respuesta inválida');
+    }
+  }catch(e){
+    dot.style.background = 'var(--red)';
+    label.textContent = 'Offline';
+    errEl.style.display = 'block';
+    errEl.textContent = '❌ ' + e.message;
+  }
+}
+
+// SUPABASE REALTIME (removed — now handled by edge function)
+// ─────────────────────────────────────────────
+function alRtConnect(){ // no-op: engine runs in cloud
   if(AL.rtChannel){
     try{ AL.rtChannel.unsubscribe(); }catch(e){}
   }
@@ -491,18 +520,10 @@ async function alEvaluarAlertas(sym, cur, prev, change, turnover){
         alLog(`⏳ ${sym}: en cooldown (${restMin}min).`, 'amber');
         continue;
       }
-      const msg = alBuildMsg(alerta, cur, change, condDesc);
       alLog(`🔔 ALERTA DISPARADA: ${sym} — ${condDesc}`, 'green');
-      const canal = AL.cfg.canal || 'ninguno';
-      let estado = '❌ Sin canal';
-      if(canal !== 'ninguno'){
-        const ok = await alEnviar(msg);
-        estado = ok ? '✅ Enviado' : '❌ Error envío';
-      }
-      alerta.last_fired = new Date().toISOString();
-      alerta.fired_count = (alerta.fired_count || 0) + 1;
-      await sbPatch('alertas', `id=eq.${alerta.id}`, { last_fired: alerta.last_fired, fired_count: alerta.fired_count });
-      await sbPost('alertas_historial', {
+      alLog(`   → Procesado por edge function en la nube`, 'blue');
+      // No escribimos last_fired/historial desde el browser —
+      // la edge function lo maneja para evitar duplicación
         user_id: alUserId(), alerta_id: alerta.id, ticker: sym, tipo: alerta.tipo,
         cond_desc: condDesc, precio: cur, canal, estado, fired_at: new Date().toISOString()
       });

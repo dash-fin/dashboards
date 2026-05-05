@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const pkg = require\\('./package.json'\\); console.log\\('deps:', Object.keys\\(pkg.dependencies\\).length\\); console.log\\('ok'\\); console.log\\(JSON.stringify\\(Object.keys\\(pkg.dependencies\\), null, 2\\)\\)\")",
+      "Bash(eas --version)",
+      "Bash(node -e \"console.log\\('App.js size:', require\\('fs'\\).statSync\\('App.js'\\).size, 'bytes'\\)\")",
+      "Bash(npm uninstall:*)",
+      "Bash(npx expo:*)",
+      "Bash(python3 -c \"import json,sys; p=json.load\\(sys.stdin\\); print\\('version:', p['version']\\); print\\('main:', p.get\\('main','—'\\)\\)\")",
+      "Bash(node:*)",
+      "Bash(CI=1 npx expo start)",
+      "Bash(python3 -c ':*)",
+      "Bash(py --version)",
+      "Bash(python -c ':*)"
+    ]
+  }
+}
