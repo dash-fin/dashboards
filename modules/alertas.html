@@ -796,6 +796,7 @@ window.alToggle = async function(id, val){
   a.activa = val;
   await sbPatch('alertas', `id=eq.${id}`, {activa: val});
   alRenderActivas();
+  alRenderSlTp();
   alKpiUpdate();
 };
 
@@ -857,6 +858,7 @@ function alRenderHistorial(rows){
 // DETECCIÓN SL/TP
 // ─────────────────────────────────────────────
 function isSlTpAlert(a) {
+  if (a.tipo === 'sltp') return true;
   const id  = a.id || '';
   const msg = (a.mensaje || '').toLowerCase();
   return id.endsWith('_sl') || id.endsWith('_tp') ||
@@ -873,10 +875,13 @@ function alRenderSltp() {
   }
   tbody.innerHTML = rows.map(a => {
     const id   = a.id || '';
+    const isSltp = a.tipo === 'sltp';
     const isSL = id.endsWith('_sl') || a.params?.dir === '<=';
-    const label = isSL ? '🛑 Stop Loss' : '🎯 Take Profit';
-    const color = isSL ? 'var(--red)' : 'var(--green)';
-    const objetivo = a.params?.valor != null ? '$' + fmtAR(a.params.valor, 2) : '—';
+    const label = isSltp ? '🎯 SL/TP' : (isSL ? '🛑 Stop Loss' : '🎯 Take Profit');
+    const color = isSltp ? 'var(--orange)' : (isSL ? 'var(--red)' : 'var(--green)');
+    const objetivo = isSltp
+      ? 'SL: ' + (a.params?.sl != null ? '$' + fmtAR(a.params.sl, 2) : '—') + ' / TP: ' + (a.params?.tp != null ? '$' + fmtAR(a.params.tp, 2) : '—')
+      : (a.params?.valor != null ? '$' + fmtAR(a.params.valor, 2) : '—');
     const cleanTicker = alCleanTicker(a.ticker);
     const curPrice = AL.prevPrices[cleanTicker] !== undefined ? '$' + fmtAR(AL.prevPrices[cleanTicker], 2) : '—';
     const lastF = a.last_fired ? new Date(a.last_fired).toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}) : '—';

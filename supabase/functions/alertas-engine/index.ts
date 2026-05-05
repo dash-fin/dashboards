@@ -116,7 +116,7 @@ async function evalMA(sym: string, valor: number, cond: string, params: any, esU
 }
 
 function buildMsg(a: Alerta, cur: number, change: number, condDesc: string): string {
-  const emoji = a.tipo === 'precio' ? '💰' : a.tipo === 'ma' ? '📊' : a.tipo === 'variacion' ? '📈' : '📉'
+  const emoji = a.tipo === 'precio' ? '💰' : a.tipo === 'sltp' ? '🎯' : a.tipo === 'ma' ? '📊' : a.tipo === 'variacion' ? '📈' : '📉'
   const sig = change >= 0 ? '+' : ''
   return [
     `${emoji} *ALERTA — ${a.ticker}*`,
@@ -204,6 +204,17 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
       [disparado, condDesc] = evalVolumen(turnover, valor, cond)
     } else if (a.tipo === 'ma') {
       [disparado, condDesc] = await evalMA(sym, valor, cond, a.params, esUsa)
+    } else if (a.tipo === 'sltp') {
+      // Alerta única SL/TP: evalúa ambos umbrales
+      const sl = Number(a.params?.sl || 0)
+      const tp = Number(a.params?.tp || 0)
+      if (sl && cur <= sl) {
+        disparado = true
+        condDesc = `SL: \$${cur.toFixed(2)} ≤ \$${sl.toFixed(2)}`
+      } else if (tp && cur >= tp) {
+        disparado = true
+        condDesc = `TP: \$${cur.toFixed(2)} ≥ \$${tp.toFixed(2)}`
+      }
     }
 
     if (!disparado) continue
@@ -288,8 +299,8 @@ serve(async (req) => {
 
       // Opciones: tickers con formato alfanumérico largo (ej: GFGV5974JU)
       const esOpt = a.ticker === sym && sym.length >= 8 && /[A-Z]{4}\d/.test(sym)
-      // Stop-loss / take-profit de ADRs (ID termina en _sl o _tp): siempre USA
-      const esSlTp = /_(sl|tp)$/i.test(a.id)
+      // Stop-loss / take-profit de ADRs (tipo sltp o ID termina en _sl/_tp): siempre USA
+      const esSlTp = a.tipo === 'sltp' || /_(sl|tp)$/i.test(a.id)
 
       if (esOpt) {
         const opt = preciosOptArr.find(r => cleanTicker(r.symbol) === sym)
