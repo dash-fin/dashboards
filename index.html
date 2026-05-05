@@ -445,7 +445,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
             <span style="padding:0 8px;font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace">🔍</span>
             <input id="tickerInput" placeholder="Buscar ticker..." autocomplete="off" autofocus
               style="background:transparent;border:none;outline:none;padding:5px 8px 5px 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text);width:130px"
-              oninput="tickerSearch(this.value)" onkeydown="tickerKey(event)" onfocus="document.getElementById('tickerSearchBox').style.borderColor='var(--green)'" onblur="setTimeout(()=>{document.getElementById('tickerSearchBox').style.borderColor='';tickerHideResults()},200)">
+              oninput="tickerSearch(this.value)" onkeydown="tickerKey(event)" onfocus="document.getElementById('tickerSearchBox').style.borderColor='var(--green)'" onblur="_blurTimer=setTimeout(()=>{document.getElementById('tickerSearchBox').style.borderColor='';tickerHideResults()},200)">
           </div>
           <div id="tickerResults" style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;z-index:300;min-width:280px;max-height:320px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
         </div>
@@ -643,7 +643,9 @@ document.addEventListener('click', e => {
 
 // ── Buscador de tickers ──
 let _tickerTimer = null;
+let _blurTimer = null;
 document.getElementById('tickerResults').addEventListener('click', function(e){
+  clearTimeout(_blurTimer);
   const item = e.target.closest('.tr-item');
   if(!item) return;
   const idx = parseInt(item.dataset.idx, 10);
@@ -653,6 +655,17 @@ document.getElementById('tickerResults').addEventListener('click', function(e){
     tickerHideResults();
     showTickerDetail(r);
   }
+});
+document.getElementById('tickerResults').addEventListener('mouseover', function(e){
+  const item = e.target.closest('.tr-item');
+  if(!item) return;
+  const idx = parseInt(item.dataset.idx, 10);
+  if(!isNaN(idx)) tickerHover(idx);
+});
+document.getElementById('tickerResults').addEventListener('mouseout', function(e){
+  const item = e.target.closest('.tr-item');
+  if(!item) return;
+  item.classList.remove('tr-hl');
 });
 
 window.tickerSearch = async function(q){
@@ -769,6 +782,7 @@ window.tickerKey = function(e){
 window.tickerSelectByIndex = function(idx){
   const r = _tickerResults[idx];
   if(!r) return;
+  clearTimeout(_blurTimer);
   document.getElementById('tickerInput').value = r.sym;
   tickerHideResults();
   showTickerDetail(r);
