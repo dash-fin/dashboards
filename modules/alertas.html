@@ -86,7 +86,7 @@
       <button class="btn btn-outline" onclick="alClearLog()" style="font-size:9px;padding:3px 10px">Limpiar</button>
     </div>
     <div id="al-log" style="padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);max-height:180px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:3px">
-      <span style="color:var(--text4);font-style:italic">Log: eventos Realtime y envíos desde la nube</span>
+      <span style="color:var(--text4);font-style:italic">Esperando eventos de la edge function...</span>
     </div>
   </div>
 </div>
@@ -438,31 +438,31 @@ window.alTab = function(id, btn){
 // HEALTH CHECK — Edge Function en la nube
 // ─────────────────────────────────────────────
 async function alHealthCheck(){
-  const dot = document.getElementById('al-hl-dot');
-  const label = document.getElementById('al-hl-label');
-  const ts = document.getElementById('al-heartbeat-ts');
-  const errEl = document.getElementById('al-hl-error');
+  const dot = document.getElementById('al-rt-dot');
+  const label = document.getElementById('al-rt-label');
+  const ts = document.getElementById('al-refresh-ts');
   if(!dot) return;
   try{
     dot.style.background = 'var(--amber)';
     label.textContent = 'Consultando...';
+    label.style.color = 'var(--amber)';
     const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/alertas-engine', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
     const d = await r.json();
     if(d.ok){
-      document.getElementById('al-hl-alertas').textContent = d.alertas ?? '—';
-      document.getElementById('al-hl-ms').textContent = d.ms + 'ms';
-      ts.textContent = new Date().toLocaleTimeString('es-AR');
+      ts.textContent = '⚡ ' + d.alertas + ' alertas | ' + d.ms + 'ms';
       dot.style.background = 'var(--green)';
-      label.textContent = 'Online';
-      errEl.style.display = 'none';
+      dot.className = '';
+      label.textContent = 'Engine online';
+      label.style.color = 'var(--green)';
     } else {
       throw new Error(d.error || 'Respuesta inválida');
     }
   }catch(e){
     dot.style.background = 'var(--red)';
+    dot.className = '';
     label.textContent = 'Offline';
-    errEl.style.display = 'block';
-    errEl.textContent = '❌ ' + e.message;
+    label.style.color = 'var(--red)';
+    ts.textContent = '⛔ ' + e.message;
   }
 }
 
@@ -819,6 +819,12 @@ async function alCargarHistorial(){
   const uid = alUserId();
   const rows = await window.sb('alertas_historial', `user_id=eq.${uid}&order=fired_at.desc&limit=200`);
   alRenderHistorial(rows||[]);
+  // Reflejar últimos 5 eventos en el log
+  const recientes = (rows||[]).slice(0,5);
+  for(const h of recientes){
+    const emoji = h.estado?.includes('✅') ? '✅' : '❌';
+    alLog(`${h.estado?.includes('✅')?'✅':'❌'} ${h.ticker} — ${h.cond_desc||'—'} [${h.canal||'—'}]`, h.estado?.includes('✅')?'green':'red');
+  }
 }
 
 function alRenderHistorial(rows){
