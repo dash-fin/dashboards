@@ -285,8 +285,8 @@ serve(async (req) => {
 
       // Opciones: tickers con formato alfanumérico largo (ej: GFGV5974JU)
       const esOpt = a.ticker === sym && sym.length >= 8 && /[A-Z]{4}\d/.test(sym)
-      // Stop-loss / take-profit de ADRs (ticker_terminal_POSICIÓN): siempre USA
-      const esSlTp = /_(sl|tp)$/i.test(a.ticker)
+      // Stop-loss / take-profit de ADRs (ID termina en _sl o _tp): siempre USA
+      const esSlTp = /_(sl|tp)$/i.test(a.id)
 
       if (esOpt) {
         const opt = preciosOptArr.find(r => cleanTicker(r.symbol) === sym)
