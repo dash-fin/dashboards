@@ -704,6 +704,18 @@
       <div id="pfCalendarBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px"></div>
     </div>
     <div id="pfBenchWrap" style="display:none;padding:16px 12px">
+      <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap" id="pfBenchRangeButtons">
+        <button class="flt" data-range="wtd" onclick="pfSetRange('wtd')">WTD</button>
+        <button class="flt" data-range="mtd" onclick="pfSetRange('mtd')">MTD</button>
+        <button class="flt" data-range="ytd" onclick="pfSetRange('ytd')">YTD</button>
+        <button class="flt on" data-range="max" onclick="pfSetRange('max')">Máx</button>
+        <button class="flt" data-range="custom" onclick="pfSetRange('custom')">Personalizado</button>
+        <div id="pfBenchCustomRange" style="display:none;gap:6px;align-items:center;margin-left:4px">
+          <input type="date" id="pfBenchRangeFrom" style="padding:2px 6px;font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace">
+          <span style="color:var(--text4);font-size:9px">→</span>
+          <input type="date" id="pfBenchRangeTo" style="padding:2px 6px;font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace">
+        </div>
+      </div>
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
         <div id="pfBenchKpis" style="display:flex;flex-wrap:wrap;gap:20px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
         <button id="pfBenchPrivacy" data-on="0" onclick="pfTogglePrivacy()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:1px;white-space:nowrap;flex-shrink:0">OCULTAR MONTOS</button>
@@ -3091,19 +3103,25 @@ let pfActiveRange = 'max';
 
 window.pfSetRange = function pfSetRange(range) {
   pfActiveRange = range;
-  // Toggle active button
-  document.querySelectorAll('#pfRangeButtons .flt').forEach(b => b.classList.toggle('on', b.dataset.range === range));
-  const customDiv = document.getElementById('pfCustomRange');
+  // Toggle active button en ambos paneles
+  document.querySelectorAll('#pfRangeButtons .flt, #pfBenchRangeButtons .flt').forEach(b => b.classList.toggle('on', b.dataset.range === range));
+  // Mostrar/ocultar inputs personalizados en ambos paneles
+  const customDivs = [
+    document.getElementById('pfCustomRange'),
+    document.getElementById('pfBenchCustomRange'),
+  ].filter(Boolean);
   if (range === 'custom') {
-    customDiv.style.display = 'flex';
-    if (!customDiv.dataset.inited) {
-      customDiv.dataset.inited = '1';
-      // Cuando cambian las fechas, redibujar
-      document.getElementById('pfRangeFrom').addEventListener('change', pfRenderCharts);
-      document.getElementById('pfRangeTo').addEventListener('change', pfRenderCharts);
+    customDivs.forEach(el => { el.style.display = 'flex'; });
+    if (!customDivs[0]?.dataset.inited) {
+      customDivs.forEach(el => { if(el) el.dataset.inited = '1'; });
+      // Cuando cambian las fechas, redibujar (usar los del panel principal)
+      document.getElementById('pfRangeFrom')?.addEventListener('change', () => { pfRenderCharts(); if (pfHistCurrentView === 'bench') pfRenderBenchmark(); });
+      document.getElementById('pfRangeTo')?.addEventListener('change', () => { pfRenderCharts(); if (pfHistCurrentView === 'bench') pfRenderBenchmark(); });
+      document.getElementById('pfBenchRangeFrom')?.addEventListener('change', () => { pfRenderCharts(); if (pfHistCurrentView === 'bench') pfRenderBenchmark(); });
+      document.getElementById('pfBenchRangeTo')?.addEventListener('change', () => { pfRenderCharts(); if (pfHistCurrentView === 'bench') pfRenderBenchmark(); });
     }
   } else {
-    customDiv.style.display = 'none';
+    customDivs.forEach(el => { if (el) el.style.display = 'none'; });
   }
   pfRenderCharts();
   // Si la vista actual es rendimiento, actualizar benchmark
@@ -3132,8 +3150,13 @@ window.pfGetRangeDates = function pfGetRangeDates() {
       break;
     }
     case 'custom': {
-      const fEl = document.getElementById('pfRangeFrom');
-      const tEl = document.getElementById('pfRangeTo');
+      // Intentar los inputs del panel principal, sino los del benchmark
+      let fEl = document.getElementById('pfRangeFrom');
+      let tEl = document.getElementById('pfRangeTo');
+      if (!fEl?.value || !tEl?.value) {
+        fEl = document.getElementById('pfBenchRangeFrom');
+        tEl = document.getElementById('pfBenchRangeTo');
+      }
       from = fEl?.value || null;
       const tVal = tEl?.value || null;
       if (!from || !tVal) return null;
