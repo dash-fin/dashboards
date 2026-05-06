@@ -550,18 +550,31 @@
 
   <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
 
-    <!-- Donut -->
-    <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Distribución</div>
-      <div style="position:relative;width:220px;height:220px">
-        <canvas id="pfDonutCanvas" width="220" height="220"></canvas>
-        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px">
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);letter-spacing:1px">TOTAL USD</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:var(--text)" id="pfDonutTotal">—</div>
-          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px" id="pfDonutGain">—</div>
+    <!-- Donuts: tipo + sector -->
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px;flex:1;min-width:200px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por tipo</div>
+        <div style="position:relative;width:200px;height:200px">
+          <canvas id="pfDonutCanvas" width="200" height="200"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:7px;color:var(--text3);letter-spacing:1px">TOTAL USD</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text)" id="pfDonutTotal">—</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9px" id="pfDonutGain">—</div>
+          </div>
         </div>
+        <div id="pfLegend" style="display:flex;flex-direction:column;gap:6px;width:100%"></div>
       </div>
-      <div id="pfLegend" style="display:flex;flex-direction:column;gap:6px;width:100%"></div>
+      <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px;flex:1;min-width:200px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por sector SPY</div>
+        <div style="position:relative;width:200px;height:200px">
+          <canvas id="pfSectorCanvas" width="200" height="200"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:7px;color:var(--text3);letter-spacing:1px">EN CEDEARs</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text)" id="pfSectorTotal">—</div>
+          </div>
+        </div>
+        <div id="pfSectorLegend" style="display:flex;flex-direction:column;gap:6px;width:100%"></div>
+      </div>
     </div>
 
     <!-- Columna derecha: alloc + gráficos apilados -->
@@ -756,6 +769,23 @@ const TIPO_COLOR = {
   CEDEAR:'#00b4d8', BONO_SOBERANO:'#00e5a8',
   DOLAR_LINKED:'#f0a500', BONO_CER:'#b39dff',
   BONO_DUAL:'#ff3f5e', ACCION:'#4da6ff', OPCION:'#ffc84a',
+};
+
+// Mapa de ticker → sector SPY
+const SECTOR_MAP = {
+  MSFT:'Tecnología', NVDA:'Tecnología', ADBE:'Tecnología', ORCL:'Tecnología',
+  DOCU:'Tecnología', SPOT:'Tecnología', OKLO:'Energía', HOOD:'Financiero',
+  MA:'Financiero', V:'Financiero', AXP:'Financiero',
+  UNH:'Salud',
+  PG:'Consumo básico', CL:'Consumo básico', WMT:'Consumo básico',
+  NKE:'Consumo discrecional', MELI:'Consumo discrecional', JD:'Consumo discrecional',
+  BA:'Industrial', BA.C:'Industrial',
+  SPY:'S&P 500',
+};
+const SECTOR_COLORS = {
+  'Tecnología':'#00b4d8', 'Financiero':'#f0a500', 'Salud':'#b39dff',
+  'Consumo básico':'#00e5a8', 'Consumo discrecional':'#ff6b9d',
+  'Industrial':'#ff9a3c', 'Energía':'#ff3f5e', 'S&P 500':'#c8a2c8',
 };
 
 // ── Estado ──────────────────────────────────────────────
@@ -1096,6 +1126,7 @@ function pfRender() {
   });
 
   pfRenderDonut(byTipo, totAct, totGan);
+  pfRenderSectorDonut(calced);
   pfRenderAlloc(byTipo, totAct);
   pfRenderTypeDistribs(calced);
   pfRenderPositions(calced);
@@ -1137,6 +1168,63 @@ function pfRenderDonut(byTipo, totAct, totGan) {
       <div style="display:flex;align-items:center;gap:7px">
         <span style="width:10px;height:10px;border-radius:2px;background:${TIPO_COLOR[t]||'#888'};flex-shrink:0"></span>
         <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2)">${TIPO_LABEL[t]||t}</span>
+      </div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Donut por sector SPY ─────────────────────────────────
+let pfSectorChart = null;
+function pfRenderSectorDonut(calced) {
+  // calced: array de { ticker_ars, tipo, usdAct, usdInv } de pfCalc
+  // Agrupar CEDEARs por sector, sumando usdAct
+  const bySector = {};
+  let totalCedears = 0;
+  for (const p of calced) {
+    if (p.tipo !== 'CEDEAR') continue;
+    const sector = SECTOR_MAP[p.ticker_ars] || 'Otros';
+    if (!bySector[sector]) bySector[sector] = 0;
+    bySector[sector] += p.usdAct;
+    totalCedears += p.usdAct;
+  }
+  if (!totalCedears) {
+    document.getElementById('pfSectorCanvas').style.display = 'none';
+    document.getElementById('pfSectorLegend').innerHTML = '<div style="font-size:9px;color:var(--text4);text-align:center">Sin CEDEARs</div>';
+    return;
+  }
+  document.getElementById('pfSectorCanvas').style.display = '';
+
+  document.getElementById('pfSectorTotal').textContent = 'U$S '+Math.round(totalCedears).toLocaleString('es-AR');
+
+  const sectores = Object.keys(bySector).sort((a,b) => bySector[b] - bySector[a]);
+  const labels = sectores;
+  const data   = sectores.map(s => +bySector[s].toFixed(2));
+  const colors = sectores.map(s => SECTOR_COLORS[s] || '#888');
+
+  const ctx = document.getElementById('pfSectorCanvas');
+  if (!ctx) return;
+  if (pfSectorChart) { pfSectorChart.destroy(); pfSectorChart = null; }
+  pfSectorChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderColor:'#0d1117', borderWidth:4, hoverBorderWidth:5, hoverOffset:6 }] },
+    options:{
+      responsive:false, cutout:'74%', animation:{duration:600},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{
+          const pct=totalCedears>0?(ctx.raw/totalCedears*100).toFixed(1):0;
+          return ` U$S ${Math.round(ctx.raw).toLocaleString('es-AR')} (${pct}%)`;
+        }}}
+      }
+    }
+  });
+  document.getElementById('pfSectorLegend').innerHTML = sectores.map(s => {
+    const pct = totalCedears>0?(bySector[s]/totalCedears*100).toFixed(1):0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:10px;height:10px;border-radius:2px;background:${SECTOR_COLORS[s]||'#888'};flex-shrink:0"></span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2)">${s}</span>
       </div>
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">${pct}%</span>
     </div>`;
