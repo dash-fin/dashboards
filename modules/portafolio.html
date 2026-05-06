@@ -4,6 +4,117 @@
      Fórmula: usd = (precio_ars × cantidad) / mep_compra|actual
 ══════════════════════════════════════════════════ -->
 
+<style>
+/* ── Botones modales portafolio ─────────────────────── */
+#pfModalOverlay .btn-prim,
+#pfCloseOverlay .btn-prim,
+#pfCloseOpcionOverlay .btn-prim,
+#pfcLegOverlay .btn-prim {
+  padding: 7px 16px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.8px;
+  border: none;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cerrar posición/estrategia/pata — rojo con hover */
+[id$="SaveBtn"] {
+  background: rgba(255, 63, 94, 0.15);
+  color: #ff3f5e;
+  border: 1px solid rgba(255, 63, 94, 0.25);
+}
+[id$="SaveBtn"]:hover {
+  background: #ff3f5e;
+  color: #0d1117;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 63, 94, 0.35);
+}
+[id$="SaveBtn"]:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(255, 63, 94, 0.25);
+}
+[id$="SaveBtn"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Guardar posición — verde con hover */
+#pfmSaveBtn {
+  background: rgba(0, 229, 168, 0.15);
+  color: #00e5a8;
+  border: 1px solid rgba(0, 229, 168, 0.25);
+}
+#pfmSaveBtn:hover {
+  background: #00e5a8;
+  color: #0d1117;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 229, 168, 0.35);
+}
+#pfmSaveBtn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 229, 168, 0.25);
+}
+#pfmSaveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Cancelar — outline */
+#pfModalOverlay .btn-outline,
+#pfCloseOverlay .btn-outline,
+#pfCloseOpcionOverlay .btn-outline,
+#pfcLegOverlay .btn-outline {
+  background: transparent;
+  color: var(--text3);
+  border: 1px solid var(--border2);
+  padding: 7px 16px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+#pfModalOverlay .btn-outline:hover,
+#pfCloseOverlay .btn-outline:hover,
+#pfCloseOpcionOverlay .btn-outline:hover,
+#pfcLegOverlay .btn-outline:hover {
+  border-color: var(--text2);
+  color: var(--text);
+  background: var(--bg3);
+}
+
+/* + Nueva posición toolbar button */
+.btn-prim[onclick*="pfModalOpen"] {
+  background: linear-gradient(135deg, rgba(0, 229, 168, 0.12), rgba(0, 180, 216, 0.12));
+  color: #00e5a8;
+  border: 1px solid rgba(0, 229, 168, 0.2);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-prim[onclick*="pfModalOpen"]:hover {
+  background: linear-gradient(135deg, #00e5a8, #00b4d8);
+  color: #0d1117;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0, 229, 168, 0.3);
+}
+.btn-prim[onclick*="pfModalOpen"]:active {
+  transform: translateY(0);
+}
+</style>
 <!-- ── Modal: Nueva / Editar posición ────────────────── -->
 <div id="pfModalOverlay" onclick="pfModalClose(event)" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center">
   <div class="modal" style="max-width:560px;width:100%;margin:20px" onclick="event.stopPropagation()">
