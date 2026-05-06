@@ -2606,7 +2606,7 @@ const pfRenderBenchmark = async function __pfRB() {
 window.pfRenderBenchmark = __pfRB;
   const wrap  = document.getElementById('pfBenchWrap');
   const kpis  = document.getElementById('pfBenchKpis');
-  const cWrap = wrap?.querySelector('div:last-child');
+  const cWrap = wrap?.querySelector('div:has(> canvas)');
   if(!wrap || !cWrap) return;
 
   kpis.innerHTML = '<span style="color:var(--text4)">Cargando...</span>';
