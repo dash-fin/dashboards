@@ -252,7 +252,11 @@
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button class="btn-outline" onclick="pfCloseHide()">Cancelar</button>
         <button class="btn-prim" id="pfcSaveBtn" onclick="pfCloseSave()" style="display:flex;align-items:center;gap:6px;font-weight:500">
-          <span>✕</span> Cerrar posición
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          Cerrar
         </button>
       </div>
     </div>
@@ -308,7 +312,12 @@
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" onclick="pfCloseOpcionHide()">Cancelar</button>
         <button class="btn-prim" id="pfcOpSaveBtn" onclick="pfCloseOpcionSave()" style="display:flex;align-items:center;gap:6px;font-weight:500">
-          <span>✕</span> Cerrar estrategia
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+          </svg>
+          Cerrar
         </button>
       </div>
     </div>
@@ -340,8 +349,12 @@
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" onclick="pfCloseOneLegHide()">Cancelar</button>
         <button class="btn-prim" id="pfcLegSaveBtn" onclick="pfCloseOneLegSave()" style="display:flex;align-items:center;gap:6px;font-weight:500">
-        <span>✕</span> Cerrar pata
-      </button>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+          Cerrar
+        </button>
       </div>
     </div>
   </div>
@@ -2150,7 +2163,6 @@ window.pfCloseOpcionSave = async () => {
         fecha_cierre: fecha,
         spot_cierre: spot,
         patas: patasConCierre,
-        pnl_ars: pnlARS,
       }),
       sbPatch('portafolio', 'operacion_id=eq.'+op.id, { activo: false }),
     ]);
@@ -2705,7 +2717,7 @@ async function pfLoadHistorial() {
   if(!email) return;
   const [rows, opsRows] = await Promise.all([
     sb('trades', `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`),
-    sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre,pnl_ars`),
+    sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre`),
   ]);
   const tbody   = document.getElementById('pfHistTbody');
   const statsEl = document.getElementById('pfHistStats');
@@ -2758,14 +2770,14 @@ async function pfLoadHistorial() {
           + (l.prima_cierre != null ? ` → $${l.prima_cierre}` : '')
         ).join(' / ');
 
-        // P&L real: usa prima_cierre por pata si disponible, sino pnl_ars guardado
+        // P&L real calculado desde prima_cierre de cada pata
         const allHaveCierre = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
         const pnlReal = allHaveCierre
           ? (op.patas||[]).reduce((s,l) => {
               const sign = l.action==='buy' ? 1 : -1;
               return s + sign * (l.prima_cierre - l.prima) * l.qty * optSz;
             }, 0)
-          : (op.pnl_ars ?? null);
+          : null;
         const pc2 = pnlReal != null ? (pnlReal>=0?'var(--green)':'var(--red)') : 'var(--text3)';
         const ps2 = pnlReal != null ? (pnlReal>=0?'+':'') : '';
         const pnlStr = pnlReal != null
