@@ -2590,7 +2590,7 @@ window.pfTogglePrivacy = () => {
 };
 
 let _benchChart = null;
-async function pfRenderBenchmark() {
+window.pfRenderBenchmark = async function pfRenderBenchmark() {
   const wrap  = document.getElementById('pfBenchWrap');
   const kpis  = document.getElementById('pfBenchKpis');
   const cWrap = wrap?.querySelector('div:last-child');
@@ -2598,6 +2598,9 @@ async function pfRenderBenchmark() {
 
   kpis.innerHTML = '<span style="color:var(--text4)">Cargando...</span>';
   cWrap.innerHTML = '';
+
+  // Aplicar rango temporal
+  const _range = window.pfGetRangeDates ? pfGetRangeDates() : { from: null, to: null };
 
   // Portafolio histórico desde pnl_diario — usamos pnl_pct para excluir inyecciones de capital
   const _email = encodeURIComponent(window.currentUser?.email||'');
@@ -2608,13 +2611,23 @@ async function pfRenderBenchmark() {
     return;
   }
 
-  const startDate = pnlRows[0].fecha;
+  // Filtrar por rango temporal
+  const filtered = _range.from
+    ? pnlRows.filter(r => r.fecha >= _range.from && (!_range.to || r.fecha <= _range.to))
+    : pnlRows;
+  if (!filtered.length) {
+    kpis.innerHTML = '<span style="color:var(--text4)">Sin datos en este rango</span>';
+    cWrap.innerHTML = '';
+    return;
+  }
+
+  const startDate = filtered[0].fecha;
 
   // Construir índice de retorno compuesto (base 100) a partir de pnl_pct
   // Día 1 = 100, cada día siguiente: prev * (1 + pnl_pct/100)
   const pfByDate = {};
   let compVal = 100;
-  pnlRows.forEach((r, i) => {
+  filtered.forEach((r, i) => {
     if(i > 0 && r.pnl_pct != null) compVal = compVal * (1 + Number(r.pnl_pct) / 100);
     pfByDate[r.fecha] = +compVal.toFixed(4);
   });
@@ -2650,7 +2663,7 @@ async function pfRenderBenchmark() {
 
   // Sharpe ratio (anualizado, rf=0) — usa pnl_pct/100 como retorno diario
   let sharpe = null;
-  const dailyRets = pnlRows.filter(r => r.pnl_pct != null).map(r => Number(r.pnl_pct)/100);
+  const dailyRets = filtered.filter(r => r.pnl_pct != null).map(r => Number(r.pnl_pct)/100);
   if(dailyRets.length >= 10) {
     const mean = dailyRets.reduce((s,r)=>s+r,0)/dailyRets.length;
     const std  = Math.sqrt(dailyRets.reduce((s,r)=>s+(r-mean)**2,0)/dailyRets.length);
@@ -3093,6 +3106,8 @@ window.pfSetRange = function pfSetRange(range) {
     customDiv.style.display = 'none';
   }
   pfRenderCharts();
+  // Si la vista actual es rendimiento, actualizar benchmark
+  if (pfHistCurrentView === 'bench') pfRenderBenchmark();
 }
 
 window.pfGetRangeDates = function pfGetRangeDates() {
