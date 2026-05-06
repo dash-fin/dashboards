@@ -601,9 +601,21 @@
       </div>
 
       <div class="card" style="padding:18px 20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Portafolio YTD · USD</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Portafolio USD</span>
           <span id="pfChartPortfolioStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap" id="pfRangeButtons">
+          <button class="flt" data-range="wtd" onclick="pfSetRange('wtd')">WTD</button>
+          <button class="flt" data-range="mtd" onclick="pfSetRange('mtd')">MTD</button>
+          <button class="flt" data-range="ytd" onclick="pfSetRange('ytd')">YTD</button>
+          <button class="flt on" data-range="max" onclick="pfSetRange('max')">Máx</button>
+          <button class="flt" data-range="custom" onclick="pfSetRange('custom')">Personalizado</button>
+          <div id="pfCustomRange" style="display:none;gap:6px;align-items:center;margin-left:4px">
+            <input type="date" id="pfRangeFrom" style="padding:2px 6px;font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace">
+            <span style="color:var(--text4);font-size:9px">→</span>
+            <input type="date" id="pfRangeTo" style="padding:2px 6px;font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace">
+          </div>
         </div>
         <div style="position:relative;height:240px">
           <canvas id="pfChartPortfolio"></canvas>
@@ -612,7 +624,7 @@
 
       <div class="card" style="padding:18px 20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker YTD · % USD</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker · % USD</span>
           <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
         </div>
         <div style="position:relative;height:240px">
@@ -3061,13 +3073,73 @@ function pfRenderPeriodKPIs() {
   setPeriodKpi('ytd', ytdPct);
 }
 
-// ── Gráficos YTD ─────────────────────────────────────────
+// ── Rango temporal ─────────────────────────────────────────
+let pfActiveRange = 'max';
+
+function pfSetRange(range) {
+  pfActiveRange = range;
+  // Toggle active button
+  document.querySelectorAll('#pfRangeButtons .flt').forEach(b => b.classList.toggle('on', b.dataset.range === range));
+  const customDiv = document.getElementById('pfCustomRange');
+  if (range === 'custom') {
+    customDiv.style.display = 'flex';
+    if (!customDiv.dataset.inited) {
+      customDiv.dataset.inited = '1';
+      // Cuando cambian las fechas, redibujar
+      document.getElementById('pfRangeFrom').addEventListener('change', pfRenderCharts);
+      document.getElementById('pfRangeTo').addEventListener('change', pfRenderCharts);
+    }
+  } else {
+    customDiv.style.display = 'none';
+  }
+  pfRenderCharts();
+}
+
+function pfGetRangeDates() {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  let from, to = today;
+
+  switch (pfActiveRange) {
+    case 'max':
+      return { from: null, to: today };
+    case 'ytd':
+      from = now.getFullYear() + '-01-01';
+      break;
+    case 'mtd':
+      from = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
+      break;
+    case 'wtd': {
+      const day = now.getDay(); // 0=Dom … 6=Sáb
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      from = monday.toISOString().split('T')[0];
+      break;
+    }
+    case 'custom': {
+      const fEl = document.getElementById('pfRangeFrom');
+      const tEl = document.getElementById('pfRangeTo');
+      from = fEl?.value || null;
+      const tVal = tEl?.value || null;
+      if (!from || !tVal) return null;
+      to = tVal;
+      break;
+    }
+    default: return { from: null, to: today };
+  }
+
+  if (!from) return { from: null, to: today };
+  return { from, to };
+}
+
+// ── Gráficos ─────────────────────────────────────────────
 function pfRenderCharts() {
   if (!pfSeriesData || !Object.keys(pfSeriesData).length) return;
 
   const now      = new Date();
   const today    = now.toISOString().split('T')[0];
-  const ytdStart = `${now.getFullYear()}-01-01`;
+  const range    = pfGetRangeDates();
+  if (!range) return;
   const ytdRef   = `${now.getFullYear()-1}-12-31`;
 
   // Ordenar todas las series
@@ -3083,16 +3155,23 @@ function pfRenderCharts() {
   }
 
   // Eje temporal: fechas de mep_historico dentro del año actual
-  const chartDates = pfMepSeries.map(r => r.fecha).filter(d => d >= ytdStart && d <= today);
+  // Filtrar por rango seleccionado
+  const chartDates = pfMepSeries.map(r => r.fecha).filter(d => {
+    if (d > today) return false;
+    if (range.from && d < range.from) return false;
+    if (range.to && d > range.to) return false;
+    return true;
+  });
   const setStatus = (id, txt) => { const el=document.getElementById(id); if(el) el.textContent=txt; };
 
+  const rangeLabel = pfActiveRange === 'max' ? 'total' : pfActiveRange;
   if (chartDates.length < 5) {
-    setStatus('pfChartPortfolioStatus', 'sin datos');
-    setStatus('pfChartTickersStatus',   'sin datos');
+    setStatus('pfChartPortfolioStatus', 'sin datos (' + rangeLabel + ')');
+    setStatus('pfChartTickersStatus',   'sin datos (' + rangeLabel + ')');
     return;
   }
-  setStatus('pfChartPortfolioStatus', `${chartDates.length} días`);
-  setStatus('pfChartTickersStatus',   `${chartDates.length} días`);
+  setStatus('pfChartPortfolioStatus', `${chartDates.length} días · ${rangeLabel}`);
+  setStatus('pfChartTickersStatus',   `${chartDates.length} días · ${rangeLabel}`);
 
   const labelDates = chartDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
 
@@ -3196,13 +3275,15 @@ function pfRenderCharts() {
   const portfolioTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
   const PALETTE = ['#00b4d8','#00e5a8','#f0a500','#b39dff','#ff6b9d','#4da6ff','#ff9a3c','#7fffd4','#c8a2c8','#ff3f5e','#ffd700','#a8e063'];
 
-  const mepRefYtd = pfMepRef.ytd;
+  // Base: primer dia del rango o ytdRef si no hay datos
+  const baseDate = chartDates[0] || ytdRef;
+  const mepBase  = mepByDate[baseDate] || pfMepRef.ytd;
 
   const tickerDatasets = portfolioTickers.map((ticker, i) => {
     const arr = sorted[ticker] || [];
-    const basePrice = closestBefore(arr, ytdRef);
-    if (!basePrice || !mepRefYtd) return null;
-    const baseUsd = basePrice / mepRefYtd;
+    const basePrice = closestBefore(arr, baseDate);
+    if (!basePrice || !mepBase) return null;
+    const baseUsd = basePrice / mepBase;
     const values = chartDates.map(date => {
       const mep = mepByDate[date];
       const price = closestBefore(arr, date);
