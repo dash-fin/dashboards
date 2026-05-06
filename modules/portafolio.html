@@ -577,6 +577,21 @@
       </div>
     </div>
 
+    <!-- Donut sub-industria -->
+    <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px" id="pfSubDonutWrap">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por sub-industria</div>
+      <div style="display:flex;align-items:center;gap:40px;flex-wrap:wrap;justify-content:center">
+        <div style="position:relative;width:200px;height:200px">
+          <canvas id="pfSubCanvas" width="200" height="200"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:7px;color:var(--text3);letter-spacing:1px">EN CEDEARs</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text)" id="pfSubTotal">—</div>
+          </div>
+        </div>
+        <div id="pfSubLegend" style="display:flex;flex-direction:column;gap:6px;min-width:160px"></div>
+      </div>
+    </div>
+
     <!-- Columna derecha: alloc + gráficos apilados -->
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card">
@@ -779,13 +794,35 @@ const SECTOR_MAP = {
   UNH:'Salud',
   PG:'Consumo básico', CL:'Consumo básico', WMT:'Consumo básico',
   NKE:'Consumo discrecional', MELI:'Consumo discrecional', JD:'Consumo discrecional',
-  BA:'Industrial', BA.C:'Industrial',
+  BA:'Industrial', BA.C:'Financiero',
   SPY:'S&P 500',
 };
 const SECTOR_COLORS = {
   'Tecnología':'#00b4d8', 'Financiero':'#f0a500', 'Salud':'#b39dff',
   'Consumo básico':'#00e5a8', 'Consumo discrecional':'#ff6b9d',
   'Industrial':'#ff9a3c', 'Energía':'#ff3f5e', 'S&P 500':'#c8a2c8',
+};
+
+// Sub-industria por ticker CEDEAR
+const SUBINDUSTRIA_MAP = {
+  MSFT:'Software', ADBE:'Software', ORCL:'Software', DOCU:'Software', SPOT:'Software',
+  NVDA:'Semiconductores',
+  HOOD:'Fintech',
+  MA:'Bancos/Pagos', V:'Bancos/Pagos', AXP:'Bancos/Pagos', BA:'Bancos/Pagos', BA.C:'Bancos/Pagos',
+  UNH:'Seguros Salud',
+  PG:'Hogar/Cuidado personal', CL:'Hogar/Cuidado personal', WMT:'Retail',
+  NKE:'Calzado/Indumentaria',
+  MELI:'E-commerce', JD:'E-commerce',
+  OKLO:'Energía nuclear',
+  SPY:'S&P 500',
+};
+const SUBINDUSTRIA_COLORS = {
+  'Software':'#00b4d8', 'Semiconductores':'#0096c7', 'Fintech':'#f0a500',
+  'Bancos/Pagos':'#d98a00', 'Seguros Salud':'#b39dff',
+  'Hogar/Cuidado personal':'#00e5a8', 'Retail':'#00cc8f',
+  'Calzado/Indumentaria':'#ff6b9d',
+  'E-commerce':'#e0557a', 'Energía nuclear':'#ff3f5e',
+  'S&P 500':'#c8a2c8',
 };
 
 // ── Estado ──────────────────────────────────────────────
@@ -1127,6 +1164,7 @@ function pfRender() {
 
   pfRenderDonut(byTipo, totAct, totGan);
   pfRenderSectorDonut(calced);
+  pfRenderSubDonut(calced);
   pfRenderAlloc(byTipo, totAct);
   pfRenderTypeDistribs(calced);
   pfRenderPositions(calced);
@@ -1224,6 +1262,60 @@ function pfRenderSectorDonut(calced) {
     return `<div style="display:flex;align-items:center;justify-content:space-between">
       <div style="display:flex;align-items:center;gap:7px">
         <span style="width:10px;height:10px;border-radius:2px;background:${SECTOR_COLORS[s]||'#888'};flex-shrink:0"></span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2)">${s}</span>
+      </div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Donut por sub-industria ────────────────────────────────
+let pfSubChart = null;
+function pfRenderSubDonut(calced) {
+  const bySub = {};
+  let totalCedears = 0;
+  for (const p of calced) {
+    if (p.tipo !== 'CEDEAR') continue;
+    const sub = SUBINDUSTRIA_MAP[p.ticker_ars] || 'Otros';
+    if (!bySub[sub]) bySub[sub] = 0;
+    bySub[sub] += p.usdAct;
+    totalCedears += p.usdAct;
+  }
+  if (!totalCedears) {
+    document.getElementById('pfSubDonutWrap').style.display = 'none';
+    return;
+  }
+  document.getElementById('pfSubDonutWrap').style.display = '';
+
+  document.getElementById('pfSubTotal').textContent = 'U$S '+Math.round(totalCedears).toLocaleString('es-AR');
+
+  const subs = Object.keys(bySub).sort((a,b) => bySub[b] - bySub[a]);
+  const labels = subs;
+  const data   = subs.map(s => +bySub[s].toFixed(2));
+  const colors = subs.map(s => SUBINDUSTRIA_COLORS[s] || '#888');
+
+  const ctx = document.getElementById('pfSubCanvas');
+  if (!ctx) return;
+  if (pfSubChart) { pfSubChart.destroy(); pfSubChart = null; }
+  pfSubChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderColor:'#0d1117', borderWidth:4, hoverBorderWidth:5, hoverOffset:6 }] },
+    options:{
+      responsive:false, cutout:'74%', animation:{duration:600},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{
+          const pct=totalCedears>0?(ctx.raw/totalCedears*100).toFixed(1):0;
+          return ` U$S ${Math.round(ctx.raw).toLocaleString('es-AR')} (${pct}%)`;
+        }}}
+      }
+    }
+  });
+  document.getElementById('pfSubLegend').innerHTML = subs.map(s => {
+    const pct = totalCedears>0?(bySub[s]/totalCedears*100).toFixed(1):0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="width:10px;height:10px;border-radius:2px;background:${SUBINDUSTRIA_COLORS[s]||'#888'};flex-shrink:0"></span>
         <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2)">${s}</span>
       </div>
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">${pct}%</span>
