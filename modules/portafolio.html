@@ -550,7 +550,7 @@
 
   <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
 
-    <!-- Donuts: tipo + sector -->
+    <!-- Donuts: 3 al hilo -->
     <div style="display:flex;gap:16px;flex-wrap:wrap">
       <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px;flex:1;min-width:200px">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por tipo</div>
@@ -575,12 +575,8 @@
         </div>
         <div id="pfSectorLegend" style="display:flex;flex-direction:column;gap:6px;width:100%"></div>
       </div>
-    </div>
-
-    <!-- Donut sub-industria -->
-    <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px" id="pfSubDonutWrap">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por sub-industria</div>
-      <div style="display:flex;align-items:center;gap:40px;flex-wrap:wrap;justify-content:center">
+      <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px;flex:1;min-width:200px" id="pfSubDonutWrap">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por sub-industria</div>
         <div style="position:relative;width:200px;height:200px">
           <canvas id="pfSubCanvas" width="200" height="200"></canvas>
           <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:2px">
@@ -588,7 +584,7 @@
             <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text)" id="pfSubTotal">—</div>
           </div>
         </div>
-        <div id="pfSubLegend" style="display:flex;flex-direction:column;gap:6px;min-width:160px"></div>
+        <div id="pfSubLegend" style="display:flex;flex-direction:column;gap:6px;width:100%"></div>
       </div>
     </div>
 
