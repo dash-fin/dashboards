@@ -3193,8 +3193,6 @@ function pfRenderCharts() {
   }
 
   // Eje temporal: fechas de mep_historico dentro del año actual
-  console.log('[pfRenderCharts] range:', JSON.stringify(range));
-  console.log('[pfRenderCharts] activeRange:', pfActiveRange);
   // Filtrar por rango seleccionado
   const chartDates = pfMepSeries.map(r => r.fecha).filter(d => {
     if (d > today) return false;
