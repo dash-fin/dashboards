@@ -1226,6 +1226,7 @@ function pfRenderSectorDonut(calced) {
     return;
   }
   document.getElementById('pfSectorCanvas').style.display = '';
+  document.getElementById('pfSectorCount').textContent = Object.keys(bySector).length;
 
   const sectores = Object.keys(bySector).sort((a,b) => bySector[b] - bySector[a]);
   const labels = sectores;
