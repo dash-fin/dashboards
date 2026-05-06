@@ -2602,7 +2602,8 @@ window.pfTogglePrivacy = () => {
 };
 
 let _benchChart = null;
-window.pfRenderBenchmark = async function pfRenderBenchmark() {
+const pfRenderBenchmark = async function __pfRB() {
+window.pfRenderBenchmark = __pfRB;
   const wrap  = document.getElementById('pfBenchWrap');
   const kpis  = document.getElementById('pfBenchKpis');
   const cWrap = wrap?.querySelector('div:last-child');
