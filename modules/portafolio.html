@@ -548,43 +548,48 @@
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
 
-    <!-- Columna izquierda: donuts apiladas -->
-    <div style="display:flex;flex-direction:column;gap:16px;width:100%">
-      <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Por tipo</div>
-        <div style="position:relative;width:160px;height:160px">
-          <canvas id="pfDonutCanvas" width="160" height="160"></canvas>
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:1px">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:var(--text3);letter-spacing:0.8px">TOTAL USD</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)" id="pfDonutTotal">—</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:8px" id="pfDonutGain">—</div>
+    <!-- Izquierda: donuts en fila + distrib interna debajo -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">
+        <!-- Por tipo -->
+        <div style="padding:16px;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border, #262c34);gap:8px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px">Por tipo</div>
+          <div style="position:relative;width:150px;height:150px;flex-shrink:0">
+            <canvas id="pfDonutCanvas" width="150" height="150"></canvas>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:1px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:var(--text3);letter-spacing:0.8px">TOTAL USD</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)" id="pfDonutTotal">—</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px" id="pfDonutGain">—</div>
+            </div>
           </div>
+          <div id="pfLegend" style="display:flex;flex-direction:column;gap:3px;width:100%"></div>
         </div>
-        <div id="pfLegend" style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:10px"></div>
-      </div>
-      <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Por sector</div>
-        <div style="position:relative;width:160px;height:160px">
-          <canvas id="pfSectorCanvas" width="160" height="160"></canvas>
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:1px">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:var(--text3);letter-spacing:0.8px">SECTORES</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)" id="pfSectorCount">—</div>
+        <!-- Por sector -->
+        <div style="padding:16px;display:flex;flex-direction:column;align-items:center;border-right:1px solid var(--border, #262c34);gap:8px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px">Por sector</div>
+          <div style="position:relative;width:150px;height:150px;flex-shrink:0">
+            <canvas id="pfSectorCanvas" width="150" height="150"></canvas>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:1px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:var(--text3);letter-spacing:0.8px">SECTORES</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)" id="pfSectorCount">—</div>
+            </div>
           </div>
+          <div id="pfSectorLegend" style="display:flex;flex-direction:column;gap:3px;width:100%"></div>
         </div>
-        <div id="pfSectorLegend" style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:10px"></div>
-      </div>
-      <div class="card" style="padding:20px;display:flex;flex-direction:column;align-items:center" id="pfSubDonutWrap">
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px">Por sub-industria</div>
-        <div style="position:relative;width:160px;height:160px">
-          <canvas id="pfSubCanvas" width="160" height="160"></canvas>
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:1px">
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:var(--text3);letter-spacing:0.8px">SUB-INDUSTRIAS</div>
-            <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)" id="pfSubCount">—</div>
+        <!-- Por sub-industria -->
+        <div style="padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px" id="pfSubDonutWrap">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px">Por sub-industria</div>
+          <div style="position:relative;width:150px;height:150px;flex-shrink:0">
+            <canvas id="pfSubCanvas" width="150" height="150"></canvas>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;gap:1px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:6px;color:var(--text3);letter-spacing:0.8px">SUB-INDUSTRIAS</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--text)" id="pfSubCount">—</div>
+            </div>
           </div>
+          <div id="pfSubLegend" style="display:flex;flex-direction:column;gap:3px;width:100%"></div>
         </div>
-        <div id="pfSubLegend" style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:10px"></div>
       </div>
       <div class="card" style="padding:20px;display:flex;flex-direction:column">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px">Distribución interna por clase</div>
