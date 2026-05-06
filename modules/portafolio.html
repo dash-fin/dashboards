@@ -3204,7 +3204,7 @@ function pfRenderCharts() {
   const setStatus = (id, txt) => { const el=document.getElementById(id); if(el) el.textContent=txt; };
 
   const rangeLabel = pfActiveRange === 'max' ? 'total' : pfActiveRange;
-  if (chartDates.length < 5) {
+  if (chartDates.length < 2) {
     setStatus('pfChartPortfolioStatus', 'sin datos (' + rangeLabel + ')');
     setStatus('pfChartTickersStatus',   'sin datos (' + rangeLabel + ')');
     return;
