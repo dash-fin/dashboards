@@ -251,7 +251,9 @@
         padding:8px 12px;border-radius:5px;margin-top:12px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
         <button class="btn-outline" onclick="pfCloseHide()">Cancelar</button>
-        <button class="btn-prim" id="pfcSaveBtn" onclick="pfCloseSave()">✅ Cerrar</button>
+        <button class="btn-prim" id="pfcSaveBtn" onclick="pfCloseSave()" style="display:flex;align-items:center;gap:6px;font-weight:500">
+          <span>✕</span> Cerrar posición
+        </button>
       </div>
     </div>
   </div>
@@ -305,7 +307,9 @@
         padding:8px 12px;border-radius:5px;margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" onclick="pfCloseOpcionHide()">Cancelar</button>
-        <button class="btn-prim" id="pfcOpSaveBtn" onclick="pfCloseOpcionSave()">✅ Cerrar</button>
+        <button class="btn-prim" id="pfcOpSaveBtn" onclick="pfCloseOpcionSave()" style="display:flex;align-items:center;gap:6px;font-weight:500">
+          <span>✕</span> Cerrar estrategia
+        </button>
       </div>
     </div>
   </div>
@@ -335,7 +339,9 @@
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-outline" onclick="pfCloseOneLegHide()">Cancelar</button>
-        <button class="btn-prim" id="pfcLegSaveBtn" onclick="pfCloseOneLegSave()">✅ Cerrar pata</button>
+        <button class="btn-prim" id="pfcLegSaveBtn" onclick="pfCloseOneLegSave()" style="display:flex;align-items:center;gap:6px;font-weight:500">
+        <span>✕</span> Cerrar pata
+      </button>
       </div>
     </div>
   </div>
@@ -1407,7 +1413,7 @@ window.pfCloseOneLegSave = async () => {
   const primaCierre = parseFloat(document.getElementById('pfcLegPrima').value);
   if(isNaN(primaCierre) || primaCierre < 0) { alert('Ingresá la prima de cierre'); return; }
   const btn = document.getElementById('pfcLegSaveBtn');
-  btn.disabled = true;
+  btn.disabled = true; btn.innerHTML = '<span>⏳</span> Cerrando...'; btn.style.opacity = '0.6';
   try {
     const { opId, legIdx, op } = _pfcOneLeg;
     const updatedPatas = op.patas.map((p,i) => i===legIdx ? {...p, prima_cierre: primaCierre} : p);
@@ -1430,9 +1436,9 @@ window.pfCloseOneLegSave = async () => {
     await pfLoadAll();
     if(document.getElementById('pfHistOpsSection')) await pfLoadHistorial();
   } catch(e) {
-    alert('Error: ' + e.message);
+    alert('Error al cerrar pata: ' + e.message);
   } finally {
-    btn.disabled = false;
+    btn.disabled = false; btn.innerHTML = '<span>✕</span> Cerrar pata'; btn.style.opacity = '1';
   }
 };
 
@@ -2136,7 +2142,7 @@ window.pfCloseOpcionSave = async () => {
     return s + sign * (l.prima_cierre - l.prima) * l.qty * optSz;
   }, 0);
 
-  btn.disabled = true; btn.textContent = '✅ Cerrando...';
+  btn.disabled = true; btn.innerHTML = '<span>⏳</span> Cerrando...'; btn.style.opacity = '0.6';
   try {
     await Promise.all([
       sbPatch('operaciones', 'id=eq.'+op.id, {
@@ -2153,8 +2159,9 @@ window.pfCloseOpcionSave = async () => {
     alLog?.('✅ Estrategia de ' + op.subyacente + ' cerrada (P&L: $' + Math.round(pnlARS).toLocaleString('es-AR') + ')', 'green');
   } catch(e) {
     pfcOpMsg('error', e.message || 'Error al guardar');
+    alLog?.('❌ Error al cerrar estrategia ' + (op.nombre||'') + ': ' + (e.message||'desconocido'), 'red');
   } finally {
-    btn.disabled = false; btn.textContent = '✅ Cerrar';
+    btn.disabled = false; btn.innerHTML = '<span>✕</span> Cerrar estrategia'; btn.style.opacity = '1';
   }
 };
 
@@ -2293,16 +2300,18 @@ window.pfCloseSave = async () => {
     notas,
   };
 
-  btn.disabled = true; btn.textContent = '✅ Cerrando...';
+  btn.disabled = true; btn.innerHTML = '<span>⏳</span> Cerrando...'; btn.style.opacity = '0.6';
   try {
     await sbInsert('trades', trade);
     await sbPatch('portafolio', 'id=eq.'+pfCloseId, { activo: false });
     pfCloseHide();
+    alLog?.('✅ ' + pos.ticker_ars + ' cerrado (P&L: U$S ' + Math.round(gan).toLocaleString('es-AR') + ')', 'green');
     await pfLoadAll();
   } catch(e) {
     pfCloseMsgShow('error', e.message || 'Error al guardar');
+    alLog?.('❌ Error al cerrar ' + pos.ticker_ars + ': ' + (e.message||'desconocido'), 'red');
   } finally {
-    btn.disabled = false; btn.textContent = '✅ Cerrar';
+    btn.disabled = false; btn.innerHTML = '<span>✕</span> Cerrar posición'; btn.style.opacity = '1';
   }
 };
 
