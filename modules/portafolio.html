@@ -2743,6 +2743,49 @@ async function pfRenderBenchmark() {
   });
 }
 
+// ── Backfill automático (días hábiles recientes faltantes) ──────
+async function pfAutoBackfill() {
+  // Solo ejecuta si faltan días hábiles recientes
+  try {
+    const email = window.currentUser?.email;
+    if(!email) return;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    // Buscar último día con datos
+    const last = await sb('pnl_diario',`user_email=eq.${encodeURIComponent(email)}&order=fecha.desc&limit=1&select=fecha,valor_usd`) || [];
+    if(!last.length) return;
+    const lastDate = new Date(last[0].fecha+'T12:00:00');
+    const lastVal  = Number(last[0].valor_usd);
+    // Días hábiles desde lastDate+1 hasta ayer (hoy todavía no cerró)
+    const days = [];
+    for(let d=new Date(lastDate); d<=today; d.setDate(d.getDate()+1)){
+      const ds = d.toISOString().split('T')[0];
+      if(d.getDay()!==0 && d.getDay()!==6 && ds > last[0].fecha) days.push(ds);
+    }
+    if(!days.length) return;
+    // Para días sin snapshot, copiamos el último valor conocido (portafolio plano)
+    // SPY tiene sus propios datos, nosotros solo cargamos pnl_diario
+    // Esto hace que la curva quede plana en feriados/días sin actividad
+    const rows = days.map(d => ({
+      fecha: d,
+      user_email: email,
+      valor_usd: lastVal,
+      pnl_usd: 0,
+      pnl_pct: 0,
+    }));
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    const sess = await window.supabase?.auth?.getSession?.();
+    const tok  = sess?.data?.session?.access_token || SB_KEY;
+    const hdr  = {'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'};
+    for(let i=0;i<rows.length;i+=100){
+      await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/pnl_diario',{
+        method:'POST', headers:hdr, body:JSON.stringify(rows.slice(i,i+100))
+      });
+    }
+    console.log(`[auto-backfill] ${rows.length} días cargados (valor plano: U$S ${lastVal})`);
+  } catch(e){ console.warn('[auto-backfill]',e); }
+}
+
 // ── Backfill histórico pnl_diario desde posiciones + Rava ────────
 async function pfBackfillPnL() {
   try {
@@ -2852,6 +2895,7 @@ async function pfBackfillPnL() {
 async function pfLoadHistorial() {
   const email = window.currentUser?.email;
   if(!email) return;
+  pfAutoBackfill(); // fuego y olvido — rellena días hábiles faltantes con último valor
   const [rows, opsRows] = await Promise.all([
     sb('trades', `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`),
     sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre`),
