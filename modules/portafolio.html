@@ -2622,38 +2622,12 @@ async function pfRenderBenchmark() {
   } catch(e){ console.warn('[bench-spy]',e); }
 
   const spyByDate = {}; spyHistory.forEach(r => { spyByDate[r.fecha] = r.close; });
-  // Primer valor real de SPY disponible (base 100)
-  const spyDates  = Object.keys(spyByDate).sort();
-  const spyStart  = spyDates.length ? spyByDate[spyDates[0]] : null;
+  const spyStart  = spyByDate[startDate] || spyHistory.find(r => r.fecha >= startDate)?.close || null;
 
-  // Generar días hábiles continuos entre startDate y hoy, rellenando faltantes con último valor conocido
-  const allRawDates = [...new Set([...Object.keys(pfByDate),...Object.keys(spyByDate)])].sort();
-  const allDates = [];
-  const fillPad = (src) => {
-    const map = {}; let last = null;
-    allDates.forEach(d => {
-      // Día hábil? skip sábado (5) y domingo (0)
-      const dt = new Date(d+'T12:00:00');
-      const dow = dt.getDay();
-      if(dow === 0 || dow === 6) { map[d] = null; return; }
-      const v = src[d] != null ? src[d] : last;
-      map[d] = v;
-      if(v != null) last = v;
-    });
-    return map;
-  };
-  // Construir lista completa de días hábiles
-  const s = new Date(allRawDates[0]+'T12:00:00');
-  const e = new Date();
-  for(let d = new Date(s); d <= e; d.setDate(d.getDate()+1)) {
-    const dow = d.getDay();
-    if(dow !== 0 && dow !== 6) allDates.push(d.toISOString().slice(0,10));
-  }
-  if(!allDates.length) allDates.push(...allRawDates);
-  const pfFilled  = fillPad(pfByDate);
-  const spyFilled = fillPad(spyByDate);
-  const pfLine   = allDates.map(d => pfFilled[d]  != null ? +Number(pfFilled[d]).toFixed(2)  : null);
-  const spyLine  = allDates.map(d => spyFilled[d] != null && spyStart ? +(spyFilled[d] / spyStart * 100).toFixed(2) : null);
+  // Unión de fechas ordenadas
+  const allDates = [...new Set([...Object.keys(pfByDate),...Object.keys(spyByDate)])].sort();
+  const pfLine   = allDates.map(d => pfByDate[d]  != null ? +pfByDate[d].toFixed(2)  : null);
+  const spyLine  = allDates.map(d => spyByDate[d] != null && spyStart ? +(spyByDate[d] / spyStart * 100).toFixed(2) : null);
 
   // KPIs
   const pfLast  = [...pfLine].reverse().find(v => v!=null);
