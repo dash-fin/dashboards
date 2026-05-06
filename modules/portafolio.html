@@ -3076,7 +3076,7 @@ function pfRenderPeriodKPIs() {
 // ── Rango temporal ─────────────────────────────────────────
 let pfActiveRange = 'max';
 
-function pfSetRange(range) {
+window.pfSetRange = function pfSetRange(range) {
   pfActiveRange = range;
   // Toggle active button
   document.querySelectorAll('#pfRangeButtons .flt').forEach(b => b.classList.toggle('on', b.dataset.range === range));
@@ -3095,7 +3095,7 @@ function pfSetRange(range) {
   pfRenderCharts();
 }
 
-function pfGetRangeDates() {
+window.pfGetRangeDates = function pfGetRangeDates() {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
   let from, to = today;
