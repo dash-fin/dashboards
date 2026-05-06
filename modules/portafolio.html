@@ -2470,7 +2470,7 @@ window.pfHistView = (view) => {
     el.style.color       = active ? '#0d1117' : 'var(--text3)';
     el.style.borderColor = active ? 'var(--cyan)' : 'var(--border2)';
   });
-  if(view==='bench'){ pfBackfillPnL(); pfRenderBenchmark(); }
+  if(view==='bench') pfRenderBenchmark();
   if(view==='cal')   pfRenderCalendar();
 };
 
@@ -2743,6 +2743,49 @@ async function pfRenderBenchmark() {
   });
 }
 
+// ── Backfill automático (días hábiles recientes faltantes) ──────
+async function pfAutoBackfill() {
+  // Solo ejecuta si faltan días hábiles recientes
+  try {
+    const email = window.currentUser?.email;
+    if(!email) return;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    // Buscar último día con datos
+    const last = await sb('pnl_diario',`user_email=eq.${encodeURIComponent(email)}&order=fecha.desc&limit=1&select=fecha,valor_usd`) || [];
+    if(!last.length) return;
+    const lastDate = new Date(last[0].fecha+'T12:00:00');
+    const lastVal  = Number(last[0].valor_usd);
+    // Días hábiles desde lastDate+1 hasta ayer (hoy todavía no cerró)
+    const days = [];
+    for(let d=new Date(lastDate); d<=today; d.setDate(d.getDate()+1)){
+      const ds = d.toISOString().split('T')[0];
+      if(d.getDay()!==0 && d.getDay()!==6 && ds > last[0].fecha) days.push(ds);
+    }
+    if(!days.length) return;
+    // Para días sin snapshot, copiamos el último valor conocido (portafolio plano)
+    // SPY tiene sus propios datos, nosotros solo cargamos pnl_diario
+    // Esto hace que la curva quede plana en feriados/días sin actividad
+    const rows = days.map(d => ({
+      fecha: d,
+      user_email: email,
+      valor_usd: lastVal,
+      pnl_usd: 0,
+      pnl_pct: 0,
+    }));
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    const sess = await window.supabase?.auth?.getSession?.();
+    const tok  = sess?.data?.session?.access_token || SB_KEY;
+    const hdr  = {'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'};
+    for(let i=0;i<rows.length;i+=100){
+      await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/pnl_diario',{
+        method:'POST', headers:hdr, body:JSON.stringify(rows.slice(i,i+100))
+      });
+    }
+    console.log(`[auto-backfill] ${rows.length} días cargados (valor plano: U$S ${lastVal})`);
+  } catch(e){ console.warn('[auto-backfill]',e); }
+}
+
 // ── Backfill histórico pnl_diario desde posiciones + Rava ────────
 async function pfBackfillPnL() {
   try {
@@ -2795,25 +2838,15 @@ async function pfBackfillPnL() {
       return keys.length ? map[keys[keys.length-1]] : null;
     };
 
-    // 4. Generar días hábiles a calcular (MEP + días sin MEP usan closestBefore)
+    // 4. Calcular valor USD por cada fecha con MEP disponible
     const toInsert = [];
-    const mepKeys = Object.keys(mepByDate).sort();
-    // Días hábiles desde startDate hasta ayer (hoy todavía no cerró)
-    const bizDays = [];
-    const sd = new Date(startDate+'T12:00:00');
-    const ed = new Date(); ed.setDate(ed.getDate()-1); // hasta ayer
-    for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)){
-      const dow = d.getDay();
-      if(dow!==0 && dow!==6) bizDays.push(d.toISOString().split('T')[0]);
-    }
+    const mepDates = (mepRows||[]).map(r=>r.fecha).filter(d=>d>=startDate&&!existingSet.has(d));
 
-    for(const date of bizDays){
-      if(existingSet.has(date)) continue;
-      const mep = mepByDate[date] || closestBefore(mepByDate, date);
-      if(!mep||mep<=0) continue;
+    for(const date of mepDates){
+      const mep = mepByDate[date]; if(!mep||mep<=0) continue;
       let totalUsd=0, hasPx=false;
       for(const p of allPos){
-        if(p.open>date||p.close<date) continue;
+        if(p.open>date||p.close<date) continue; // fuera del rango de esta posición
         const px = closestBefore(priceByTk[p.ticker]||{}, date);
         if(!px) continue;
         const factor = BONOS.includes(p.tipo)?100:1;
@@ -2835,7 +2868,7 @@ async function pfBackfillPnL() {
       const idx = sortedAll.indexOf(row.fecha);
       const prev = idx>0 ? allKnown[sortedAll[idx-1]] : null;
       return {
-        fecha: row.fecha, user_email: email, valor_usd: row.valor_usd,
+        fecha: row.fecha, valor_usd: row.valor_usd,
         pnl_usd: prev ? Math.round((row.valor_usd-prev)*100)/100 : null,
         pnl_pct: prev&&prev>0 ? Math.round((row.valor_usd-prev)/prev*100*10000)/10000 : null,
       };
@@ -2862,6 +2895,7 @@ async function pfBackfillPnL() {
 async function pfLoadHistorial() {
   const email = window.currentUser?.email;
   if(!email) return;
+  pfAutoBackfill(); // fuego y olvido — rellena días hábiles faltantes con último valor
   const [rows, opsRows] = await Promise.all([
     sb('trades', `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`),
     sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre`),
