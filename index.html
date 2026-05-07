@@ -2710,10 +2710,11 @@ async function renderDolarChart(range, fromDate, toDate){
   const data = await fetchDolarData();
   if(!data || data.length === 0) return;
   const filtered = range ? getDolarRange(data, range, fromDate, toDate) : getDolarRange(data, 'ytd');
-  const labels = filtered.map(d => d.date.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }));
-  const oficial = filtered.map(d => d.oficial ?? null);
-  const mep = filtered.map(d => d.mep ?? null);
-  const ccl = filtered.map(d => d.ccl ?? null);
+  const noGaps = filtered.filter(d => d.oficial != null || d.mep != null || d.ccl != null);
+  const labels = noGaps.map(d => d.date.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }));
+  const oficial = noGaps.map(d => d.oficial ?? null);
+  const mep = noGaps.map(d => d.mep ?? null);
+  const ccl = noGaps.map(d => d.ccl ?? null);
 
   const canvas = document.getElementById('dolarChartCanvas');
   if(!canvas) return;
