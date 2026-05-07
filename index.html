@@ -2638,7 +2638,7 @@ async function fetchDolarData(){
   if(dolarHistoricoCache) return dolarHistoricoCache;
 
   const supabaseUrl = 'https://endymbpdayeidromxayb.supabase.co';
-  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNzczNTM1ODUwLCJleHAiOjIwODkxMTE4NTB9.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 
   const url = `${supabaseUrl}/rest/v1/dolar_historico?order=fecha.asc&select=fecha,tipo,close`;
   try {
