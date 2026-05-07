@@ -3322,14 +3322,25 @@ async function pfLoadHistorial() {
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Sin operaciones cerradas aún</td></tr>';
     if(statsEl) statsEl.textContent = '';
   } else {
-    const totGan = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0);
+    const opsPnL = (opsRows||[]).reduce((s,op) => {
+      const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
+      if(!allClose) return s;
+      const optSz = op.patas?.[0]?.option_size || 100;
+      const pnl = op.patas.reduce((ss,l) => ss + (l.action==='buy'?1:-1)*(l.prima_cierre - l.prima)*l.qty*optSz, 0);
+      return s + pnl;
+    }, 0);
+    const totGan = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0) + opsPnL;
     const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length;
+    const totalCount = rows.length + (opsRows||[]).length;
     const sGan   = totGan>=0?'+':'';
     const color  = totGan>=0?'var(--green)':'var(--red)';
     if(statsEl) {
       const _priv = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
+      const opsCount = (opsRows||[]).length;
+      const totalTrades = rows.length + opsCount;
+      const winPct = totalTrades > 0 ? (wins / totalTrades * 100).toFixed(0) : '—';
       statsEl.innerHTML =
-        `${rows.length} trades · Win rate: ${((wins/rows.length)*100).toFixed(0)}% · `
+        `${totalTrades} trades (${opsCount} opciones) · Win rate: ${winPct}% · `
         + `Total realizado: <span id="pfHistTotalGanAmt" style="color:${color};font-weight:500;filter:${_priv?'blur(5px)':''}">${sGan}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
     }
     tbody.innerHTML = rows.map(r => {
