@@ -332,10 +332,8 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 .kpi-strip>*{min-width:0;overflow:hidden}
 .port-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .port-strip>*{min-width:0;overflow:hidden}
-.btn-collapse-dolar{display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:10px 18px;border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.5px;background:var(--bg2);border:1px solid var(--border);color:var(--amber)}.btn-collapse-dolar:hover{border-color:var(--amber);filter:brightness(1.2)}.btn-collapse-dolar.open{color:var(--text2);border-color:var(--border2);background:var(--bg3)}
-.dolar-chart-container{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:8px}
-.dolar-range-bar{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}.dolar-range-btn{padding:4px 12px;border-radius:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--text3);cursor:pointer;border:none;background:transparent;transition:all .15s;white-space:nowrap}.dolar-range-btn:hover{color:var(--text2)}.dolar-range-btn.on{background:var(--bg3);color:var(--text);border:1px solid var(--border2)}
-.dolar-range-input{background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text);outline:none;transition:border-color .15s;width:auto;max-width:100px}.dolar-range-input:focus{border-color:var(--amber)}
+.btn-dolar{display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:10px 18px;border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.5px;background:var(--bg2);border:1px solid var(--border);color:var(--amber)}.btn-dolar:hover{border-color:var(--amber);filter:brightness(1.2)}
+.dolar-chart-area{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:8px}
 .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s}
 .kpi:hover{border-color:var(--border2);transform:translateY(-1px)}
 .kpi-glow{position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
@@ -1210,20 +1208,20 @@ async function renderHome(){
       <div class="kpi" id="h-kpi-mep"><div class="kpi-glow" style="background:linear-gradient(135deg,var(--green),var(--cyan))"></div><div class="kpi-label">MEP / CCL <span style="font-size:8px;opacity:.5">spread</span></div><div class="kpi-val" style="color:var(--green)">—</div><div class="kpi-sub"> </div></div>
     </div>
   </div>
-  <button class="btn-collapse-dolar" id="btnToggleDolar" onclick="toggleDolarChart()">📈 Ver gráfico del dólar</button>
-  <div class="dolar-chart-container" id="dolarChartWrapper">
+  <button class="btn-dolar" id="btnDolarToggle" onclick="toggleDolarChart()">📈 Ver gráfico del dólar</button>
+  <div class="dolar-chart-area" id="dolarChartArea" style="display:none">
     <div class="dolar-range-bar">
-          <button class="dolar-range-btn" data-range="wtd" onclick="selectDolarRange('wtd',this)">WTD</button>
-          <button class="dolar-range-btn" data-range="mtd" onclick="selectDolarRange('mtd',this)">MTD</button>
-          <button class="dolar-range-btn on" data-range="ytd" onclick="selectDolarRange('ytd',this)">YTD</button>
-          <button class="dolar-range-btn" data-range="max" onclick="selectDolarRange('max',this)">Máx</button>
-          <button class="dolar-range-btn" data-range="custom" onclick="selectDolarRange('custom',this)">Personalizado</button>
-          <span id="dolarCustomDates" style="display:none;margin-left:6px;align-items:center;gap:6px">
-            <input type="date" class="dolar-range-input" id="dolarDateFrom">
-            <span style="color:var(--text4);font-size:10px">→</span>
-            <input type="date" class="dolar-range-input" id="dolarDateTo">
-          </span>
-        </div>
+      <button class="dolar-range-btn" data-range="wtd" onclick="selectDolarRange('wtd',this)">WTD</button>
+      <button class="dolar-range-btn" data-range="mtd" onclick="selectDolarRange('mtd',this)">MTD</button>
+      <button class="dolar-range-btn on" data-range="ytd" onclick="selectDolarRange('ytd',this)">YTD</button>
+      <button class="dolar-range-btn" data-range="max" onclick="selectDolarRange('max',this)">Máx</button>
+      <button class="dolar-range-btn" data-range="custom" onclick="selectDolarRange('custom',this)">Personalizado</button>
+      <span id="dolarCustomDates" style="display:none;margin-left:6px;align-items:center;gap:6px">
+        <input type="date" class="dolar-range-input" id="dolarDateFrom">
+        <span style="color:var(--text4);font-size:10px">→</span>
+        <input type="date" class="dolar-range-input" id="dolarDateTo">
+      </span>
+    </div>
     <canvas id="dolarChartCanvas"></canvas>
   </div>
   <div>
@@ -2630,9 +2628,8 @@ async function aiGetContext(question) {
   return parts.join('\n\n') || 'Sin datos disponibles.';
 }
 
-// ── Gráfico del dólar (mock) ──
-let dolarChartInstance = null;
-let dolarChartData = null;
+// ── Gráfico del dólar ──
+let dolarChart;
 
 function generateMockDolarData(){
   const data = [];
@@ -2642,10 +2639,9 @@ function generateMockDolarData(){
   let mep = 1050;
   let idx = 0;
   for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)){
-    if(d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+    if(d.getDay() === 0 || d.getDay() === 6) continue;
     idx++;
-    // gradual upward trend + noise
-    const trend = idx / 280; // ~0 to 1 over the period
+    const trend = idx / 280;
     const noiseO = (Math.random() - 0.5) * 6;
     const noiseM = (Math.random() - 0.5) * 8;
     oficial = Math.round((1000 + trend * 400 + noiseO) * 100) / 100;
@@ -2661,7 +2657,7 @@ function getDolarRange(rawData, range, fromDate, toDate){
   switch(range){
     case 'wtd':
       start = new Date(now);
-      start.setDate(start.getDate() - start.getDay() + 1); // Monday
+      start.setDate(start.getDate() - start.getDay() + 1);
       break;
     case 'mtd':
       start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -2670,10 +2666,7 @@ function getDolarRange(rawData, range, fromDate, toDate){
       start = new Date(now.getFullYear(), 0, 1);
       break;
     case 'custom':
-      if(fromDate && toDate){
-        start = fromDate;
-        now.setTime(toDate.getTime());
-      }
+      if(fromDate && toDate){ start = fromDate; now.setTime(toDate.getTime()); }
       break;
     case 'max':
     default:
@@ -2683,9 +2676,26 @@ function getDolarRange(rawData, range, fromDate, toDate){
   return rawData.filter(d => d.date >= start && d.date <= now);
 }
 
+function toggleDolarChart(){
+  const area = document.getElementById('dolarChartArea');
+  const btn = document.getElementById('btnDolarToggle');
+  if(!area || !btn) return;
+
+  if(area.style.display === 'none' || !area.style.display){
+    area.style.display = 'block';
+    btn.textContent = '📈 Ocultar gráfico';
+    localStorage.setItem('dolarChartOpen', '1');
+    if(!dolarChart) renderDolarChart();
+  } else {
+    area.style.display = 'none';
+    btn.textContent = '📈 Ver gráfico del dólar';
+    localStorage.setItem('dolarChartOpen', '0');
+  }
+}
+
 function renderDolarChart(range, fromDate, toDate){
-  if(!dolarChartData) dolarChartData = generateMockDolarData();
-  const filtered = getDolarRange(dolarChartData, range, fromDate, toDate);
+  const data = generateMockDolarData();
+  const filtered = range ? getDolarRange(data, range, fromDate, toDate) : getDolarRange(data, 'ytd');
   const labels = filtered.map(d => d.date.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }));
   const oficial = filtered.map(d => d.oficial);
   const mep = filtered.map(d => d.mep);
@@ -2694,12 +2704,12 @@ function renderDolarChart(range, fromDate, toDate){
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
 
-  if(dolarChartInstance) dolarChartInstance.destroy();
+  if(dolarChart) dolarChart.destroy();
 
   const isDark = document.documentElement.getAttribute('data-theme') !== 'claro';
   const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
 
-  dolarChartInstance = new Chart(ctx, {
+  dolarChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
@@ -2730,8 +2740,7 @@ function renderDolarChart(range, fromDate, toDate){
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
+      maintainAspectRatio: true,
       interaction: {
         mode: 'index',
         intersect: false
@@ -2781,68 +2790,6 @@ function renderDolarChart(range, fromDate, toDate){
   });
 }
 
-function slideDown(el, duration = 300) {
-  el.style.display = 'block';
-  el.style.overflow = 'hidden';
-  const height = el.scrollHeight;
-  el.style.height = '0px';
-  el.offsetHeight; // force reflow
-  let start = null;
-  function step(timestamp) {
-    if (!start) start = timestamp;
-    const progress = Math.min((timestamp - start) / duration, 1);
-    const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
-    el.style.height = (height * ease) + 'px';
-    if (progress < 1) requestAnimationFrame(step);
-    else {
-      el.style.height = '';
-      el.style.overflow = '';
-    }
-  }
-  requestAnimationFrame(step);
-}
-
-function slideUp(el, duration = 300) {
-  const height = el.scrollHeight;
-  el.style.overflow = 'hidden';
-  el.style.height = height + 'px';
-  el.offsetHeight; // force reflow
-  let start = null;
-  function step(timestamp) {
-    if (!start) start = timestamp;
-    const progress = Math.min((timestamp - start) / duration, 1);
-    const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
-    el.style.height = (height * (1 - ease)) + 'px';
-    if (progress < 1) requestAnimationFrame(step);
-    else {
-      el.style.display = 'none';
-      el.style.height = '';
-      el.style.overflow = '';
-    }
-  }
-  requestAnimationFrame(step);
-}
-
-function toggleDolarChart(){
-  const wrapper = document.getElementById('dolarChartWrapper');
-  const btn = document.getElementById('btnToggleDolar');
-  if(!wrapper || !btn) return;
-  const opening = wrapper.style.display === 'none' || wrapper.style.display === '';
-
-  if(opening){
-    btn.innerHTML = '📈 Ocultar gráfico';
-    localStorage.setItem('dolarChartOpen', '1');
-    // Render chart first, then slide down
-    if(!dolarChartInstance) renderDolarChart('ytd');
-    else dolarChartInstance.resize();
-    slideDown(wrapper, 300);
-  } else {
-    btn.innerHTML = '📈 Ver gráfico del dólar';
-    localStorage.setItem('dolarChartOpen', '0');
-    slideUp(wrapper, 250);
-  }
-}
-
 function selectDolarRange(range, el){
   document.querySelectorAll('.dolar-range-btn').forEach(b => b.classList.remove('on'));
   if(el) el.classList.add('on');
@@ -2878,22 +2825,15 @@ function selectDolarRange(range, el){
   }
 }
 
-// Restore collapsed state on page load if previously open
-(function initDolarChartState(){
-  const stored = localStorage.getItem('dolarChartOpen');
-  if(stored === '1'){
-    const wrapper = document.getElementById('dolarChartWrapper');
-    const btn = document.getElementById('btnToggleDolar');
-    if(wrapper && btn){
-      wrapper.style.display = 'block';
-      wrapper.style.overflow = '';
-      wrapper.style.height = '';
-      btn.innerHTML = '📈 Ocultar gráfico';
-      setTimeout(() => {
-        if(!dolarChartInstance) renderDolarChart('ytd');
-        const canvas = document.getElementById('dolarChartCanvas');
-        if(canvas && dolarChartInstance) dolarChartInstance.resize();
-      }, 150);
+// Restore on page load if previously open
+(function(){
+  if(localStorage.getItem('dolarChartOpen') === '1'){
+    const area = document.getElementById('dolarChartArea');
+    const btn = document.getElementById('btnDolarToggle');
+    if(area && btn){
+      area.style.display = 'block';
+      btn.textContent = '📈 Ocultar gráfico';
+      setTimeout(() => { if(!dolarChart) renderDolarChart(); }, 100);
     }
   }
 })();
