@@ -1875,6 +1875,7 @@ document.addEventListener('click', e => {
 
 // ── Drag & Drop para columnas ────────────────────────────
 let _pfDragColId = null;
+let _pfTouchDragging = null; // elemento que inició toque
 
 function pfMakeDraggable(el, colId) {
   el.draggable = true;
@@ -1926,6 +1927,94 @@ function pfMakeDraggable(el, colId) {
     pfSaveColOrder();
     pfRenderPositions(pfPositions.map(pfCalc));
   });
+
+  // ── Touch support (pantallas táctiles) ────────────────
+  el.addEventListener('touchstart', e => {
+    // Si es un checkbox input dentro de un label, no iniciar drag
+    if(e.target.tagName === 'INPUT') return;
+    e.preventDefault();
+    _pfDragColId = colId;
+    _pfTouchDragging = el;
+    el.classList.add('pf-dragging');
+  }, { passive: false });
+
+  el.addEventListener('touchmove', e => {
+    if (!_pfTouchDragging) return;
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    // Limpiar indicadores previos
+    document.querySelectorAll('.pf-drag-over, .pf-drag-indicator').forEach(el2 => {
+      el2.classList.remove('pf-drag-over', 'pf-drag-indicator');
+    });
+
+    // Detectar elemento bajo el dedo
+    const targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!targetElem) return;
+
+    // Buscar el elemento draggable más cercano (th o label)
+    const dropTarget = targetElem.closest('[data-col-id]');
+    if (!dropTarget || dropTarget === _pfTouchDragging) return;
+
+    dropTarget.classList.add('pf-drag-over', 'pf-drag-indicator');
+  }, { passive: false });
+
+  el.addEventListener('touchend', e => {
+    if (!_pfTouchDragging) return;
+    e.preventDefault();
+
+    const fromId = _pfDragColId;
+
+    // Encontrar el elemento bajo el dedo al soltar
+    // touch end no tiene coordenadas usables en todos los browsers;
+    // usar el último changedTouch
+    const touch = e.changedTouches[0];
+    const targetElem = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : null;
+    let toId = null;
+    if (targetElem) {
+      const dropTarget = targetElem.closest('[data-col-id]');
+      if (dropTarget) toId = dropTarget.dataset.colId;
+    }
+
+    // Limpiar estado visual
+    _pfTouchDragging.classList.remove('pf-dragging');
+    document.querySelectorAll('.pf-drag-over, .pf-drag-indicator').forEach(el2 => {
+      el2.classList.remove('pf-drag-over', 'pf-drag-indicator');
+    });
+    _pfTouchDragging = null;
+
+    if (!fromId || !toId || fromId === toId) {
+      _pfDragColId = null;
+      return;
+    }
+
+    const fromIdx = PF_COLS.findIndex(c => c.id === fromId);
+    const toIdx   = PF_COLS.findIndex(c => c.id === toId);
+    if (fromIdx === -1 || toIdx === -1) {
+      _pfDragColId = null;
+      return;
+    }
+
+    // Reorder PF_COLS in place
+    const [removed] = PF_COLS.splice(fromIdx, 1);
+    const newToIdx  = PF_COLS.findIndex(c => c.id === toId);
+    PF_COLS.splice(newToIdx, 0, removed);
+
+    _pfDragColId = null;
+    pfSaveColOrder();
+    pfRenderPositions(pfPositions.map(pfCalc));
+  }, { passive: false });
+
+  el.addEventListener('touchcancel', e => {
+    if (!_pfTouchDragging) return;
+    // Limpiar estado visual sin reordenar
+    _pfTouchDragging.classList.remove('pf-dragging');
+    document.querySelectorAll('.pf-drag-over, .pf-drag-indicator').forEach(el2 => {
+      el2.classList.remove('pf-drag-over', 'pf-drag-indicator');
+    });
+    _pfTouchDragging = null;
+    _pfDragColId = null;
+  }, { passive: false });
 }
 
 // ── Sort ──────────────────────────────────────────────────
