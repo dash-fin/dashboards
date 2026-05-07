@@ -2710,7 +2710,7 @@ async function renderDolarChart(range, fromDate, toDate){
   const data = await fetchDolarData();
   if(!data || data.length === 0) return;
   const filtered = range ? getDolarRange(data, range, fromDate, toDate) : getDolarRange(data, 'ytd');
-  const noGaps = filtered.filter(d => d.oficial != null && d.mep != null);
+  const noGaps = filtered.filter(d => d.oficial != null && d.mep != null && d.date.getDay() > 0 && d.date.getDay() < 6);
   const labels = noGaps.map(d => d.date.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }));
   const oficial = noGaps.map(d => d.oficial);
   const mep = noGaps.map(d => d.mep);
