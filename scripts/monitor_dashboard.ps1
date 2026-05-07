@@ -78,7 +78,7 @@ Watch-Monitor "\Dashboard USA" "Monitor USA" "mercado_usa" $FLAG_WD_USA "08:10:0
 
 # ── Captura diaria al cierre (17:05–17:59) ───────────────
 # Guarda dólar oficial, MEP y CCL en mep_historico y dolar_historico
-if ($hNow -ge [TimeSpan]"17:05:00" -and $hNow -lt [TimeSpan]"17:59:00") {
+if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
     $hoy = (Get-Date).ToString("yyyy-MM-dd")
     $postH  = $SB_HEADERS.Clone()
     $postH["Content-Type"] = "application/json"
@@ -88,13 +88,27 @@ if ($hNow -ge [TimeSpan]"17:05:00" -and $hNow -lt [TimeSpan]"17:59:00") {
         # ── MEP: AL30/AL30D desde tabla mercado ──
         $check = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mep_historico?fecha=eq.$hoy&select=fecha" -Headers $SB_HEADERS -ErrorAction Stop
         if ($check.Count -eq 0) {
-            $al30  = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mercado?symbol=eq.AL30&settlement=eq.24hs&select=last" -Headers $SB_HEADERS -ErrorAction Stop
-            $al30d = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mercado?symbol=eq.AL30D&settlement=eq.24hs&select=last" -Headers $SB_HEADERS -ErrorAction Stop
-            $arsVal = [double]($al30[0].last)
-            $usdVal = [double]($al30d[0].last)
-            if ($arsVal -gt 0 -and $usdVal -gt 0) {
-                $mep = [math]::Round($arsVal / $usdVal, 2)
-                $row = @{ fecha=$hoy; mep=$mep; al30_ars=$arsVal; al30d_usd=$usdVal; fuente="mercado" } | ConvertTo-Json
+            # ── MEP: AL30/AL30D desde Rava (edge function) ──
+            $edgeUrl = "$SB_URL/functions/v1/yahoo-prices"
+            $edgeBody = @{ mode="rava-series"; symbols=@("AL30","AL30D") } | ConvertTo-Json
+            $edgeH = @{"Content-Type"="application/json"; "Authorization"="Bearer $SB_KEY"; "apikey"=$SB_KEY}
+            $series = Invoke-RestMethod -Uri $edgeUrl -Method Post -Headers $edgeH -Body $edgeBody -ErrorAction Stop
+
+            $al30px = $null; $al30dpx = $null
+            foreach ($r in $series.AL30) {
+                if ($r.fecha -eq $hoy -and $r.cierre -gt 0) {
+                    if (-not $al30px -or $r.especie -like "*CT*") { $al30px = [double]$r.cierre }
+                }
+            }
+            foreach ($r in $series.AL30D) {
+                if ($r.fecha -eq $hoy -and $r.cierre -gt 0) {
+                    if (-not $al30dpx -or $r.especie -like "*CT*") { $al30dpx = [double]$r.cierre }
+                }
+            }
+
+            if ($al30px -gt 0 -and $al30dpx -gt 0) {
+                $mep = [math]::Round($al30px / $al30dpx, 2)
+                $row = @{ fecha=$hoy; mep=$mep; al30_ars=$al30px; al30d_usd=$al30dpx; fuente="rava" } | ConvertTo-Json
                 Invoke-RestMethod -Uri "$SB_URL/rest/v1/mep_historico" -Method Post -Headers $postH -Body $row | Out-Null
 
                 # ── También guardar MEP en dolar_historico ──
@@ -151,7 +165,7 @@ if ($hNow -ge [TimeSpan]"17:05:00" -and $hNow -lt [TimeSpan]"17:59:00") {
 
 # ── Snapshot diario P&L portafolio (17:10–17:59) ──────────
 # Itera todos los usuarios con posiciones activas y guarda en pnl_diario
-if ($hNow -ge [TimeSpan]"17:10:00" -and $hNow -lt [TimeSpan]"17:59:00") {
+if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
     $hoy = (Get-Date).ToString("yyyy-MM-dd")
     try {
         # MEP del cierre de hoy (compartido para todos los usuarios)
