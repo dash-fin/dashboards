@@ -148,7 +148,7 @@
 
         <div id="al-cond-precio" class="al-cond-panel">
           <div class="al-label">Condición</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div id="al-f-precio-primario" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <select class="al-select" id="al-f-precio-dir" onchange="alFormPreview()">
               <option value="gt">Sube por encima de</option>
               <option value="lt">Baja por debajo de</option>
@@ -158,6 +158,23 @@
             <input class="search-input" type="number" id="al-f-precio-val" placeholder="1500.00" oninput="alFormPreview()" style="max-width:130px">
             <span style="font-size:11px;color:var(--text2)">ARS</span>
           </div>
+
+          <div id="al-f-precio-or-wrap" style="display:none;margin-top:8px;padding-top:12px;border-top:1px dashed var(--border2)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--amber);font-weight:600;margin-bottom:6px;letter-spacing:1px">◈ OR</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select class="al-select" id="al-f-precio-or-dir" onchange="alFormPreview()">
+                <option value="gt">Sube por encima de</option>
+                <option value="lt">Baja por debajo de</option>
+                <option value="cross_up">Cruza hacia arriba</option>
+                <option value="cross_dn">Cruza hacia abajo</option>
+              </select>
+              <input class="search-input" type="number" id="al-f-precio-or-val" placeholder="1500.00" oninput="alFormPreview()" style="max-width:130px">
+              <span style="font-size:11px;color:var(--text2)">ARS</span>
+              <button class="flt" onclick="alRemoveSegundaCond()" style="padding:2px 8px;font-size:10px;color:var(--red);border-color:rgba(255,70,70,.3);background:rgba(255,70,70,.08)" title="Quitar segunda condición">✕</button>
+            </div>
+          </div>
+
+          <button id="al-btn-agregar-or" class="flt" onclick="alAddSegundaCond()" style="margin-top:6px;padding:3px 10px;font-size:9px;color:var(--amber);border-color:rgba(240,165,0,.3);background:rgba(240,165,0,.08)">+ Segunda condición</button>
         </div>
 
         <div id="al-cond-ma" class="al-cond-panel" style="display:none">
@@ -745,6 +762,18 @@ window.alGuardar = async function(){
     params.dir   = document.getElementById('al-f-precio-dir').value;
     params.valor = parseFloat(document.getElementById('al-f-precio-val').value);
     if(isNaN(params.valor)){ alFlash('al-guardar-btn','Valor inválido'); return; }
+    // Segunda condición OR
+    const orWrap = document.getElementById('al-f-precio-or-wrap');
+    if(orWrap && orWrap.style.display !== 'none'){
+      const orDirEl = document.getElementById('al-f-precio-or-dir');
+      const orValEl = document.getElementById('al-f-precio-or-val');
+      const orDir = orDirEl?.value;
+      const orVal = parseFloat(orValEl?.value);
+      if(orDir && !isNaN(orVal)){
+        params.or_dir = orDir;
+        params.or_valor = orVal;
+      }
+    }
   } else if(tipo === 'ma'){
     params.maFast = parseInt(document.getElementById('al-f-ma-fast').value)||20;
     params.maSlow = parseInt(document.getElementById('al-f-ma-slow').value)||50;
@@ -1050,6 +1079,28 @@ window.alSetTipo = function(tipo, btn){
   alFormPreview();
 };
 
+window.alAddSegundaCond = function(){
+  const wrap = document.getElementById('al-f-precio-or-wrap');
+  const btn = document.getElementById('al-btn-agregar-or');
+  if(wrap){
+    wrap.style.display = 'block';
+    alFormPreview();
+  }
+  if(btn) btn.style.display = 'none';
+};
+
+window.alRemoveSegundaCond = function(){
+  const wrap = document.getElementById('al-f-precio-or-wrap');
+  const btn = document.getElementById('al-btn-agregar-or');
+  if(wrap){
+    wrap.style.display = 'none';
+    document.getElementById('al-f-precio-or-dir').value = 'gt';
+    document.getElementById('al-f-precio-or-val').value = '';
+  }
+  if(btn) btn.style.display = 'inline-block';
+  alFormPreview();
+};
+
 window.alFormPreview = function(){
   const ticker = alCleanTicker(document.getElementById('al-f-ticker')?.value || 'TICKER');
   const tipo = AL.tipoActual;
@@ -1058,6 +1109,15 @@ window.alFormPreview = function(){
     const dir = document.getElementById('al-f-precio-dir').value;
     const val = document.getElementById('al-f-precio-val').value||'?';
     condDesc = `Precio ${ {gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'}[dir]||dir } $${val}`;
+    // Segunda condición OR
+    const orWrap = document.getElementById('al-f-precio-or-wrap');
+    if(orWrap && orWrap.style.display !== 'none'){
+      const orDir = document.getElementById('al-f-precio-or-dir')?.value;
+      const orVal = document.getElementById('al-f-precio-or-val')?.value;
+      if(orDir && orVal){
+        condDesc += ` OR ${ {gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'}[orDir]||orDir } $${orVal}`;
+      }
+    }
   } else if(tipo==='ma'){
     const f=document.getElementById('al-f-ma-fast').value||'20', s=document.getElementById('al-f-ma-slow').value||'50';
     const dir=document.getElementById('al-f-ma-dir').value;
@@ -1197,7 +1257,11 @@ function alCondLabel(a){
   const p = a.params||{};
   if(a.tipo==='precio'){
     const dirs={gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'};
-    return `Precio ${dirs[p.dir]||p.dir} $${fmtAR(p.valor,2)}`;
+    let label = `Precio ${dirs[p.dir]||p.dir} $${fmtAR(p.valor,2)}`;
+    if(p.or_dir && p.or_valor != null){
+      label += ` OR ${dirs[p.or_dir]||p.or_dir} $${fmtAR(p.or_valor,2)}`;
+    }
+    return label;
   }
   if(a.tipo==='ma') return `MA${p.maFast}/MA${p.maSlow} — ${{golden:'Golden↑',death:'Death↓',any:'Cruce'}[p.maDir]||p.maDir}`;
   if(a.tipo==='variacion'){

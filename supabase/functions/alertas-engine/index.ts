@@ -76,6 +76,19 @@ function evalPrecio(cur: number, valor: number, cond: string): [boolean, string]
   return [false, '']
 }
 
+// Evalúa dos condiciones con OR: si alguna se cumple, dispara la alerta
+function evalPrecioOr(cur: number, valor: number, cond: string, orValor: number, orCond: string): [boolean, string] {
+  const [ok1, desc1] = evalPrecio(cur, valor, cond)
+  const [ok2, desc2] = evalPrecio(cur, orValor, orCond)
+  if (ok1 || ok2) {
+    const parts: string[] = []
+    if (ok1) parts.push(desc1)
+    if (ok2) parts.push(desc2)
+    return [true, parts.join(' OR ')]
+  }
+  return [false, `${desc1} OR ${desc2}`]
+}
+
 function evalVariacion(change: number, valor: number, cond: string): [boolean, string] {
   if (cond === '>')       return [Math.abs(change) > valor,  `Variación ${change >= 0 ? '+' : ''}${change.toFixed(2)}% > ${valor}%`]
   if (cond === '<')       return [Math.abs(change) < valor,  `Variación ${change >= 0 ? '+' : ''}${change.toFixed(2)}% < ${valor}%`]
@@ -197,7 +210,15 @@ async function evaluar(alertas: Alerta[], mercado: Precio[], esUsa: boolean): Pr
 
     const cond = getCond(a)
     if (a.tipo === 'precio') {
-      [disparado, condDesc] = evalPrecio(cur, valor, cond)
+      // OR condition: si hay segunda condición, evaluar ambas
+      const orDir = a.params?.or_dir
+      const orVal = a.params?.or_valor
+      if (orDir && orVal != null) {
+        const orCond = dirMap[orDir] || '>'
+        [disparado, condDesc] = evalPrecioOr(cur, valor, cond, Number(orVal), orCond)
+      } else {
+        [disparado, condDesc] = evalPrecio(cur, valor, cond)
+      }
     } else if (a.tipo === 'variacion') {
       [disparado, condDesc] = evalVariacion(change, valor, cond)
     } else if (a.tipo === 'volumen') {
