@@ -1210,19 +1210,21 @@ async function renderHome(){
   </div>
   <button class="btn-dolar" id="btnDolarToggle" onclick="toggleDolarChart()">📈 Ver gráfico del dólar</button>
   <div class="dolar-chart-area" id="dolarChartArea" style="display:none">
-    <div class="dolar-range-bar">
-      <button class="dolar-range-btn" data-range="wtd" onclick="selectDolarRange('wtd',this)">WTD</button>
-      <button class="dolar-range-btn" data-range="mtd" onclick="selectDolarRange('mtd',this)">MTD</button>
-      <button class="dolar-range-btn on" data-range="ytd" onclick="selectDolarRange('ytd',this)">YTD</button>
-      <button class="dolar-range-btn" data-range="max" onclick="selectDolarRange('max',this)">Máx</button>
-      <button class="dolar-range-btn" data-range="custom" onclick="selectDolarRange('custom',this)">Personalizado</button>
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px">
+      <button class="flt" data-range="wtd" onclick="selectDolarRange('wtd',this)">WTD</button>
+      <button class="flt" data-range="mtd" onclick="selectDolarRange('mtd',this)">MTD</button>
+      <button class="flt on" data-range="ytd" onclick="selectDolarRange('ytd',this)">YTD</button>
+      <button class="flt" data-range="max" onclick="selectDolarRange('max',this)">Máx</button>
+      <button class="flt" data-range="custom" onclick="selectDolarRange('custom',this)">Personalizado</button>
       <span id="dolarCustomDates" style="display:none;margin-left:6px;align-items:center;gap:6px">
         <input type="date" class="dolar-range-input" id="dolarDateFrom">
         <span style="color:var(--text4);font-size:10px">→</span>
         <input type="date" class="dolar-range-input" id="dolarDateTo">
       </span>
     </div>
-    <canvas id="dolarChartCanvas"></canvas>
+    <div style="max-width:70%;margin:8px auto">
+      <canvas id="dolarChartCanvas"></canvas>
+    </div>
   </div>
   <div>
     <div class="sec-label" style="margin-bottom:10px">Mi portafolio — hoy</div>
@@ -2791,7 +2793,7 @@ function renderDolarChart(range, fromDate, toDate){
 }
 
 function selectDolarRange(range, el){
-  document.querySelectorAll('.dolar-range-btn').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#dolarChartArea .flt').forEach(b => b.classList.remove('on'));
   if(el) el.classList.add('on');
 
   const customDates = document.getElementById('dolarCustomDates');
