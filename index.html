@@ -2632,26 +2632,37 @@ async function aiGetContext(question) {
 
 // ── Gráfico del dólar ──
 let dolarChart;
+let dolarHistoricoCache = null;
 
-function generateMockDolarData(){
-  const data = [];
-  const start = new Date('2025-07-01');
-  const end = new Date('2026-05-07');
-  let oficial = 1000;
-  let mep = 1050;
-  let idx = 0;
-  for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)){
-    if(d.getDay() === 0 || d.getDay() === 6) continue;
-    idx++;
-    const trend = idx / 280;
-    const noiseO = (Math.random() - 0.5) * 6;
-    const noiseM = (Math.random() - 0.5) * 8;
-    oficial = Math.round((1000 + trend * 400 + noiseO) * 100) / 100;
-    mep = Math.round((1050 + trend * 330 + noiseM) * 100) / 100;
-    data.push({ date: new Date(d), oficial, mep });
+async function fetchDolarData(){
+  if(dolarHistoricoCache) return dolarHistoricoCache;
+
+  const supabaseUrl = 'https://endymbpdayeidromxayb.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNzczNTM1ODUwLCJleHAiOjIwODkxMTE4NTB9.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI';
+
+  const url = `${supabaseUrl}/rest/v1/dolar_historico?order=fecha.asc&select=fecha,tipo,close`;
+  try {
+    const resp = await fetch(url, {
+      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }
+    });
+    if(!resp.ok) throw new Error(`Supabase error: ${resp.status}`);
+    const data = await resp.json();
+
+    // Transformar a formato { date, oficial, mep, ccl }
+    const map = {};
+    for(const row of data){
+      if(!map[row.fecha]) map[row.fecha] = { date: new Date(row.fecha + 'T00:00:00') };
+      map[row.fecha][row.tipo] = Number(row.close);
+    }
+
+    dolarHistoricoCache = Object.values(map).filter(d => d.date).sort((a, b) => a.date - b.date);
+    return dolarHistoricoCache;
+  } catch(err){
+    console.error('Error fetching dolar data:', err);
+    return [];
   }
-  return data;
 }
+
 
 function getDolarRange(rawData, range, fromDate, toDate){
   const now = new Date('2026-05-07');
@@ -2678,7 +2689,7 @@ function getDolarRange(rawData, range, fromDate, toDate){
   return rawData.filter(d => d.date >= start && d.date <= now);
 }
 
-function toggleDolarChart(){
+async function toggleDolarChart(){
   const area = document.getElementById('dolarChartArea');
   const btn = document.getElementById('btnDolarToggle');
   if(!area || !btn) return;
@@ -2687,7 +2698,7 @@ function toggleDolarChart(){
     area.style.display = 'block';
     btn.textContent = '📈 Ocultar gráfico';
     localStorage.setItem('dolarChartOpen', '1');
-    if(!dolarChart) renderDolarChart();
+    if(!dolarChart) await renderDolarChart();
   } else {
     area.style.display = 'none';
     btn.textContent = '📈 Ver gráfico del dólar';
@@ -2695,12 +2706,14 @@ function toggleDolarChart(){
   }
 }
 
-function renderDolarChart(range, fromDate, toDate){
-  const data = generateMockDolarData();
+async function renderDolarChart(range, fromDate, toDate){
+  const data = await fetchDolarData();
+  if(!data || data.length === 0) return;
   const filtered = range ? getDolarRange(data, range, fromDate, toDate) : getDolarRange(data, 'ytd');
   const labels = filtered.map(d => d.date.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }));
-  const oficial = filtered.map(d => d.oficial);
-  const mep = filtered.map(d => d.mep);
+  const oficial = filtered.map(d => d.oficial ?? null);
+  const mep = filtered.map(d => d.mep ?? null);
+  const ccl = filtered.map(d => d.ccl ?? null);
 
   const canvas = document.getElementById('dolarChartCanvas');
   if(!canvas) return;
@@ -2725,18 +2738,33 @@ function renderDolarChart(range, fromDate, toDate){
           pointRadius: 0,
           pointHoverRadius: 4,
           tension: 0.2,
-          fill: true
+          fill: true,
+          spanGaps: false
         },
         {
           label: 'Dólar MEP',
           data: mep,
-          borderColor: '#10e898',
-          backgroundColor: 'rgba(16,232,152,0.08)',
+          borderColor: '#00e5a8',
+          backgroundColor: 'rgba(0,229,168,0.08)',
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 4,
           tension: 0.2,
-          fill: true
+          fill: true,
+          spanGaps: false
+        },
+        {
+          label: 'Dólar CCL',
+          data: ccl,
+          borderColor: '#f0a500',
+          backgroundColor: 'rgba(240,165,0,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.2,
+          fill: true,
+          spanGaps: false,
+          hidden: true
         }
       ]
     },
@@ -2792,7 +2820,7 @@ function renderDolarChart(range, fromDate, toDate){
   });
 }
 
-function selectDolarRange(range, el){
+async function selectDolarRange(range, el){
   document.querySelectorAll('#dolarChartArea .flt').forEach(b => b.classList.remove('on'));
   if(el) el.classList.add('on');
 
@@ -2808,34 +2836,34 @@ function selectDolarRange(range, el){
       from.value = past.toISOString().split('T')[0];
       to.value = now.toISOString().split('T')[0];
     }
-    from.onchange = () => {
+    from.onchange = async () => {
       const f = from.value ? new Date(from.value+'T00:00:00') : null;
       const t = to.value ? new Date(to.value+'T00:00:00') : null;
-      if(f && t) renderDolarChart('custom', f, t);
+      if(f && t) await renderDolarChart('custom', f, t);
     };
-    to.onchange = () => {
+    to.onchange = async () => {
       const f = from.value ? new Date(from.value+'T00:00:00') : null;
       const t = to.value ? new Date(to.value+'T00:00:00') : null;
-      if(f && t) renderDolarChart('custom', f, t);
+      if(f && t) await renderDolarChart('custom', f, t);
     };
     const f = from.value ? new Date(from.value+'T00:00:00') : null;
     const t = to.value ? new Date(to.value+'T00:00:00') : null;
     if(f && t) renderDolarChart('custom', f, t);
   } else {
     customDates.style.display = 'none';
-    renderDolarChart(range);
+    await renderDolarChart(range);
   }
 }
 
 // Restore on page load if previously open
-(function(){
+(async function initDolarChartState(){
   if(localStorage.getItem('dolarChartOpen') === '1'){
     const area = document.getElementById('dolarChartArea');
     const btn = document.getElementById('btnDolarToggle');
     if(area && btn){
       area.style.display = 'block';
       btn.textContent = '📈 Ocultar gráfico';
-      setTimeout(() => { if(!dolarChart) renderDolarChart(); }, 100);
+      if(!dolarChart) await renderDolarChart();
     }
   }
 })();
