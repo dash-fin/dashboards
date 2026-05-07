@@ -1881,6 +1881,35 @@ function pfMakeDraggable(el, colId) {
   el.draggable = true;
   el.dataset.colId = colId;
 
+  // ── Click vs Drag (mouse) ──────────────────────────
+  let _mouseStartX = 0, _mouseStartY = 0;
+  let _mouseMoved = false;
+
+  el.addEventListener('mousedown', e => {
+    _mouseStartX = e.clientX;
+    _mouseStartY = e.clientY;
+    _mouseMoved = false;
+  });
+
+  el.addEventListener('mousemove', e => {
+    if (!_mouseStartX) return; // not tracking
+    const dx = e.clientX - _mouseStartX;
+    const dy = e.clientY - _mouseStartY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      _mouseMoved = true;
+    }
+  });
+
+  el.addEventListener('mouseup', e => {
+    if (!_mouseStartX) return;
+    const moved = _mouseMoved;
+    _mouseStartX = 0; _mouseStartY = 0; _mouseMoved = false;
+    if (!moved) {
+      // Click sin arrastre → ordenar
+      pfSortBy(colId);
+    }
+  });
+
   el.addEventListener('dragstart', e => {
     _pfDragColId = colId;
     e.dataTransfer.effectAllowed = 'move';
@@ -1929,9 +1958,15 @@ function pfMakeDraggable(el, colId) {
   });
 
   // ── Touch support (pantallas táctiles) ────────────────
+  let _touchStartX = 0, _touchStartY = 0;
+  let _touchMoved = false;
+
   el.addEventListener('touchstart', e => {
     // Si es un checkbox input dentro de un label, no iniciar drag
     if(e.target.tagName === 'INPUT') return;
+    _touchStartX = e.touches[0].clientX;
+    _touchStartY = e.touches[0].clientY;
+    _touchMoved = false;
     e.preventDefault();
     _pfDragColId = colId;
     _pfTouchDragging = el;
@@ -1940,9 +1975,15 @@ function pfMakeDraggable(el, colId) {
 
   el.addEventListener('touchmove', e => {
     if (!_pfTouchDragging) return;
+    // Track significant movement for tap detection
+    const touch = e.touches[0];
+    const dx = touch.clientX - _touchStartX;
+    const dy = touch.clientY - _touchStartY;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      _touchMoved = true;
+    }
     e.preventDefault();
 
-    const touch = e.touches[0];
     // Limpiar indicadores previos
     document.querySelectorAll('.pf-drag-over, .pf-drag-indicator').forEach(el2 => {
       el2.classList.remove('pf-drag-over', 'pf-drag-indicator');
@@ -1964,6 +2005,20 @@ function pfMakeDraggable(el, colId) {
     e.preventDefault();
 
     const fromId = _pfDragColId;
+    const wasMoved = _touchMoved;
+    _touchStartX = 0; _touchStartY = 0; _touchMoved = false;
+
+    if (!wasMoved) {
+      // Tap sin arrastre → ordenar
+      _pfTouchDragging.classList.remove('pf-dragging');
+      document.querySelectorAll('.pf-drag-over, .pf-drag-indicator').forEach(el2 => {
+        el2.classList.remove('pf-drag-over', 'pf-drag-indicator');
+      });
+      _pfTouchDragging = null;
+      _pfDragColId = null;
+      pfSortBy(colId);
+      return;
+    }
 
     // Encontrar el elemento bajo el dedo al soltar
     // touch end no tiene coordenadas usables en todos los browsers;
@@ -2052,8 +2107,7 @@ function pfRenderPositions(calced) {
   document.getElementById('pfPosHead').innerHTML = '<tr>'
     + visibleCols.map(c=>
         `<th data-col-id="${c.id}" ${c.id==='ticker'?'class="th-left"':''}
-          style="${borderIds.includes(c.id)?'border-left:1px solid var(--border2);':''}"
-          onclick="pfSortBy('${c.id}')">${c.label} ${arrowFor(c.id)}</th>`
+          style="${borderIds.includes(c.id)?'border-left:1px solid var(--border2);':''}">${c.label} ${arrowFor(c.id)}</th>`
       ).join('')
     + '<th></th></tr>';
   // Hacer draggable los <th>
