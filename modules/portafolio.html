@@ -114,6 +114,46 @@
 .btn-prim[onclick*="pfModalOpen"]:active {
   transform: translateY(0);
 }
+
+/* ── Drag & Drop para columnas ─────────────────────── */
+#pfPosHead th[draggable="true"],
+#pfColCheckboxes label[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+#pfPosHead th[draggable="true"]:active,
+#pfColCheckboxes label[draggable="true"]:active {
+  cursor: grabbing;
+}
+#pfPosHead th.pf-dragging,
+#pfColCheckboxes label.pf-dragging {
+  opacity: 0.4;
+}
+#pfPosHead th.pf-drag-over,
+#pfColCheckboxes label.pf-drag-over {
+  border-left: 3px solid var(--accent);
+}
+#pfPosHead th.pf-drag-over {
+  background: rgba(0, 229, 168, 0.08);
+}
+#pfColCheckboxes label.pf-drag-over {
+  background: rgba(0, 229, 168, 0.08);
+  border-radius: 4px;
+}
+/* ── Drag Indicator (horizontal drop zone) ─────────── */
+#pfPosHead th[data-col-id] {
+  position: relative;
+}
+#pfPosHead th.pf-drag-indicator::after {
+  content: '';
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 2px;
+}
 </style>
 <!-- ── Modal: Nueva / Editar posición ────────────────── -->
 <div id="pfModalOverlay" onclick="pfModalClose(event)" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center">
@@ -871,6 +911,27 @@ const PF_COLS = [
 ];
 let pfColVis = Object.fromEntries(PF_COLS.map(c=>[c.id, c.def]));
 let pfEditId = null;
+
+// ── Drag & drop column order persistence ────────────────
+function pfSaveColOrder() {
+  try { localStorage.setItem('pfColOrder', JSON.stringify(PF_COLS.map(c=>c.id))); }
+  catch(e) { /* localStorage may be unavailable */ }
+}
+function pfLoadColOrder() {
+  try {
+    const stored = localStorage.getItem('pfColOrder');
+    if(!stored) return;
+    const ids = JSON.parse(stored);
+    if(!Array.isArray(ids) || ids.length!==PF_COLS.length) return;
+    // Reorder PF_COLS in place to match stored order, preserving all properties
+    const idxMap = Object.fromEntries(PF_COLS.map((c,i)=>[c.id,i]));
+    // Verify all IDs are valid
+    if(!ids.every(id=>id in idxMap)) return;
+    const reordered = ids.map(id=>PF_COLS[idxMap[id]]);
+    PF_COLS.length = 0;
+    PF_COLS.push(...reordered);
+  } catch(e) { /* ignore parse errors */ }
+}
 
 // ── Sub-tabs ─────────────────────────────────────────────
 window.pfTab = (name, btn) => {
@@ -1790,11 +1851,15 @@ window.pfToggleColPanel = () => {
   const p = document.getElementById('pfColPanel');
   if(p.style.display==='none') {
     document.getElementById('pfColCheckboxes').innerHTML = PF_COLS.map(c=>
-      `<label style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;font-size:11px;color:var(--text2)">
+      `<label data-col-id="${c.id}" style="display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;font-size:11px;color:var(--text2)">
         <input type="checkbox" ${pfColVis[c.id]?'checked':''} onchange="pfToggleCol('${c.id}',this.checked)" style="cursor:pointer">
         ${c.label}
       </label>`
     ).join('');
+    // Hacer draggable los labels del panel
+    document.querySelectorAll('#pfColCheckboxes label[data-col-id]').forEach(lbl => {
+      pfMakeDraggable(lbl, lbl.dataset.colId);
+    });
     p.style.display = 'block';
   } else { p.style.display = 'none'; }
 };
@@ -1807,6 +1872,61 @@ document.addEventListener('click', e => {
   if(panel && !panel.contains(e.target) && !e.target.closest('[onclick="pfToggleColPanel()"]'))
     panel.style.display = 'none';
 });
+
+// ── Drag & Drop para columnas ────────────────────────────
+let _pfDragColId = null;
+
+function pfMakeDraggable(el, colId) {
+  el.draggable = true;
+  el.dataset.colId = colId;
+
+  el.addEventListener('dragstart', e => {
+    _pfDragColId = colId;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', colId);
+    el.classList.add('pf-dragging');
+  });
+
+  el.addEventListener('dragend', e => {
+    el.classList.remove('pf-dragging');
+    document.querySelectorAll('.pf-drag-over, .pf-drag-indicator').forEach(el2 => {
+      el2.classList.remove('pf-drag-over', 'pf-drag-indicator');
+    });
+    _pfDragColId = null;
+  });
+
+  el.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const targetId = el.dataset.colId;
+    if(targetId === _pfDragColId) return;
+    el.classList.add('pf-drag-over', 'pf-drag-indicator');
+  });
+
+  el.addEventListener('dragleave', e => {
+    el.classList.remove('pf-drag-over', 'pf-drag-indicator');
+  });
+
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    el.classList.remove('pf-drag-over', 'pf-drag-indicator');
+    const fromId = _pfDragColId;
+    const toId   = el.dataset.colId;
+    if(!fromId || !toId || fromId === toId) return;
+
+    const fromIdx = PF_COLS.findIndex(c => c.id === fromId);
+    const toIdx   = PF_COLS.findIndex(c => c.id === toId);
+    if(fromIdx === -1 || toIdx === -1) return;
+
+    // Reorder PF_COLS in place
+    const [removed] = PF_COLS.splice(fromIdx, 1);
+    const newToIdx  = PF_COLS.findIndex(c => c.id === toId);
+    PF_COLS.splice(newToIdx, 0, removed);
+
+    pfSaveColOrder();
+    pfRenderPositions(pfPositions.map(pfCalc));
+  });
+}
 
 // ── Sort ──────────────────────────────────────────────────
 window.pfSortBy = (colId) => {
@@ -1842,11 +1962,15 @@ function pfRenderPositions(calced) {
   const borderIds = ['adr','mep'];
   document.getElementById('pfPosHead').innerHTML = '<tr>'
     + visibleCols.map(c=>
-        `<th ${c.id==='ticker'?'class="th-left"':''}
+        `<th data-col-id="${c.id}" ${c.id==='ticker'?'class="th-left"':''}
           style="${borderIds.includes(c.id)?'border-left:1px solid var(--border2);':''}"
           onclick="pfSortBy('${c.id}')">${c.label} ${arrowFor(c.id)}</th>`
       ).join('')
     + '<th></th></tr>';
+  // Hacer draggable los <th>
+  document.querySelectorAll('#pfPosHead th[data-col-id]').forEach(th => {
+    pfMakeDraggable(th, th.dataset.colId);
+  });
 
   const tbody = document.getElementById('pfPosTbody');
   const visN = visibleCols.length + 1;
@@ -3567,6 +3691,7 @@ function pfRenderCharts() {
 }
 
 // ── Init — cargar y arrancar auto-refresh ─────────────────
+pfLoadColOrder();
 pfLoadAll();
 window.moduleTimers = window.moduleTimers || {};
 window.moduleTimers.portafolio = setInterval(pfLoadAll, 30000);
