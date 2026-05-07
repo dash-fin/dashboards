@@ -332,6 +332,12 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 .kpi-strip>*{min-width:0;overflow:hidden}
 .port-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .port-strip>*{min-width:0;overflow:hidden}
+.btn-collapse-dolar{display:flex;align-items:center;gap:8px;width:100%;margin-top:12px;padding:10px 18px;border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.5px;background:var(--bg2);border:1px solid var(--border);color:var(--amber)}.btn-collapse-dolar:hover{border-color:var(--amber);filter:brightness(1.2)}.btn-collapse-dolar.open{color:var(--text2);border-color:var(--border2);background:var(--bg3)}
+.dolar-chart-wrapper{max-height:0;overflow:hidden;transition:max-height .5s ease;margin-top:0}.dolar-chart-wrapper.open{max-height:400px}
+.dolar-chart-inner{overflow:hidden}
+.dolar-chart-container{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:8px;opacity:0;transition:opacity .4s ease}.dolar-chart-wrapper.open .dolar-chart-container{opacity:1}
+.dolar-range-bar{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}.dolar-range-btn{padding:4px 12px;border-radius:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--text3);cursor:pointer;border:none;background:transparent;transition:all .15s;white-space:nowrap}.dolar-range-btn:hover{color:var(--text2)}.dolar-range-btn.on{background:var(--bg3);color:var(--text);border:1px solid var(--border2)}
+.dolar-range-input{background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text);outline:none;transition:border-color .15s;width:auto;max-width:100px}.dolar-range-input:focus{border-color:var(--amber)}
 .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s}
 .kpi:hover{border-color:var(--border2);transform:translateY(-1px)}
 .kpi-glow{position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
@@ -1204,6 +1210,26 @@ async function renderHome(){
       <div class="kpi" id="h-kpi-fg"><div class="kpi-glow" style="background:var(--amberG)"></div><div class="kpi-label">Fear &amp; Greed</div><div class="kpi-val" style="color:var(--amber)">—</div><div class="kpi-sub"> </div></div>
       <div class="kpi" id="h-kpi-merval"><div class="kpi-glow" style="background:var(--greenG)"></div><div class="kpi-label">Merval USD <span style="font-size:8px;opacity:.5">ARS/CCL</span></div><div class="kpi-val">—</div><div class="kpi-sub"> </div></div>
       <div class="kpi" id="h-kpi-mep"><div class="kpi-glow" style="background:linear-gradient(135deg,var(--green),var(--cyan))"></div><div class="kpi-label">MEP / CCL <span style="font-size:8px;opacity:.5">spread</span></div><div class="kpi-val" style="color:var(--green)">—</div><div class="kpi-sub"> </div></div>
+    </div>
+  </div>
+  <button class="btn-collapse-dolar" id="btnToggleDolar" onclick="toggleDolarChart()">📈 Ver gráfico del dólar</button>
+  <div class="dolar-chart-wrapper" id="dolarChartWrapper">
+    <div class="dolar-chart-inner">
+      <div class="dolar-chart-container" id="dolarChartContainer">
+        <div class="dolar-range-bar">
+          <button class="dolar-range-btn" data-range="wtd" onclick="selectDolarRange('wtd',this)">WTD</button>
+          <button class="dolar-range-btn" data-range="mtd" onclick="selectDolarRange('mtd',this)">MTD</button>
+          <button class="dolar-range-btn on" data-range="ytd" onclick="selectDolarRange('ytd',this)">YTD</button>
+          <button class="dolar-range-btn" data-range="max" onclick="selectDolarRange('max',this)">Máx</button>
+          <button class="dolar-range-btn" data-range="custom" onclick="selectDolarRange('custom',this)">Personalizado</button>
+          <span id="dolarCustomDates" style="display:none;margin-left:6px;display:none;align-items:center;gap:6px">
+            <input type="date" class="dolar-range-input" id="dolarDateFrom">
+            <span style="color:var(--text4);font-size:10px">→</span>
+            <input type="date" class="dolar-range-input" id="dolarDateTo">
+          </span>
+        </div>
+        <canvas id="dolarChartCanvas" height="240"></canvas>
+      </div>
     </div>
   </div>
   <div>
@@ -2609,6 +2635,236 @@ async function aiGetContext(question) {
 
   return parts.join('\n\n') || 'Sin datos disponibles.';
 }
+
+// ── Gráfico del dólar (mock) ──
+let dolarChartInstance = null;
+let dolarChartData = null;
+
+function generateMockDolarData(){
+  const data = [];
+  const start = new Date('2025-07-01');
+  const end = new Date('2026-05-07');
+  let oficial = 1000;
+  let mep = 1050;
+  let idx = 0;
+  for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)){
+    if(d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+    idx++;
+    // gradual upward trend + noise
+    const trend = idx / 280; // ~0 to 1 over the period
+    const noiseO = (Math.random() - 0.5) * 6;
+    const noiseM = (Math.random() - 0.5) * 8;
+    oficial = Math.round((1000 + trend * 400 + noiseO) * 100) / 100;
+    mep = Math.round((1050 + trend * 330 + noiseM) * 100) / 100;
+    data.push({ date: new Date(d), oficial, mep });
+  }
+  return data;
+}
+
+function getDolarRange(rawData, range, fromDate, toDate){
+  const now = new Date('2026-05-07');
+  let start;
+  switch(range){
+    case 'wtd':
+      start = new Date(now);
+      start.setDate(start.getDate() - start.getDay() + 1); // Monday
+      break;
+    case 'mtd':
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case 'ytd':
+      start = new Date(now.getFullYear(), 0, 1);
+      break;
+    case 'custom':
+      if(fromDate && toDate){
+        start = fromDate;
+        now.setTime(toDate.getTime());
+      }
+      break;
+    case 'max':
+    default:
+      start = rawData[0]?.date || now;
+      break;
+  }
+  return rawData.filter(d => d.date >= start && d.date <= now);
+}
+
+function renderDolarChart(range, fromDate, toDate){
+  if(!dolarChartData) dolarChartData = generateMockDolarData();
+  const filtered = getDolarRange(dolarChartData, range, fromDate, toDate);
+  const labels = filtered.map(d => d.date.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }));
+  const oficial = filtered.map(d => d.oficial);
+  const mep = filtered.map(d => d.mep);
+
+  const canvas = document.getElementById('dolarChartCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  if(dolarChartInstance) dolarChartInstance.destroy();
+
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'claro';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+
+  dolarChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Dólar Oficial',
+          data: oficial,
+          borderColor: '#4488ff',
+          backgroundColor: 'rgba(68,136,255,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.2,
+          fill: true
+        },
+        {
+          label: 'Dólar MEP',
+          data: mep,
+          borderColor: '#10e898',
+          backgroundColor: 'rgba(16,232,152,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.2,
+          fill: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#8892aa',
+            font: { family: 'IBM Plex Mono', size: 10 },
+            boxWidth: 12,
+            padding: 12
+          }
+        },
+        tooltip: {
+          backgroundColor: '#111722',
+          titleFont: { family: 'IBM Plex Mono', size: 10 },
+          bodyFont: { family: 'IBM Plex Mono', size: 11 },
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: function(ctx){
+              return ctx.dataset.label + ': $' + Number(ctx.parsed.y).toLocaleString('es-AR', { minimumFractionDigits: 2 });
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#4a5568',
+            font: { family: 'IBM Plex Mono', size: 9 },
+            maxTicksLimit: 12
+          },
+          grid: { color: gridColor }
+        },
+        y: {
+          ticks: {
+            color: '#4a5568',
+            font: { family: 'IBM Plex Mono', size: 9 },
+            callback: function(val){ return '$' + Number(val).toLocaleString('es-AR'); }
+          },
+          grid: { color: gridColor }
+        }
+      }
+    }
+  });
+}
+
+function toggleDolarChart(){
+  const wrapper = document.getElementById('dolarChartWrapper');
+  const btn = document.getElementById('btnToggleDolar');
+  if(!wrapper || !btn) return;
+  const opening = !wrapper.classList.contains('open');
+
+  if(opening){
+    wrapper.classList.add('open');
+    btn.classList.add('open');
+    btn.innerHTML = '📈 Ocultar gráfico';
+    localStorage.setItem('dolarChartOpen', '1');
+    // Render with default range (YTD)
+    setTimeout(() => {
+      if(!dolarChartInstance) renderDolarChart('ytd');
+      // resize canvas to fill
+      const canvas = document.getElementById('dolarChartCanvas');
+      if(canvas && dolarChartInstance) dolarChartInstance.resize();
+    }, 100);
+  } else {
+    wrapper.classList.remove('open');
+    btn.classList.remove('open');
+    btn.innerHTML = '📈 Ver gráfico del dólar';
+    localStorage.setItem('dolarChartOpen', '0');
+  }
+}
+
+function selectDolarRange(range, el){
+  document.querySelectorAll('.dolar-range-btn').forEach(b => b.classList.remove('on'));
+  if(el) el.classList.add('on');
+
+  const customDates = document.getElementById('dolarCustomDates');
+  if(range === 'custom'){
+    customDates.style.display = 'inline-flex';
+    const from = document.getElementById('dolarDateFrom');
+    const to = document.getElementById('dolarDateTo');
+    if(!from.value || !to.value){
+      const now = new Date('2026-05-07');
+      const past = new Date(now);
+      past.setMonth(past.getMonth() - 1);
+      from.value = past.toISOString().split('T')[0];
+      to.value = now.toISOString().split('T')[0];
+    }
+    from.onchange = () => {
+      const f = from.value ? new Date(from.value+'T00:00:00') : null;
+      const t = to.value ? new Date(to.value+'T00:00:00') : null;
+      if(f && t) renderDolarChart('custom', f, t);
+    };
+    to.onchange = () => {
+      const f = from.value ? new Date(from.value+'T00:00:00') : null;
+      const t = to.value ? new Date(to.value+'T00:00:00') : null;
+      if(f && t) renderDolarChart('custom', f, t);
+    };
+    const f = from.value ? new Date(from.value+'T00:00:00') : null;
+    const t = to.value ? new Date(to.value+'T00:00:00') : null;
+    if(f && t) renderDolarChart('custom', f, t);
+  } else {
+    customDates.style.display = 'none';
+    renderDolarChart(range);
+  }
+}
+
+// Restore collapsed state on page load if previously open
+(function initDolarChartState(){
+  const stored = localStorage.getItem('dolarChartOpen');
+  if(stored === '1'){
+    const wrapper = document.getElementById('dolarChartWrapper');
+    const btn = document.getElementById('btnToggleDolar');
+    if(wrapper && btn){
+      wrapper.classList.add('open');
+      btn.classList.add('open');
+      btn.innerHTML = '📈 Ocultar gráfico';
+      setTimeout(() => {
+        if(!dolarChartInstance) renderDolarChart('ytd');
+        const canvas = document.getElementById('dolarChartCanvas');
+        if(canvas && dolarChartInstance) dolarChartInstance.resize();
+      }, 150);
+    }
+  }
+})();
 </script>
 </body>
 </html>
