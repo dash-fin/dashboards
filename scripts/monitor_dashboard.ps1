@@ -129,11 +129,23 @@ if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
         $checkDh = Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico?fecha=eq.$hoy&tipo=eq.oficial&select=fecha" -Headers $SB_HEADERS -ErrorAction Stop
         if ($checkDh.Count -eq 0) {
             $ofUrl = "https://api.argentinadatos.com/v1/cotizaciones/dolares/oficial"
-            $ofResp = Invoke-RestMethod -Uri $ofUrl -Headers @{"User-Agent"="Mozilla/5.0"} -ErrorAction Stop
-            $lastOf = $ofResp | Where-Object { $_.fecha -eq $hoy } | Select-Object -Last 1
-            if ($lastOf -and $lastOf.venta -gt 0) {
-                $row = @{ fecha=$hoy; tipo="oficial"; close=[math]::Round($lastOf.venta,2); fuente="argentinadatos" } | ConvertTo-Json
-                Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row | Out-Null
+            $oficialRetries = 2
+            $oficialLoaded = $false
+            for ($ofTry = 0; $ofTry -le $oficialRetries; $ofTry++) {
+                try {
+                    $ofResp = Invoke-RestMethod -Uri $ofUrl -Headers @{"User-Agent"="Mozilla/5.0"} -ErrorAction Stop
+                    $lastOf = $ofResp | Where-Object { $_.fecha -eq $hoy } | Select-Object -Last 1
+                    if ($lastOf -and $lastOf.venta -gt 0) {
+                        $row = @{ fecha=$hoy; tipo="oficial"; close=[math]::Round($lastOf.venta,2); fuente="argentinadatos" } | ConvertTo-Json
+                        Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row | Out-Null
+                        $oficialLoaded = $true
+                        break
+                    }
+                } catch { Write-Log "WARN oficial (intento $($ofTry+1)): $($_ | Out-String)" }
+                if ($ofTry -lt $oficialRetries) { Start-Sleep -Seconds 5 }
+            }
+            if (-not $oficialLoaded) {
+                Write-Log "WARN oficial: no se pudo obtener cotización del día $hoy después de $($oficialRetries+1) intentos"
             }
         }
     } catch { Write-Log "ERROR oficial: $($_ | Out-String)" }
@@ -145,70 +157,111 @@ if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
             $edgeUrl = "$SB_URL/functions/v1/yahoo-prices"
             $edgeBody = @{ mode="rava-series"; symbols=@("AL30","AL30C") } | ConvertTo-Json
             $edgeH = @{"Content-Type"="application/json"; "Authorization"="Bearer $SB_KEY"; "apikey"=$SB_KEY}
-            $series = Invoke-RestMethod -Uri $edgeUrl -Method Post -Headers $edgeH -Body $edgeBody -ErrorAction Stop
+            $cclRetries = 2
+            $cclLoaded = $false
+            for ($cclTry = 0; $cclTry -le $cclRetries; $cclTry++) {
+                try {
+                    $series = Invoke-RestMethod -Uri $edgeUrl -Method Post -Headers $edgeH -Body $edgeBody -ErrorAction Stop
 
-            # Buscar cierre de AL30 y AL30C para hoy
-            $al30px = $null; $al30cpx = $null
-            foreach ($r in $series.AL30) {
-                if ($r.fecha -eq $hoy -and $r.cierre -gt 0) {
-                    if (-not $al30px -or $r.especie -like "*CT*") { $al30px = [double]$r.cierre }
-                }
-            }
-            foreach ($r in $series.AL30C) {
-                if ($r.fecha -eq $hoy -and $r.cierre -gt 0) {
-                    if (-not $al30cpx -or $r.especie -like "*CT*") { $al30cpx = [double]$r.cierre }
-                }
-            }
+                    # Buscar cierre de AL30 y AL30C para hoy
+                    $al30px = $null; $al30cpx = $null
+                    foreach ($r in $series.AL30) {
+                        if ($r.fecha -eq $hoy -and $r.cierre -gt 0) {
+                            if (-not $al30px -or $r.especie -like "*CT*") { $al30px = [double]$r.cierre }
+                        }
+                    }
+                    foreach ($r in $series.AL30C) {
+                        if ($r.fecha -eq $hoy -and $r.cierre -gt 0) {
+                            if (-not $al30cpx -or $r.especie -like "*CT*") { $al30cpx = [double]$r.cierre }
+                        }
+                    }
 
-            if ($al30px -gt 0 -and $al30cpx -gt 0) {
-                $ccl = [math]::Round($al30px / $al30cpx, 2)
-                $row = @{ fecha=$hoy; tipo="ccl"; close=$ccl; fuente="rava" } | ConvertTo-Json
-                Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row | Out-Null
+                    if ($al30px -gt 0 -and $al30cpx -gt 0) {
+                        $ccl = [math]::Round($al30px / $al30cpx, 2)
+                        $row = @{ fecha=$hoy; tipo="ccl"; close=$ccl; fuente="rava" } | ConvertTo-Json
+                        Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row | Out-Null
+                        $cclLoaded = $true
+                        break
+                    }
+                } catch { Write-Log "WARN ccl (intento $($cclTry+1)): $($_ | Out-String)" }
+                if ($cclTry -lt $cclRetries) { Start-Sleep -Seconds 5 }
+            }
+            if (-not $cclLoaded) {
+                Write-Log "WARN ccl: no se pudo obtener cotización del día $hoy después de $($cclRetries+1) intentos"
             }
         }
     } catch { Write-Log "ERROR ccl: $($_ | Out-String)"  }
+    # ── Resumen diario dolar ──────────────────────────────────
+    try {
+        $mepRow = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mep_historico?fecha=eq.$hoy&select=mep" -Headers $SB_HEADERS -ErrorAction Stop
+        $ofRow  = Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico?fecha=eq.$hoy&tipo=eq.oficial&select=close" -Headers $SB_HEADERS -ErrorAction Stop
+        $cclRow = Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico?fecha=eq.$hoy&tipo=eq.ccl&select=close" -Headers $SB_HEADERS -ErrorAction Stop
+        $mepVal = if ($mepRow.Count -gt 0) { [math]::Round([double]$mepRow[0].mep,2) } else { "N/A" }
+        $ofVal  = if ($ofRow.Count -gt 0)  { [math]::Round([double]$ofRow[0].close,2) } else { "N/A" }
+        $cclVal = if ($cclRow.Count -gt 0) { [math]::Round([double]$cclRow[0].close,2) } else { "N/A" }
+
+        # Detectar faltantes y reportarlos
+        $faltantes = @()
+        if ($ofVal -eq "N/A")  { $faltantes += "Oficial" }
+        if ($mepVal -eq "N/A") { $faltantes += "MEP" }
+        if ($cclVal -eq "N/A") { $faltantes += "CCL" }
+
+        $msg = "[Dolar $hoy]`nOficial: $ofVal`nMEP: $mepVal`nCCL: $cclVal"
+        if ($faltantes.Count -gt 0) {
+            $msg += "`n`n⚠️ *Faltante(s):* $($faltantes -join ', ')"
+            Write-Log "WARN resumen: faltan $($faltantes -join ', ')"
+        }
+        Send-Telegram $msg
+    } catch { Write-Log "ERROR resumen dolar: $($_ | Out-String)" }
 }
 
-# ── Resumen diario dolar ──────────────────────────────────
-try {
-    $hoy = (Get-Date).ToString("yyyy-MM-dd")
-    $mepRow = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mep_historico?fecha=eq.$hoy&select=mep" -Headers $SB_HEADERS -ErrorAction Stop
-    $ofRow  = Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico?fecha=eq.$hoy&tipo=eq.oficial&select=close" -Headers $SB_HEADERS -ErrorAction Stop
-    $cclRow = Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico?fecha=eq.$hoy&tipo=eq.ccl&select=close" -Headers $SB_HEADERS -ErrorAction Stop
-    $mepVal = if ($mepRow.Count -gt 0) { [math]::Round([double]$mepRow[0].mep,2) } else { "N/A" }
-    $ofVal  = if ($ofRow.Count -gt 0)  { [math]::Round([double]$ofRow[0].close,2) } else { "N/A" }
-    $cclVal = if ($cclRow.Count -gt 0) { [math]::Round([double]$cclRow[0].close,2) } else { "N/A" }
-    Send-Telegram "[Dolar $hoy]`nOficial: $ofVal`nMEP: $mepVal`nCCL: $cclVal"
-} catch { Write-Log "ERROR resumen dolar: $($_ | Out-String)" }
-
-# ── Snapshot diario P&L portafolio (17:10–17:59) ──────────
+# ── Snapshot diario P&L portafolio (17:06–17:59) ──────────
 # Itera todos los usuarios con posiciones activas y guarda en pnl_diario
 if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
     $hoy = (Get-Date).ToString("yyyy-MM-dd")
     try {
+        Write-Log "INFO PnL: iniciando snapshot diario para $hoy"
         # MEP del cierre de hoy (compartido para todos los usuarios)
         $mepRow = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mep_historico?fecha=eq.$hoy&select=mep" -Headers $SB_HEADERS -ErrorAction Stop
-        if ($mepRow.Count -eq 0) { throw "sin MEP hoy" }
+        if ($mepRow.Count -eq 0) { throw "sin MEP hoy — PnL no puede calcularse" }
         $mepHoy = [double]$mepRow[0].mep
+        if ($mepHoy -le 0) { throw "MEP inválido: $mepHoy" }
+        Write-Log "INFO PnL: MEP = $mepHoy"
         $BONOS  = @('BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL')
         $postH  = $SB_HEADERS.Clone()
         $postH["Content-Type"] = "application/json"
         $postH["Prefer"]       = "resolution=merge-duplicates,return=minimal"
 
+        # Verificar frescura de precios en mercado
+        try {
+            $merUrl = "$SB_URL/rest/v1/mercado?select=updated_at&order=updated_at.desc.nullslast&limit=1"
+            $mu = Invoke-RestMethod -Uri $merUrl -Headers $SB_HEADERS -ErrorAction Stop
+            if ($mu -and $mu[0].updated_at) {
+                $merUpd = [datetime]::Parse($mu[0].updated_at).ToUniversalTime()
+                $merAge = ([datetime]::UtcNow - $merUpd).TotalMinutes
+                if ($merAge -gt 60) {
+                    Write-Log "WARN PnL: precios mercado tienen $([int]$merAge) minutos — pueden ser del día anterior"
+                }
+            }
+        } catch { Write-Log "WARN PnL: no se pudo verificar frescura de mercado: $($_ | Out-String)" }
+
         # Obtener todos los usuarios con posiciones activas
         $usuarios = Invoke-RestMethod -Uri "$SB_URL/rest/v1/portafolio?activo=eq.true&tipo=neq.OPCION&select=user_email" -Headers $SB_HEADERS -ErrorAction Stop |
                     Select-Object -ExpandProperty user_email -Unique
+        Write-Log "INFO PnL: $($usuarios.Count) usuarios con posiciones activas"
 
+        $pnlCount = 0
         foreach ($email in $usuarios) {
             try {
                 $emailEnc = [uri]::EscapeDataString($email)
 
                 # Saltar si ya existe el snapshot de hoy para este usuario
                 $chk = Invoke-RestMethod -Uri "$SB_URL/rest/v1/pnl_diario?user_email=eq.$emailEnc&fecha=eq.$hoy&select=fecha" -Headers $SB_HEADERS -ErrorAction Stop
-                if ($chk.Count -gt 0) { continue }
+                if ($chk.Count -gt 0) { $pnlCount++; continue }
 
                 # Posiciones de este usuario
                 $posAll   = Invoke-RestMethod -Uri "$SB_URL/rest/v1/portafolio?activo=eq.true&tipo=neq.OPCION&user_email=eq.$emailEnc&select=ticker_ars,tipo,cantidad,fecha_compra" -Headers $SB_HEADERS -ErrorAction Stop
+                if (-not $posAll -or $posAll.Count -eq 0) { continue }
                 $posExist = $posAll | Where-Object { $_.fecha_compra -and $_.fecha_compra -lt $hoy }
 
                 # Precios ARS actuales para los tickers de este usuario
@@ -232,6 +285,7 @@ if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
                     $factor = if ($BONOS -contains $p.tipo) { 100 } else { 1 }
                     $existingUsd += ([double]$p.cantidad * $precio) / ($factor * $mepHoy)
                 }
+                $existingUsd = [math]::Round($existingUsd, 2)
 
                 # P&L vs día anterior de este usuario
                 $ayerR  = Invoke-RestMethod -Uri "$SB_URL/rest/v1/pnl_diario?user_email=eq.$emailEnc&fecha=lt.$hoy&order=fecha.desc&limit=1&select=valor_usd" -Headers $SB_HEADERS -ErrorAction Stop
@@ -244,9 +298,12 @@ if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
 
                 $row = @{ user_email=$email; fecha=$hoy; valor_usd=$totalUsd; pnl_usd=$pnlUsd; pnl_pct=$pnlPct } | ConvertTo-Json
                 Invoke-RestMethod -Uri "$SB_URL/rest/v1/pnl_diario" -Method Post -Headers $postH -Body $row | Out-Null
-            } catch {}
+                $pnlCount++
+                Write-Log "INFO PnL: $email — valor_usd=$totalUsd, pnl_usd=$pnlUsd"
+            } catch { Write-Log "ERROR PnL usuario ${email}: $($_ | Out-String)" }
         }
-    } catch {}
+        Write-Log "INFO PnL: $pnlCount/$($usuarios.Count) usuarios procesados para $hoy"
+    } catch { Write-Log "ERROR PnL snapshot: $($_ | Out-String)" }
 }
 
 # ── Earnings alerts (una vez por día, horario libre) ──────
