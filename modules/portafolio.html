@@ -374,6 +374,14 @@
           <input class="field-input" id="pfcPrecioAdrSalida" type="number" step="any" placeholder="0.00">
         </div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <div class="field-label">Cantidad a cerrar</div>
+          <input class="field-input" id="pfcCantidad" type="number" step="any" placeholder="0" oninput="pfCloseCalc()">
+          <div style="font-size:9px;color:var(--text3);margin-top:3px" id="pfcCantHint"></div>
+        </div>
+        <div></div>
+      </div>
       <div id="pfClosePreview" style="display:none;border-radius:6px;padding:14px 16px;
         margin-bottom:16px;border:1px solid">
         <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);
@@ -2794,6 +2802,8 @@ window.pfCloseModal = (id) => {
   document.getElementById('pfcPrecioSalida').value = '';
   document.getElementById('pfcPrecioAdrSalida').value = '';
   document.getElementById('pfcNotas').value = '';
+  document.getElementById('pfcCantidad').value = '';
+  document.getElementById('pfcCantHint').textContent = '';
   document.getElementById('pfcMsg').style.display = 'none';
   document.getElementById('pfClosePreview').style.display = 'none';
 
@@ -2824,15 +2834,26 @@ window.pfCloseCalc = () => {
   if(!pos) return;
   const precioSalida = parseFloat(document.getElementById('pfcPrecioSalida').value);
   const mepSalida    = parseFloat(document.getElementById('pfcMepSalida').value);
-  if(!precioSalida || !mepSalida) {
+  const cantidadCerrar = parseFloat(document.getElementById('pfcCantidad').value) || 0;
+  const hintEl = document.getElementById('pfcCantHint');
+  const totalQty = Math.abs(pos.cantidad);
+  if(cantidadCerrar > totalQty) {
+    hintEl.textContent = `⚠️ Máx: ${totalQty}`;
+  } else if(cantidadCerrar > 0) {
+    hintEl.textContent = `Cerrar ${cantidadCerrar} de ${totalQty}`;
+  } else {
+    hintEl.textContent = '';
+  }
+  if(!precioSalida || !mepSalida || cantidadCerrar <= 0) {
     document.getElementById('pfClosePreview').style.display = 'none';
     return;
   }
+  const qtyClose = cantidadCerrar * (pos.cantidad >= 0 ? 1 : -1);
   const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
   const factor = esBono ? 100 : 1;
   const usdInv = pos.mep_compra > 0
-    ? (pos.precio_compra_ars * pos.cantidad) / (factor * pos.mep_compra) : 0;
-  const usdRet = (precioSalida * pos.cantidad) / (factor * mepSalida);
+    ? (pos.precio_compra_ars * qtyClose) / (factor * pos.mep_compra) : 0;
+  const usdRet = (precioSalida * qtyClose) / (factor * mepSalida);
   const gan    = usdRet - usdInv;
   const pct    = usdInv > 0 ? (gan / usdInv * 100) : 0;
   const color  = gan >= 0 ? 'var(--green)' : 'var(--red)';
@@ -2855,18 +2876,23 @@ window.pfCloseSave = async () => {
   const precioSalida = parseFloat(document.getElementById('pfcPrecioSalida').value);
   const mepSalida    = parseFloat(document.getElementById('pfcMepSalida').value);
   const precioAdrS   = parseFloat(document.getElementById('pfcPrecioAdrSalida').value) || null;
+  const cantidadCerrar = parseFloat(document.getElementById('pfcCantidad').value) || 0;
   const notas        = document.getElementById('pfcNotas').value.trim() || null;
   const btn          = document.getElementById('pfcSaveBtn');
 
   if(!fechaCierre)  { pfCloseMsgShow('error','Ingresá la fecha de venta'); return; }
   if(!precioSalida) { pfCloseMsgShow('error','Ingresá el precio de venta'); return; }
   if(!mepSalida)    { pfCloseMsgShow('error','Ingresá el MEP de venta'); return; }
+  if(cantidadCerrar <= 0) { pfCloseMsgShow('error','Ingresá la cantidad a cerrar'); return; }
+  const totalQty = Math.abs(pos.cantidad);
+  if(cantidadCerrar > totalQty) { pfCloseMsgShow('error','La cantidad a cerrar supera la disponible'); return; }
 
+  const qtyClose = cantidadCerrar * (pos.cantidad >= 0 ? 1 : -1);
   const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
   const factor = esBono ? 100 : 1;
   const usdInv = pos.mep_compra > 0
-    ? (pos.precio_compra_ars * pos.cantidad) / (factor * pos.mep_compra) : 0;
-  const usdRet = (precioSalida * pos.cantidad) / (factor * mepSalida);
+    ? (pos.precio_compra_ars * qtyClose) / (factor * pos.mep_compra) : 0;
+  const usdRet = (precioSalida * qtyClose) / (factor * mepSalida);
   const gan    = usdRet - usdInv;
   const pct    = usdInv > 0 ? (gan / usdInv * 100) : 0;
 
@@ -2877,7 +2903,7 @@ window.pfCloseSave = async () => {
     ticker_adr:         pos.ticker_adr  || null,
     ticker_usd:         pos.ticker_usd  || null,
     fecha_apertura:     pos.fecha_compra || null,
-    cantidad:           pos.cantidad,
+    cantidad:           qtyClose,
     precio_entrada_ars: pos.precio_compra_ars,
     mep_entrada:        pos.mep_compra,
     precio_adr_entrada: pos.precio_adr_compra || null,
@@ -2895,7 +2921,13 @@ window.pfCloseSave = async () => {
   btn.disabled = true; btn.innerHTML = '<span>⏳</span> Cerrando...'; btn.style.opacity = '0.6';
   try {
     await sbInsert('trades', trade);
-    await sbPatch('portafolio', 'id=eq.'+pfCloseId, { activo: false });
+    const remaining = totalQty - cantidadCerrar;
+    if(remaining <= 0) {
+      await sbPatch('portafolio', 'id=eq.'+pfCloseId, { activo: false });
+    } else {
+      const newCantidad = remaining * (pos.cantidad >= 0 ? 1 : -1);
+      await sbPatch('portafolio', 'id=eq.'+pfCloseId, { cantidad: newCantidad });
+    }
     pfCloseHide();
     alLog?.('✅ ' + pos.ticker_ars + ' cerrado (P&L: U$S ' + Math.round(gan).toLocaleString('es-AR') + ')', 'green');
     await pfLoadAll();
