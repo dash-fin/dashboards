@@ -3342,9 +3342,22 @@ async function pfLoadHistorial() {
       const opsCount = (opsRows||[]).length;
       const totalTrades = rows.length + opsCount;
       const winPct = totalTrades > 0 ? (wins / totalTrades * 100).toFixed(0) : '—';
+      const allPnls = [
+        ...rows.map(r => r.ganancia_usd||0),
+        ...(opsRows||[]).map(op => {
+          const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
+          return allClose ? calcPnl(op) : 0;
+        })
+      ].filter(v => v !== 0);
+      const maxDD = allPnls.length ? Math.min(...allPnls) : 0;
+      const sumGains = allPnls.filter(v => v > 0).reduce((s,v) => s+v, 0);
+      const sumLosses = allPnls.filter(v => v < 0).reduce((s,v) => s+Math.abs(v), 0);
+      const profitFactor = sumLosses > 0 ? (sumGains / sumLosses).toFixed(2) : '—';
       statsEl.innerHTML =
-        `${totalTrades} trades (${opsCount} opciones) · Win rate: ${winPct}% · `
-        + `Total realizado: <span id="pfHistTotalGanAmt" style="color:${color};font-weight:500;filter:${_priv?'blur(5px)':''}">${sGan}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
+        `${totalTrades} trades (${opsCount} opciones) · WR: ${winPct}% · `
+        + `PF: ${profitFactor} · `
+        + `MDD: <span style="color:var(--red)">U$S ${Math.abs(Math.round(maxDD)).toLocaleString('es-AR')}</span> · `
+        + `Total: <span id="pfHistTotalGanAmt" style="color:${color};font-weight:500;filter:${_priv?'blur(5px)':''}">${sGan}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
     }
     tbody.innerHTML = rows.map(r => {
       const gan = r.ganancia_usd||0, pct = r.ganancia_pct||0;
