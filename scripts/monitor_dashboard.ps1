@@ -8,6 +8,22 @@ $FLAG_10        = "$PSScriptRoot\bat_alerta10.flag"
 $FLAG_WD_ARS    = "$PSScriptRoot\wd_ars.flag"
 $FLAG_WD_USA    = "$PSScriptRoot\wd_usa.flag"
 
+# ── Timezone helper (GMT-3 Argentina) ────────────────────────
+# WSL corre en UTC, pero todas las ventanas horarias y timestamps
+# deben usar hora ARG (GMT-3, sin horario de verano).
+$ArgTz = [System.TimeZoneInfo]::FindSystemTimeZoneById('Argentina Standard Time')
+
+function Get-ArgTime {
+    # Devuelve [datetime] en hora ARG para cualquier operacion
+    return [System.TimeZoneInfo]::ConvertTimeFromUtc([datetime]::UtcNow, $ArgTz)
+}
+
+function Get-ArgDateString([string]$Format = 'yyyy-MM-dd') {
+    # Devuelve string con fecha/hora ARG
+    $argNow = Get-ArgTime
+    return $argNow.ToString($Format)
+}
+
 function Send-Telegram($msg) {
     $url  = "https://api.telegram.org/bot$TG_TOKEN/sendMessage"
     $body = @{ chat_id = $TG_CHAT_ID; text = $msg; parse_mode = "Markdown" } | ConvertTo-Json
@@ -18,7 +34,7 @@ function Send-Telegram($msg) {
 
 function Write-Log($msg) {
     $logFile = "$PSScriptRoot\monitor_dashboard.log"
-    $timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+    $timestamp = Get-ArgDateString "yyyy-MM-dd HH:mm:ss"
     "$timestamp $msg" | Out-File -FilePath $logFile -Append -Encoding utf8
 }
 
@@ -40,8 +56,13 @@ function Get-StaleSeconds($table) {
     } catch { return 9999 }
 }
 
+# ── Calcular hora ARG una sola vez al inicio del ciclo ─────
+# Todas las ventanas horarias comparan contra esta variable.
+$argNow_ = Get-ArgTime
+$hNow = $argNow_.TimeOfDay
+
 function Watch-Monitor($taskPath, $label, $table, $flagFile, $startTime, $endTime) {
-    $dow = [datetime]::Now.DayOfWeek
+    $dow = $argNow_.DayOfWeek
     if ($dow -eq 'Saturday' -or $dow -eq 'Sunday') {
         Remove-Item $flagFile -ErrorAction SilentlyContinue
         return
@@ -74,18 +95,16 @@ function Watch-Monitor($taskPath, $label, $table, $flagFile, $startTime, $endTim
     # Si el flag ya existe: ya se reinicio, esperar a que levante sin hacer nada mas
 }
 
-$hNow = [datetime]::Now.TimeOfDay
-
 # Monitor ARS (tabla mercado): activo 10:30-16:59, chequear desde 10:40
 Watch-Monitor "\Dashboard"     "Monitor ARS" "mercado"     $FLAG_WD_ARS "10:40:00" "16:59:00"
 
 # Monitor USA (tabla mercado_usa): activo 08:00-20:30, chequear desde 08:10
 Watch-Monitor "\Dashboard USA" "Monitor USA" "mercado_usa" $FLAG_WD_USA "08:10:00" "20:30:00"
 
-# ── Captura diaria al cierre (17:05–17:59) ───────────────
+# ── Captura diaria al cierre (17:05–17:59 ARG) ────────────
 # Guarda dólar oficial, MEP y CCL en mep_historico y dolar_historico
 if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
-    $hoy = (Get-Date).ToString("yyyy-MM-dd")
+    $hoy = Get-ArgDateString "yyyy-MM-dd"
     $postH  = $SB_HEADERS.Clone()
     $postH["Content-Type"] = "application/json"
     $postH["Prefer"]       = "resolution=merge-duplicates,return=minimal"
@@ -215,10 +234,10 @@ if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
     } catch { Write-Log "ERROR resumen dolar: $($_ | Out-String)" }
 }
 
-# ── Snapshot diario P&L portafolio (17:06–17:59) ──────────
+# ── Snapshot diario P&L portafolio (17:06–17:59 ARG) ─────
 # Itera todos los usuarios con posiciones activas y guarda en pnl_diario
 if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
-    $hoy = (Get-Date).ToString("yyyy-MM-dd")
+    $hoy = Get-ArgDateString "yyyy-MM-dd"
     try {
         Write-Log "INFO PnL: iniciando snapshot diario para $hoy"
         # MEP del cierre de hoy (compartido para todos los usuarios)
@@ -308,7 +327,7 @@ if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
 
 # ── Earnings alerts (una vez por día, horario libre) ──────
 # Chequea próximos earnings de los ADRs del portafolio y avisa 3 y 1 día antes
-$TODAY_STR  = (Get-Date).ToString("yyyy-MM-dd")
+$TODAY_STR  = Get-ArgDateString "yyyy-MM-dd"
 $FLAG_EARN  = "$PSScriptRoot\earnings_chk_$TODAY_STR.flag"
 
 if (-not (Test-Path $FLAG_EARN)) {
