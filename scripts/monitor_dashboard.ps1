@@ -16,6 +16,12 @@ function Send-Telegram($msg) {
     } catch {}
 }
 
+function Write-Log($msg) {
+    $logFile = "$PSScriptRoot\monitor_dashboard.log"
+    $timestamp = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+    "$timestamp $msg" | Out-File -FilePath $logFile -Append -Encoding utf8
+}
+
 # ── Watchdog monitores de mercado ─────────────────────────
 # Corre siempre (independiente del estado de la bateria)
 
@@ -116,7 +122,7 @@ if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
                 Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row2 | Out-Null
             }
         }
-    } catch {}
+    } catch { Write-Log "ERROR mep: $($_ | Out-String)" }
 
     try {
         # ── Dólar oficial: ArgentinaDatos API ──
@@ -130,7 +136,7 @@ if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
                 Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row | Out-Null
             }
         }
-    } catch {}
+    } catch { Write-Log "ERROR oficial: $($_ | Out-String)" }
 
     try {
         # ── CCL: AL30C/AL30 desde Rava (edge function) ──
@@ -160,8 +166,20 @@ if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
                 Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row | Out-Null
             }
         }
-    } catch {}
+    } catch { Write-Log "ERROR ccl: $($_ | Out-String)"  }
 }
+
+# ── Resumen diario dolar ──────────────────────────────────
+try {
+    $hoy = (Get-Date).ToString("yyyy-MM-dd")
+    $mepRow = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mep_historico?fecha=eq.$hoy&select=mep" -Headers $SB_HEADERS -ErrorAction Stop
+    $ofRow  = Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico?fecha=eq.$hoy&tipo=eq.oficial&select=close" -Headers $SB_HEADERS -ErrorAction Stop
+    $cclRow = Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico?fecha=eq.$hoy&tipo=eq.ccl&select=close" -Headers $SB_HEADERS -ErrorAction Stop
+    $mepVal = if ($mepRow.Count -gt 0) { [math]::Round([double]$mepRow[0].mep,2) } else { "N/A" }
+    $ofVal  = if ($ofRow.Count -gt 0)  { [math]::Round([double]$ofRow[0].close,2) } else { "N/A" }
+    $cclVal = if ($cclRow.Count -gt 0) { [math]::Round([double]$cclRow[0].close,2) } else { "N/A" }
+    Send-Telegram "[Dolar $hoy]`nOficial: $ofVal`nMEP: $mepVal`nCCL: $cclVal"
+} catch { Write-Log "ERROR resumen dolar: $($_ | Out-String)" }
 
 # ── Snapshot diario P&L portafolio (17:10–17:59) ──────────
 # Itera todos los usuarios con posiciones activas y guarda en pnl_diario
