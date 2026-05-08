@@ -2651,7 +2651,7 @@ async function fetchDolarData(){
     // Transformar a formato { date, oficial, mep, ccl }
     const map = {};
     for(const row of data){
-      if(!map[row.fecha]) map[row.fecha] = { date: new Date(row.fecha + 'T00:00:00') };
+      if(!map[row.fecha]) map[row.fecha] = { date: new Date(row.fecha + 'T12:00:00') };
       map[row.fecha][row.tipo] = Number(row.close);
     }
 
@@ -2665,7 +2665,7 @@ async function fetchDolarData(){
 
 
 function getDolarRange(rawData, range, fromDate, toDate){
-  const now = new Date('2026-05-07');
+  const now = new Date();
   let start;
   switch(range){
     case 'wtd':
@@ -2697,8 +2697,8 @@ async function toggleDolarChart(){
   if(area.style.display === 'none' || !area.style.display){
     area.style.display = 'block';
     btn.textContent = '📈 Ocultar gráfico';
-    localStorage.setItem('dolarChartOpen', '1');
     if(!dolarChart) await renderDolarChart();
+    localStorage.setItem('dolarChartOpen', '1');
   } else {
     area.style.display = 'none';
     btn.textContent = '📈 Ver gráfico del dólar';
@@ -2831,7 +2831,7 @@ async function selectDolarRange(range, el){
     const from = document.getElementById('dolarDateFrom');
     const to = document.getElementById('dolarDateTo');
     if(!from.value || !to.value){
-      const now = new Date('2026-05-07');
+      const now = new Date();
       const past = new Date(now);
       past.setMonth(past.getMonth() - 1);
       from.value = past.toISOString().split('T')[0];
