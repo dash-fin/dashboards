@@ -3322,15 +3322,18 @@ async function pfLoadHistorial() {
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Sin operaciones cerradas aún</td></tr>';
     if(statsEl) statsEl.textContent = '';
   } else {
+    const optSz = op => (op.patas?.[0]?.option_size || 100);
+    const calcPnl = op => op.patas.reduce((s,l) => s + (l.action==='buy'?1:-1)*(l.prima_cierre - l.prima)*l.qty*optSz(op), 0);
+    const opsWins = (opsRows||[]).filter(op => {
+      const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
+      return allClose && calcPnl(op) >= 0;
+    }).length;
     const opsPnL = (opsRows||[]).reduce((s,op) => {
       const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
-      if(!allClose) return s;
-      const optSz = op.patas?.[0]?.option_size || 100;
-      const pnl = op.patas.reduce((ss,l) => ss + (l.action==='buy'?1:-1)*(l.prima_cierre - l.prima)*l.qty*optSz, 0);
-      return s + pnl;
+      return allClose ? s + calcPnl(op) : s;
     }, 0);
     const totGan = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0) + opsPnL;
-    const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length;
+    const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length + opsWins;
     const totalCount = rows.length + (opsRows||[]).length;
     const sGan   = totGan>=0?'+':'';
     const color  = totGan>=0?'var(--green)':'var(--red)';
