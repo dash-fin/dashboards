@@ -3061,92 +3061,9 @@ async function pfRenderResumenCalendar() {
   </div>`;
 }
 
+// pfRenderCalendar redirige al mes actual del resumen
 async function pfRenderCalendar() {
-  const el = document.getElementById('pfCalendarBody');
-  if(!el) return;
-  el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:12px">Cargando...</div>';
-
-  const year = pfCalYear;
-  // Update nav UI
-  const lbl = document.getElementById('pfCalYearLabel');
-  if(lbl) lbl.textContent = year;
-  const nxt = document.getElementById('pfCalNavNext');
-  if(nxt) nxt.style.opacity = year >= new Date().getFullYear() ? '0.3' : '1';
-
-  const ytdStart = `${year}-01-01`;
-  const ytdEnd   = `${year}-12-31`;
-  let rows = [];
-  try {
-    const _calEmail = encodeURIComponent(window.currentUser?.email||'');
-    rows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${ytdStart}&fecha=lte.${ytdEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
-  } catch(e) { console.warn('[pnl-cal]', e); }
-
-  if(!rows.length) {
-    el.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);padding:20px;text-align:center">Sin datos para ${year}.</div>`;
-    return;
-  }
-
-  const byDate = {};
-  rows.forEach(r => { byDate[r.fecha] = r; });
-  const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl_usd||0)), 1);
-
-  const privacy = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
-  const DOWS   = ['D','L','M','X','J','V','S'];
-  const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const fmtPnl = n => (n>=0?'+':'')+Math.round(n).toLocaleString('es-AR');
-  const fmtPct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
-
-  el.innerHTML = Array.from({length:12},(_,m) => {
-    const daysInMonth = new Date(year,m+1,0).getDate();
-    const firstDow    = new Date(year,m,1).getDay();
-
-    let monthPnl = 0, monthDays = 0, monthCompound = 1;
-    for(let d=1;d<=daysInMonth;d++){
-      const key=`${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const row = byDate[key];
-      if(row?.pnl_usd != null){
-        monthPnl += row.pnl_usd;
-        monthDays++;
-        if(row.pnl_pct != null) monthCompound *= (1 + row.pnl_pct/100);
-      }
-    }
-    const monthPct = (monthCompound - 1) * 100;
-    const monthC   = monthPnl>=0 ? 'var(--green)' : 'var(--red)';
-    const monthSign = monthPnl>=0 ? '+' : '-';
-    const monthTag = monthDays > 0
-      ? privacy
-        ? `<span style="color:${monthC};font-size:9px;font-weight:600">${fmtPct(monthPct)}</span>`
-        : `<span style="color:${monthC};font-size:9px;font-weight:600">${monthSign}U$S ${Math.round(Math.abs(monthPnl)).toLocaleString('es-AR')}</span>`
-      : `<span style="color:var(--text4);font-size:9px">sin datos</span>`;
-
-    const dowH = DOWS.map(d=>`<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:3px">${d}</div>`).join('');
-    const empties = Array(firstDow).fill('<div></div>').join('');
-    const dayCells = Array.from({length:daysInMonth},(_,i)=>{
-      const d = i+1;
-      const key = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const row = byDate[key];
-      if(!row || row.pnl_usd == null) {
-        return `<div style="height:40px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${d}</div>`;
-      }
-      const pnl = row.pnl_usd;
-      const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
-      const bg  = pnl>=0?`rgba(0,229,168,${intensity.toFixed(2)})`:`rgba(255,63,94,${intensity.toFixed(2)})`;
-      const tip = `${key}\nP&L: U$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
-      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden">
-        <span style="font-size:8px;font-weight:600;text-align:center">${d}</span>
-        ${!privacy ? `<span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>` : ''}
-        <span style="font-size:7px;opacity:0.85;white-space:nowrap;text-align:center">${fmtPct(row.pnl_pct||0)}</span>
-      </div>`;
-    }).join('');
-
-    return `<div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-        <span style="font-size:9px;font-weight:600;color:var(--text2);letter-spacing:1px;text-transform:uppercase">${MONTHS[m]}</span>
-        ${monthTag}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${dowH}${empties}${dayCells}</div>
-    </div>`;
-  }).join('');
+  pfRenderResumenCalendar();
 }
 
 // ── Benchmark: Portafolio vs S&P 500 ─────────────────────────────
