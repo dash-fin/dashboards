@@ -3465,7 +3465,7 @@ window.pfBackfillPnLBtn = async function pfBackfillPnLBtn() {
   };
   setStatus('conectando Rava…');
   try {
-    const n = await pfBackfillPnL({ force: false, days: 15, onStatus: setStatus });
+    const n = await pfBackfillPnL({ force: true, days: 0, onStatus: setStatus });
     if(n > 0) {
       btn.textContent = `${n} días ✓`;
       if(status) { status.textContent = `${n} días guardados ✓`; status.style.color = 'var(--green)'; }
