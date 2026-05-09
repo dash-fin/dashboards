@@ -3338,7 +3338,7 @@ async function pfBackfillPnL(opts = {}) {
     }
 
     // 3. Precios históricos Yahoo Finance (.BA) + Rava fallback + MEP histórico
-    upd('buscando precios…');
+    upd('buscando precios Yahoo…');
     const tickers = [...new Set(allPos.map(p=>p.ticker))];
     const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
     const SB_URL  = 'https://endymbpdayeidromxayb.supabase.co';
