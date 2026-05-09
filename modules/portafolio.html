@@ -3424,7 +3424,7 @@ async function pfBackfillPnL(opts = {}) {
 }
 
 // ── Handler del botón Recalcular ─────────────────────────────────
-async function pfBackfillPnLBtn() {
+window.pfBackfillPnLBtn = async function pfBackfillPnLBtn() {
   const btn    = document.getElementById('pfBackfillBtn');
   const status = document.getElementById('pfBackfillStatus');
   if(!btn || btn.disabled) return;
