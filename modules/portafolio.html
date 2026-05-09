@@ -677,28 +677,6 @@
       </div>
 
       <div class="card" style="padding:18px 20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Portafolio USD</span>
-          <span id="pfChartPortfolioStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
-        </div>
-        <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap" id="pfRangeButtons">
-          <button class="flt" data-range="wtd" onclick="pfSetRange('wtd')">WTD</button>
-          <button class="flt" data-range="mtd" onclick="pfSetRange('mtd')">MTD</button>
-          <button class="flt" data-range="ytd" onclick="pfSetRange('ytd')">YTD</button>
-          <button class="flt on" data-range="max" onclick="pfSetRange('max')">Máx</button>
-          <button class="flt" data-range="custom" onclick="pfSetRange('custom')">Personalizado</button>
-          <div id="pfCustomRange" style="display:none;gap:6px;align-items:center;margin-left:4px">
-            <input type="date" id="pfRangeFrom" style="padding:2px 6px;font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace">
-            <span style="color:var(--text4);font-size:9px">→</span>
-            <input type="date" id="pfRangeTo" style="padding:2px 6px;font-size:10px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'IBM Plex Mono',monospace">
-          </div>
-        </div>
-        <div style="position:relative;height:240px">
-          <canvas id="pfChartPortfolio"></canvas>
-        </div>
-      </div>
-
-      <div class="card" style="padding:18px 20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker · % USD</span>
           <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
@@ -882,7 +860,9 @@ let pfMepRef    = { wtd: null, ytd: null }; // MEP histórico en fechas de refer
 let pfSeriesData = {}; // serie completa Rava: { ticker: [{fecha,cierre}] }
 let pfMepSeries  = []; // serie MEP desde mep_historico: [{fecha, mep}]
 let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
-let pfLineChart1 = null, pfLineChart2 = null;
+let pfLineChart2 = null;
+let pfPnlCache = null;
+let pfSpyCache = null;
 // Opciones: PnL en USD del bloque de estrategias (se suma a los KPIs generales)
 let pfOpsUsdPnl = 0, pfOpsDailyUSD = 0, pfBaseInv = 0, pfBaseAct = 0, pfBaseGan = 0, pfBaseDailyUSD = 0;
 let pfSort = { col: null, dir: 1 };
@@ -2967,6 +2947,9 @@ window.pfCalNav = (delta) => {
 
 // ── Calendario navegación por mes (Resumen) ──
 let pfCalMonth = new Date();
+let pfCalCache = {};
+const PF_MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function pfCalCacheKey(year, month) { return `${year}-${String(month+1).padStart(2,'0')}`; }
 
 window.pfCalNavResumen = (delta) => {
   pfCalMonth.setMonth(pfCalMonth.getMonth() + delta);
@@ -2986,78 +2969,104 @@ async function pfRenderResumenCalendar() {
 
   const year = pfCalMonth.getFullYear();
   const month = pfCalMonth.getMonth();
+  // Mostrar 2 meses: current y siguiente
+  const months = [
+    { year, month, label: PF_MONTHS[month] + ' ' + year },
+    { year: month === 11 ? year + 1 : year, month: month === 11 ? 0 : month + 1 }
+  ];
+  months[1].label = PF_MONTHS[months[1].month] + ' ' + months[1].year;
+
   const label = document.getElementById('pfCalMonthLabelRes');
   if (label) {
-    const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    label.textContent = months[month] + ' ' + year;
+    label.textContent = PF_MONTHS[month] + ' - ' + months[1].label;
   }
-
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDow = new Date(year, month, 1).getDay();
-  const monthStart = `${year}-${String(month+1).padStart(2,'0')}-01`;
-  const monthEnd = `${year}-${String(month+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
 
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:12px">Cargando...</div>';
 
-  let rows = [];
-  try {
+  // Cargar datos de ambos meses en paralelo, usando cache
+  const fetchPromises = months.map(async ({year: y, month: m}) => {
+    const cacheKey = pfCalCacheKey(y, m);
+    if (pfCalCache[cacheKey]) return pfCalCache[cacheKey];
+
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const monthStart = `${y}-${String(m+1).padStart(2,'0')}-01`;
+    const monthEnd = `${y}-${String(m+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
     const _calEmail = encodeURIComponent(window.currentUser?.email||'');
-    rows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${monthStart}&fecha=lte.${monthEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
-  } catch(e) { console.warn('[pnl-resumen-cal]', e); }
+    try {
+      const rows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${monthStart}&fecha=lte.${monthEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
+      pfCalCache[cacheKey] = { daysInMonth, rows };
+      return pfCalCache[cacheKey];
+    } catch(e) {
+      console.warn('[pnl-resumen-cal]', e);
+      pfCalCache[cacheKey] = { daysInMonth: new Date(y, m + 1, 0).getDate(), rows: [] };
+      return pfCalCache[cacheKey];
+    }
+  });
 
-  if (!rows.length) {
-    el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:20px;text-align:center">Sin datos para este mes.</div>';
-    // Auto-cargar el mes siguiente (si es posible)
-    return;
-  }
+  const monthData = await Promise.all(fetchPromises);
 
-  const byDate = {};
-  rows.forEach(r => { byDate[r.fecha] = r; });
-  const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl_usd||0)), 1);
+  // Renderizar ambos meses side-by-side
   const privacy = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
   const DOWS = ['D','L','M','X','J','V','S'];
   const fmtPnl = n => (n>=0?'+':'')+Math.round(n).toLocaleString('es-AR');
   const fmtPct = n => (n>=0?'+':'')+n.toFixed(1)+'%';
 
-  // Calcular resumen del mes
-  let monthPnl = 0, monthCompound = 1;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const row = byDate[key];
-    if (row?.pnl_usd != null) {
-      monthPnl += row.pnl_usd;
-    }
-    if (row?.pnl_pct != null) monthCompound *= (1 + row.pnl_pct/100);
-  }
-  const monthPct = (monthCompound - 1) * 100;
-  const monthC = monthPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const renderMonthGrid = (md, idx) => {
+    const {year: y, month: m} = months[idx];
+    const {daysInMonth, rows} = md;
+    const firstDow = new Date(y, m, 1).getDay();
+    const byDate = {};
+    rows.forEach(r => { byDate[r.fecha] = r; });
+    const maxAbs = Math.max(...rows.map(r => Math.abs(r.pnl_usd||0)), 1);
 
-  const dowH = DOWS.map(d => `<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:3px">${d}</div>`).join('');
-  const empties = Array(firstDow).fill('<div></div>').join('');
-  const dayCells = Array.from({length: daysInMonth}, (_, i) => {
-    const d = i + 1;
-    const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const row = byDate[key];
-    if (!row || row.pnl_usd == null) {
-      return `<div style="height:40px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${d}</div>`;
+    // Resumen del mes
+    let monthPnl = 0, monthCompound = 1;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const row = byDate[key];
+      if (row?.pnl_usd != null) monthPnl += row.pnl_usd;
+      if (row?.pnl_pct != null) monthCompound *= (1 + row.pnl_pct/100);
     }
-    const pnl = row.pnl_usd;
-    const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
-    const bg = pnl >= 0 ? `rgba(0,229,168,${intensity.toFixed(2)})` : `rgba(255,63,94,${intensity.toFixed(2)})`;
-    const tip = `${key}\nP&L: U\$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
-    return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden">
+    const monthC = monthPnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+    const dowH = DOWS.map(d => `<div style="font-size:7px;color:var(--text4);text-align:center;padding-bottom:3px">${d}</div>`).join('');
+    const empties = Array(firstDow).fill('<div></div>').join('');
+    const dayCells = Array.from({length: daysInMonth}, (_, i) => {
+      const d = i + 1;
+      const key = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const row = byDate[key];
+      if (!row || row.pnl_usd == null) {
+        return `<div style="height:40px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${d}</div>`;
+      }
+      const pnl = row.pnl_usd;
+      const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
+      const bg = pnl >= 0 ? `rgba(0,229,168,${intensity.toFixed(2)})` : `rgba(255,63,94,${intensity.toFixed(2)})`;
+      const tip = `${key}\nP&L: U\$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
+      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden">
         <span style="font-size:8px;font-weight:600;text-align:center">${d}</span>
         ${!privacy ? `<span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>` : ''}
         <span style="font-size:7px;opacity:0.85;white-space:nowrap;text-align:center">${fmtPct(row.pnl_pct||0)}</span>
       </div>`;
-  }).join('');
+    }).join('');
 
-  el.innerHTML = `<div style="max-width:320px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
-      <span style="font-size:9px;color:var(--text2);letter-spacing:1px;text-transform:uppercase">Resumen mensual</span>
-      <span style="color:${monthC};font-size:10px;font-weight:600">${monthPnl >= 0 ? '+' : ''}${Math.round(monthPnl).toLocaleString('es-AR')} USD</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${dowH}${empties}${dayCells}</div>
+    return `<div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <span style="font-size:9px;color:var(--text2);letter-spacing:1px;text-transform:uppercase">${PF_MONTHS[m]} ${y}</span>
+        <span style="color:${monthC};font-size:10px;font-weight:600">${monthPnl >= 0 ? '+' : ''}${Math.round(monthPnl).toLocaleString('es-AR')} USD</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">${dowH}${empties}${dayCells}</div>
+    </div>`;
+  };
+
+  const hasData = monthData.some(md => md.rows.length > 0);
+  if (!hasData) {
+    el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:20px;text-align:center">Sin datos para estos meses.</div>';
+    return;
+  }
+
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    ${renderMonthGrid(monthData[0], 0)}
+    ${renderMonthGrid(monthData[1], 1)}
   </div>`;
 }
 
@@ -3098,8 +3107,12 @@ window.pfRenderBenchmark = __pfRB;
   const _range = window.pfGetRangeDates ? pfGetRangeDates() : { from: null, to: null };
 
   // Portafolio histórico desde pnl_diario — usamos pnl_pct para excluir inyecciones de capital
-  const _email = encodeURIComponent(window.currentUser?.email||'');
-  const pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct`) || [];
+  let pnlRows = pfPnlCache;
+  if (!pnlRows) {
+    const _email = encodeURIComponent(window.currentUser?.email||'');
+    pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct`) || [];
+    pfPnlCache = pnlRows;
+  }
   if(!pnlRows.length) {
     kpis.innerHTML = '';
     cWrap.innerHTML = `<div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);padding:40px;text-align:center">Sin datos aún — el snapshot se guarda cada día al cierre (17:10).</div>`;
@@ -3127,19 +3140,22 @@ window.pfRenderBenchmark = __pfRB;
     pfByDate[r.fecha] = +compVal.toFixed(4);
   });
 
-  // SPY histórico vía edge function
-  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
-  let spyHistory = [];
-  try {
-    const sess = await window.supabase?.auth?.getSession?.();
-    const tok  = sess?.data?.session?.access_token || SB_KEY;
-    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY},
-      body: JSON.stringify({mode:'yahoo-history', symbols:['SPY'], startDate})
-    });
-    spyHistory = (await r.json())?.SPY || [];
-  } catch(e){ console.warn('[bench-spy]',e); }
+  // SPY histórico vía edge function con caché
+  let spyHistory = pfSpyCache;
+  if (!spyHistory) {
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    try {
+      const sess = await window.supabase?.auth?.getSession?.();
+      const tok  = sess?.data?.session?.access_token || SB_KEY;
+      const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY},
+        body: JSON.stringify({mode:'yahoo-history', symbols:['SPY'], startDate: '2020-01-01'})
+      });
+      spyHistory = (await r.json())?.SPY || [];
+      pfSpyCache = spyHistory;
+    } catch(e){ console.warn('[bench-spy]',e); }
+  }
 
   const spyByDate = {}; spyHistory.forEach(r => { spyByDate[r.fecha] = r.close; });
   const spyStart  = spyByDate[startDate] || spyHistory.find(r => r.fecha >= startDate)?.close || null;
@@ -3498,9 +3514,7 @@ async function pfLoadHistory() {
       const sub = document.getElementById(`pfk-${pfx}-sub`);
       if (sub) sub.textContent = msg;
     });
-    const c1 = document.getElementById('pfChartPortfolioStatus');
     const c2 = document.getElementById('pfChartTickersStatus');
-    if (c1) c1.textContent = msg;
     if (c2) c2.textContent = msg;
   };
 
@@ -3624,9 +3638,7 @@ window.pfSetRange = function pfSetRange(range) {
     customDivs.forEach(el => { el.style.display = 'flex'; });
     if (!customDivs[0]?.dataset.inited) {
       customDivs.forEach(el => { if(el) el.dataset.inited = '1'; });
-      // Cuando cambian las fechas, redibujar (usar los del panel principal)
-      document.getElementById('pfRangeFrom')?.addEventListener('change', () => { pfRenderCharts(); pfRenderBenchmark(); });
-      document.getElementById('pfRangeTo')?.addEventListener('change', () => { pfRenderCharts(); pfRenderBenchmark(); });
+      // Cuando cambian las fechas, redibujar
       document.getElementById('pfBenchRangeFrom')?.addEventListener('change', () => { pfRenderCharts(); pfRenderBenchmark(); });
       document.getElementById('pfBenchRangeTo')?.addEventListener('change', () => { pfRenderCharts(); pfRenderBenchmark(); });
     }
@@ -3659,13 +3671,8 @@ window.pfGetRangeDates = function pfGetRangeDates() {
       break;
     }
     case 'custom': {
-      // Intentar los inputs del panel principal, sino los del benchmark
-      let fEl = document.getElementById('pfRangeFrom');
-      let tEl = document.getElementById('pfRangeTo');
-      if (!fEl?.value || !tEl?.value) {
-        fEl = document.getElementById('pfBenchRangeFrom');
-        tEl = document.getElementById('pfBenchRangeTo');
-      }
+      const fEl = document.getElementById('pfBenchRangeFrom');
+      const tEl = document.getElementById('pfBenchRangeTo');
       from = fEl?.value || null;
       const tVal = tEl?.value || null;
       if (!from || !tVal) return null;
@@ -3713,12 +3720,10 @@ function pfRenderCharts() {
 
   const rangeLabel = pfActiveRange === 'max' ? 'total' : pfActiveRange;
   if (chartDates.length < 1) {
-    setStatus('pfChartPortfolioStatus', 'sin datos (' + rangeLabel + ')');
     setStatus('pfChartTickersStatus',   'sin datos (' + rangeLabel + ')');
     return;
   }
-  setStatus('pfChartPortfolioStatus', `${chartDates.length} días · ${rangeLabel}`);
-  setStatus('pfChartTickersStatus',   `${chartDates.length} días · ${rangeLabel}`);
+  setStatus('pfChartTickersStatus',   `${pfMepSeries.length} días · desde compra`);
 
   const labelDates = chartDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
 
@@ -3752,157 +3757,102 @@ function pfRenderCharts() {
     bodyFont:  { family: "'IBM Plex Mono'", size: 10 },
   };
 
-  // ── Chart 1: Portafolio total USD ───────────────────────
-  const portfolioValues = chartDates.map(date => {
-    const mep = mepByDate[date];
-    if (!mep) return null;
-    let total = 0;
-    for (const pos of pfPositions) {
-      const arr = sorted[pos.ticker_ars];
-      if (!arr) continue;
-      const price = closestBefore(arr, date);
-      if (price == null) continue;
-      const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
-      total += (price * pos.cantidad) / ((esBono ? 100 : 1) * mep);
-    }
-    return Math.round(total);
-  });
+  // ── Chart 2: % de retorno por ticker (SIEMPRE desde fecha de compra, independiente de controles) ──
 
-  const ctx1 = document.getElementById('pfChartPortfolio');
-  if (ctx1) {
-    if (pfLineChart1) pfLineChart1.destroy();
-    const g1 = ctx1.getContext('2d');
-    const grad = g1.createLinearGradient(0, 0, 0, 240);
-    grad.addColorStop(0, 'rgba(0,180,216,0.22)');
-    grad.addColorStop(1, 'rgba(0,180,216,0.01)');
-    pfLineChart1 = new Chart(ctx1, {
-      type: 'line',
-      data: {
-        labels: labelDates,
-        datasets: [{
-          data: portfolioValues,
-          borderColor: '#00b4d8',
-          backgroundColor: grad,
-          fill: true,
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          pointHoverBackgroundColor: '#00b4d8',
-          tension: 0.35,
-          spanGaps: true,
-        }],
-      },
-      options: {
-        ...baseOpts,
-        plugins: {
-          ...baseOpts.plugins,
-          tooltip: {
-            ...tooltipBase,
-            callbacks: {
-              title: ([ctx]) => chartDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
-              label: ctx => ` U$S ${ctx.raw != null ? Math.round(ctx.raw).toLocaleString('es-AR') : '—'}`,
-            },
-          },
-        },
-        scales: {
-          ...baseOpts.scales,
-          y: {
-            ...baseOpts.scales.y,
-            ticks: {
-              ...baseOpts.scales.y.ticks,
-              callback: v => 'U$S ' + (Math.abs(v) >= 1000 ? Math.round(v/1000)+'k' : Math.round(v)),
-            },
-          },
-        },
-      },
-    });
-  }
+  // Usar todas las fechas MEP disponibles, no filtradas por rango
+  const allMepDates = pfMepSeries.map(r => r.fecha);
+  const allMepByDate = {};
+  pfMepSeries.forEach(r => { allMepByDate[r.fecha] = r.mep; });
 
-  // ── Chart 2: % de retorno por ticker ────────────────────
   const portfolioTickers = [...new Set(pfPositions.map(p => p.ticker_ars))];
   const PALETTE = ['#00b4d8','#00e5a8','#f0a500','#b39dff','#ff6b9d','#4da6ff','#ff9a3c','#7fffd4','#c8a2c8','#ff3f5e','#ffd700','#a8e063'];
 
-  // Construir mapa ticker → fecha_compra más antigua
-  // Cada posición usa su propia fecha de entrada como base
+  // Fecha de compra por ticker
   const tickerBaseDate = {};
-  pfPositions.forEach(p => {
+  for (const p of pfPositions) {
     const fc = p.fecha_compra;
-    if (!fc) return;
+    if (!fc) continue;
     if (!tickerBaseDate[p.ticker_ars] || fc < tickerBaseDate[p.ticker_ars]) {
       tickerBaseDate[p.ticker_ars] = fc;
     }
-  });
-
-  const tickerDatasets = portfolioTickers.map((ticker, i) => {
-    const arr = sorted[ticker] || [];
-    // Usar fecha_compra del ticker, o si no tiene, primer dia del rango
-    const tickerStart = tickerBaseDate[ticker] || chartDates[0] || ytdRef;
-    // Encontrar la fecha real de serie más cercana a fecha_compra
-    const baseDate = tickerStart;
-    const mepBase  = mepByDate[baseDate] || pfMepRef.ytd;
-    const basePrice = closestBefore(arr, baseDate);
-    if (!basePrice || !mepBase) return null;
-    const baseUsd = basePrice / mepBase;
-    const values = chartDates.map(date => {
-      const mep = mepByDate[date];
-      const price = closestBefore(arr, date);
-      if (!mep || price == null || baseUsd <= 0) return null;
-      return +((price / mep / baseUsd - 1) * 100).toFixed(2);
-    });
-    return {
-      label: ticker,
-      data: values,
-      borderColor: PALETTE[i % PALETTE.length],
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      pointRadius: 0,
-      pointHoverRadius: 3,
-      pointHoverBackgroundColor: PALETTE[i % PALETTE.length],
-      tension: 0.35,
-      spanGaps: true,
-    };
-  }).filter(Boolean);
+  }
 
   const ctx2 = document.getElementById('pfChartTickers');
   if (ctx2) {
     if (pfLineChart2) pfLineChart2.destroy();
+    const datasets = portfolioTickers.map((ticker, i) => {
+      const tickerStart = tickerBaseDate[ticker] || allMepDates[0];
+      const arr = sorted[ticker];
+      if (!arr) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
+
+      // Encontrar precio en fecha de compra
+      const basePrice = closestBefore(arr, tickerStart);
+      const mepBase = allMepByDate[tickerStart] || allMepByDate[allMepDates.find(d => d >= tickerStart)] || 1;
+      const baseUsd = basePrice ? basePrice / mepBase : 0;
+      if (baseUsd <= 0) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
+
+      const values = allMepDates.map(date => {
+        const mep = allMepByDate[date];
+        const price = closestBefore(arr, date);
+        if (!mep || price == null || baseUsd <= 0) return null;
+        return +((price / mep / baseUsd - 1) * 100).toFixed(2);
+      });
+
+      return {
+        data: values,
+        label: ticker,
+        borderColor: PALETTE[i % PALETTE.length],
+        backgroundColor: PALETTE[i % PALETTE.length] + '18',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.2,
+        spanGaps: true,
+        fill: false,
+      };
+    }).filter(ds => ds.data.some(v => v != null));
+
+    const tickerLabelDates = allMepDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
+
     pfLineChart2 = new Chart(ctx2, {
       type: 'line',
-      data: { labels: labelDates, datasets: tickerDatasets },
+      data: { labels: tickerLabelDates, datasets },
       options: {
-        ...baseOpts,
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: {
-            display: true,
-            position: 'bottom',
-            labels: {
-              color: '#555',
-              font: { family: "'IBM Plex Mono'", size: 8 },
-              boxWidth: 20,
-              boxHeight: 1,
-              padding: 10,
-              usePointStyle: false,
-            },
-          },
+          legend: { display: true, position: 'top', labels: { color: '#aaa', font: { family: "'IBM Plex Mono'", size: 9 }, boxWidth: 12, padding: 8 } },
           tooltip: {
-            ...tooltipBase,
+            mode: 'index', intersect: false,
+            backgroundColor: '#1a1d23',
+            titleFont: { family: "'IBM Plex Mono'", size: 10 },
+            bodyFont: { family: "'IBM Plex Mono'", size: 10 },
+            padding: 8,
             callbacks: {
-              title: ([ctx]) => chartDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
-              label: ctx => ` ${ctx.dataset.label}: ${ctx.raw != null ? (ctx.raw >= 0 ? '+' : '') + ctx.raw.toFixed(2) + '%' : '—'}`,
+              title: ([ctx]) => allMepDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.raw != null ? ctx.raw.toFixed(1) + '%' : '—'}`,
             },
           },
         },
         scales: {
-          ...baseOpts.scales,
+          x: {
+            display: true,
+            ticks: { color: '#444', maxTicksLimit: 12, font: { family: "'IBM Plex Mono'", size: 9 } },
+            grid: { color: 'rgba(255,255,255,0.03)' },
+          },
           y: {
-            ...baseOpts.scales.y,
+            display: true,
+            position: 'right',
+            grid: { color: 'rgba(255,255,255,0.05)' },
             ticks: {
-              ...baseOpts.scales.y.ticks,
-              callback: v => (v >= 0 ? '+' : '') + v.toFixed(0) + '%',
+              color: '#666',
+              font: { family: "'IBM Plex Mono'", size: 9 },
+              callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
             },
           },
         },
-        layout: { padding: { bottom: 0 } },
       },
     });
   }
