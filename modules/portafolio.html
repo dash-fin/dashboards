@@ -676,16 +676,6 @@
         <div id="pfOpcionesBody"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text4);text-align:center;padding:12px">Cargando...</div></div>
       </div>
 
-      <div class="card" style="padding:18px 20px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker · % USD</span>
-          <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
-        </div>
-        <div style="position:relative;height:240px">
-          <canvas id="pfChartTickers"></canvas>
-        </div>
-      </div>
-
       <!-- ── Rendimiento: Portafolio vs Benchmark ────────── -->
       <div class="card" style="padding:18px 20px" id="pfBenchWrap">
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap" id="pfBenchRangeButtons">
@@ -705,6 +695,16 @@
           <button id="pfBenchPrivacy" data-on="0" onclick="pfTogglePrivacy()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:1px;white-space:nowrap;flex-shrink:0">OCULTAR MONTOS</button>
         </div>
         <div style="position:relative;height:280px"><canvas id="pfBenchCanvas"></canvas></div>
+      </div>
+
+      <div class="card" style="padding:18px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker · % USD</span>
+          <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+        </div>
+        <div style="position:relative;height:240px">
+          <canvas id="pfChartTickers"></canvas>
+        </div>
       </div>
 
       <!-- ── Calendario: heatmap PnL diario (último mes visible) ── -->
@@ -2983,27 +2983,43 @@ async function pfRenderResumenCalendar() {
 
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:12px">Cargando...</div>';
 
-  // Cargar datos de ambos meses en paralelo, usando cache
-  const fetchPromises = months.map(async ({year: y, month: m}) => {
-    const cacheKey = pfCalCacheKey(y, m);
-    if (pfCalCache[cacheKey]) return pfCalCache[cacheKey];
+  // Cargar datos de ambos meses en 1 sola query (con caché)
+  const firstMonth = months[0];
+  const lastMonth = months[1];
+  const firstMonthDays = new Date(firstMonth.year, firstMonth.month + 1, 0).getDate();
+  const lastMonthDays = new Date(lastMonth.year, lastMonth.month + 1, 0).getDate();
+  const ck1 = pfCalCacheKey(firstMonth.year, firstMonth.month);
+  const ck2 = pfCalCacheKey(lastMonth.year, lastMonth.month);
+  let monthData;
 
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const monthStart = `${y}-${String(m+1).padStart(2,'0')}-01`;
-    const monthEnd = `${y}-${String(m+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+  if (pfCalCache[ck1] && pfCalCache[ck2]) {
+    monthData = [pfCalCache[ck1], pfCalCache[ck2]];
+  } else {
+    const combinedStart = `${firstMonth.year}-${String(firstMonth.month+1).padStart(2,'0')}-01`;
+    const combinedEnd = `${lastMonth.year}-${String(lastMonth.month+1).padStart(2,'0')}-${String(lastMonthDays).padStart(2,'0')}`;
     const _calEmail = encodeURIComponent(window.currentUser?.email||'');
+    let allRows = [];
     try {
-      const rows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${monthStart}&fecha=lte.${monthEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
+      allRows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${combinedStart}&fecha=lte.${combinedEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
+    } catch(e) { console.warn('[pnl-resumen-cal]', e); }
+
+    // Separar rows por mes
+    const rowsByMonth = {};
+    allRows.forEach(r => {
+      const mKey = r.fecha.substring(0, 7);
+      if (!rowsByMonth[mKey]) rowsByMonth[mKey] = [];
+      rowsByMonth[mKey].push(r);
+    });
+
+    monthData = months.map(({year: y, month: m}) => {
+      const mKey = `${y}-${String(m+1).padStart(2,'0')}`;
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const rows = rowsByMonth[mKey] || [];
+      const cacheKey = pfCalCacheKey(y, m);
       pfCalCache[cacheKey] = { daysInMonth, rows };
       return pfCalCache[cacheKey];
-    } catch(e) {
-      console.warn('[pnl-resumen-cal]', e);
-      pfCalCache[cacheKey] = { daysInMonth: new Date(y, m + 1, 0).getDate(), rows: [] };
-      return pfCalCache[cacheKey];
-    }
-  });
-
-  const monthData = await Promise.all(fetchPromises);
+    });
+  }
 
   // Renderizar ambos meses side-by-side
   const privacy = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
@@ -3723,7 +3739,7 @@ function pfRenderCharts() {
     setStatus('pfChartTickersStatus',   'sin datos (' + rangeLabel + ')');
     return;
   }
-  setStatus('pfChartTickersStatus',   `${pfMepSeries.length} días · desde compra`);
+  setStatus('pfChartTickersStatus',   `desde compra`);
 
   const labelDates = chartDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
 
@@ -3777,6 +3793,14 @@ function pfRenderCharts() {
     }
   }
 
+  // Truncar fechas MEP desde la compra más antigua
+  const earliestBuy = Object.keys(tickerBaseDate).length
+    ? Object.values(tickerBaseDate).sort().find(Boolean)
+    : null;
+  const filteredMepDates = earliestBuy
+    ? allMepDates.filter(d => d >= earliestBuy)
+    : allMepDates;
+
   const ctx2 = document.getElementById('pfChartTickers');
   if (ctx2) {
     if (pfLineChart2) pfLineChart2.destroy();
@@ -3791,7 +3815,7 @@ function pfRenderCharts() {
       const baseUsd = basePrice ? basePrice / mepBase : 0;
       if (baseUsd <= 0) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
 
-      const values = allMepDates.map(date => {
+      const values = filteredMepDates.map(date => {
         const mep = allMepByDate[date];
         const price = closestBefore(arr, date);
         if (!mep || price == null || baseUsd <= 0) return null;
@@ -3812,7 +3836,7 @@ function pfRenderCharts() {
       };
     }).filter(ds => ds.data.some(v => v != null));
 
-    const tickerLabelDates = allMepDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
+    const tickerLabelDates = filteredMepDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
 
     pfLineChart2 = new Chart(ctx2, {
       type: 'line',
@@ -3831,7 +3855,7 @@ function pfRenderCharts() {
             bodyFont: { family: "'IBM Plex Mono'", size: 10 },
             padding: 8,
             callbacks: {
-              title: ([ctx]) => allMepDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
+              title: ([ctx]) => filteredMepDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
               label: ctx => ` ${ctx.dataset.label}: ${ctx.raw != null ? ctx.raw.toFixed(1) + '%' : '—'}`,
             },
           },
