@@ -694,7 +694,7 @@
           <div id="pfBenchKpis" style="display:flex;flex-wrap:wrap;gap:20px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
           <button id="pfBenchPrivacy" data-on="0" onclick="pfTogglePrivacy()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:1px;white-space:nowrap;flex-shrink:0">OCULTAR MONTOS</button>
         </div>
-        <div style="position:relative;height:280px"><canvas id="pfBenchCanvas"></canvas></div>
+        <div id="pfBenchCanvasWrap" style="position:relative;height:280px"><canvas id="pfBenchCanvas"></canvas></div>
       </div>
 
       <div class="card" style="padding:18px 20px">
@@ -710,7 +710,11 @@
       <!-- ── Calendario: heatmap PnL diario (último mes visible) ── -->
       <div class="card" style="padding:18px 20px" id="pfCalendarWrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Calendario PnL</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Calendario PnL</span>
+            <button id="pfBackfillBtn" onclick="pfBackfillPnLBtn()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:2px 8px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:0.5px" title="Recalcular los últimos 10 días desde Rava">Recalcular</button>
+            <span id="pfBackfillStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text4)"></span>
+          </div>
           <div style="display:flex;align-items:center;gap:8px">
             <button onclick="pfCalNavResumen(-1)" style="font-family:'IBM Plex Mono',monospace;font-size:10px;padding:2px 10px;border:1px solid var(--border2);background:transparent;color:var(--text3);border-radius:2px;cursor:pointer">◀</button>
             <span id="pfCalMonthLabelRes" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);min-width:120px;text-align:center;font-weight:600">cargando...</span>
@@ -2974,18 +2978,18 @@ async function pfRenderResumenCalendar() {
 
   const year = pfCalMonth.getFullYear();
   const month = pfCalMonth.getMonth();
-  // Mostrar 3 meses: current y siguientes 2
+  // Mostrar 3 meses: los 2 anteriores + actual
+  const d2ago = new Date(year, month - 2, 1);
+  const d1ago = new Date(year, month - 1, 1);
   const months = [
-    { year, month, label: PF_MONTHS[month] + ' ' + year },
-    { year: month === 11 ? year + 1 : year, month: month === 11 ? 0 : month + 1 },
-    { year: month >= 10 ? year + 1 : year, month: month >= 10 ? month - 10 : month + 2 }
+    { year: d2ago.getFullYear(), month: d2ago.getMonth(), label: PF_MONTHS[d2ago.getMonth()] + ' ' + d2ago.getFullYear() },
+    { year: d1ago.getFullYear(), month: d1ago.getMonth(), label: PF_MONTHS[d1ago.getMonth()] + ' ' + d1ago.getFullYear() },
+    { year, month, label: PF_MONTHS[month] + ' ' + year }
   ];
-  months[1].label = PF_MONTHS[months[1].month] + ' ' + months[1].year;
-  months[2].label = PF_MONTHS[months[2].month] + ' ' + months[2].year;
 
   const label = document.getElementById('pfCalMonthLabelRes');
   if (label) {
-    label.textContent = PF_MONTHS[month] + ' - ' + months[2].label;
+    label.textContent = months[0].label + ' - ' + months[2].label;
   }
 
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:12px">Cargando...</div>';
@@ -3122,7 +3126,7 @@ const pfRenderBenchmark = async function __pfRB() {
 window.pfRenderBenchmark = __pfRB;
   const wrap  = document.getElementById('pfBenchWrap');
   const kpis  = document.getElementById('pfBenchKpis');
-  const cWrap = wrap?.querySelector('div:has(> canvas)');
+  const cWrap = document.getElementById('pfBenchCanvasWrap');
   if(!wrap || !cWrap) return;
 
   kpis.innerHTML = '<span style="color:var(--text4)">Cargando...</span>';
@@ -3281,7 +3285,10 @@ window.pfRenderBenchmark = __pfRB;
 }
 
 // ── Backfill histórico pnl_diario desde posiciones + Rava ────────
-async function pfBackfillPnL() {
+// opts.force=true → sobreescribe fechas ya existentes en el rango
+// opts.days=N    → sólo procesa los últimos N días (default: toda la historia)
+async function pfBackfillPnL(opts = {}) {
+  const { force = false, days = 0 } = opts;
   try {
     const email = window.currentUser?.email;
     const today = new Date().toISOString().split('T')[0];
@@ -3292,7 +3299,6 @@ async function pfBackfillPnL() {
       sb('trades', `user_email=eq.${encodeURIComponent(email)}&select=ticker_ars,tipo,cantidad,fecha,fecha_cierre`),
     ]);
 
-    // Unificar: { ticker, tipo, cantidad, openDate, closeDate }
     const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
     const allPos = [
       ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:today})),
@@ -3302,9 +3308,19 @@ async function pfBackfillPnL() {
     if(!allPos.length) throw new Error('Sin posiciones');
     const startDate = allPos.reduce((m,p)=>p.open<m?p.open:m, allPos[0].open);
 
-    // 2. Días ya guardados (no sobreescribir)
-    const existing = await sb('pnl_diario',`fecha=gte.${startDate}&select=fecha`) || [];
-    const existingSet = new Set(existing.map(r=>r.fecha));
+    // Cuando force+days: recalcular sólo desde hace N días
+    let minDate = startDate;
+    if(force && days > 0){
+      const d = new Date(); d.setDate(d.getDate() - days);
+      minDate = d.toISOString().split('T')[0];
+    }
+
+    // 2. Días ya guardados — sólo relevante cuando NO es force
+    let existingSet = new Set();
+    if(!force){
+      const existing = await sb('pnl_diario',`fecha=gte.${minDate}&select=fecha`) || [];
+      existingSet = new Set(existing.map(r=>r.fecha));
+    }
 
     // 3. Precios históricos Rava + MEP histórico
     const tickers = [...new Set(allPos.map(p=>p.ticker))];
@@ -3319,7 +3335,6 @@ async function pfBackfillPnL() {
       sb('mep_historico',`fecha=gte.${startDate}&order=fecha.asc&select=fecha,mep`),
     ]);
 
-    // Lookups: priceByTk[ticker][fecha]=cierre, mepByDate[fecha]=mep
     const priceByTk = {};
     for(const [tk,rows] of Object.entries(seriesResp||{})){
       priceByTk[tk]={};
@@ -3332,39 +3347,43 @@ async function pfBackfillPnL() {
       return keys.length ? map[keys[keys.length-1]] : null;
     };
 
-    // 4. Calcular valor USD por cada fecha con MEP disponible
+    // 4. Calcular valor USD por cada fecha — totalUsd (todo) + existingUsd (sólo prev)
     const toInsert = [];
-    const mepDates = (mepRows||[]).map(r=>r.fecha).filter(d=>d>=startDate&&!existingSet.has(d));
+    const mepDates = (mepRows||[]).map(r=>r.fecha)
+      .filter(d => d >= minDate && !existingSet.has(d));
 
     for(const date of mepDates){
       const mep = mepByDate[date]; if(!mep||mep<=0) continue;
-      let totalUsd=0, hasPx=false;
+      let totalUsd=0, existingUsd=0, hasPx=false;
       for(const p of allPos){
-        if(p.open>date||p.close<date) continue; // fuera del rango de esta posición
+        if(p.open>date||p.close<date) continue;
         const px = closestBefore(priceByTk[p.ticker]||{}, date);
         if(!px) continue;
         const factor = BONOS.includes(p.tipo)?100:1;
-        totalUsd += (p.qty*px)/(factor*mep);
+        const val = (p.qty*px)/(factor*mep);
+        totalUsd += val;
+        if(p.open < date) existingUsd += val; // excluir capital nuevo del día
         hasPx=true;
       }
       if(!hasPx||totalUsd<=0) continue;
-      toInsert.push({fecha:date, valor_usd:Math.round(totalUsd*100)/100});
+      toInsert.push({fecha:date, valor_usd:Math.round(totalUsd*100)/100, _existing:Math.round(existingUsd*100)/100});
     }
 
-    // 5. Calcular pnl_usd / pnl_pct vs día anterior
-    // Combinar existentes + nuevos para poder calcular delta
+    // 5. Calcular pnl_usd / pnl_pct vs día anterior (usando existingUsd para excluir inyecciones)
     const allKnown = {};
-    (await sb('pnl_diario','order=fecha.asc&select=fecha,valor_usd')||[]).forEach(r=>{ allKnown[r.fecha]=Number(r.valor_usd); });
+    (await sb('pnl_diario',`user_email=eq.${encodeURIComponent(email)}&order=fecha.asc&select=fecha,valor_usd`)||[])
+      .forEach(r=>{ allKnown[r.fecha]=Number(r.valor_usd); });
     toInsert.forEach(r=>{ allKnown[r.fecha]=r.valor_usd; });
     const sortedAll = Object.keys(allKnown).sort();
 
     const finalRows = toInsert.map(row=>{
       const idx = sortedAll.indexOf(row.fecha);
       const prev = idx>0 ? allKnown[sortedAll[idx-1]] : null;
+      const base = row._existing; // valor de posiciones pre-existentes (excluye capital nuevo)
       return {
         fecha: row.fecha, user_email: email, valor_usd: row.valor_usd,
-        pnl_usd: prev ? Math.round((row.valor_usd-prev)*100)/100 : null,
-        pnl_pct: prev&&prev>0 ? Math.round((row.valor_usd-prev)/prev*100*10000)/10000 : null,
+        pnl_usd: prev!=null ? Math.round((base-prev)*100)/100 : null,
+        pnl_pct: prev!=null&&prev>0 ? Math.round((base-prev)/prev*100*10000)/10000 : null,
       };
     });
 
@@ -3379,9 +3398,35 @@ async function pfBackfillPnL() {
       }
     }
 
-    if(finalRows.length) console.log(`[backfill] ${finalRows.length} días cargados en pnl_diario`);
+    console.log(`[backfill] ${finalRows.length} días procesados en pnl_diario`);
+    return finalRows.length;
   } catch(e){
     console.warn('[backfill]',e);
+    throw e;
+  }
+}
+
+// ── Handler del botón Recalcular ─────────────────────────────────
+async function pfBackfillPnLBtn() {
+  const btn    = document.getElementById('pfBackfillBtn');
+  const status = document.getElementById('pfBackfillStatus');
+  if(!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '...';
+  if(status) status.textContent = 'calculando';
+  try {
+    const n = await pfBackfillPnL({ force: true, days: 15 });
+    if(status) { status.textContent = n > 0 ? `${n} días ✓` : 'sin cambios'; status.style.color = 'var(--green)'; }
+    pfCalCache = {}; // limpiar caché del calendario
+    pfPnlCache = null; // limpiar caché del benchmark
+    await pfRenderResumenCalendar();
+    pfRenderBenchmark();
+  } catch(e) {
+    if(status) { status.textContent = 'error'; status.style.color = 'var(--red)'; }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Recalcular';
+    setTimeout(() => { if(status) { status.textContent = ''; status.style.color = ''; } }, 4000);
   }
 }
 
@@ -3822,9 +3867,10 @@ function pfRenderCharts() {
   if (ctx2) {
     if (pfLineChart2) pfLineChart2.destroy();
     const datasets = portfolioTickers.map((ticker, i) => {
-      const tickerStart = tickerBaseDate[ticker] || allMepDates[0];
+      const tickerStart = tickerBaseDate[ticker] || null;
       const arr = sorted[ticker];
-      if (!arr) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
+      // Si no hay fecha_compra, saltar — la línea empezaría desde el inicio de la historia
+      if (!arr || !tickerStart) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
 
       // Encontrar precio en fecha de compra
       const basePrice = closestBefore(arr, tickerStart);
