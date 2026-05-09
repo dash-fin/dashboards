@@ -3322,11 +3322,12 @@ async function pfBackfillPnL(opts = {}) {
     if(!allPos.length) throw new Error('Sin posiciones');
     const startDate = allPos.reduce((m,p)=>p.open<m?p.open:m, allPos[0].open);
 
-    // Cuando force+days: recalcular sólo desde hace N días
+    // days: limitar rango; force: sobreescribir existentes
     let minDate = startDate;
-    if(force && days > 0){
+    if(days > 0){
       const d = new Date(); d.setDate(d.getDate() - days);
-      minDate = d.toISOString().split('T')[0];
+      const cutoff = d.toISOString().split('T')[0];
+      if(cutoff > minDate) minDate = cutoff;
     }
 
     // 2. Días ya guardados — sólo relevante cuando NO es force
@@ -3336,8 +3337,8 @@ async function pfBackfillPnL(opts = {}) {
       existingSet = new Set(existing.map(r=>r.fecha));
     }
 
-    // 3. Precios históricos Rava + MEP histórico
-    upd('buscando precios Rava…');
+    // 3. Precios históricos Yahoo Finance (.BA) + Rava fallback + MEP histórico
+    upd('buscando precios…');
     const tickers = [...new Set(allPos.map(p=>p.ticker))];
     const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
     const SB_URL  = 'https://endymbpdayeidromxayb.supabase.co';
@@ -3345,21 +3346,41 @@ async function pfBackfillPnL(opts = {}) {
     const tok     = sess?.data?.session?.access_token || SB_KEY;
     const edgeH   = {'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY};
 
-    const [seriesRes, mepRows] = await Promise.all([
-      fetch(`${SB_URL}/functions/v1/yahoo-prices`,{method:'POST',headers:edgeH,body:JSON.stringify({mode:'rava-series',symbols:tickers})}),
+    // Yahoo Finance usa sufijo .BA para CEDEARs en BYMA.
+    // BA.C (Banco de América) en Yahoo es BA-C.BA pero devuelve precios incorrectos → usar Rava.
+    // Cualquier ticker con < 5 filas en Yahoo se considera sin datos y cae a Rava.
+    const toYahoo = tk => `${tk}.BA`;
+    const yahooSymbols = tickers.map(toYahoo);
+
+    const [yahooRes, ravaRes, mepRows] = await Promise.all([
+      fetch(`${SB_URL}/functions/v1/yahoo-prices`,{method:'POST',headers:edgeH,
+        body:JSON.stringify({mode:'yahoo-history',symbols:yahooSymbols,startDate:minDate})}),
+      fetch(`${SB_URL}/functions/v1/yahoo-prices`,{method:'POST',headers:edgeH,
+        body:JSON.stringify({mode:'rava-series',symbols:tickers})}),
       sb('mep_historico',`fecha=gte.${startDate}&order=fecha.asc&select=fecha,mep`),
     ]);
-    if(!seriesRes.ok) throw new Error(`Rava HTTP ${seriesRes.status}`);
-    const seriesResp = await seriesRes.json();
-    if(seriesResp?.error) throw new Error(`Rava error: ${seriesResp.error}`);
-    console.log('[backfill] rava tickers recibidos:', Object.keys(seriesResp||{}));
-    console.log('[backfill] mep fechas:', (mepRows||[]).length);
+    if(!yahooRes.ok && !ravaRes.ok) throw new Error(`Precios HTTP ${yahooRes.status}`);
+    const yahooResp = yahooRes.ok ? await yahooRes.json() : {};
+    const ravaResp  = ravaRes.ok  ? await ravaRes.json()  : {};
 
     const priceByTk = {};
-    for(const [tk,rows] of Object.entries(seriesResp||{})){
+    for(const tk of tickers){
       priceByTk[tk]={};
-      (rows||[]).forEach(r=>{ priceByTk[tk][r.fecha]=r.cierre; });
+      const yahooRows = yahooResp[toYahoo(tk)] || [];
+      const ravaRows  = ravaResp[tk]            || [];
+      if(yahooRows.length >= 5){
+        // Yahoo tiene buena cobertura: usar close de Yahoo
+        yahooRows.forEach(r=>{ priceByTk[tk][r.fecha]=r.close; });
+        // Para fechas que Yahoo no tiene, completar con Rava
+        ravaRows.forEach(r=>{ if(!priceByTk[tk][r.fecha]) priceByTk[tk][r.fecha]=r.cierre; });
+      } else {
+        // Yahoo sin datos suficientes: usar solo Rava
+        ravaRows.forEach(r=>{ priceByTk[tk][r.fecha]=r.cierre; });
+      }
     }
+    console.log('[backfill] tickers con Yahoo:', tickers.filter(t=>(yahooResp[toYahoo(t)]||[]).length>=5));
+    console.log('[backfill] tickers con Rava:', tickers.filter(t=>(yahooResp[toYahoo(t)]||[]).length<5));
+    console.log('[backfill] mep fechas:', (mepRows||[]).length);
     const mepByDate = {}; (mepRows||[]).forEach(r=>{ mepByDate[r.fecha]=Number(r.mep); });
 
     const closestBefore = (map, date) => {
@@ -3444,7 +3465,7 @@ window.pfBackfillPnLBtn = async function pfBackfillPnLBtn() {
   };
   setStatus('conectando Rava…');
   try {
-    const n = await pfBackfillPnL({ force: true, days: 15, onStatus: setStatus });
+    const n = await pfBackfillPnL({ force: false, days: 15, onStatus: setStatus });
     if(n > 0) {
       btn.textContent = `${n} días ✓`;
       if(status) { status.textContent = `${n} días guardados ✓`; status.style.color = 'var(--green)'; }
