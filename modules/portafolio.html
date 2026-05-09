@@ -3812,6 +3812,12 @@ function pfRenderCharts() {
     ? allMepDates.filter(d => d >= earliestBuy)
     : allMepDates;
 
+  // Cada ticker inicia desde su propia fecha de compra
+  function tickerHasDate(tk, d) {
+    const start = tickerBaseDate[tk];
+    return start ? d >= start : true;
+  }
+
   const ctx2 = document.getElementById('pfChartTickers');
   if (ctx2) {
     if (pfLineChart2) pfLineChart2.destroy();
@@ -3827,6 +3833,7 @@ function pfRenderCharts() {
       if (baseUsd <= 0) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
 
       const values = filteredMepDates.map(date => {
+        if (!tickerHasDate(ticker, date)) return null;
         const mep = allMepByDate[date];
         const price = closestBefore(arr, date);
         if (!mep || price == null || baseUsd <= 0) return null;
