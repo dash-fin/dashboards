@@ -43,12 +43,12 @@ def is_business_day(d):
 
 def main():
     # Email del usuario
-    email = "esperonjuanmanuel@gmail.com"
+    email = "elyagui@gmail.com"
     
     # 1. Posiciones activas + trades cerrados
     print("📦 Cargando posiciones...")
     pos_rows = sb_get("portafolio", "activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,fecha_compra")
-    trade_rows = sb_get("trades", f"user_email=eq.{email}&select=ticker_ars,tipo,cantidad,fecha,fecha_cierre")
+    trade_rows = sb_get("trades", f"user_email=eq.{email}&select=ticker_ars,tipo,cantidad,fecha_cierre")
     
     today = date.today().isoformat()
     all_pos = []
@@ -61,7 +61,7 @@ def main():
         if t.get("tipo") == "OPCION": continue
         all_pos.append({
             "ticker": t["ticker_ars"], "tipo": t["tipo"],
-            "qty": float(t["cantidad"]), "open": t["fecha"],
+            "qty": float(t["cantidad"]), "open": t["fecha_compra"],
             "close": t.get("fecha_cierre") or today,
         })
     all_pos = [p for p in all_pos if p["ticker"] and p["qty"] > 0 and p["open"]]
@@ -218,6 +218,7 @@ def main():
         pnl_pct = round((row["valor_usd"] - prev) / prev * 100, 4) if prev and prev > 0 else None
         final_rows.append({
             "fecha": row["fecha"],
+            "user_email": email,
             "valor_usd": row["valor_usd"],
             "pnl_usd": pnl_usd,
             "pnl_pct": pnl_pct,

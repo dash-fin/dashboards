@@ -3362,7 +3362,7 @@ async function pfBackfillPnL() {
       const idx = sortedAll.indexOf(row.fecha);
       const prev = idx>0 ? allKnown[sortedAll[idx-1]] : null;
       return {
-        fecha: row.fecha, valor_usd: row.valor_usd,
+        fecha: row.fecha, user_email: email, valor_usd: row.valor_usd,
         pnl_usd: prev ? Math.round((row.valor_usd-prev)*100)/100 : null,
         pnl_pct: prev&&prev>0 ? Math.round((row.valor_usd-prev)/prev*100*10000)/10000 : null,
       };
