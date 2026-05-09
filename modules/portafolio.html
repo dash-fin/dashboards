@@ -3341,14 +3341,19 @@ async function pfBackfillPnL(opts = {}) {
     const tickers = [...new Set(allPos.map(p=>p.ticker))];
     const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
     const SB_URL  = 'https://endymbpdayeidromxayb.supabase.co';
-    const sess    = await window.supabase?.auth?.getSession?.();
+    const sess    = await window.sbAuth?.auth?.getSession?.();
     const tok     = sess?.data?.session?.access_token || SB_KEY;
     const edgeH   = {'Content-Type':'application/json','Authorization':'Bearer '+tok,'apikey':SB_KEY};
 
-    const [seriesResp, mepRows] = await Promise.all([
-      fetch(`${SB_URL}/functions/v1/yahoo-prices`,{method:'POST',headers:edgeH,body:JSON.stringify({mode:'rava-series',symbols:tickers})}).then(r=>r.json()),
+    const [seriesRes, mepRows] = await Promise.all([
+      fetch(`${SB_URL}/functions/v1/yahoo-prices`,{method:'POST',headers:edgeH,body:JSON.stringify({mode:'rava-series',symbols:tickers})}),
       sb('mep_historico',`fecha=gte.${startDate}&order=fecha.asc&select=fecha,mep`),
     ]);
+    if(!seriesRes.ok) throw new Error(`Rava HTTP ${seriesRes.status}`);
+    const seriesResp = await seriesRes.json();
+    if(seriesResp?.error) throw new Error(`Rava error: ${seriesResp.error}`);
+    console.log('[backfill] rava tickers recibidos:', Object.keys(seriesResp||{}));
+    console.log('[backfill] mep fechas:', (mepRows||[]).length);
 
     const priceByTk = {};
     for(const [tk,rows] of Object.entries(seriesResp||{})){
@@ -3428,34 +3433,41 @@ window.pfBackfillPnLBtn = async function pfBackfillPnLBtn() {
   const btn    = document.getElementById('pfBackfillBtn');
   const status = document.getElementById('pfBackfillStatus');
   if(!btn || btn.disabled) return;
+  console.log('[backfill] iniciando…');
   btn.disabled = true;
-  btn.style.opacity = '0.5';
+  btn.style.opacity = '0.6';
   btn.style.cursor  = 'default';
   const setStatus = (msg, color) => {
-    if(!status) return;
-    status.textContent = msg;
-    status.style.color = color || 'var(--text3)';
+    console.log('[backfill status]', msg);
+    btn.textContent = msg || 'Recalcular';
+    if(status) { status.textContent = msg; status.style.color = color || 'var(--text3)'; }
   };
-  setStatus('buscando precios Rava…');
+  setStatus('conectando Rava…');
   try {
     const n = await pfBackfillPnL({ force: true, days: 15, onStatus: setStatus });
     if(n > 0) {
-      setStatus(`${n} días guardados ✓`, 'var(--green)');
+      btn.textContent = `${n} días ✓`;
+      if(status) { status.textContent = `${n} días guardados ✓`; status.style.color = 'var(--green)'; }
       pfCalCache = {};
       pfPnlCache = null;
       await pfRenderResumenCalendar();
       pfRenderBenchmark();
     } else {
-      setStatus('sin días nuevos', 'var(--text3)');
+      btn.textContent = 'sin cambios';
+      if(status) { status.textContent = 'sin días nuevos — revisá consola'; status.style.color = 'var(--text3)'; }
     }
   } catch(e) {
-    setStatus('error — revisá consola', 'var(--red)');
+    btn.textContent = 'ERROR';
+    if(status) { status.textContent = e.message || 'error'; status.style.color = 'var(--red)'; }
     console.error('[backfill]', e);
   } finally {
     btn.disabled = false;
     btn.style.opacity = '1';
     btn.style.cursor  = 'pointer';
-    setTimeout(() => setStatus(''), 5000);
+    setTimeout(() => {
+      btn.textContent = 'Recalcular';
+      if(status) status.textContent = '';
+    }, 6000);
   }
 }
 
