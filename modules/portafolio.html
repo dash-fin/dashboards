@@ -3186,10 +3186,9 @@ window.pfRenderBenchmark = __pfRB;
   const spyStart  = spyByDate[startDate] || spyHistory.find(r => r.fecha >= startDate)?.close || null;
 
   // Unión de fechas ordenadas, filtradas por rango
+  const rangeStart = _range.from || filtered[0]?.fecha;
   let allDates = [...new Set([...Object.keys(pfByDate),...Object.keys(spyByDate)])].sort();
-  if (_range.from) {
-    allDates = allDates.filter(d => d >= _range.from && (!_range.to || d <= _range.to));
-  }
+  allDates = allDates.filter(d => d >= rangeStart && (!_range.to || d <= _range.to));
   const pfLine   = allDates.map(d => pfByDate[d]  != null ? +pfByDate[d].toFixed(2)  : null);
   const spyLine  = allDates.map(d => spyByDate[d] != null && spyStart ? +(spyByDate[d] / spyStart * 100).toFixed(2) : null);
 
@@ -3805,7 +3804,13 @@ function pfRenderCharts() {
     }
   }
 
-
+  // Truncar eje X desde la compra más antigua del portafolio
+  const earliestBuy = Object.keys(tickerBaseDate).length
+    ? Object.values(tickerBaseDate).sort().find(Boolean)
+    : null;
+  const filteredMepDates = earliestBuy
+    ? allMepDates.filter(d => d >= earliestBuy)
+    : allMepDates;
 
   const ctx2 = document.getElementById('pfChartTickers');
   if (ctx2) {
@@ -3821,7 +3826,7 @@ function pfRenderCharts() {
       const baseUsd = basePrice ? basePrice / mepBase : 0;
       if (baseUsd <= 0) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
 
-      const values = allMepDates.map(date => {
+      const values = filteredMepDates.map(date => {
         const mep = allMepByDate[date];
         const price = closestBefore(arr, date);
         if (!mep || price == null || baseUsd <= 0) return null;
@@ -3842,7 +3847,7 @@ function pfRenderCharts() {
       };
     }).filter(ds => ds.data.some(v => v != null));
 
-    const tickerLabelDates = allMepDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
+    const tickerLabelDates = filteredMepDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
 
     pfLineChart2 = new Chart(ctx2, {
       type: 'line',
@@ -3861,7 +3866,7 @@ function pfRenderCharts() {
             bodyFont: { family: "'IBM Plex Mono'", size: 10 },
             padding: 8,
             callbacks: {
-              title: ([ctx]) => allMepDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
+              title: ([ctx]) => filteredMepDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
               label: ctx => ` ${ctx.dataset.label}: ${ctx.raw != null ? ctx.raw.toFixed(1) + '%' : '—'}`,
             },
           },
