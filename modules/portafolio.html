@@ -1035,6 +1035,11 @@ window.pfLoadAll = async () => {
     document.getElementById('pfMeta').textContent =
       `${pfPositions.length} posiciones · ${new Date().toLocaleTimeString('es-AR')}`;
     pfRender();
+    // Auto-refresh benchmark y calendario si está en resumen
+    if(document.getElementById('pftab-resumen')?.classList.contains('active')) {
+      pfRenderBenchmark();
+      pfRenderResumenCalendar();
+    }
     pfRenderOpciones(); // async — actualiza pfOpsUsdPnl y parchea KPIs al resolver
     pfLoadHistory(); // WTD/YTD — async, no bloquea el render principal
   } catch(e) {
@@ -2969,31 +2974,34 @@ async function pfRenderResumenCalendar() {
 
   const year = pfCalMonth.getFullYear();
   const month = pfCalMonth.getMonth();
-  // Mostrar 2 meses: current y siguiente
+  // Mostrar 3 meses: current y siguientes 2
   const months = [
     { year, month, label: PF_MONTHS[month] + ' ' + year },
-    { year: month === 11 ? year + 1 : year, month: month === 11 ? 0 : month + 1 }
+    { year: month === 11 ? year + 1 : year, month: month === 11 ? 0 : month + 1 },
+    { year: month >= 10 ? year + 1 : year, month: month >= 10 ? month - 10 : month + 2 }
   ];
   months[1].label = PF_MONTHS[months[1].month] + ' ' + months[1].year;
+  months[2].label = PF_MONTHS[months[2].month] + ' ' + months[2].year;
 
   const label = document.getElementById('pfCalMonthLabelRes');
   if (label) {
-    label.textContent = PF_MONTHS[month] + ' - ' + months[1].label;
+    label.textContent = PF_MONTHS[month] + ' - ' + months[2].label;
   }
 
   el.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text4);padding:12px">Cargando...</div>';
 
-  // Cargar datos de ambos meses en 1 sola query (con caché)
+  // Cargar datos de 3 meses en 1 sola query (con caché)
   const firstMonth = months[0];
-  const lastMonth = months[1];
+  const lastMonth = months[2];
   const firstMonthDays = new Date(firstMonth.year, firstMonth.month + 1, 0).getDate();
   const lastMonthDays = new Date(lastMonth.year, lastMonth.month + 1, 0).getDate();
   const ck1 = pfCalCacheKey(firstMonth.year, firstMonth.month);
-  const ck2 = pfCalCacheKey(lastMonth.year, lastMonth.month);
+  const ck2 = pfCalCacheKey(months[1].year, months[1].month);
+  const ck3 = pfCalCacheKey(lastMonth.year, lastMonth.month);
   let monthData;
 
-  if (pfCalCache[ck1] && pfCalCache[ck2]) {
-    monthData = [pfCalCache[ck1], pfCalCache[ck2]];
+  if (pfCalCache[ck1] && pfCalCache[ck2] && pfCalCache[ck3]) {
+    monthData = [pfCalCache[ck1], pfCalCache[ck2], pfCalCache[ck3]];
   } else {
     const combinedStart = `${firstMonth.year}-${String(firstMonth.month+1).padStart(2,'0')}-01`;
     const combinedEnd = `${lastMonth.year}-${String(lastMonth.month+1).padStart(2,'0')}-${String(lastMonthDays).padStart(2,'0')}`;
@@ -3080,9 +3088,10 @@ async function pfRenderResumenCalendar() {
     return;
   }
 
-  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
     ${renderMonthGrid(monthData[0], 0)}
     ${renderMonthGrid(monthData[1], 1)}
+    ${renderMonthGrid(monthData[2], 2)}
   </div>`;
 }
 
@@ -3176,8 +3185,11 @@ window.pfRenderBenchmark = __pfRB;
   const spyByDate = {}; spyHistory.forEach(r => { spyByDate[r.fecha] = r.close; });
   const spyStart  = spyByDate[startDate] || spyHistory.find(r => r.fecha >= startDate)?.close || null;
 
-  // Unión de fechas ordenadas
-  const allDates = [...new Set([...Object.keys(pfByDate),...Object.keys(spyByDate)])].sort();
+  // Unión de fechas ordenadas, filtradas por rango
+  let allDates = [...new Set([...Object.keys(pfByDate),...Object.keys(spyByDate)])].sort();
+  if (_range.from) {
+    allDates = allDates.filter(d => d >= _range.from && (!_range.to || d <= _range.to));
+  }
   const pfLine   = allDates.map(d => pfByDate[d]  != null ? +pfByDate[d].toFixed(2)  : null);
   const spyLine  = allDates.map(d => spyByDate[d] != null && spyStart ? +(spyByDate[d] / spyStart * 100).toFixed(2) : null);
 
@@ -3793,13 +3805,7 @@ function pfRenderCharts() {
     }
   }
 
-  // Truncar fechas MEP desde la compra más antigua
-  const earliestBuy = Object.keys(tickerBaseDate).length
-    ? Object.values(tickerBaseDate).sort().find(Boolean)
-    : null;
-  const filteredMepDates = earliestBuy
-    ? allMepDates.filter(d => d >= earliestBuy)
-    : allMepDates;
+
 
   const ctx2 = document.getElementById('pfChartTickers');
   if (ctx2) {
@@ -3815,7 +3821,7 @@ function pfRenderCharts() {
       const baseUsd = basePrice ? basePrice / mepBase : 0;
       if (baseUsd <= 0) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
 
-      const values = filteredMepDates.map(date => {
+      const values = allMepDates.map(date => {
         const mep = allMepByDate[date];
         const price = closestBefore(arr, date);
         if (!mep || price == null || baseUsd <= 0) return null;
@@ -3836,7 +3842,7 @@ function pfRenderCharts() {
       };
     }).filter(ds => ds.data.some(v => v != null));
 
-    const tickerLabelDates = filteredMepDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
+    const tickerLabelDates = allMepDates.map(d => { const [,m,dy]=d.split('-'); return `${dy}/${m}`; });
 
     pfLineChart2 = new Chart(ctx2, {
       type: 'line',
@@ -3855,7 +3861,7 @@ function pfRenderCharts() {
             bodyFont: { family: "'IBM Plex Mono'", size: 10 },
             padding: 8,
             callbacks: {
-              title: ([ctx]) => filteredMepDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
+              title: ([ctx]) => allMepDates[ctx.dataIndex]?.split('-').reverse().join('/') || '',
               label: ctx => ` ${ctx.dataset.label}: ${ctx.raw != null ? ctx.raw.toFixed(1) + '%' : '—'}`,
             },
           },
