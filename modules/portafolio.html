@@ -3309,14 +3309,14 @@ async function pfBackfillPnL(opts = {}) {
 
     // 1. Posiciones activas + trades cerrados (para rangos de fechas)
     const [posRows, tradeRows] = await Promise.all([
-      sb('portafolio', 'activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,fecha_compra'),
-      sb('trades', `user_email=eq.${encodeURIComponent(email)}&select=ticker_ars,tipo,cantidad,fecha,fecha_cierre`),
+      sb('portafolio', `user_email=eq.${encodeURIComponent(email)}&activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,fecha_compra`),
+      sb('trades', `user_email=eq.${encodeURIComponent(email)}&select=ticker_ars,tipo,cantidad,fecha_apertura,fecha_cierre`).catch(()=>[]),
     ]);
 
     const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
     const allPos = [
       ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:today})),
-      ...(tradeRows||[]).filter(t=>t.tipo!=='OPCION').map(t=>({ticker:t.ticker_ars,tipo:t.tipo,qty:Number(t.cantidad),open:t.fecha,close:t.fecha_cierre||today})),
+      ...(tradeRows||[]).filter(t=>t.tipo!=='OPCION'&&t.fecha_cierre).map(t=>({ticker:t.ticker_ars,tipo:t.tipo,qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre})),
     ].filter(p=>p.ticker&&p.qty>0&&p.open);
 
     if(!allPos.length) throw new Error('Sin posiciones');
