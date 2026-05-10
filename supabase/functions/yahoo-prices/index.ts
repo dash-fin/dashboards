@@ -178,10 +178,19 @@ serve(async (req) => {
           const chart = data?.chart?.result?.[0];
           if (!chart) { result[sym] = []; return; }
           const timestamps: number[] = chart.timestamp || [];
-          const closes: number[] = chart.indicators?.quote?.[0]?.close || [];
+          const opens: number[]   = chart.indicators?.quote?.[0]?.open   || [];
+          const highs: number[]   = chart.indicators?.quote?.[0]?.high   || [];
+          const lows: number[]    = chart.indicators?.quote?.[0]?.low    || [];
+          const closes: number[]  = chart.indicators?.quote?.[0]?.close  || [];
           result[sym] = timestamps
-            .map((ts, i) => ({ fecha: new Date(ts * 1000).toISOString().split("T")[0], close: closes[i] ?? null }))
-            .filter((r): r is {fecha: string; close: number} => r.close != null);
+            .map((ts, i) => ({
+              fecha: new Date(ts * 1000).toISOString().split("T")[0],
+              open: opens[i] ?? null,
+              high: highs[i] ?? null,
+              low:  lows[i]  ?? null,
+              close: closes[i] ?? null,
+            }))
+            .filter((r): r is {fecha: string; open: number; high: number; low: number; close: number} => r.close != null);
         } catch { result[sym] = []; }
       }));
       return new Response(JSON.stringify(result), {
