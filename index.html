@@ -1464,6 +1464,9 @@ async function loadHomePortfolio(){
       if(ws)ws.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\P&L: <span style="color:${worst.pnl>=0?'var(--green)':'var(--red)'}">${worst.pnl>=0?'+':''}${fmtUSD(Math.abs(worst.pnl),2)}</span></span>`;
     }
     renderHomePF(enriched);
+    if (document.getElementById('pfSaldoContainer')?.dataset?.hidden === 'true') {
+      try { togglePortfolioSaldo(); } catch(e) {}
+    }
 
   }catch(e){console.warn('loadHomePortfolio:',e);}
 
