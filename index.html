@@ -1604,7 +1604,7 @@ async function loadEarnings(){
     const eMissN=document.getElementById('h-b-earn-miss-n');
     const eRepN=document.getElementById('h-b-earn-rep-n');
     const eQ=document.getElementById('h-b-earn-quarter');
-    if(eRep)eRep.textContent=total;
+    if(eRep)eRep.textContent=beats+misses;
     if(eBeat)eBeat.textContent=beats;
     if(eMiss)eMiss.textContent=misses;
     // Quarter label
@@ -1655,13 +1655,12 @@ async function loadEarnings(){
     if(!results||!results.length){
       elRes.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin datos</div>';
     }else{
-      let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed">'
+      let html='<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
         +'<colgroup>'
-        +'<col style="width:54px"><col style="width:80px"><col style="width:50px"><col style="width:58px"><col style="width:58px"><col style="width:60px">'
+        +'<col style="width:60px"><col style="width:60px"><col style="width:70px"><col style="width:70px"><col style="width:80px">'
         +'</colgroup>'
         +'<thead><tr>'
         +'<th class="th" style="padding:4px 8px;text-align:left">Ticker</th>'
-        +'<th class="th" style="padding:4px 8px;text-align:left">Empresa</th>'
         +'<th class="th" style="padding:4px 8px;text-align:center">Fecha</th>'
         +'<th class="th" style="padding:4px 8px;text-align:right">Est.</th>'
         +'<th class="th" style="padding:4px 8px;text-align:right">Real</th>'
@@ -1674,15 +1673,14 @@ async function loadEarnings(){
         const beatLabel=e.beat===true?'Beat':e.beat===false?'Miss':'—';
         const surp=e.surprise_pct!=null?`<br><span style="font-size:9px;font-weight:400">${e.surprise_pct>0?'+':''}${e.surprise_pct.toFixed(1)}%</span>`:'';
         html+=`<tr style="border-bottom:1px solid var(--border)">
-          <td style="padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.symbol}</td>
-          <td style="padding:4px 8px;font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.company||''}</td>
+          <td style="padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${e.symbol}</td>
           <td style="padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center;color:var(--text3)">${dayStr}</td>
           <td style="padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right">${e.eps_estimate!=null?'$'+Number(e.eps_estimate).toFixed(2):'—'}</td>
           <td style="padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right">${e.eps_actual!=null?'$'+Number(e.eps_actual).toFixed(2):'—'}</td>
           <td class="${beatCls}" style="padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:right;font-weight:600;line-height:1.3">${beatLabel}${surp}</td>
         </tr>`;
       });
-      html+='</tbody></table></div>';
+      html+='</tbody></table>';
       elRes.innerHTML=html;
     }
   }
