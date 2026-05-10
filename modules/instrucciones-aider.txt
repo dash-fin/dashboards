@@ -1,0 +1,462 @@
+# INSTRUCCIONES PARA AIDER - Agregar vista de detalle de posición (chart modal)
+
+Archivo a modificar: `/mnt/c/dashboard/Github/modules/portafolio.html`
+
+## RESUMEN
+
+Agregar un modal fullscreen con gráfico TradingView, líneas overlay SL/TP/Entry, info de posición, indicadores, y botones de acción. Se dispara al hacer click en el ticker de una posición en la tabla.
+
+---
+
+## CAMBIO 1: CSS - Agregar estilo para `.pfChartLink`
+
+Buscar el bloque `<style>` que comienza en línea 7 y agregar al final (antes de cerrar `</style>`):
+
+```css
+/* ── Chart modal: link del ticker ────────────────────── */
+.pfChartLink { color: #7c7cf0; cursor: pointer; text-decoration: none; border-bottom: 1px dashed #7c7cf066; }
+.pfChartLink:hover { color: #9b9bf5; border-bottom-color: #9b9bf5; }
+
+/* ── Chart modal overlay ──────────────────────────────── */
+#pchOverlayLine {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+```
+
+---
+
+## CAMBIO 2: HTML - Agregar el overlay del modal de chart
+
+Buscar la línea `</body>` al final del archivo (línea ~4103) y REEMPLAZARLA con:
+
+```html
+<!-- ── Modal detalle de posición ── -->
+<div id="pfChartOverlay" onclick="pfChartClose(event)" 
+     style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.8);backdrop-filter:blur(3px);align-items:center;justify-content:center">
+  <div id="pfChartModal" onclick="event.stopPropagation()"
+       style="background:#131322;border-radius:12px;max-width:1100px;width:95%;max-height:95vh;overflow-y:auto;position:relative">
+    
+    <!-- Close button -->
+    <button onclick="pfChartClose()" style="position:sticky;top:12px;float:right;z-index:10;background:#2a2a4a;border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;margin:12px">✕</button>
+    
+    <!-- Header: ticker + company + price -->
+    <div id="pchHeader" style="padding:16px 20px 8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div><span id="pchTicker" style="font-size:22px;font-weight:700;color:#fff"></span> <span id="pchCompany" style="font-size:13px;color:#888"></span></div>
+      <div style="text-align:right">
+        <div><span id="pchPrice" style="font-size:24px;font-weight:600"></span> <span id="pchChange" style="font-size:13px;margin-left:4px"></span></div>
+        <div id="pchChangePct" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+      </div>
+    </div>
+    
+    <!-- Info bar -->
+    <div style="display:flex;border-bottom:1px solid #2a2a4a;flex-wrap:wrap">
+      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
+        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Entrada</div>
+        <div id="pch_entrada" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+      </div>
+      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
+        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Cant.</div>
+        <div id="pch_cant" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+      </div>
+      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
+        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Invertido</div>
+        <div id="pch_invertido" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+      </div>
+      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
+        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Actual</div>
+        <div id="pch_actual" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+      </div>
+      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
+        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Ganancia</div>
+        <div id="pch_ganancia" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+      </div>
+      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center">
+        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Fecha</div>
+        <div id="pch_fecha" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+      </div>
+    </div>
+    
+    <!-- Levels bar -->
+    <div id="pchLevels" style="display:flex;gap:8px;padding:8px 16px;background:#1a1a30;border-bottom:1px solid #2a2a4a;align-items:center;flex-wrap:wrap"></div>
+    
+    <!-- Chart wrap -->
+    <div id="pchChartWrap" style="position:relative;padding:0">
+      <iframe id="pchTvFrame" src="" style="width:100%;height:500px;border:none;display:block" allowfullscreen></iframe>
+      <div id="pchOverlay" style="pointer-events:none;position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden"></div>
+    </div>
+    
+    <!-- Detail grid -->
+    <div id="pchDetails" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding:12px 16px;background:#16162a"></div>
+    
+    <!-- Bottom bar -->
+    <div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid #2a2a4a">
+      <button id="pchEditBtn" onclick="pfChartEditPos()" style="background:#2a2a4a;border:none;color:#ccc;padding:7px 14px;border-radius:7px;font-size:11px;cursor:pointer">✎ Editar</button>
+      <button id="pchAlertBtn" onclick="pfChartCreateAlert()" style="background:#7c7cf0;border:none;color:#fff;padding:7px 14px;border-radius:7px;font-size:11px;cursor:pointer">➕ Crear alerta desde aquí</button>
+      <button onclick="pfChartClose()" style="background:#2a2a4a;border:none;color:#ccc;padding:7px 14px;border-radius:7px;font-size:11px;cursor:pointer;margin-left:auto">← Volver</button>
+    </div>
+    
+  </div>
+</div>
+</body>
+```
+
+---
+
+## CAMBIO 3: Modificar el `case 'ticker'` en `pfRenderPositions`
+
+Buscar la línea (aproximadamente línea 2218):
+
+```
+case 'ticker':    return `<td class="th-left"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${TIPO_COLOR[p.tipo]||'#888'};margin-right:5px;vertical-align:middle"></span><b>${p.ticker_ars}</b></td>`;
+```
+
+REEMPLAZAR con:
+
+```
+case 'ticker':    return `<td class="th-left"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${TIPO_COLOR[p.tipo]||'#888'};margin-right:5px;vertical-align:middle"></span><span class="pfChartLink" onclick="pfShowChart('${p.id}')" title="Ver gráfico">${p.ticker_ars}</span></td>`;
+```
+
+---
+
+## CAMBIO 4: Agregar funciones JavaScript + COMPANY_NAME + Escape listener
+
+Buscar la línea que contiene `})();` y `</script>` al final del archivo (justo antes de `</body>`) y ANTES de `</script>`, insertar el siguiente bloque de código.
+
+Para ser precisos: buscar la línea `})();` justo antes de `</script>`. Insertar el bloque NUEVO código ANTES de esa línea (es decir, entre el cierre de la IIFE `})();` y la etiqueta `</script>`).
+
+EL BLOQUE A INSERTAR (antes de `</script>` y después de `})();`):
+
+```js
+
+// ══════════════════════════════════════════════════════════
+// ── CHART MODAL: Detalle de posición con TradingView ────
+// ══════════════════════════════════════════════════════════
+
+const COMPANY_NAME = {
+  AAPL:'Apple Inc.', MSFT:'Microsoft Corporation', NVDA:'NVIDIA Corporation',
+  GOOGL:'Alphabet Inc.', GOOG:'Alphabet Inc.', AMZN:'Amazon.com Inc.',
+  META:'Meta Platforms Inc.', TSLA:'Tesla Inc.', AVGO:'Broadcom Inc.',
+  ORCL:'Oracle Corporation', ADBE:'Adobe Inc.', CRM:'Salesforce Inc.',
+  NFLX:'Netflix Inc.', SPOT:'Spotify Technology', MELI:'MercadoLibre Inc.',
+  PG:'Procter & Gamble Co.', CL:'Colgate-Palmolive Co.', JNJ:'Johnson & Johnson',
+  WMT:'Walmart Inc.', NKE:'Nike Inc.', BA:'The Boeing Company',
+  MA:'Mastercard Inc.', V:'Visa Inc.', AXP:'American Express Co.',
+  UNH:'UnitedHealth Group Inc.', HOOD:'Robinhood Markets Inc.',
+  DOCU:'DocuSign Inc.', OKLO:'Oklo Inc.', JD:'JD.com Inc.',
+  DIS:'The Walt Disney Company', KO:'The Coca-Cola Company',
+  PEP:'PepsiCo Inc.', COST:'Costco Wholesale Corp.',
+  SPY:'SPDR S&P 500 ETF Trust', QQQ:'Invesco QQQ Trust',
+  DIA:'SPDR Dow Jones Industrial Average ETF',
+  AL30:'BONO AL30', AL30D:'BONO AL30D', GD30:'BONO GD30',
+  GGAL:'Grupo Financiero Galicia', YPFD:'YPF S.A.',
+  PAMP:'Pampa Energía S.A.', TXAR:'Ternium Argentina',
+  CEPU:'Central Puerto S.A.', TRAN:'Transportadora de Gas del Sur',
+  COME:'Sociedad Comercial del Plata',
+};
+
+let _pfChartPosId = null;
+
+window.pfShowChart = function(posId) {
+  const pos = pfPositions.find(p => p.id === posId);
+  if (!pos) return;
+  _pfChartPosId = posId;
+
+  // 1. Header
+  const empresa = COMPANY_NAME[pos.ticker_ars] || COMPANY_NAME[pos.ticker_adr] || pos.ticker_ars;
+  document.getElementById('pchTicker').textContent = pos.ticker_ars;
+  document.getElementById('pchCompany').textContent = empresa;
+
+  const pr = pfPrices[pos.ticker_ars];
+  const preco = pr?.last != null ? pr.last : '—';
+  const change = pr?.change != null ? pr.change : null;
+  const changePct = pr?.changePercent != null ? pr.changePercent : null;
+  
+  document.getElementById('pchPrice').textContent = preco !== '—' ? '$'+Number(preco).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—';
+  if (change != null) {
+    const s = change >= 0 ? '+' : '';
+    const col = change >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('pchChange').textContent = s+'$'+Math.abs(change).toFixed(2);
+    document.getElementById('pchChange').style.color = col;
+  } else {
+    document.getElementById('pchChange').textContent = '';
+  }
+  if (changePct != null) {
+    const s = changePct >= 0 ? '+' : '';
+    const col = changePct >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('pchChangePct').textContent = s+changePct.toFixed(2)+'%';
+    document.getElementById('pchChangePct').style.color = col;
+  } else {
+    document.getElementById('pchChangePct').textContent = '';
+  }
+
+  // 2. Info bar
+  const fmtArs = v => '$'+Number(v).toLocaleString('es-AR',{maximumFractionDigits:2});
+  const fmtUsd = v => v != null ? 'U$S '+Math.round(v).toLocaleString('es-AR') : '—';
+  document.getElementById('pch_entrada').textContent = fmtArs(pos.precio_compra_ars);
+  document.getElementById('pch_cant').textContent = Number(pos.cantidad).toLocaleString('es-AR');
+  document.getElementById('pch_fecha').textContent = pos.fecha_compra ? new Date(pos.fecha_compra+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+
+  // Calcular valores USD
+  const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
+  const factor = esBono ? 100 : 1;
+  const usdInv = pos.mep_compra>0 ? (pos.precio_compra_ars*pos.cantidad)/(factor*pos.mep_compra) : null;
+  const usdAct = (pfMep && preco != null && preco !== '—') ? (preco*pos.cantidad)/(factor*pfMep) : null;
+  const gan    = (usdInv!=null && usdAct!=null) ? usdAct-usdInv : null;
+  const pct    = (gan!=null && usdInv>0) ? gan/usdInv : null;
+  
+  document.getElementById('pch_invertido').textContent = fmtUsd(usdInv);
+  document.getElementById('pch_actual').textContent = fmtUsd(usdAct);
+  if (gan != null) {
+    const s = gan >= 0 ? '+' : '';
+    const col = gan >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('pch_ganancia').textContent = s+fmtUsd(gan);
+    document.getElementById('pch_ganancia').style.color = col;
+  } else {
+    document.getElementById('pch_ganancia').textContent = '—';
+    document.getElementById('pch_ganancia').style.color = '';
+  }
+
+  // 3. Levels bar: badges Entry / SL / TP + R:R
+  const levelsEl = document.getElementById('pchLevels');
+  let levelsHtml = '';
+
+  // Entry badge
+  const entryPrice = pos.precio_compra_ars;
+  levelsHtml += `<span style="background:rgba(124,124,240,.15);color:#7c7cf0;border:1px solid rgba(124,124,240,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">ENTRY $${Number(entryPrice).toFixed(2)}</span>`;
+
+  // SL badge
+  if (pos.stop_loss) {
+    const slDist = preco !== '—' ? ((pos.stop_loss - preco) / preco * 100) : null;
+    levelsHtml += `<span style="background:rgba(239,83,80,.15);color:#ef5350;border:1px solid rgba(239,83,80,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">SL $${Number(pos.stop_loss).toFixed(2)}${slDist != null ? ' ('+slDist.toFixed(2)+'%)' : ''}</span>`;
+  }
+  // TP badge
+  if (pos.take_profit) {
+    const tpDist = preco !== '—' ? ((pos.take_profit - preco) / preco * 100) : null;
+    levelsHtml += `<span style="background:rgba(38,166,154,.15);color:#26a69a;border:1px solid rgba(38,166,154,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">TP $${Number(pos.take_profit).toFixed(2)}${tpDist != null ? ' ('+tpDist.toFixed(2)+'%)' : ''}</span>`;
+  }
+  // R:R
+  if (pos.stop_loss && pos.take_profit) {
+    const risk = entryPrice - pos.stop_loss;
+    const reward = pos.take_profit - entryPrice;
+    const rr = risk > 0 ? (reward / risk).toFixed(2) : '∞';
+    const rrColor = Number(rr) >= 2 ? '#26a69a' : Number(rr) >= 1 ? '#ffc84a' : '#ef5350';
+    levelsHtml += `<span style="color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:10px;margin-left:4px">R:R <span style="color:${rrColor};font-weight:700">1:${rr}</span></span>`;
+  }
+  levelsEl.innerHTML = levelsHtml;
+
+  // 4. TradingView widget
+  buildTvWidget(pos);
+
+  // 5. Detail grid
+  const detailsEl = document.getElementById('pchDetails');
+  const details = buildDetailGrid(pos);
+  detailsEl.innerHTML = details;
+
+  // 6. Bottom bar: set edit button
+  document.getElementById('pchEditBtn').setAttribute('onclick', `pfChartClose();setTimeout(()=>pfModalOpen('${posId}'),100)`);
+  document.getElementById('pchAlertBtn').setAttribute('onclick', `pfChartCreateAlert()`);
+
+  // 7. Show overlay
+  document.getElementById('pfChartOverlay').style.display = 'flex';
+};
+
+function getTvSymbol(pos) {
+  // Para tickers ARS (terminan en .BA): directamente el ticker_ars
+  // Para tickers ADR: usar NYSE:{ticker_adr}
+  if (pos.ticker_adr) {
+    // Si tiene ADR, usar ese para el chart
+    return 'NYSE:' + pos.ticker_adr;
+  }
+  // Si no tiene ADR, asumir que es .BA
+  return pos.ticker_ars + '.BA';
+}
+
+function buildTvWidget(pos) {
+  const symbol = getTvSymbol(pos);
+  const src = `https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=D&theme=dark&style=1&locale=es&hideideas=1&toolbarbg=131322&allow_symbol_change=0&saveimage=0&studies=[]&no_sidebar=1&details=0&hotlist=0&calendar=0&news=0&range=12M&condateranges=0&height=500`;
+  
+  const iframe = document.getElementById('pchTvFrame');
+  iframe.src = src;
+
+  // Overlay lines
+  const overlay = document.getElementById('pchOverlay');
+  overlay.innerHTML = '';
+
+  // Estimar priceHigh / priceLow: precio actual ±30%
+  const preco = pfPrices[pos.ticker_ars]?.last;
+  if (preco == null) return;
+
+  const range = preco * 0.30;
+  const priceHigh = preco + range;
+  const priceLow = preco - range;
+
+  function calcTop(price) {
+    return 100 - ((price - priceLow) / (priceHigh - priceLow) * 80 + 10);
+  }
+
+  function createLine(price, label, color) {
+    const top = calcTop(price);
+    if (top < 0 || top > 100) return;
+    const line = document.createElement('div');
+    line.style.cssText = `position:absolute;top:${top}%;left:0;right:0;height:1px;background:${color};border-top:1px dashed ${color};`;
+    const badge = document.createElement('span');
+    badge.id = 'pchOverlayLine';
+    badge.style.cssText = `position:absolute;left:8px;top:-10px;background:${color};color:#fff;padding:1px 6px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;white-space:nowrap;`;
+    badge.textContent = `${label} $${Number(price).toFixed(2)}`;
+    line.appendChild(badge);
+    overlay.appendChild(line);
+  }
+
+  // Entry (violeta)
+  createLine(entryPrice, 'ENTRY', '#7c7cf0');
+  // SL (rojo)
+  if (pos.stop_loss) {
+    createLine(pos.stop_loss, 'SL', '#ef5350');
+  }
+  // TP (verde)
+  if (pos.take_profit) {
+    createLine(pos.take_profit, 'TP', '#26a69a');
+  }
+}
+
+function buildDetailGrid(pos) {
+  const pr = pfPrices[pos.ticker_ars];
+  const preco = pr?.last;
+  const adr = pos.ticker_adr ? (pfAdrPrices[pos.ticker_adr]?.last) : null;
+
+  const items = [];
+
+  // Precio actual
+  items.push({ label: 'Precio actual', value: preco != null ? '$'+Number(preco).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—' });
+  
+  // Máx 3m (estimado: +15% del actual)
+  const max3m = preco ? preco * 1.15 : null;
+  items.push({ label: 'Máx 3m (est.)', value: max3m ? '$'+max3m.toFixed(2) : '—' });
+  
+  // Mín 3m (estimado: -15% del actual)
+  const min3m = preco ? preco * 0.85 : null;
+  items.push({ label: 'Mín 3m (est.)', value: min3m ? '$'+min3m.toFixed(2) : '—' });
+  
+  // SMA 50 (estimado simple de últimos datos si están disponibles)
+  items.push({ label: 'SMA 50', value: '—' });
+  
+  // SMA 200
+  items.push({ label: 'SMA 200', value: '—' });
+
+  // RSI
+  items.push({ label: 'RSI (14)', value: '—' });
+
+  // Beta
+  const posCalced = pfCalc(pos);
+  const beta = posCalced?.betaAdr;
+  items.push({ label: 'Beta', value: beta != null ? beta.toFixed(2) : '—' });
+
+  // Sector (del SECTOR_MAP)
+  const sector = window.SECTOR_MAP ? SECTOR_MAP[pos.ticker_ars] || SECTOR_MAP[pos.ticker_adr] || '—' : '—';
+  items.push({ label: 'Sector', value: sector });
+
+  // Dividendo (no tenemos datos)
+  items.push({ label: 'Dividendo', value: '—' });
+
+  return items.map(item => `
+    <div style="background:#1a1a30;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:8px;text-transform:uppercase;color:#666;letter-spacing:0.3px;font-family:'IBM Plex Mono',monospace">${item.label}</span>
+      <span style="font-size:12px;font-weight:600;color:#ddd;font-family:'IBM Plex Mono',monospace">${item.value}</span>
+    </div>
+  `).join('');
+}
+
+window.pfChartClose = function(event) {
+  if (event && event.target && event.target.id !== 'pfChartOverlay') return;
+  const overlay = document.getElementById('pfChartOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+    // Detener widget TV (liberar memoria)
+    const iframe = document.getElementById('pchTvFrame');
+    if (iframe) iframe.src = '';
+    document.getElementById('pchOverlay').innerHTML = '';
+  }
+  _pfChartPosId = null;
+};
+
+// Create alert from chart modal
+window.pfChartCreateAlert = function() {
+  const posId = _pfChartPosId;
+  if (!posId) return;
+  const pos = pfPositions.find(p => p.id === posId);
+  if (!pos) return;
+
+  const pr = pfPrices[pos.ticker_ars];
+  const currentPrice = pr?.last;
+
+  // Open alert creation with pre-filled data
+  // Dispatch custom event for alerts module
+  try {
+    const event = new CustomEvent('pfOpenAlert', {
+      detail: {
+        ticker: pos.ticker_adr || pos.ticker_ars,
+        tickerArs: pos.ticker_ars,
+        tickerAdr: pos.ticker_adr,
+        currentPrice: currentPrice,
+        sl: pos.stop_loss,
+        tp: pos.take_profit,
+      }
+    });
+    document.dispatchEvent(event);
+    // Fallback: if no alerts module, try window function
+    if (typeof window.alOpen === 'function') {
+      const ticker = pos.ticker_adr || pos.ticker_ars;
+      window.alOpen(ticker);
+    } else if (typeof window.alModuleOpen === 'function') {
+      window.alModuleOpen(pos.ticker_ars);
+    }
+  } catch(e) {
+    console.warn('[pfChart] No se pudo abrir alerta:', e);
+  }
+};
+
+// Edit position from chart modal
+window.pfChartEditPos = function() {
+  const posId = _pfChartPosId;
+  if (!posId) return;
+  pfChartClose();
+  setTimeout(() => pfModalOpen(posId), 100);
+};
+
+// Escape key to close chart modal
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('pfChartOverlay');
+    if (overlay && overlay.style.display === 'flex') {
+      pfChartClose();
+    }
+  }
+});
+```
+
+---
+
+## NOTAS IMPORTANTES
+
+1. El `COMPANY_NAME` map se agregó como constante global fuera de la IIFE existente. Esto es necesario porque las funciones `pfShowChart` también están fuera (Event listeners no pueden estar dentro de la IIFE para funciones llamadas por onclick).
+
+2. La función `pfChartClose`, `pfShowChart`, `pfChartCreateAlert`, `pfChartEditPos` son todas funciones globales (window.*) para que puedan llamarse desde `onclick` en HTML.
+
+3. `getTvSymbol()` construye el símbolo para TradingView: si tiene ADR usa `NYSE:{adr}`, si no usa `{ticker_ars}.BA`.
+
+4. Las líneas overlay SL/TP/Entry usan el cálculo de posición vertical: `top% = 100 - ((price - priceLow) / (priceHigh - priceLow) * 80 + 10)`.
+
+5. Los indicadores SMA, RSI, dividendo se muestran como "—" porque no tenemos datos históricos disponibles en el módulo portafolio.
+
+6. El widget TV usa `no_sidebar=1&details=0&hotlist=0&calendar=0&news=0` para máxima limpieza.
+
+7. Al cerrar, se detiene el iframe cambiando src a '' para liberar memoria.
+
+8. La tecla Escape está manejada con un `document.addEventListener('keydown', ...)`.
+
+9. El botón "Crear alerta desde aquí" intenta disparar un CustomEvent 'pfOpenAlert' para que el módulo de alertas lo escuche. Como fallback, intenta llamar a `window.alOpen()` o `window.alModuleOpen()` si existen.
