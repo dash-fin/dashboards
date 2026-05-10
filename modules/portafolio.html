@@ -1087,10 +1087,26 @@ window.pfLoadAll = async () => {
     }
     pfRenderOpciones(); // async — actualiza pfOpsUsdPnl y parchea KPIs al resolver
     pfLoadHistory(); // WTD/YTD — async, no bloquea el render principal
+
+    // Re-exportar datos actualizados para el chart modal (pfShowChart)
+    // Necesario porque pfPositions/pfPrices se reasignan (nueva referencia)
+    // en cada fetch asincrónico, y la exportación inicial en la IIFE
+    // capturó el array vacío original.
+    window.__pfPositions = pfPositions;
+    window.__pfPrices   = pfPrices;
+    window.__pfAdrPrices = pfAdrPrices;
+    window.__pfOptPrices = pfOptPrices;
+    window.__pfMep       = pfMep;
   } catch(e) {
     document.getElementById('pfMeta').textContent = 'Error al cargar';
     console.error('[portafolio]', e);
   }
+  // Re-exportar datos actualizados para funciones externas (chart modal)
+  window.__pfPositions = pfPositions;
+  window.__pfPrices   = pfPrices;
+  window.__pfAdrPrices = pfAdrPrices;
+  window.__pfOptPrices = pfOptPrices;
+  window.__pfMep       = pfMep;
 };
 
 // ── Cálculo P&L por posición ─────────────────────────────
@@ -4157,14 +4173,8 @@ const COMPANY_NAME = {
 let _pfChartPosId = null;
 
 window.pfShowChart = function(posId) {
-  console.log('[pfChart] pfShowChart called with posId:', posId);
-  console.log('[pfChart] __pfPositions:', window.__pfPositions);
-  console.log('[pfChart] __pfPrices:', window.__pfPrices);
   const pos = window.__pfPositions.find(p => p.id === posId);
-  if (!pos) {
-    console.warn('[pfChart] Position not found for id:', posId);
-    return;
-  }
+  if (!pos) return;
   _pfChartPosId = posId;
 
   // 1. Header
@@ -4251,7 +4261,7 @@ window.pfShowChart = function(posId) {
   levelsEl.innerHTML = levelsHtml;
 
   // 4. TradingView widget
-  buildTvWidget(pos);
+  buildTvWidget(pos, entryPrice);
 
   // 5. Detail grid
   const detailsEl = document.getElementById('pchDetails');
@@ -4277,7 +4287,7 @@ function getTvSymbol(pos) {
   return pos.ticker_ars + '.BA';
 }
 
-function buildTvWidget(pos) {
+function buildTvWidget(pos, entryPrice) {
   const symbol = getTvSymbol(pos);
   const src = `https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=D&theme=dark&style=1&locale=es&hideideas=1&toolbarbg=131322&allow_symbol_change=0&saveimage=0&studies=[]&no_sidebar=1&details=0&hotlist=0&calendar=0&news=0&range=12M&condateranges=0&height=500`;
   
