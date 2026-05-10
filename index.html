@@ -1456,22 +1456,32 @@ async function loadHomeSectores(){
     const aboveSma200=allStocks.filter(r=>r.above_sma200===true).length;
     const aboveSma50=allStocks.filter(r=>r.above_sma50===true).length;
     const rsiOB=allStocks.filter(r=>Number(r.rsi_14||0)>70).length;
-    const hasSma=aboveSma200>0||aboveSma50>0;
+    const hasSma200=allStocks.some(r=>r.above_sma200!==null&&r.above_sma200!==undefined);
+    const hasSma50=allStocks.some(r=>r.above_sma50!==null&&r.above_sma50!==undefined);
+    const hasRsi=allStocks.some(r=>r.rsi_14!=null);
     const e200=document.getElementById('h-b-sma200'),en200=document.getElementById('h-b-sma200-n');
     const e50=document.getElementById('h-b-sma50'),en50=document.getElementById('h-b-sma50-n');
     const eRsi=document.getElementById('h-b-rsi');
-    if(hasSma){
-      const pct200=Math.round(aboveSma200/total*100),pct50=Math.round(aboveSma50/total*100),pctRsi=Math.round(rsiOB/total*100);
+    if(hasSma200){
+      const pct200=Math.round(aboveSma200/total*100);
       if(e200){e200.textContent=pct200+'%';e200.style.color=pct200>=50?'var(--green)':'var(--red)';}
       if(en200)en200.textContent='n='+aboveSma200;
-      if(e50){e50.textContent=pct50+'%';e50.style.color=pct50>=50?'var(--cyan)':'var(--amber)';}
-      if(en50)en50.textContent='n='+aboveSma50;
-      if(eRsi){eRsi.textContent=pctRsi+'%';eRsi.style.color='var(--amber)';}
     }else{
       if(e200){e200.textContent='N/D';e200.style.color='var(--text3)';}
       if(en200)en200.textContent='sin datos';
+    }
+    if(hasSma50){
+      const pct50=Math.round(aboveSma50/total*100);
+      if(e50){e50.textContent=pct50+'%';e50.style.color=pct50>=50?'var(--cyan)':'var(--amber)';}
+      if(en50)en50.textContent='n='+aboveSma50;
+    }else{
       if(e50){e50.textContent='N/D';e50.style.color='var(--text3)';}
       if(en50)en50.textContent='sin datos';
+    }
+    if(hasRsi){
+      const pctRsi=Math.round(rsiOB/total*100);
+      if(eRsi){eRsi.textContent=pctRsi+'%';eRsi.style.color='var(--amber)';}
+    }else{
       if(eRsi){eRsi.textContent='N/D';eRsi.style.color='var(--text3)';}
     }
   });
