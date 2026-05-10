@@ -927,8 +927,6 @@ const PF_COLS = [
   { id:'varlocal',   label:'Var %',         sortKey: p=>p.changeLocal??-Infinity, def:true  },
   { id:'adr',        label:'ADR',           sortKey: p=>p.ticker_adr||'',         def:true  },
   { id:'adrentrada', label:'P. Entrada ADR',sortKey: p=>p.adrInv??-Infinity,      def:true  },
-  { id:'stop_loss',  label:'SL $',         sortKey: p=>p.stop_loss??-Infinity,       def:false },
-  { id:'take_profit',label:'TP $',         sortKey: p=>p.take_profit??-Infinity,     def:false },
   { id:'adrprecio',  label:'P. ADR',        sortKey: p=>p.adrActual??-Infinity,   def:true  },
   { id:'adrvar',     label:'Var ADR',       sortKey: p=>p.adrChangePct??-Infinity,def:true  },
   { id:'adrgan',     label:'Gan. ADR',      sortKey: p=>p.adrGan??-Infinity,      def:true  },
@@ -2231,7 +2229,7 @@ function pfRenderPositions(calced) {
     const fecha = p.fecha_compra ? new Date(p.fecha_compra+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
     const border = borderIds.includes(id) ? 'border-left:1px solid var(--border2);' : '';
     switch(id) {
-      case 'ticker':    return `<td style="text-align:left"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${TIPO_COLOR[p.tipo]||'#888'};margin-right:5px;vertical-align:middle"></span><span class="pfChartLink" onclick="pfShowChart('${p.id}')" title="Ver gráfico">${p.ticker_ars}</span></td>`;
+      case 'ticker':    return `<td class="th-left"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${TIPO_COLOR[p.tipo]||'#888'};margin-right:5px;vertical-align:middle"></span><span class="pfChartLink" onclick="pfShowChart('${p.id}')" title="Ver gráfico">${p.ticker_ars}</span></td>`;
       case 'tipo':      return `<td style="font-size:10px;color:var(--text3)">${TIPO_LABEL[p.tipo]||p.tipo}</td>`;
       case 'fecha':     return `<td>${fecha}</td>`;
       case 'cantidad':
@@ -2246,8 +2244,6 @@ function pfRenderPositions(calced) {
       case 'pactual':   return `<td>${p.precioActual!=null?fmtArs(p.precioActual):'—'}</td>`;
       case 'varlocal':  return `<td>${fmtVar(p.changeLocal, true)}</td>`;
       case 'adr':       return `<td style="${border}color:var(--text2)">${p.ticker_adr||'—'}</td>`;
-      case 'stop_loss':  return `<td style="color:var(--red)">${p.stop_loss ? fmtAdr(p.stop_loss) : '—'}</td>`;
-      case 'take_profit':return `<td style="color:var(--green)">${p.take_profit ? fmtAdr(p.take_profit) : '—'}</td>`;
       case 'adrentrada':return `<td>${fmtAdr(p.adrInv)}</td>`;
       case 'adrprecio': return `<td>${fmtAdr(p.adrActual)}</td>`;
       case 'adrvar':    return `<td>${fmtVar(p.adrChangePct, true)}</td>`;
@@ -4157,7 +4153,7 @@ const COMPANY_NAME = {
 let _pfChartPosId = null;
 
 window.pfShowChart = function(posId) {
-  const pos = window.__pfPositions.find(p => p.id === posId);
+  const pos = pfPositions.find(p => p.id === posId);
   if (!pos) return;
   _pfChartPosId = posId;
 
@@ -4166,7 +4162,7 @@ window.pfShowChart = function(posId) {
   document.getElementById('pchTicker').textContent = pos.ticker_ars;
   document.getElementById('pchCompany').textContent = empresa;
 
-  const pr = window.__pfPrices[pos.ticker_ars];
+  const pr = pfPrices[pos.ticker_ars];
   const preco = pr?.last != null ? pr.last : '—';
   const change = pr?.change != null ? pr.change : null;
   const changePct = pr?.changePercent != null ? pr.changePercent : null;
@@ -4200,7 +4196,7 @@ window.pfShowChart = function(posId) {
   const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
   const factor = esBono ? 100 : 1;
   const usdInv = pos.mep_compra>0 ? (pos.precio_compra_ars*pos.cantidad)/(factor*pos.mep_compra) : null;
-  const usdAct = (window.__pfMep && preco != null && preco !== '—') ? (preco*pos.cantidad)/(factor*window.__pfMep) : null;
+  const usdAct = (pfMep && preco != null && preco !== '—') ? (preco*pos.cantidad)/(factor*pfMep) : null;
   const gan    = (usdInv!=null && usdAct!=null) ? usdAct-usdInv : null;
   const pct    = (gan!=null && usdInv>0) ? gan/usdInv : null;
   
@@ -4253,7 +4249,7 @@ window.pfShowChart = function(posId) {
   detailsEl.innerHTML = details;
 
   // 6. Bottom bar: set edit button
-  document.getElementById('pchEditBtn').setAttribute('onclick', `pfChartClose();setTimeout(()=>window.__pfModalOpen('${posId}'),100)`);
+  document.getElementById('pchEditBtn').setAttribute('onclick', `pfChartClose();setTimeout(()=>pfModalOpen('${posId}'),100)`);
   document.getElementById('pchAlertBtn').setAttribute('onclick', `pfChartCreateAlert()`);
 
   // 7. Show overlay
@@ -4283,7 +4279,7 @@ function buildTvWidget(pos) {
   overlay.innerHTML = '';
 
   // Estimar priceHigh / priceLow: precio actual ±30%
-  const preco = window.__pfPrices[pos.ticker_ars]?.last;
+  const preco = pfPrices[pos.ticker_ars]?.last;
   if (preco == null) return;
 
   const range = preco * 0.30;
@@ -4320,9 +4316,9 @@ function buildTvWidget(pos) {
 }
 
 function buildDetailGrid(pos) {
-  const pr = window.__pfPrices[pos.ticker_ars];
+  const pr = pfPrices[pos.ticker_ars];
   const preco = pr?.last;
-  const adr = pos.ticker_adr ? (window.__pfAdrPrices[pos.ticker_adr]?.last) : null;
+  const adr = pos.ticker_adr ? (pfAdrPrices[pos.ticker_adr]?.last) : null;
 
   const items = [];
 
@@ -4347,7 +4343,7 @@ function buildDetailGrid(pos) {
   items.push({ label: 'RSI (14)', value: '—' });
 
   // Beta
-  const posCalced = window.__pfCalc(pos);
+  const posCalced = pfCalc(pos);
   const beta = posCalced?.betaAdr;
   items.push({ label: 'Beta', value: beta != null ? beta.toFixed(2) : '—' });
 
@@ -4383,10 +4379,10 @@ window.pfChartClose = function(event) {
 window.pfChartCreateAlert = function() {
   const posId = _pfChartPosId;
   if (!posId) return;
-  const pos = window.__pfPositions.find(p => p.id === posId);
+  const pos = pfPositions.find(p => p.id === posId);
   if (!pos) return;
 
-  const pr = window.__pfPrices[pos.ticker_ars];
+  const pr = pfPrices[pos.ticker_ars];
   const currentPrice = pr?.last;
 
   // Open alert creation with pre-filled data
@@ -4420,7 +4416,7 @@ window.pfChartEditPos = function() {
   const posId = _pfChartPosId;
   if (!posId) return;
   pfChartClose();
-  setTimeout(() => window.__pfModalOpen(posId), 100);
+  setTimeout(() => pfModalOpen(posId), 100);
 };
 
 // Escape key to close chart modal
