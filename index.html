@@ -1234,10 +1234,10 @@ async function renderHome(){
     <div class="sec-label" style="margin-bottom:10px">Mi portafolio — hoy
       <button onclick="togglePortfolioSaldo()" type="button" id="pfSaldoToggle" title="Mostrar/ocultar saldos" style="margin-left:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;cursor:pointer;color:var(--amber);font-size:10px">👁️‍🗨️</button>
     </div>
-    <div class="port-strip" id="pfSaldoContainer" data-hidden="true" style="filter:blur(8px);pointer-events:none">
-      <div class="pkpi"><div class="pkpi-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">📈</div><div class="pkpi-info"><div class="pkpi-label">P&amp;L del día</div><div class="pkpi-val" id="h-pnl-val">—</div><div class="pkpi-sub" id="h-pnl-sub"> </div></div></div>
-      <div class="pkpi"><div class="pkpi-accent" id="h-suba-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">▲</div><div class="pkpi-info"><div class="pkpi-label">Mayor suba portafolio</div><div class="pkpi-val" id="h-best-val">—</div><div class="pkpi-sub" id="h-best-sub"> </div></div></div>
-      <div class="pkpi"><div class="pkpi-accent" id="h-baja-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(255,64,96,.1)">▼</div><div class="pkpi-info"><div class="pkpi-label">Mayor baja portafolio</div><div class="pkpi-val" id="h-worst-val">—</div><div class="pkpi-sub" id="h-worst-sub"> </div></div></div>
+    <div class="port-strip" id="pfSaldoContainer" data-hidden="true">
+      <div class="pkpi"><div class="pkpi-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">📈</div><div class="pkpi-info"><div class="pkpi-label">P&amp;L del día</div><div class="pkpi-val" id="h-pnl-val">***</div><div class="pkpi-sub" id="h-pnl-sub">***</div></div></div>
+      <div class="pkpi"><div class="pkpi-accent" id="h-suba-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">▲</div><div class="pkpi-info"><div class="pkpi-label">Mayor suba portafolio</div><div class="pkpi-val" id="h-best-val">***</div><div class="pkpi-sub" id="h-best-sub">***</div></div></div>
+      <div class="pkpi"><div class="pkpi-accent" id="h-baja-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(255,64,96,.1)">▼</div><div class="pkpi-info"><div class="pkpi-label">Mayor baja portafolio</div><div class="pkpi-val" id="h-worst-val">***</div><div class="pkpi-sub" id="h-worst-sub">***</div></div></div>
     </div>
   </div>
   <div>
@@ -3091,9 +3091,8 @@ function togglePortfolioSaldo() {
   if (!container) return;
   const hidden = container.dataset.hidden === 'true';
   container.dataset.hidden = hidden ? 'false' : 'true';
-  container.style.filter = hidden ? 'none' : 'blur(8px)';
-  container.style.pointerEvents = hidden ? 'auto' : 'none';
   
+  // This function toggles live: it replaces $ values with *** or restores from dataset
   const vals = container.querySelectorAll('.pkpi-val');
   const subs = container.querySelectorAll('.pkpi-sub');
   const all = [...vals, ...subs];
@@ -3101,12 +3100,15 @@ function togglePortfolioSaldo() {
   all.forEach(el => {
     if (!el.dataset.orig) el.dataset.orig = el.innerHTML;
     if (hidden) {
+      // Show real data
       el.innerHTML = el.dataset.orig;
     } else {
-      let txt = el.dataset.orig;
-      // Replace $ amounts, keep everything else
-      txt = txt.replace(/\$[0-9.,+\-≈USD\s]+/g, '***');
-      txt = txt.replace(/[+-]?\$[0-9.,]+/g, '***');
+      // Hide: replace the display text with *** (keep structure)
+      let txt = el.innerHTML;
+      // Use regex on the rendered HTML to find and replace $ amounts
+      // Match patterns like +$1,234.56, -$123.456, $1.234, ≈ USD +$500
+      txt = txt.replace(/(\$[0-9.,+\-≈USD\s]+)/g, '***');
+      txt = txt.replace(/([+-]?\$[0-9.,]+)/g, '***');
       el.innerHTML = txt;
     }
   });
@@ -3115,38 +3117,43 @@ function togglePortfolioSaldo() {
   btn.style.color = hidden ? 'var(--text4)' : 'var(--amber)';
 }
 
-// MutationObserver: auto-ocultar cuando cambien los valores
+// MutationObserver: auto-ocultar cuando cambien los valores (respaldo)
 (function(){
   const container = document.getElementById('pfSaldoContainer');
   if (!container) return;
-  // Ya se ejecuta la primera vez desde loadHomePortfolio,
-  // pero un observer asegura que si los datos llegan después,
-  // se oculten automaticamente
   const ob = new MutationObserver(function() {
     if (container.dataset.hidden === 'true') {
-      const vals = container.querySelectorAll('.pkpi-val, .pkpi-sub');
-      let needsToggle = false;
-      vals.forEach(el => {
-        if (el.innerHTML && el.innerHTML !== '—' && el.innerHTML !== ' ' && el.innerHTML.indexOf('***') === -1 && el.innerHTML.indexOf('%') === -1) {
-          // Tiene datos, ver si hay valores $ sin ocultar
-          if (/\$[0-9.,]/.test(el.innerHTML)) { needsToggle = true; }
+      // Check if any new values appeared and need hiding
+      let changed = false;
+      container.querySelectorAll('.pkpi-val, .pkpi-sub').forEach(el => {
+        if (el.innerHTML && el.innerHTML !== '***' && el.innerHTML !== ' ' && el.innerHTML.indexOf('***') === -1) {
+          // Has real data, check if it contains a $ value
+          if (/\$[0-9]/.test(el.innerHTML) || /[0-9.,]+%/.test(el.innerHTML)) {
+            changed = true;
+          }
         }
       });
-      if (needsToggle) {
+      if (changed) {
         try { togglePortfolioSaldo(); } catch(e) {}
       }
     }
   });
-  ob.observe(container, { childList: true, subtree: true, characterData: true });
-  // Tambien ejecutar cada vez que haya cambios en el DOM
+  ob.observe(container, { childList: true, subtree: true, characterData: false });
+  // Fallback after 1s to be safe
   setTimeout(function() {
     if (container.dataset.hidden === 'true') {
-      try { togglePortfolioSaldo(); } catch(e) {}
+      const vals = container.querySelectorAll('.pkpi-val, .pkpi-sub');
+      let needsHide = false;
+      vals.forEach(el => {
+        if (el.innerHTML && el.innerHTML !== '***' && el.innerHTML.indexOf('***') === -1 && !/^\s*$/.test(el.innerHTML)) {
+          if (/\$[0-9.]/.test(el.innerHTML)) needsHide = true;
+        }
+      });
+      if (needsHide) { try { togglePortfolioSaldo(); } catch(e) {} }
     }
-  }, 2000); // fallback: 2s despues
+  }, 1500);
 })();
 
-// Capturar elemento como imagen y copiar al portapapeles
 async function captureElement(el, btnEl) {
   if (!el) return;
   try {
