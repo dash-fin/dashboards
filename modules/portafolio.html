@@ -4336,7 +4336,14 @@ async function buildLwcChart(pos, entryPrice) {
   const container = document.getElementById('pchLwcContainer');
   if (!container) return;
 
+  // Mostrar loading
   container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Loading...</div>';
+
+  // Esperar un tick para que el DOM renderice el loading, luego crear chart
+  await new Promise(r => setTimeout(r, 50));
+
+  // Limpiar loading
+  container.innerHTML = '';
 
   const chart = LightweightCharts.createChart(container, {
     layout: { background: { type: 'solid', color: '#131322' }, textColor: '#d1d4dc' },
@@ -4345,7 +4352,6 @@ async function buildLwcChart(pos, entryPrice) {
     timeScale: { borderColor: '#2a2a4a', timeVisible: true, secondsVisible: false },
     rightPriceScale: { borderColor: '#2a2a4a' },
     width: container.clientWidth, height: 500,
-    autoSize: false,
   });
 
   // Crear serie de velas inmediatamente
@@ -4412,7 +4418,7 @@ async function buildLwcChart(pos, entryPrice) {
         });
       }
     } else {
-      // Sin datos históricos: mostrar un candle ficticio para que se vea el área
+      // Sin datos históricos: mostrar fallback con precio actual
       const preco = esUsd_ && pos.ticker_adr
         ? (window.__pfAdrPrices ? (window.__pfAdrPrices[pos.ticker_adr]?.last ?? null) : null)
         : (window.__pfPrices ? (window.__pfPrices[pos.ticker_ars]?.last ?? null) : null);
