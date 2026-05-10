@@ -1412,17 +1412,14 @@ async function loadHomePortfolio(){
   const bv=document.getElementById('h-best-val'),bs=document.getElementById('h-best-sub');
   const wv=document.getElementById('h-worst-val'),ws=document.getElementById('h-worst-sub');
   const noAuth='<span style="font-size:11px;color:var(--text3)">— Inicia sesión</span>';
-  if(!window.currentUser){if(pv)pv.innerHTML=noAuth;if(bv)bv.innerHTML=noAuth;if(wv)wv.innerHTML=noAuth;return;}
+  if(!window.currentUser){window.__pfHomeData=null;return;}
   try{
     const email=currentUser.email;
     const [positions,mepRows]=await Promise.all([
       sb('portafolio',`user_email=eq.${encodeURIComponent(email)}&activo=eq.true&select=ticker_ars,cantidad,precio_compra_ars,tipo`),
       sb('mercado','symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last'),
     ]);
-    if(!positions||!positions.length){
-      const msg='<span style="font-size:11px;color:var(--text3)">Sin posiciones</span>';
-      if(pv)pv.innerHTML=msg;if(bv)bv.innerHTML=msg;if(wv)wv.innerHTML=msg;return;
-    }
+    if(!positions||!positions.length){ window.__pfHomeData=null; return; }
     // Guardar datos para mostrar solo cuando el toggle este en modo "mostrar"
     window.__pfHomeData = {
       totalPnl: totalPnl, pct: pct, usd: usd, col: col,
@@ -3089,6 +3086,8 @@ function togglePortfolioSaldo() {
   // Si estamos mostrando y hay datos guardados, renderizar KPIs reales
   if (hidden && window.__pfHomeData) {
     renderHomeKpis(window.__pfHomeData);
+  } else if (hidden) {
+    // No data, leave ***
   }
 }
 
