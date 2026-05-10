@@ -829,6 +829,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.min.js"></script>
 <script>
 (function(){
 
@@ -4230,10 +4231,14 @@ window.pfShowChart = function(posId) {
   const fmtArs = v => '$'+Number(v).toLocaleString('es-AR',{maximumFractionDigits:2});
   const fmtUsd = v => v != null ? 'U$S '+Math.round(v).toLocaleString('es-AR') : '—';
   // Entry: si tiene ADR mostrar precio ADR de entrada, si no precio ARS
-  // Si no tenemos precio_adr_compra en la BD, estimamos: precio_compra_ars / mep_compra
-  // Si tiene ADR pero no tenemos precio ADR de entrada, no abrimos el grafico
-  if (esUsd && !pos.adrInv) { console.warn('[pfChart] Sin precio ADR de entrada para', pos.ticker_ars); return; }
-  const entryPrice = esUsd ? pos.adrInv : pos.precio_compra_ars;
+  // Si no tenemos precio_adr_compra, estimamos desde ARS/MEP
+  let entryPrice;
+  if (esUsd) {
+    const fallbackAdr = (pos.precio_compra_ars != null && pos.mep_compra > 0) ? pos.precio_compra_ars / pos.mep_compra : null;
+    entryPrice = pos.adrInv || fallbackAdr;
+  } else {
+    entryPrice = pos.precio_compra_ars;
+  }
   const entrySymbol = esUsd ? 'U$S ' : '$';
   document.getElementById('pch_entrada').textContent = entrySymbol+Number(entryPrice).toLocaleString('es-AR',{maximumFractionDigits:esUsd?2:0});
   document.getElementById('pch_cant').textContent = Number(pos.cantidad).toLocaleString('es-AR');
@@ -4293,7 +4298,7 @@ window.pfShowChart = function(posId) {
   levelsEl.innerHTML = levelsHtml;
 
   // 4. TradingView widget
-  buildLwcChart(pos, entryPrice);
+  buildLwcChart(pos, entryPrice).catch(function(e) { console.warn("[pfChart] Error en buildLwcChart:", e); });
 
   // 5. Detail grid
   const detailsEl = document.getElementById('pchDetails');
@@ -4597,5 +4602,5 @@ document.addEventListener('keydown', function(e) {
     
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.min.js"></script>
+
 </body>
