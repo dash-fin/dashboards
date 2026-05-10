@@ -4191,21 +4191,34 @@ window.pfShowChart = function(posId) {
   if (!pos) return;
   _pfChartPosId = posId;
 
-  // 1. Header
+  // El modal muestra datos consistentes con lo que se ve en el gráfico TV:
+  // - Si tiene ADR → todo en USD (precio ADR, entry ADR, SL/TP en USD)
+  // - Si no tiene ADR → todo en ARS (precio ARS, entry ARS)
+  const esUsd = !!pos.ticker_adr;
   const empresa = COMPANY_NAME[pos.ticker_ars] || COMPANY_NAME[pos.ticker_adr] || pos.ticker_ars;
-  document.getElementById('pchTicker').textContent = pos.ticker_ars;
+  document.getElementById('pchTicker').textContent = esUsd ? (pos.ticker_adr||pos.ticker_ars) : pos.ticker_ars;
   document.getElementById('pchCompany').textContent = empresa;
 
-  const pr = window.__pfPrices[pos.ticker_ars];
-  const preco = pr?.last != null ? pr.last : '—';
-  const change = pr?.change != null ? pr.change : null;
-  const changePct = pr?.changePercent != null ? pr.changePercent : null;
+  let pr, preco, change, changePct;
+  if (esUsd) {
+    const adrPr = pos.ticker_adr ? window.__pfAdrPrices[pos.ticker_adr] : null;
+    pr = adrPr;
+    preco = adrPr?.last != null ? adrPr.last : '—';
+    change = null;
+    changePct = null;
+  } else {
+    pr = window.__pfPrices[pos.ticker_ars];
+    preco = pr?.last != null ? pr.last : '—';
+    change = pr?.change != null ? pr.change : null;
+    changePct = pr?.changePercent != null ? pr.changePercent : null;
+  }
   
-  document.getElementById('pchPrice').textContent = preco !== '—' ? '$'+Number(preco).toLocaleString('es-AR',{maximumFractionDigits:2}) : '—';
+  const priceSymbol = esUsd ? 'U$S ' : '$';
+  document.getElementById('pchPrice').textContent = preco !== '—' ? priceSymbol+Number(preco).toLocaleString('es-AR',{maximumFractionDigits:esUsd?2:0}) : '—';
   if (change != null) {
     const s = change >= 0 ? '+' : '';
     const col = change >= 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('pchChange').textContent = s+'$'+Math.abs(change).toFixed(2);
+    document.getElementById('pchChange').textContent = s+'$'+Math.abs(change).toFixed(esUsd?2:0);
     document.getElementById('pchChange').style.color = col;
   } else {
     document.getElementById('pchChange').textContent = '';
@@ -4222,20 +4235,22 @@ window.pfShowChart = function(posId) {
   // 2. Info bar
   const fmtArs = v => '$'+Number(v).toLocaleString('es-AR',{maximumFractionDigits:2});
   const fmtUsd = v => v != null ? 'U$S '+Math.round(v).toLocaleString('es-AR') : '—';
-  document.getElementById('pch_entrada').textContent = fmtArs(pos.precio_compra_ars);
+  // Entry: si tiene ADR mostrar precio ADR de entrada, si no precio ARS
+  const entryPrice = esUsd && pos.adrInv ? pos.adrInv : pos.precio_compra_ars;
+  const entrySymbol = esUsd ? 'U$S ' : '$';
+  document.getElementById('pch_entrada').textContent = entrySymbol+Number(entryPrice).toLocaleString('es-AR',{maximumFractionDigits:esUsd?2:0});
   document.getElementById('pch_cant').textContent = Number(pos.cantidad).toLocaleString('es-AR');
   document.getElementById('pch_fecha').textContent = pos.fecha_compra ? new Date(pos.fecha_compra+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
 
-  // Calcular valores USD
+  // Calcular valores USD (para posiciones sin ADR, con ADR ya tenemos precio directo)
   const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
   const factor = esBono ? 100 : 1;
   const usdInv = pos.mep_compra>0 ? (pos.precio_compra_ars*pos.cantidad)/(factor*pos.mep_compra) : null;
-  const usdAct = (window.__pfMep && preco != null && preco !== '—') ? (preco*pos.cantidad)/(factor*window.__pfMep) : null;
-  const gan    = (usdInv!=null && usdAct!=null) ? usdAct-usdInv : null;
-  const pct    = (gan!=null && usdInv>0) ? gan/usdInv : null;
+  const usdAct = (window.__pfMep && !esUsd && preco != null && preco !== '—') ? (preco*pos.cantidad)/(factor*window.__pfMep) : null;
+  const gan    = esUsd ? (preco != null && preco !== '—' && pos.adrInv ? (preco*pos.cantidad)-(pos.adrInv*pos.cantidad) : null) : (usdInv!=null && usdAct!=null ? usdAct-usdInv : null);
   
-  document.getElementById('pch_invertido').textContent = fmtUsd(usdInv);
-  document.getElementById('pch_actual').textContent = fmtUsd(usdAct);
+  document.getElementById('pch_invertido').textContent = esUsd ? fmtUsd(entryPrice*pos.cantidad) : fmtUsd(usdInv);
+  document.getElementById('pch_actual').textContent = esUsd && preco !== '—' ? fmtUsd(preco*pos.cantidad) : fmtUsd(usdAct);
   if (gan != null) {
     const s = gan >= 0 ? '+' : '';
     const col = gan >= 0 ? 'var(--green)' : 'var(--red)';
@@ -4250,9 +4265,9 @@ window.pfShowChart = function(posId) {
   const levelsEl = document.getElementById('pchLevels');
   let levelsHtml = '';
 
-  // Entry: si tiene ADR mostrar precio ADR, si no precio ARS
-  const entryPrice = pos.ticker_adr && pos.adrInv ? pos.adrInv : pos.precio_compra_ars;
-  const precioActualTv = pos.ticker_adr && pfAdrPrices[pos.ticker_adr]?.last != null ? pfAdrPrices[pos.ticker_adr].last : preco;
+  // Entry: consistente con arriba
+  const entryPrice = esUsd && pos.adrInv ? pos.adrInv : pos.precio_compra_ars;
+  const precioActualTv = esUsd && pos.ticker_adr ? (pos.ticker_adr ? (window.__pfAdrPrices[pos.ticker_adr]?.last) : null) : preco;
   
   levelsHtml += `<span style="background:rgba(124,124,240,.15);color:#7c7cf0;border:1px solid rgba(124,124,240,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">ENTRY $${Number(entryPrice).toFixed(2)}</span>`;
 
@@ -4312,8 +4327,15 @@ function buildTvWidget(pos, entryPrice) {
   const overlay = document.getElementById('pchOverlay');
   overlay.innerHTML = '';
 
-  // Estimar priceHigh / priceLow: precio actual ±30%
-  const preco = window.__pfPrices[pos.ticker_ars]?.last;
+  // Precio actual en la misma moneda que el entryPrice y el gráfico
+  const esUsd = !!pos.ticker_adr;
+  var preco;
+  if (esUsd && pos.ticker_adr) {
+    var adrPr = window.__pfAdrPrices[pos.ticker_adr];
+    preco = adrPr ? adrPr.last : null;
+  } else {
+    preco = window.__pfPrices[pos.ticker_ars]?.last;
+  }
   if (preco == null) return;
 
   const range = preco * 0.30;
