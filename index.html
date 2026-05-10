@@ -1234,7 +1234,7 @@ async function renderHome(){
     <div class="sec-label" style="margin-bottom:10px">Mi portafolio — hoy
       <button onclick="togglePortfolioSaldo()" type="button" id="pfSaldoToggle" title="Mostrar/ocultar saldos" style="margin-left:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;cursor:pointer;color:var(--amber);font-size:10px">👁️‍🗨️</button>
     </div>
-    <div class="port-strip" id="pfSaldoContainer" data-hidden="true">
+    <div class="port-strip" id="pfSaldoContainer" data-hidden="true" style="filter:blur(8px);pointer-events:none">
       <div class="pkpi"><div class="pkpi-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">📈</div><div class="pkpi-info"><div class="pkpi-label">P&amp;L del día</div><div class="pkpi-val" id="h-pnl-val">—</div><div class="pkpi-sub" id="h-pnl-sub"> </div></div></div>
       <div class="pkpi"><div class="pkpi-accent" id="h-suba-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">▲</div><div class="pkpi-info"><div class="pkpi-label">Mayor suba portafolio</div><div class="pkpi-val" id="h-best-val">—</div><div class="pkpi-sub" id="h-best-sub"> </div></div></div>
       <div class="pkpi"><div class="pkpi-accent" id="h-baja-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(255,64,96,.1)">▼</div><div class="pkpi-info"><div class="pkpi-label">Mayor baja portafolio</div><div class="pkpi-val" id="h-worst-val">—</div><div class="pkpi-sub" id="h-worst-sub"> </div></div></div>
@@ -3091,6 +3091,8 @@ function togglePortfolioSaldo() {
   if (!container) return;
   const hidden = container.dataset.hidden === 'true';
   container.dataset.hidden = hidden ? 'false' : 'true';
+  container.style.filter = hidden ? 'none' : 'blur(8px)';
+  container.style.pointerEvents = hidden ? 'auto' : 'none';
   
   const vals = container.querySelectorAll('.pkpi-val');
   const subs = container.querySelectorAll('.pkpi-sub');
