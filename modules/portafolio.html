@@ -3307,18 +3307,19 @@ async function pfBackfillPnL(opts = {}) {
     const email = window.currentUser?.email;
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Posiciones activas + trades CEDEAR (para cálculo día a día)
+    // 1. Posiciones activas + trades CEDEAR no-intradía (historia completa sin double-count)
     const [posRows, tradeRows] = await Promise.all([
       sb('portafolio', `user_email=eq.${encodeURIComponent(email)}&activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,fecha_compra,precio_compra_ars`),
       sb('trades', `user_email=eq.${encodeURIComponent(email)}&tipo=eq.CEDEAR&select=ticker_ars,cantidad,fecha_apertura,fecha_cierre,precio_entrada_ars`).catch(()=>[]),
     ]);
 
     const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
-    // allPos: posiciones activas (close=null) + trades CEDEAR cerrados (close=fecha_cierre)
-    // El PnL se calcula posición por posición: primer día vs compra, resto vs close anterior
+    // allPos: portafolio activo + trades CEDEAR que no sean intradía (open < close)
+    // p.close <= date: excluir en día de cierre → evita doble conteo cuando una posición
+    // se restructura (ej: UNH×200 cierra Apr21, UNH×120+UNH×80 abren Apr21)
     const allPos = [
       ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:null,compra:Number(p.precio_compra_ars)||0})),
-      ...(tradeRows||[]).filter(t=>t.fecha_cierre&&t.ticker_ars).map(t=>({ticker:t.ticker_ars,tipo:'CEDEAR',qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre,compra:Number(t.precio_entrada_ars)||0})),
+      ...(tradeRows||[]).filter(t=>t.fecha_cierre&&t.ticker_ars&&t.fecha_apertura<t.fecha_cierre).map(t=>({ticker:t.ticker_ars,tipo:'CEDEAR',qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre,compra:Number(t.precio_entrada_ars)||0})),
     ].filter(p=>p.ticker&&p.qty>0&&p.open);
 
     if(!allPos.length) throw new Error('Sin posiciones');
@@ -3409,7 +3410,7 @@ async function pfBackfillPnL(opts = {}) {
 
       for(const p of allPos){
         if(p.open > date) continue;                       // aún no abierta
-        if(p.close && p.close < date) continue;           // ya cerrada antes de este día
+        if(p.close && p.close <= date) continue;          // excluir en día de cierre y posterior
 
         const px = closestBefore(priceByTk[p.ticker]||{}, date);
         if(!px) continue;
