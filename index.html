@@ -1246,13 +1246,13 @@ async function renderHome(){
           <div class="breadth-cell"><div class="breadth-lbl">RSI &gt;70</div><div class="breadth-num" id="h-b-rsi" style="color:var(--amber)">—</div><div class="breadth-sub">sobrecomp.</div></div>
         </div>
         <div style="padding:5px 16px 3px;font-size:8px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;border-top:1px solid var(--border)">Earnings · <span id="h-b-earn-quarter" style="letter-spacing:0;text-transform:none">—</span></div>
-        <div style="padding:5px 16px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:9px;color:var(--text3)">Reportaron</span>
-          <span id="h-b-earn-rep" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--text)">—</span>
+        <div style="padding:5px 16px 6px;display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:8px;color:var(--text3)">Reportaron</span>
+          <span id="h-b-earn-rep" style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--text)">—</span>
         </div>
-        <div style="padding:4px 16px 7px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
-          <span style="font-size:9px;color:var(--text3)">Beat <span id="h-b-earn-beat" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--green)">—</span> <span id="h-b-earn-beat-n" style="color:var(--text4)"></span></span>
-          <span style="font-size:9px;color:var(--text3)">Miss <span id="h-b-earn-miss" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--red)">—</span> <span id="h-b-earn-miss-n" style="color:var(--text4)"></span></span>
+        <div style="padding:4px 16px 6px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
+          <span style="font-size:9px;color:var(--text3)">Beat <span id="h-b-earn-beat" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--green)">—</span></span>
+          <span style="font-size:9px;color:var(--text3)">Miss <span id="h-b-earn-miss" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--red)">—</span></span>
         </div>
         </div>
       </div>
@@ -1605,11 +1605,8 @@ async function loadEarnings(){
     const eRepN=document.getElementById('h-b-earn-rep-n');
     const eQ=document.getElementById('h-b-earn-quarter');
     if(eRep)eRep.textContent=total;
-    if(eRepN)eRepN.textContent='reportaron';
-    if(eBeat){eBeat.textContent=Math.round(beats/total*100)+'%';}
-    if(eBeatN)eBeatN.textContent='n='+beats;
-    if(eMiss){eMiss.textContent=Math.round(misses/total*100)+'%';}
-    if(eMissN)eMissN.textContent='n='+misses;
+    if(eBeat)eBeat.textContent=beats;
+    if(eMiss)eMiss.textContent=misses;
     // Quarter label
     const qEl=document.getElementById('h-earn-quarter');
     const latestQ=results[0]?.fiscal_quarter||'';
@@ -1660,7 +1657,7 @@ async function loadEarnings(){
     }else{
       let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed">'
         +'<colgroup>'
-        +'<col style="width:58px"><col style="width:110px"><col style="width:52px"><col style="width:62px"><col style="width:62px"><col style="width:64px">'
+        +'<col style="width:54px"><col style="width:80px"><col style="width:50px"><col style="width:58px"><col style="width:58px"><col style="width:60px">'
         +'</colgroup>'
         +'<thead><tr>'
         +'<th class="th" style="padding:4px 8px;text-align:left">Ticker</th>'
