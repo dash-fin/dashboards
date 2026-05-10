@@ -1458,10 +1458,10 @@ async function loadHomePortfolio(){
       const worst=enriched.reduce((a,b)=>b.chg<a.chg?b:a);
       const sa=document.getElementById('h-suba-accent');if(sa)sa.style.background=best.chg>=0?'var(--greenG)':'var(--redG)';
       if(bv)bv.innerHTML=`<span style="color:${best.chg>=0?'var(--green)':'var(--red)'}">${best.ticker}</span>`;
-      if(bs)bs.innerHTML=`<span style="color:${best.chg>=0?'var(--green)':'var(--red)'}">${best.chg>=0?'+':''}${best.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\$${fmtAR(best.last,2)}</span>`;
+      if(bs)bs.innerHTML=`<span style="color:${best.chg>=0?'var(--green)':'var(--red)'}">${best.chg>=0?'+':''}${best.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\P&L: <span style="color:${best.pnl>=0?'var(--green)':'var(--red)'}">${best.pnl>=0?'+':''}${fmtUSD(Math.abs(best.pnl),2)}</span></span>`;
       const ba=document.getElementById('h-baja-accent');if(ba)ba.style.background=worst.chg<0?'var(--redG)':'var(--greenG)';
       if(wv)wv.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.ticker}</span>`;
-      if(ws)ws.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\$${fmtAR(worst.last,2)}</span>`;
+      if(ws)ws.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\P&L: <span style="color:${worst.pnl>=0?'var(--green)':'var(--red)'}">${worst.pnl>=0?'+':''}${fmtUSD(Math.abs(worst.pnl),2)}</span></span>`;
     }
     renderHomePF(enriched);
   }catch(e){console.warn('loadHomePortfolio:',e);}
