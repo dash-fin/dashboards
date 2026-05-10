@@ -4240,33 +4240,24 @@ window.pfShowChart = function(posId) {
   }
   const entrySymbol = esUsd ? 'U$S ' : '$';
   document.getElementById('pch_entrada').textContent = entrySymbol+Number(entryPrice).toLocaleString('es-AR',{maximumFractionDigits:esUsd?2:0});
-  document.getElementById('pch_cant').textContent = Number(pos.cantidad).toLocaleString('es-AR');
-  document.getElementById('pch_fecha').textContent = pos.fecha_compra ? new Date(pos.fecha_compra+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
-
-  // Calcular valores USD (para posiciones sin ADR, con ADR ya tenemos precio directo)
-  const esBono = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'].includes(pos.tipo);
-  const factor = esBono ? 100 : 1;
-  const usdInv = esUsd
-    ? (pos.adrInv ? pos.adrInv * pos.cantidad : null)
-    : (pos.mep_compra>0 ? (pos.precio_compra_ars*pos.cantidad)/(factor*pos.mep_compra) : null);
-  const usdAct = esUsd
-    ? (preco != null && preco !== '—' ? preco * pos.cantidad : null)
-    : (window.__pfMep && preco != null && preco !== '—' ? (preco*pos.cantidad)/(factor*window.__pfMep) : null);
-  const gan    = esUsd
-    ? (preco != null && preco !== '—' && pos.adrInv ? (preco*pos.cantidad)-(pos.adrInv*pos.cantidad) : null)
-    : (usdInv!=null && usdAct!=null ? usdAct-usdInv : null);
-  
-  document.getElementById('pch_invertido').textContent = fmtUsd(usdInv);
-  document.getElementById('pch_actual').textContent = fmtUsd(usdAct);
-  if (gan != null) {
-    const s = gan >= 0 ? '+' : '';
-    const col = gan >= 0 ? 'var(--green)' : 'var(--red)';
-    document.getElementById('pch_ganancia').textContent = s+fmtUsd(gan);
-    document.getElementById('pch_ganancia').style.color = col;
+  // Resultado %
+  const pctResult = entryPrice > 0
+    ? (preco != null && preco !== '—' ? ((preco - entryPrice) / entryPrice * 100) : null)
+    : null;
+  const pctResEl = document.getElementById('pch_resultado');
+  if (pctResult != null) {
+    const s = pctResult >= 0 ? '+' : '';
+    const col = pctResult >= 0 ? 'var(--green)' : 'var(--red)';
+    pctResEl.textContent = s + pctResult.toFixed(2) + '%';
+    pctResEl.style.color = col;
   } else {
-    document.getElementById('pch_ganancia').textContent = '—';
-    document.getElementById('pch_ganancia').style.color = '';
+    pctResEl.textContent = '—';
+    pctResEl.style.color = '';
   }
+
+  document.getElementById('pch_fecha').textContent
+
+  // Ya no mostramos invertido/actual/ganancia en la info bar
 
   // 3. Levels bar: badges Entry / SL / TP + R:R
   const levelsEl = document.getElementById('pchLevels');
@@ -4330,11 +4321,10 @@ async function buildLwcChart(pos, entryPrice) {
   container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Cargando...</div>';
 
   // Buscar datos históricos
-  let seriesData = [];
+  let rawData = [];
   const yahooSymbol = esUsd_ && pos.ticker_adr ? pos.ticker_adr : (pos.ticker_ars.endsWith('.BA') ? pos.ticker_ars : pos.ticker_ars+'.BA');
 
   try {
-    // Si es ADR (USA), fetch desde Yahoo Finance
     if (esUsd_ && pos.ticker_adr) {
       const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
       const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
@@ -4345,21 +4335,18 @@ async function buildLwcChart(pos, entryPrice) {
       if (res.ok) {
         const data = await res.json();
         const rows = data[pos.ticker_adr] || [];
-        seriesData = rows.filter(r => r.close != null).map(r => ({ time: r.fecha, value: r.close }));
+        rawData = rows.filter(r => r.close != null);
       }
     } else {
-      // No ADR → usar pfSeriesData local (Rava)
-      const rawData = window.pfSeriesData ? window.pfSeriesData[yahooSymbol] : null;
-      if (rawData && rawData.length > 0) {
-        seriesData = [...rawData]
+      const data = window.pfSeriesData ? window.pfSeriesData[yahooSymbol] : null;
+      if (data && data.length > 0) {
+        rawData = [...data]
           .sort((a,b) => (a.fecha||'').localeCompare(b.fecha||''))
-          .map(d => ({ time: d.fecha, value: d.cierre }))
-          .filter(d => d.time && d.value > 0);
+          .filter(d => d.cierre && d.cierre > 0);
       }
     }
   } catch(e) { console.warn('[LWC] fetch error:', e); }
 
-  // Limpiar loading
   container.innerHTML = '';
 
   const chart = LightweightCharts.createChart(container, {
@@ -4372,13 +4359,28 @@ async function buildLwcChart(pos, entryPrice) {
   });
 
   let mainSeries;
+  const seriesData = rawData.map(r => {
+    const close = r.close != null ? r.close : r.cierre;
+    return { time: r.fecha, open: close, high: close * 1.001, low: close * 0.999, close: close };
+  });
+
   if (seriesData.length >= 2) {
-    mainSeries = chart.addLineSeries({
-      color: '#7c7cf0', lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
-      crosshairMarkerVisible: true, crosshairMarkerRadius: 4,
-      crosshairMarkerBorderColor: '#7c7cf0', crosshairMarkerBackgroundColor: '#131322',
+    mainSeries = chart.addCandlestickSeries({
+      upColor: '#26a69a', downColor: '#ef5350',
+      wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      borderUpColor: '#26a69a', borderDownColor: '#ef5350',
+      priceLineVisible: false, lastValueVisible: true,
     });
     mainSeries.setData(seriesData);
+    if (pos.fecha_compra) {
+      chart.timeScale().addVertLine({
+        time: pos.fecha_compra,
+        color: '#7c7cf066',
+        width: 1,
+        style: 2,
+        label: 'Compra',
+      });
+    }
   } else {
     mainSeries = chart.addLineSeries({
       color: 'transparent', lineWidth: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
@@ -4415,6 +4417,7 @@ async function buildLwcChart(pos, entryPrice) {
   window.__pchChart = chart;
   window.__pchResizeObserver = ro;
 }
+
 
 function buildDetailGrid(pos) {
   const pr = window.__pfPrices[pos.ticker_ars];
@@ -4457,7 +4460,7 @@ function buildDetailGrid(pos) {
 
   return items.map(item => `
     <div style="background:#1a1a30;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:2px">
-      <span style="font-size:8px;text-transform:uppercase;color:#666;letter-spacing:0.3px;font-family:'IBM Plex Mono',monospace">${item.label}</span>
+      <span style="font-size:8px;text-transform:uppercase;color:#7c7cf0;letter-spacing:0.3px;font-family:'IBM Plex Mono',monospace">${item.label}</span>
       <span style="font-size:12px;font-weight:600;color:#ddd;font-family:'IBM Plex Mono',monospace">${item.value}</span>
     </div>
   `).join('');
@@ -4560,20 +4563,8 @@ document.addEventListener('keydown', function(e) {
         <div id="pch_entrada" style="font-size:13px;font-weight:600;margin-top:2px"></div>
       </div>
       <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
-        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Cant.</div>
-        <div id="pch_cant" style="font-size:13px;font-weight:600;margin-top:2px"></div>
-      </div>
-      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
-        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Invertido</div>
-        <div id="pch_invertido" style="font-size:13px;font-weight:600;margin-top:2px"></div>
-      </div>
-      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
-        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Actual</div>
-        <div id="pch_actual" style="font-size:13px;font-weight:600;margin-top:2px"></div>
-      </div>
-      <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center;border-right:1px solid #2a2a4a">
-        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Ganancia</div>
-        <div id="pch_ganancia" style="font-size:13px;font-weight:600;margin-top:2px"></div>
+        <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Resultado</div>
+        <div id="pch_resultado" style="font-size:13px;font-weight:600;margin-top:2px"></div>
       </div>
       <div style="flex:1;min-width:80px;padding:8px 12px;text-align:center">
         <div style="font-size:9px;text-transform:uppercase;color:#666;letter-spacing:0.3px">Fecha</div>
@@ -4590,7 +4581,7 @@ document.addEventListener('keydown', function(e) {
     </div>
     
     <!-- Detail grid -->
-    <div id="pchDetails" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding:12px 16px;background:#16162a"></div>
+    <div id="pchDetails" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding:12px 16px;background:#131322"></div>
     
     <!-- Bottom bar -->
     <div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid #2a2a4a">
