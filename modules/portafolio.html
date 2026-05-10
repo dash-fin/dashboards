@@ -4157,8 +4157,14 @@ const COMPANY_NAME = {
 let _pfChartPosId = null;
 
 window.pfShowChart = function(posId) {
+  console.log('[pfChart] pfShowChart called with posId:', posId);
+  console.log('[pfChart] __pfPositions:', window.__pfPositions);
+  console.log('[pfChart] __pfPrices:', window.__pfPrices);
   const pos = window.__pfPositions.find(p => p.id === posId);
-  if (!pos) return;
+  if (!pos) {
+    console.warn('[pfChart] Position not found for id:', posId);
+    return;
+  }
   _pfChartPosId = posId;
 
   // 1. Header
