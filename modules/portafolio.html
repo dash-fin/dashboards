@@ -4265,9 +4265,7 @@ window.pfShowChart = function(posId) {
   const levelsEl = document.getElementById('pchLevels');
   let levelsHtml = '';
 
-  // Entry: consistente con arriba
-  const entryPrice = esUsd && pos.adrInv ? pos.adrInv : pos.precio_compra_ars;
-  const precioActualTv = esUsd && pos.ticker_adr ? (pos.ticker_adr ? (window.__pfAdrPrices[pos.ticker_adr]?.last) : null) : preco;
+    const precioActualTv = esUsd && pos.ticker_adr ? (window.__pfAdrPrices[pos.ticker_adr]?.last) : preco;
   
   levelsHtml += `<span style="background:rgba(124,124,240,.15);color:#7c7cf0;border:1px solid rgba(124,124,240,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">ENTRY $${Number(entryPrice).toFixed(2)}</span>`;
 
