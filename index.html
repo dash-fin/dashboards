@@ -1464,10 +1464,12 @@ async function loadHomePortfolio(){
       if(ws)ws.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\P&L: <span style="color:${worst.pnl>=0?'var(--green)':'var(--red)'}">${worst.pnl>=0?'+':''}${fmtUSD(Math.abs(worst.pnl),2)}</span></span>`;
     }
     renderHomePF(enriched);
+
   }catch(e){console.warn('loadHomePortfolio:',e);}
-setTimeout(function(){try{togglePortfolioSaldo();}catch(e){}},100);
 
 }
+
+
 
 function switchHomePF(dir,btn){
   document.getElementById('h-pf-subas').style.display=dir==='subas'?'':'none';
@@ -3107,6 +3109,37 @@ function togglePortfolioSaldo() {
   btn.textContent = hidden ? '👁️' : '👁️‍🗨️';
   btn.style.color = hidden ? 'var(--text4)' : 'var(--amber)';
 }
+
+// MutationObserver: auto-ocultar cuando cambien los valores
+(function(){
+  const container = document.getElementById('pfSaldoContainer');
+  if (!container) return;
+  // Ya se ejecuta la primera vez desde loadHomePortfolio,
+  // pero un observer asegura que si los datos llegan después,
+  // se oculten automaticamente
+  const ob = new MutationObserver(function() {
+    if (container.dataset.hidden === 'true') {
+      const vals = container.querySelectorAll('.pkpi-val, .pkpi-sub');
+      let needsToggle = false;
+      vals.forEach(el => {
+        if (el.innerHTML && el.innerHTML !== '—' && el.innerHTML !== ' ' && el.innerHTML.indexOf('***') === -1 && el.innerHTML.indexOf('%') === -1) {
+          // Tiene datos, ver si hay valores $ sin ocultar
+          if (/\$[0-9.,]/.test(el.innerHTML)) { needsToggle = true; }
+        }
+      });
+      if (needsToggle) {
+        try { togglePortfolioSaldo(); } catch(e) {}
+      }
+    }
+  });
+  ob.observe(container, { childList: true, subtree: true, characterData: true });
+  // Tambien ejecutar cada vez que haya cambios en el DOM
+  setTimeout(function() {
+    if (container.dataset.hidden === 'true') {
+      try { togglePortfolioSaldo(); } catch(e) {}
+    }
+  }, 2000); // fallback: 2s despues
+})();
 
 // Capturar elemento como imagen y copiar al portapapeles
 async function captureElement(el, btnEl) {
