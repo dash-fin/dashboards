@@ -3307,25 +3307,19 @@ async function pfBackfillPnL(opts = {}) {
     const email = window.currentUser?.email;
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Posiciones activas + trades CEDEAR cerrados (solo ganancia_usd para el calendario)
+    // 1. Posiciones activas + trades CEDEAR (para cálculo día a día)
     const [posRows, tradeRows] = await Promise.all([
       sb('portafolio', `user_email=eq.${encodeURIComponent(email)}&activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,fecha_compra,precio_compra_ars`),
-      sb('trades', `user_email=eq.${encodeURIComponent(email)}&tipo=eq.CEDEAR&select=fecha_cierre,ganancia_usd`).catch(()=>[]),
+      sb('trades', `user_email=eq.${encodeURIComponent(email)}&tipo=eq.CEDEAR&select=ticker_ars,cantidad,fecha_apertura,fecha_cierre,precio_entrada_ars`).catch(()=>[]),
     ]);
 
     const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
-    // Solo posiciones activas — trades cerrados causan swings artificiales de PnL
-    const allPos = (posRows||[])
-      .map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,compra:Number(p.precio_compra_ars)||0}))
-      .filter(p=>p.ticker&&p.qty>0&&p.open);
-
-    if(!allPos.length) throw new Error('Sin posiciones');
-    const startDate = allPos.reduce((m,p)=>p.open<m?p.open:m, allPos[0].open);
-
-    // Mapa de ganancia realizada por fecha_cierre (trades CEDEAR desde startDate)
-    const tradeGainByDate = {};
-    (tradeRows||[]).filter(t=>t.fecha_cierre>=startDate&&t.ganancia_usd!=null)
-      .forEach(t=>{ tradeGainByDate[t.fecha_cierre]=(tradeGainByDate[t.fecha_cierre]||0)+Number(t.ganancia_usd); });
+    // allPos: posiciones activas (close=null) + trades CEDEAR cerrados (close=fecha_cierre)
+    // El PnL se calcula posición por posición: primer día vs compra, resto vs close anterior
+    const allPos = [
+      ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:null,compra:Number(p.precio_compra_ars)||0})),
+      ...(tradeRows||[]).filter(t=>t.fecha_cierre&&t.ticker_ars).map(t=>({ticker:t.ticker_ars,tipo:'CEDEAR',qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre,compra:Number(t.precio_entrada_ars)||0})),
+    ].filter(p=>p.ticker&&p.qty>0&&p.open);
 
     // days: limitar rango; force: sobreescribir existentes
     let minDate = startDate;
@@ -3393,54 +3387,61 @@ async function pfBackfillPnL(opts = {}) {
       return keys.length ? map[keys[keys.length-1]] : null;
     };
 
-    // 4. Calcular valor USD por cada fecha
-    // costNew = costo de compra (a precio_compra_ars) de posiciones nuevas ese día.
-    // Se usa como base para el PnL del primer día de cada posición en vez de null/cero.
+    // 4. Calcular valor USD y PnL por posición para cada fecha
+    // Lógica: primer día de cada posición → close vs precio_compra
+    //         días siguientes → close vs close del día hábil anterior
+    //         día de cierre del trade → se incluye (último movimiento); días posteriores → excluido
+    // Así no hay swings artificiales cuando un trade cierra.
     upd('calculando días…');
     const toInsert = [];
     const mepDates = (mepRows||[]).map(r=>r.fecha)
       .filter(d => d >= minDate && !existingSet.has(d));
 
+    let prevDate = null; // último día hábil procesado (para close vs close anterior)
+
     for(const date of mepDates){
       const mep = mepByDate[date]; if(!mep||mep<=0) continue;
-      let totalUsd=0, costNew=0, hasPx=false;
+      let totalUsd=0, pnlUsd=0, basePnl=0, hasPx=false;
+
       for(const p of allPos){
-        if(p.open>date) continue;
+        if(p.open > date) continue;                       // aún no abierta
+        if(p.close && p.close < date) continue;           // ya cerrada antes de este día
+
         const px = closestBefore(priceByTk[p.ticker]||{}, date);
         if(!px) continue;
         const factor = BONOS.includes(p.tipo)?100:1;
         const val = (p.qty*px)/(factor*mep);
         totalUsd += val;
-        // Primer día de la posición: base = costo de compra en USD al MEP del día
-        if(p.open===date && p.compra>0) costNew += (p.qty*p.compra)/(factor*mep);
+
+        if(p.open === date){
+          // Primer día: pnl vs precio de compra
+          const ref = p.compra > 0 ? p.compra : px;
+          pnlUsd += (p.qty*(px-ref))/(factor*mep);
+          basePnl += (p.qty*ref)/(factor*mep);
+        } else if(prevDate){
+          // Días siguientes: pnl vs close del día hábil anterior
+          const prevPx = closestBefore(priceByTk[p.ticker]||{}, prevDate);
+          if(prevPx){
+            pnlUsd += (p.qty*(px-prevPx))/(factor*mep);
+            basePnl += (p.qty*prevPx)/(factor*mep);
+          }
+        }
         hasPx=true;
       }
       if(!hasPx||totalUsd<=0) continue;
-      toInsert.push({fecha:date, valor_usd:Math.round(totalUsd*100)/100, _costNew:Math.round(costNew*100)/100});
+      toInsert.push({
+        fecha:date, valor_usd:Math.round(totalUsd*100)/100,
+        _pnl:Math.round(pnlUsd*100)/100, _base:Math.round(basePnl*100)/100,
+      });
+      prevDate = date;
     }
 
-    // 5. Calcular pnl_usd / pnl_pct
-    // effectiveBase = valor_usd(día anterior) + costo_compra_posiciones_nuevas_hoy
-    // Primer día de cada posición: close vs precio_compra en lugar de null
-    // Se suma además la ganancia realizada de trades CEDEAR cerrados ese día
-    const allKnown = {};
-    (await sb('pnl_diario',`user_email=eq.${encodeURIComponent(email)}&order=fecha.asc&select=fecha,valor_usd`)||[])
-      .forEach(r=>{ allKnown[r.fecha]=Number(r.valor_usd); });
-    toInsert.forEach(r=>{ allKnown[r.fecha]=r.valor_usd; });
-    const sortedAll = Object.keys(allKnown).sort();
-
-    const finalRows = toInsert.map(row=>{
-      const idx    = sortedAll.indexOf(row.fecha);
-      const prevVal = idx>0 ? allKnown[sortedAll[idx-1]] : 0;
-      const effectiveBase = prevVal + row._costNew;       // base económica real del día
-      const tradePnl = tradeGainByDate[row.fecha] || 0;  // ganancia realizada de trades cerrados
-      const pnlUsd = Math.round((row.valor_usd - effectiveBase + tradePnl)*100)/100;
-      return {
-        fecha: row.fecha, user_email: email, valor_usd: row.valor_usd,
-        pnl_usd: effectiveBase>0||tradePnl ? pnlUsd : null,
-        pnl_pct: effectiveBase>0 ? Math.round(pnlUsd/effectiveBase*100*10000)/10000 : null,
-      };
-    });
+    // 5. Armar filas finales
+    const finalRows = toInsert.map(row=>({
+      fecha: row.fecha, user_email: email, valor_usd: row.valor_usd,
+      pnl_usd: row._base>0 ? row._pnl : null,
+      pnl_pct: row._base>0 ? Math.round(row._pnl/row._base*100*10000)/10000 : null,
+    }));
 
     // 6. Upsert en lotes de 100
     if(finalRows.length){
