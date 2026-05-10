@@ -3085,34 +3085,20 @@ function togglePortfolioSaldo() {
   const hidden = container.dataset.hidden === 'true';
   container.dataset.hidden = hidden ? 'false' : 'true';
   
-  // Encontrar los elementos con valores monetarios y poner ***
   const vals = container.querySelectorAll('.pkpi-val');
   const subs = container.querySelectorAll('.pkpi-sub');
   const all = [...vals, ...subs];
   
   all.forEach(el => {
-    // Guardar valor original si no está guardado
-    if (!el.dataset.orig) el.dataset.orig = el.textContent;
+    if (!el.dataset.orig) el.dataset.orig = el.innerHTML;
     if (hidden) {
-      // Mostrar original
-      el.textContent = el.dataset.orig;
-      el.style.visibility = 'visible';
+      el.innerHTML = el.dataset.orig;
     } else {
-      // Ocultar valores con $
-      const txt = el.dataset.orig;
-      // Solo ocultar si tiene $ o números con formato de plata
-      if (txt && (txt.includes('$') || /[0-9]+([.,][0-9]+)?%?/.test(txt))) {
-        const isPct = /[0-9.+-]+%/.test(txt);
-        if (isPct) {
-          // Porcentajes se quedan visibles
-          el.style.visibility = 'visible';
-        } else {
-          el.textContent = '***';
-          el.style.visibility = 'visible';
-        }
-      } else {
-        el.style.visibility = 'visible';
-      }
+      let txt = el.dataset.orig;
+      // Replace $ amounts, keep everything else
+      txt = txt.replace(/\$[0-9.,+\-≈USD\s]+/g, '***');
+      txt = txt.replace(/[+-]?\$[0-9.,]+/g, '***');
+      el.innerHTML = txt;
     }
   });
   
