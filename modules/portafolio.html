@@ -695,6 +695,7 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
           <div id="pfBenchKpis" style="display:flex;flex-wrap:wrap;gap:20px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></div>
           <button id="pfBenchPrivacy" data-on="0" onclick="pfTogglePrivacy()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 8px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:1px;white-space:nowrap;flex-shrink:0">OCULTAR MONTOS</button>
+          <button onclick="captureElement(document.getElementById('pfBenchWrap'),this)" type="button" title="Copiar imagen del benchmark" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;cursor:pointer;color:var(--text4);font-size:10px;white-space:nowrap;flex-shrink:0">📸</button>
         </div>
         <div id="pfBenchCanvasWrap" style="position:relative;height:280px"><canvas id="pfBenchCanvas"></canvas></div>
       </div>
@@ -4444,6 +4445,47 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
+
+
+
+// Capturar elemento como imagen y copiar al portapapeles
+window.captureElement = async function(el, btnEl) {
+  if (!el) return;
+  try {
+    const canvases = el.querySelectorAll('canvas');
+    if (!canvases.length) { alert('No hay gráficos en esta sección'); return; }
+    if (canvases.length === 1) {
+      canvases[0].toBlob(async function(blob) {
+        if (!blob) return;
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          if (btnEl) { const orig=btnEl.textContent; btnEl.textContent='✅'; setTimeout(()=>btnEl.textContent=orig,1500); }
+        } catch(e) { alert('No se pudo copiar al portapapeles'); }
+      });
+    } else {
+      let totalW=0, totalH=0, offsets=[];
+      canvases.forEach(c => { const w=c.width||c.offsetWidth, h=c.height||c.offsetHeight; offsets.push({w,h}); totalW=Math.max(totalW,w); totalH+=h+8; });
+      const cc = document.createElement('canvas');
+      cc.width = totalW; cc.height = totalH;
+      const ctx = cc.getContext('2d');
+      ctx.fillStyle = '#0d0d1a'; ctx.fillRect(0,0,totalW,totalH);
+      let y=0;
+      for (let i=0; i<canvases.length; i++) {
+        try { ctx.drawImage(canvases[i], 0, y, offsets[i].w, offsets[i].h); y += offsets[i].h+8; } catch(e) {}
+      }
+      cc.toBlob(async function(blob) {
+        if (!blob) return;
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          if (btnEl) { const orig=btnEl.textContent; btnEl.textContent='✅'; setTimeout(()=>btnEl.textContent=orig,1500); }
+        } catch(e) { alert('No se pudo copiar al portapapeles'); }
+      });
+    }
+  } catch(e) {
+    console.warn('[capture]', e);
+    alert('Error al capturar imagen');
+  }
+};
 </script>
 <!-- ── Modal detalle de posición ── -->
 <div id="pfChartOverlay" onclick="pfChartClose(event)" 

@@ -1211,7 +1211,7 @@ async function renderHome(){
   </div>
   <div style="display:flex;align-items:center;gap:8px">
       <button class="btn-dolar" id="btnDolarToggle" onclick="toggleDolarChart()">📈 Ver gráfico del dólar</button>
-      <button onclick="shareChartImage()" type="button" title="Copiar imagen del dashboard" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px;white-space:nowrap">📷 Compartir</button>
+      <button onclick="captureElement(document.getElementById('dolarChartArea'),this)" type="button" title="Copiar imagen del dashboard" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px;white-space:nowrap">📷 Compartir</button>
     </div>
   <div class="dolar-chart-area" id="dolarChartArea" style="display:none">
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px">
@@ -3090,64 +3090,60 @@ function togglePortfolioSaldo() {
   btn.style.color = hidden ? 'var(--text4)' : 'var(--amber)';
 }
 
-// Compartir imagen del dashboard (gráficos)
-function shareChartImage() {
-  // Capturar el área de gráficos principales
-  const charts = document.querySelectorAll('canvas');
-  if (!charts.length) return;
-  
-  // Crear canvas temporal que combine todos los charts visibles
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  
-  const chartList = [];
-  let totalWidth = 0;
-  let totalHeight = 0;
-  let maxH = 0;
-  
-  charts.forEach(c => {
-    const rect = c.getBoundingClientRect();
-    if (rect.width > 100 && rect.height > 50) {
-      chartList.push(c);
-      totalWidth = Math.max(totalWidth, rect.width);
-      totalHeight += rect.height + 10;
+// Capturar elemento como imagen y copiar al portapapeles
+async function captureElement(el, btnEl) {
+  if (!el) return;
+  try {
+    // Usar html2canvas si está disponible, si no, toDataURL directo del canvas
+    if (typeof html2canvas === 'function') {
+      const c = await html2canvas(el, { backgroundColor: '#0d0d1a', scale: 2, useCORS: true });
+      c.toBlob(async function(blob) {
+        if (!blob) { alert('Error al capturar'); return; }
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          if (btnEl) { const orig=btnEl.textContent; btnEl.textContent='✅'; setTimeout(()=>btnEl.textContent=orig,1500); }
+        } catch(e) {
+          alert('No se pudo copiar al portapapeles. Probá con un screenshot manual.');
+        }
+      });
+    } else {
+      // Fallback: capturar todos los canvas dentro del elemento
+      const canvases = el.querySelectorAll('canvas');
+      if (!canvases.length) { alert('No hay gráficos en esta sección'); return; }
+      // Si hay un solo canvas, usarlo directamente
+      if (canvases.length === 1) {
+        canvases[0].toBlob(async function(blob) {
+          if (!blob) return;
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            if (btnEl) { const orig=btnEl.textContent; btnEl.textContent='✅'; setTimeout(()=>btnEl.textContent=orig,1500); }
+          } catch(e) { alert('No se pudo copiar'); }
+        });
+      } else {
+        // Múltiples canvas: combinarlos
+        let totalW=0, totalH=0, offsets=[];
+        canvases.forEach(c => { const w=c.width||c.offsetWidth, h=c.height||c.offsetHeight; offsets.push({w,h}); totalW=Math.max(totalW,w); totalH+=h+8; });
+        const cc = document.createElement('canvas');
+        cc.width = totalW; cc.height = totalH;
+        const ctx = cc.getContext('2d');
+        ctx.fillStyle = '#0d0d1a'; ctx.fillRect(0,0,totalW,totalH);
+        let y=0;
+        for (let i=0; i<canvases.length; i++) {
+          try { ctx.drawImage(canvases[i], 0, y, offsets[i].w, offsets[i].h); y += offsets[i].h+8; } catch(e) {}
+        }
+        cc.toBlob(async function(blob) {
+          if (!blob) return;
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            if (btnEl) { const orig=btnEl.textContent; btnEl.textContent='✅'; setTimeout(()=>btnEl.textContent=orig,1500); }
+          } catch(e) { alert('No se pudo copiar'); }
+        });
+      }
     }
-  });
-  
-  if (!chartList.length) return;
-  
-  // Aproximación simple: capturar cada chart y dibujar en un canvas
-  // Usar html2canvas no disponible, así que hacemos screenshot de toda la ventana
-  // y recortamos
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  ctx.fillStyle = '#0d0d1a';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  chartList.forEach((c, i) => {
-    try {
-      const img = c.toDataURL('image/png');
-      const imgEl = new Image();
-      imgEl.onload = function() {
-        ctx.drawImage(imgEl, 0, 0);
-      };
-      imgEl.src = img;
-    } catch(e) {}
-  });
-  
-  // Usar canvas.toBlob para copiar al portapapeles
-  canvas.toBlob(function(blob) {
-    if (!blob) return;
-    navigator.clipboard.write([
-      new ClipboardItem({ 'image/png': blob })
-    ]).then(function() {
-      const btn = document.querySelector('[onclick*="shareChartImage"]');
-      if (btn) { btn.textContent = '✅ Copiado!'; setTimeout(() => { btn.textContent = '📷 Compartir'; }, 2000); }
-    }).catch(function(e) {
-      console.warn('Clipboard write failed:', e);
-      alert('No se pudo copiar. Intentá con screenshot manual.');
-    });
-  });
+  } catch(e) {
+    console.warn('[capture]', e);
+    alert('Error al capturar imagen');
+  }
 }</script>
 </body>
 </html>
