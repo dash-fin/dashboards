@@ -3321,6 +3321,10 @@ async function pfBackfillPnL(opts = {}) {
       ...(tradeRows||[]).filter(t=>t.fecha_cierre&&t.ticker_ars).map(t=>({ticker:t.ticker_ars,tipo:'CEDEAR',qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre,compra:Number(t.precio_entrada_ars)||0})),
     ].filter(p=>p.ticker&&p.qty>0&&p.open);
 
+    if(!allPos.length) throw new Error('Sin posiciones');
+    // startDate = primera fecha_compra de posiciones activas (los trades no retroceden antes)
+    const startDate = (posRows||[]).reduce((m,p)=>p.fecha_compra<m?p.fecha_compra:m, (posRows||[])[0]?.fecha_compra || today);
+
     // days: limitar rango; force: sobreescribir existentes
     let minDate = startDate;
     if(days > 0){
