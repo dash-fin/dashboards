@@ -1246,10 +1246,13 @@ async function renderHome(){
           <div class="breadth-cell"><div class="breadth-lbl">RSI &gt;70</div><div class="breadth-num" id="h-b-rsi" style="color:var(--amber)">—</div><div class="breadth-sub">sobrecomp.</div></div>
         </div>
         <div style="padding:5px 16px 3px;font-size:8px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;border-top:1px solid var(--border)">Earnings · <span id="h-b-earn-quarter" style="letter-spacing:0;text-transform:none">—</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">
-          <div class="breadth-cell" style="border-bottom:none"><div class="breadth-lbl">Reportaron</div><div class="breadth-num" id="h-b-earn-rep" style="font-size:20px">—</div><div class="breadth-sub" id="h-b-earn-rep-n">este trimestre</div></div>
-          <div class="breadth-cell" style="border-bottom:none"><div class="breadth-lbl">Beats</div><div class="breadth-num" id="h-b-earn-beat" style="color:var(--green);font-size:20px">—</div><div class="breadth-sub" id="h-b-earn-beat-n">—</div></div>
-          <div class="breadth-cell" style="border-bottom:none;border-right:none"><div class="breadth-lbl">Misses</div><div class="breadth-num" id="h-b-earn-miss" style="color:var(--red);font-size:20px">—</div><div class="breadth-sub" id="h-b-earn-miss-n">—</div></div>
+        <div style="padding:5px 16px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:9px;color:var(--text3)">Reportaron</span>
+          <span id="h-b-earn-rep" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--text)">—</span>
+        </div>
+        <div style="padding:4px 16px 7px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
+          <span style="font-size:9px;color:var(--text3)">Beat <span id="h-b-earn-beat" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--green)">—</span> <span id="h-b-earn-beat-n" style="color:var(--text4)"></span></span>
+          <span style="font-size:9px;color:var(--text3)">Miss <span id="h-b-earn-miss" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--red)">—</span> <span id="h-b-earn-miss-n" style="color:var(--text4)"></span></span>
         </div>
         </div>
       </div>
@@ -1387,8 +1390,15 @@ async function loadHomePortfolio(){
     const mepMap={};if(mepRows)mepRows.forEach(r=>{mepMap[r.symbol]=r;});
     const mepVal=mepMap['AL30']&&mepMap['AL30D']?Number(mepMap['AL30'].last)/Number(mepMap['AL30D'].last):null;
     const BONOS=['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
+    // agrupar múltiples entradas del mismo ticker
+    const posMap={};
+    positions.forEach(p=>{
+      if(!posMap[p.ticker_ars])posMap[p.ticker_ars]={ticker_ars:p.ticker_ars,cantidad:0,tipo:p.tipo};
+      posMap[p.ticker_ars].cantidad+=Number(p.cantidad||0);
+    });
+    const uniquePositions=Object.values(posMap);
     let totalPnl=0,totalVal=0;
-    const enriched=positions.map(p=>{
+    const enriched=uniquePositions.map(p=>{
       const pr=pm[p.ticker_ars];if(!pr||!pr.last)return null;
       const last=Number(pr.last),chg=Number(pr.change||0),qty=Number(p.cantidad||0);
       const factor=BONOS.includes(p.tipo)?100:1;
@@ -1650,7 +1660,7 @@ async function loadEarnings(){
     }else{
       let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;table-layout:fixed">'
         +'<colgroup>'
-        +'<col style="width:58px"><col><col style="width:52px"><col style="width:62px"><col style="width:62px"><col style="width:64px">'
+        +'<col style="width:58px"><col style="width:110px"><col style="width:52px"><col style="width:62px"><col style="width:62px"><col style="width:64px">'
         +'</colgroup>'
         +'<thead><tr>'
         +'<th class="th" style="padding:4px 8px;text-align:left">Ticker</th>'
