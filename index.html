@@ -1275,14 +1275,8 @@ async function renderHome(){
       </div>
     </div>
   </div>
-  <!-- ── Portafolio + Earnings Season ── -->
-  <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px">
-    <div class="card">
-      <div class="card-head"><div class="card-title">Portafolio hoy</div><div class="tab-bar"><button class="tab tab-sm on" onclick="switchHomePF('subas',this)">Subas</button><button class="tab tab-sm" onclick="switchHomePF('bajas',this)">Bajas</button></div></div>
-      <div class="th-row" style="grid-template-columns:62px 1fr 60px;gap:6px;padding:6px 10px"><span class="th">Ticker</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
-      <div id="h-pf-subas" style="max-height:320px;overflow-y:auto"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
-      <div id="h-pf-bajas" style="max-height:320px;overflow-y:auto;display:none"></div>
-    </div>
+  <!-- ── Earnings Season + Portafolio ── -->
+  <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px">
     <div class="card">
       <div class="card-head">
         <div class="card-title">Earnings Season</div>
@@ -1294,6 +1288,12 @@ async function renderHome(){
       </div>
       <div id="h-earn-proximas"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
       <div id="h-earn-resultados" style="display:none"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title">Portafolio hoy</div><div class="tab-bar"><button class="tab tab-sm on" onclick="switchHomePF('subas',this)">Subas</button><button class="tab tab-sm" onclick="switchHomePF('bajas',this)">Bajas</button></div></div>
+      <div class="th-row" style="grid-template-columns:62px 1fr 60px;gap:6px;padding:6px 10px"><span class="th">Ticker</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
+      <div id="h-pf-subas" style="max-height:320px;overflow-y:auto"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div id="h-pf-bajas" style="max-height:320px;overflow-y:auto;display:none"></div>
     </div>
   </div>
   <div>
@@ -1467,8 +1467,8 @@ function renderHomePF(enriched){
       </div>`;
     }).join('');
   };
-  render([...enriched].sort((a,b)=>b.chg-a.chg),'h-pf-subas');
-  render([...enriched].sort((a,b)=>a.chg-b.chg),'h-pf-bajas');
+  render([...enriched].filter(r=>r.chg>=0).sort((a,b)=>b.chg-a.chg),'h-pf-subas');
+  render([...enriched].filter(r=>r.chg<0).sort((a,b)=>a.chg-b.chg),'h-pf-bajas');
 }
 
 // ── Home: Dólar ──
