@@ -250,8 +250,14 @@
           <input class="field-input" id="pfmTakeProfit" type="number" step="any" placeholder="0.00">
         </div>
       </div>
-      <div id="pfmSlTpHint" style="font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;margin-bottom:14px">
+      <div id="pfmSlTpHint" style="font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;margin-bottom:10px">
         USD (ADR) si completaste el ticker ADR · ARS si no
+      </div>
+      <div id="pfmCopyRow" style="display:none;margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:var(--text2)">
+          <input type="checkbox" id="pfmCopySlTp" style="accent-color:#7c7cf0;width:16px;height:16px;cursor:pointer">
+          Copiar SL y TP a todas las posiciones de este activo
+        </label>
       </div>
 
       <!-- Campos específicos OPCION (ocultos por defecto) -->
@@ -2372,10 +2378,14 @@ window.pfModalOpen = async (id) => {
       document.getElementById('pfmRatio').value       = pos.ratio_cedear||'';
       document.getElementById('pfmStopLoss').value    = pos.stop_loss||'';
       document.getElementById('pfmTakeProfit').value  = pos.take_profit||'';
+      const sameCheck = pfPositions.filter(p => p.id !== pos.id && (p.ticker_ars === pos.ticker_ars || (pos.ticker_adr && p.ticker_adr === pos.ticker_adr)));
+      document.getElementById('pfmCopyRow').style.display = sameCheck.length > 0 ? 'block' : 'none';
+      document.getElementById('pfmCopySlTp').checked = false;
     }
   } else {
     ['pfmTickerArs','pfmTickerUsd','pfmTickerAdr','pfmCantidad','pfmPrecioArs','pfmPrecioAdr','pfmRatio','pfmStopLoss','pfmTakeProfit','pfmNotas',
      'pfmSubyacente','pfmTickerUsdOpt','pfmPrecioUsdOpt','pfmPrima','pfmQtyOpt','pfmSpotEntrada','pfmMepCompraOpt'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('pfmCopyRow').style.display = 'none';
     document.getElementById('pfmTipo').value = 'CEDEAR';
     document.getElementById('pfmFecha').value = new Date().toISOString().slice(0,10);
     if(pfMep) document.getElementById('pfmMepCompra').value = Math.round(pfMep);
@@ -2691,6 +2701,18 @@ window.pfModalSave = async () => {
       await sbPatch('portafolio', `id=eq.${pfEditId}`, body);
     } else {
       await sbInsert('portafolio', body);
+    }
+    if (document.getElementById('pfmCopySlTp').checked && (body.stop_loss || body.take_profit)) {
+      const actKey = body.ticker_adr || body.ticker_ars;
+      const same = pfPositions.filter(p => p.id !== pfEditId && (p.ticker_ars === actKey || (p.ticker_adr && p.ticker_adr === actKey)));
+      for (const p of same) {
+        const patch = {};
+        if (body.stop_loss != null) patch.stop_loss = body.stop_loss;
+        if (body.take_profit != null) patch.take_profit = body.take_profit;
+        if (Object.keys(patch).length) {
+          try { await sbPatch('portafolio', `id=eq.${p.id}`, patch); } catch(e) { console.warn('[pf] copy SL/TP', e); }
+        }
+      }
     }
     pfAutoCreateAlerts(body).catch(()=>{});
     pfModalHide();
