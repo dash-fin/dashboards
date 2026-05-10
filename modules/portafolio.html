@@ -4345,6 +4345,17 @@ async function buildLwcChart(pos, entryPrice) {
     timeScale: { borderColor: '#2a2a4a', timeVisible: true, secondsVisible: false },
     rightPriceScale: { borderColor: '#2a2a4a' },
     width: container.clientWidth, height: 500,
+    autoSize: false,
+  });
+
+  // Crear serie de velas inmediatamente
+  const mainSeries = chart.addCandlestickSeries({
+    upColor: '#26a69a',
+    downColor: '#ef5350',
+    borderDownColor: '#ef5350',
+    borderUpColor: '#26a69a',
+    wickDownColor: '#ef5350',
+    wickUpColor: '#26a69a',
   });
 
   try {
@@ -4372,7 +4383,6 @@ async function buildLwcChart(pos, entryPrice) {
       const rawData = window.pfSeriesData ? window.pfSeriesData[symbol] : null;
       if (rawData && rawData.length > 0) {
         const sorted = [...rawData].sort((a,b) => a.fecha.localeCompare(b.fecha));
-        // Para CEDEARs sin OHLC, crear velas con spread del 0.6%
         seriesData = sorted
           .filter(d => d.cierre > 0)
           .map(d => {
@@ -4388,16 +4398,7 @@ async function buildLwcChart(pos, entryPrice) {
       }
     }
 
-    let mainSeries;
     if (seriesData.length >= 2) {
-      mainSeries = chart.addCandlestickSeries({
-        upColor: '#26a69a',
-        downColor: '#ef5350',
-        borderDownColor: '#ef5350',
-        borderUpColor: '#26a69a',
-        wickDownColor: '#ef5350',
-        wickUpColor: '#26a69a',
-      });
       mainSeries.setData(seriesData);
 
       // Línea vertical en fecha de compra
@@ -4411,11 +4412,7 @@ async function buildLwcChart(pos, entryPrice) {
         });
       }
     } else {
-      mainSeries = chart.addCandlestickSeries({
-        upColor: '#26a69a', downColor: '#ef5350',
-        borderDownColor: '#ef5350', borderUpColor: '#26a69a',
-        wickDownColor: '#ef5350', wickUpColor: '#26a69a',
-      });
+      // Sin datos históricos: mostrar un candle ficticio para que se vea el área
       const preco = esUsd_ && pos.ticker_adr
         ? (window.__pfAdrPrices ? (window.__pfAdrPrices[pos.ticker_adr]?.last ?? null) : null)
         : (window.__pfPrices ? (window.__pfPrices[pos.ticker_ars]?.last ?? null) : null);
