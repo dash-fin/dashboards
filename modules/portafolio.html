@@ -3314,18 +3314,13 @@ async function pfBackfillPnL(opts = {}) {
     ]);
 
     const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
-    // close:null para posiciones activas (sin vencimiento fijo); close:fecha_cierre para trades cerrados.
-    // La condición de exclusión usa <= para que una posición cerrada el mismo día de cálculo quede fuera.
-    const allPos = [
-      ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:null})),
-      ...(tradeRows||[]).filter(t=>t.tipo==='CEDEAR'&&t.fecha_cierre).map(t=>({ticker:t.ticker_ars,tipo:t.tipo,qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre})),
-    ].filter(p=>p.ticker&&p.qty>0&&p.open);
+    // Solo posiciones activas — trades cerrados causan swings artificiales de PnL
+    const allPos = (posRows||[])
+      .map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra}))
+      .filter(p=>p.ticker&&p.qty>0&&p.open);
 
     if(!allPos.length) throw new Error('Sin posiciones');
-    // startDate desde posiciones activas solamente — los trades pueden arrancar antes (bonos de feb/mar)
-    const startDate = (posRows||[]).length
-      ? (posRows||[]).reduce((m,p)=>p.fecha_compra<m?p.fecha_compra:m, posRows[0].fecha_compra)
-      : allPos[0].open;
+    const startDate = allPos.reduce((m,p)=>p.open<m?p.open:m, allPos[0].open);
 
     // days: limitar rango; force: sobreescribir existentes
     let minDate = startDate;
@@ -3404,7 +3399,6 @@ async function pfBackfillPnL(opts = {}) {
       let totalUsd=0, existingUsd=0, hasPx=false;
       for(const p of allPos){
         if(p.open>date) continue;
-        if(p.close && p.close<=date) continue; // excluir trades cerrados en o antes de esta fecha
         const px = closestBefore(priceByTk[p.ticker]||{}, date);
         if(!px) continue;
         const factor = BONOS.includes(p.tipo)?100:1;
