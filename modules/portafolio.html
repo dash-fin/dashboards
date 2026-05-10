@@ -159,15 +159,7 @@
 .pfChartLink { color: #7c7cf0; cursor: pointer; text-decoration: none; border-bottom: 1px dashed #7c7cf066; }
 .pfChartLink:hover { color: #9b9bf5; border-bottom-color: #9b9bf5; }
 
-/* ── Chart modal overlay ──────────────────────────────── */
-#pchOverlayLine {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
+/* ── Chart modal (LWC) ──────────────────────────────── */
 </style>
 <!-- ── Modal: Nueva / Editar posición ────────────────── -->
 <div id="pfModalOverlay" onclick="pfModalClose(event)" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center">
@@ -4295,7 +4287,7 @@ window.pfShowChart = function(posId) {
   levelsEl.innerHTML = levelsHtml;
 
   // 4. TradingView widget
-  buildTvWidget(pos, entryPrice);
+  buildLwcChart(pos, entryPrice);
 
   // 5. Detail grid
   const detailsEl = document.getElementById('pchDetails');
@@ -4319,59 +4311,117 @@ function getTvSymbol(pos) {
   return pos.ticker_ars + '.BA';
 }
 
-function buildTvWidget(pos, entryPrice) {
+function buildLwcChart(pos, entryPrice) {
   const symbol = getTvSymbol(pos);
-  const src = `https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=D&theme=dark&style=1&locale=es&hideideas=1&toolbarbg=131322&allow_symbol_change=0&saveimage=0&studies=[]&no_sidebar=1&details=0&hotlist=0&calendar=0&news=0&range=12M&condateranges=0&height=500`;
-  
-  const iframe = document.getElementById('pchTvFrame');
-  iframe.src = src;
+  const esUsd_ = !!pos.ticker_adr;
+  const container = document.getElementById('pchLwcContainer');
+  if (!container) return;
 
-  // Overlay lines
-  const overlay = document.getElementById('pchOverlay');
-  overlay.innerHTML = '';
+  // Crear chart con tema oscuro similar a TV
+  const chart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'solid', color: '#131322' },
+      textColor: '#d1d4dc',
+    },
+    grid: {
+      vertLines: { color: '#2a2a3e' },
+      horzLines: { color: '#2a2a3e' },
+    },
+    crosshair: {
+      mode: 0,
+      vertLine: { color: '#7c7cf066', width: 1, style: 2, labelBackgroundColor: '#7c7cf0' },
+      horzLine: { color: '#7c7cf066', width: 1, style: 2, labelBackgroundColor: '#7c7cf0' },
+    },
+    timeScale: {
+      borderColor: '#2a2a4a',
+      timeVisible: true,
+      secondsVisible: false,
+    },
+    rightPriceScale: {
+      borderColor: '#2a2a4a',
+    },
+    width: container.clientWidth,
+    height: 500,
+  });
 
-  // Precio actual en la misma moneda que el entryPrice y el gráfico
-  const esUsd = !!pos.ticker_adr;
-  var preco;
-  if (esUsd && pos.ticker_adr) {
-    var adrPr = window.__pfAdrPrices[pos.ticker_adr];
-    preco = adrPr ? adrPr.last : null;
+  // Obtener datos históricos (pfSeriesData existe en el scope global)
+  const rawData = window.pfSeriesData ? window.pfSeriesData[symbol] : null;
+  let seriesData = [];
+
+  if (rawData && rawData.length > 0) {
+    const sorted = [...rawData].sort((a,b) => a.fecha.localeCompare(b.fecha));
+    seriesData = sorted.map(d => ({
+      time: d.fecha,
+      value: d.cierre,
+    }));
+  }
+
+  // Crear series
+  let mainSeries;
+  if (seriesData.length >= 2) {
+    mainSeries = chart.addLineSeries({
+      color: '#7c7cf0',
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: '#7c7cf0',
+      crosshairMarkerBackgroundColor: '#131322',
+    });
+    mainSeries.setData(seriesData);
   } else {
-    preco = window.__pfPrices[pos.ticker_ars]?.last;
-  }
-  if (preco == null) return;
-
-  const range = preco * 0.30;
-  const priceHigh = preco + range;
-  const priceLow = preco - range;
-
-  function calcTop(price) {
-    return 100 - ((price - priceLow) / (priceHigh - priceLow) * 80 + 10);
-  }
-
-  function createLine(price, label, color) {
-    const top = calcTop(price);
-    if (top < 0 || top > 100) return;
-    const line = document.createElement('div');
-    line.style.cssText = `position:absolute;top:${top}%;left:0;right:0;height:1px;background:${color};border-top:1px dashed ${color};`;
-    const badge = document.createElement('span');
-    badge.id = 'pchOverlayLine';
-    badge.style.cssText = `position:absolute;left:8px;top:-10px;background:${color};color:#fff;padding:1px 6px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;white-space:nowrap;`;
-    badge.textContent = `${label} $${Number(price).toFixed(2)}`;
-    line.appendChild(badge);
-    overlay.appendChild(line);
+    // Sin datos históricos: serie invisible de soporte para priceLines
+    mainSeries = chart.addLineSeries({
+      color: 'transparent',
+      lineWidth: 0,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+    const preco = esUsd_ && pos.ticker_adr
+      ? (window.__pfAdrPrices ? (window.__pfAdrPrices[pos.ticker_adr]?.last ?? null) : null)
+      : (window.__pfPrices ? (window.__pfPrices[pos.ticker_ars]?.last ?? null) : null);
+    if (preco) {
+      const margin = Math.max(entryPrice, preco) * 0.15;
+      const now = new Date().toISOString().split('T')[0];
+      mainSeries.setData([
+        { time: now, value: Math.min(entryPrice, preco) - margin },
+        { time: now, value: Math.max(entryPrice, preco) + margin },
+      ]);
+    }
   }
 
-  // Entry (violeta)
-  createLine(entryPrice, 'ENTRY', '#7c7cf0');
-  // SL (rojo)
-  if (pos.stop_loss) {
-    createLine(pos.stop_loss, 'SL', '#ef5350');
+  // Price lines: ENTRY, SL, TP
+  function addPriceLine(price, label, color) {
+    if (price == null) return;
+    mainSeries.createPriceLine({
+      price: price,
+      color: color,
+      lineWidth: 2,
+      lineStyle: 2, // Dashed
+      axisLabelVisible: true,
+      title: label,
+    });
   }
-  // TP (verde)
-  if (pos.take_profit) {
-    createLine(pos.take_profit, 'TP', '#26a69a');
-  }
+
+  addPriceLine(entryPrice, 'ENTRY', '#7c7cf0');
+  if (pos.stop_loss) addPriceLine(pos.stop_loss, 'SL', '#ef5350');
+  if (pos.take_profit) addPriceLine(pos.take_profit, 'TP', '#26a69a');
+
+  chart.timeScale().fitContent();
+
+  // ResizeObserver para responsividad
+  const ro = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      const { width } = entry.contentRect;
+      chart.applyOptions({ width });
+    }
+  });
+  ro.observe(container);
+
+  window.__pchChart = chart;
+  window.__pchResizeObserver = ro;
 }
 
 function buildDetailGrid(pos) {
@@ -4426,10 +4476,15 @@ window.pfChartClose = function(event) {
   const overlay = document.getElementById('pfChartOverlay');
   if (overlay) {
     overlay.style.display = 'none';
-    // Detener widget TV (liberar memoria)
-    const iframe = document.getElementById('pchTvFrame');
-    if (iframe) iframe.src = '';
-    document.getElementById('pchOverlay').innerHTML = '';
+    // Limpiar Lightweight Charts
+    if (window.__pchChart) {
+      try { window.__pchChart.remove(); } catch(e) {}
+      window.__pchChart = null;
+    }
+    if (window.__pchResizeObserver) {
+      try { window.__pchResizeObserver.disconnect(); } catch(e) {}
+      window.__pchResizeObserver = null;
+    }
   }
   _pfChartPosId = null;
 };
@@ -4539,8 +4594,7 @@ document.addEventListener('keydown', function(e) {
     
     <!-- Chart wrap -->
     <div id="pchChartWrap" style="position:relative;padding:0">
-      <iframe id="pchTvFrame" src="" style="width:100%;height:500px;border:none;display:block" allowfullscreen></iframe>
-      <div id="pchOverlay" style="pointer-events:none;position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden"></div>
+      <div id="pchLwcContainer" style="width:100%;height:500px;"></div>
     </div>
     
     <!-- Detail grid -->
@@ -4555,4 +4609,5 @@ document.addEventListener('keydown', function(e) {
     
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.min.js"></script>
 </body>
