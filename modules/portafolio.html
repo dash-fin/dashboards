@@ -4339,13 +4339,14 @@ async function buildLwcChart(pos, entryPrice) {
   container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Cargando...</div>';
 
   let seriesData = [];
+  const yahooSymbol = esUsd_ && pos.ticker_adr ? pos.ticker_adr : (pos.ticker_ars.endsWith('.BA') ? pos.ticker_ars : pos.ticker_ars+'.BA');
 
   try {
     if (esUsd_ && pos.ticker_adr) {
       const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
       const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SB_KEY, 'apikey': SB_KEY },
+        headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
         body: JSON.stringify({ mode: 'yahoo-history', symbols: [pos.ticker_adr], startDate: '2024-01-01' }),
       });
       if (res.ok) {
@@ -4360,24 +4361,22 @@ async function buildLwcChart(pos, entryPrice) {
         }));
       }
     } else {
-      const symbol = pos.ticker_ars.endsWith('.BA') ? pos.ticker_ars : pos.ticker_ars+'.BA';
-      const rawData = window.pfSeriesData ? window.pfSeriesData[symbol] : null;
+      const rawData = window.pfSeriesData ? window.pfSeriesData[yahooSymbol] : null;
       if (rawData && rawData.length > 0) {
-        const sorted = [...rawData].sort((a,b) => a.fecha.localeCompare(b.fecha));
-        seriesData = sorted
-          .filter(d => d.cierre > 0)
-          .map(d => ({
-            time: d.fecha,
-            open: d.cierre,
-            high: d.cierre * 1.003,
-            low: d.cierre * 0.997,
-            close: d.cierre,
-          }));
+        seriesData = [...rawData].sort((a,b) => (a.fecha||'').localeCompare(b.fecha||'')).filter(d => d.cierre > 0).map(d => {
+          const spread = d.cierre * 0.003;
+          return { time: d.fecha, open: d.cierre - spread, high: d.cierre + spread * 2, low: d.cierre - spread * 2, close: d.cierre };
+        });
       }
     }
   } catch(e) { console.warn('[LWC] fetch error:', e); }
 
   container.innerHTML = '';
+
+  if (seriesData.length < 2) {
+    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Sin datos</div>';
+    return;
+  }
 
   const chart = LightweightCharts.createChart(container, {
     layout: { background: { type: 'solid', color: '#131322' }, textColor: '#d1d4dc' },
@@ -4388,48 +4387,35 @@ async function buildLwcChart(pos, entryPrice) {
     width: container.clientWidth, height: 500,
   });
 
-  let mainSeries;
-  if (seriesData.length >= 2) {
-    mainSeries = chart.addCandlestickSeries({
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderDownColor: '#ef5350',
-      borderUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
-      wickUpColor: '#26a69a',
-    });
-    mainSeries.setData(seriesData);
+  const mainSeries = chart.addCandlestickSeries({
+    upColor: '#26a69a',
+    downColor: '#ef5350',
+    borderDownColor: '#ef5350',
+    borderUpColor: '#26a69a',
+    wickDownColor: '#ef5350',
+    wickUpColor: '#26a69a',
+  });
 
-    // Línea vertical en fecha de compra
-    if (pos.fecha_compra) {
-      chart.timeScale().addVertLine({
-        time: pos.fecha_compra,
-        color: '#7c7cf066',
-        width: 1,
-        style: 2,
-        label: 'Compra',
-      });
-    }
-  } else {
-    mainSeries = chart.addLineSeries({
-      color: 'transparent', lineWidth: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
-    });
-    const preco = esUsd_ && pos.ticker_adr
-      ? (window.__pfAdrPrices ? (window.__pfAdrPrices[pos.ticker_adr]?.last ?? null) : null)
-      : (window.__pfPrices ? (window.__pfPrices[pos.ticker_ars]?.last ?? null) : null);
-    if (preco) {
-      const margin = Math.max(entryPrice, preco) * 0.15;
-      const now = new Date().toISOString().split('T')[0];
-      mainSeries.setData([
-        { time: now, open: Math.min(entryPrice, preco) - margin, high: Math.max(entryPrice, preco) + margin, low: Math.min(entryPrice, preco) - margin, close: Math.max(entryPrice, preco) + margin },
-        { time: now, open: Math.min(entryPrice, preco) - margin, high: Math.max(entryPrice, preco) + margin, low: Math.min(entryPrice, preco) - margin, close: Math.max(entryPrice, preco) + margin },
-      ]);
-    }
+  mainSeries.setData(seriesData);
+
+  // Flecha (marker) en fecha de compra
+  if (pos.fecha_compra) {
+    const cmpCandle = seriesData.find(d => d.time === pos.fecha_compra);
+    const precio = cmpCandle ? cmpCandle.high : entryPrice;
+    mainSeries.setMarkers([{
+      time: pos.fecha_compra,
+      position: 'belowBar',
+      color: '#7c7cf0',
+      shape: 'arrowUp',
+      text: 'Compra',
+      size: 1,
+    }]);
   }
 
+  // Price lines — sólidas y gruesas
   function addPriceLine(price, label, color) {
     if (price == null) return;
-    mainSeries.createPriceLine({ price, color, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: label });
+    mainSeries.createPriceLine({ price, color, lineWidth: 3, lineStyle: 0, axisLabelVisible: true, title: label });
   }
 
   addPriceLine(entryPrice, 'ENTRY', '#7c7cf0');
