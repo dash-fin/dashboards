@@ -3059,35 +3059,22 @@ function togglePortfolioSaldo() {
   const hidden = container.dataset.hidden === 'true';
   container.dataset.hidden = hidden ? 'false' : 'true';
   
-  // This function toggles live: it replaces $ values with *** or restores from dataset
-  const vals = container.querySelectorAll('.pkpi-val');
-  const subs = container.querySelectorAll('.pkpi-sub');
-  const all = [...vals, ...subs];
-  
-  all.forEach(el => {
-    if (!el.dataset.orig) el.dataset.orig = el.innerHTML;
-    if (hidden) {
-      // Show real data
-      el.innerHTML = el.dataset.orig;
-    } else {
-      // Hide: replace the display text with *** (keep structure)
-      let txt = el.innerHTML;
-      // Use regex on the rendered HTML to find and replace $ amounts
-      // Match patterns like +$1,234.56, -$123.456, $1.234, ≈ USD +$500
-      txt = txt.replace(/(\$[0-9.,+\-≈USD\s]+)/g, '***');
-      txt = txt.replace(/([+-]?\$[0-9.,]+)/g, '***');
-      el.innerHTML = txt;
+  if (hidden) {
+    // Show: render KPIs from saved data
+    if (window.__pfHomeData) {
+      renderHomeKpis(window.__pfHomeData);
     }
-  });
-  
-  btn.textContent = hidden ? '👁️' : '👁️‍🗨️';
-  btn.style.color = hidden ? 'var(--text4)' : 'var(--amber)';
-  
-  // Si estamos mostrando y hay datos guardados, renderizar KPIs reales
-  if (hidden && window.__pfHomeData) {
-    renderHomeKpis(window.__pfHomeData);
-  } else if (hidden) {
-    // No data, leave ***
+    btn.textContent = '👁️';
+    btn.style.color = 'var(--text4)';
+  } else {
+    // Hide: replace $ values with *** using regex
+    const all = container.querySelectorAll('.pkpi-val, .pkpi-sub');
+    all.forEach(el => {
+      el.innerHTML = el.innerHTML.replace(/\$[0-9.,+\-≈USDkBMm\s]+/g, '***');
+      el.innerHTML = el.innerHTML.replace(/[+-]?\$[0-9.,]+/g, '***');
+    });
+    btn.textContent = '👁️‍🗨️';
+    btn.style.color = 'var(--amber)';
   }
 }
 
