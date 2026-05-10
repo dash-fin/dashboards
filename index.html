@@ -1378,6 +1378,34 @@ async function loadHomeKPIs(){
   }
 }
 
+// ── Home: render KPIs de portafolio (solo cuando toggle esta en mostrar) ──
+function renderHomeKpis(d) {
+  if (!d) return;
+  var pv = document.getElementById('h-pnl-val');
+  var ps = document.getElementById('h-pnl-sub');
+  var bv = document.getElementById('h-best-val');
+  var bs = document.getElementById('h-best-sub');
+  var wv = document.getElementById('h-worst-val');
+  var ws = document.getElementById('h-worst-sub');
+  if (d.totalPnl != null && pv) {
+    pv.innerHTML = '<span style="color:'+d.col+'">'+(d.totalPnl>=0?'+':'')+'$'+fmtAR(Math.abs(d.totalPnl),0)+'</span>';
+  }
+  if (d.pct != null && ps) {
+    ps.innerHTML = '<span style="color:'+d.col+'">'+(d.pct>=0?'+':'')+d.pct.toFixed(2)+'%</span>'+(d.usd?'<span style="color:var(--text3);margin-left:6px">\u2248 USD <span style="color:'+d.col+'">'+(d.usd>=0?'+':'')+'$'+fmtUSD(Math.abs(d.usd),0)+'</span></span>':'');
+  }
+  if (d.enriched && d.enriched.length) {
+    var sa = document.getElementById(d.saId);
+    if (sa) sa.style.background = d.best.chg>=0 ? 'var(--greenG)' : 'var(--redG)';
+    if (bv) bv.innerHTML = '<span style="color:'+(d.best.chg>=0?'var(--green)':'var(--red)')+'">'+d.best.ticker+'</span>';
+    if (bs) bs.innerHTML = '<span style="color:'+(d.best.chg>=0?'var(--green)':'var(--red)')+'">'+(d.best.chg>=0?'+':'')+d.best.chg.toFixed(2)+'%</span><span style="color:var(--text3);margin-left:8px">P&L: <span style="color:'+(d.best.pnl>=0?'var(--green)':'var(--red)')+'">'+(d.best.pnl>=0?'+':'')+'$'+fmtUSD(Math.abs(d.best.pnl),2)+'</span></span>';
+    var ba = document.getElementById(d.baId);
+    if (ba) ba.style.background = d.worst.chg<0 ? 'var(--redG)' : 'var(--greenG)';
+    if (wv) wv.innerHTML = '<span style="color:'+(d.worst.chg>=0?'var(--green)':'var(--red)')+'">'+d.worst.ticker+'</span>';
+    if (ws) ws.innerHTML = '<span style="color:'+(d.worst.chg>=0?'var(--green)':'var(--red)')+'">'+(d.worst.chg>=0?'+':'')+d.worst.chg.toFixed(2)+'%</span><span style="color:var(--text3);margin-left:8px">P&L: <span style="color:'+(d.worst.pnl>=0?'var(--green)':'var(--red)')+'">'+(d.worst.pnl>=0?'+':'')+'$'+fmtUSD(Math.abs(d.worst.pnl),2)+'</span></span>';
+  }
+}
+
+
 // ── Home: Portfolio KPIs ──
 async function loadHomePortfolio(){
   const pv=document.getElementById('h-pnl-val'),ps=document.getElementById('h-pnl-sub');
@@ -1395,78 +1423,20 @@ async function loadHomePortfolio(){
       const msg='<span style="font-size:11px;color:var(--text3)">Sin posiciones</span>';
       if(pv)pv.innerHTML=msg;if(bv)bv.innerHTML=msg;if(wv)wv.innerHTML=msg;return;
     }
-    const tickers=[...new Set(positions.map(p=>p.ticker_ars))];
-    const prices=await sb('mercado',`symbol=in.(${tickers.map(t=>'"'+t+'"').join(',')})&settlement=eq.24hs&select=symbol,last,change`);
-    const pm={};if(prices)prices.forEach(r=>{pm[r.symbol]=r;});
-    const mepMap={};if(mepRows)mepRows.forEach(r=>{mepMap[r.symbol]=r;});
-    const mepVal=mepMap['AL30']&&mepMap['AL30D']?Number(mepMap['AL30'].last)/Number(mepMap['AL30D'].last):null;
-    const BONOS=['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
-    // agrupar múltiples entradas del mismo ticker
-    const posMap={};
-    positions.forEach(p=>{
-      if(!posMap[p.ticker_ars])posMap[p.ticker_ars]={ticker_ars:p.ticker_ars,cantidad:0,tipo:p.tipo};
-      posMap[p.ticker_ars].cantidad+=Number(p.cantidad||0);
-    });
-    const uniquePositions=Object.values(posMap);
-    let totalPnl=0,totalVal=0;
-    const enriched=uniquePositions.map(p=>{
-      const pr=pm[p.ticker_ars];if(!pr||!pr.last)return null;
-      const last=Number(pr.last),chg=Number(pr.change||0),qty=Number(p.cantidad||0);
-      const factor=BONOS.includes(p.tipo)?100:1;
-      const val=last*qty/factor,pnl=val*(chg/100);
-      totalPnl+=pnl;totalVal+=val;
-      return{ticker:p.ticker_ars,last,chg,pnl};
-    }).filter(Boolean);
-    // Opciones abiertas: PnL diario via opciones_rt (kind_strike + previous_close)
-    try{
-      const ops=await sb('operaciones','estado=eq.abierta&select=patas');
-      if(ops&&ops.length){
-        const allLegs=ops.flatMap(o=>o.patas||[]);
-        const allStrikes=[...new Set(allLegs.map(l=>Number(l.strike)||0).filter(s=>s>0))];
-        if(allStrikes.length){
-          const optRT=await sb('opciones_rt',`strike=in.(${allStrikes.join(',')})&select=kind,last,bid,previous_close,strike`);
-          const rtIdx={},closeIdx={};
-          (optRT||[]).forEach(r=>{
-            const kind=(r.kind||'').toUpperCase()==='CALL'?'call':(r.kind||'').toUpperCase()==='PUT'?'put':null;
-            if(!kind||!r.strike)return;
-            const price=Number(r.last||0)||Number(r.bid||0);
-            const key=`${kind}_${Number(r.strike)}`;
-            if(price>0)rtIdx[key]=price;
-            const cls=Number(r.previous_close||0);
-            if(cls>0)closeIdx[key]=cls;
-          });
-          ops.forEach(op=>{
-            const optSz=Number(op.patas?.[0]?.option_size)||100;
-            (op.patas||[]).forEach(leg=>{
-              const key=`${leg.kind}_${Number(leg.strike)}`;
-              const cur=rtIdx[key],prev=closeIdx[key];
-              if(!cur||!prev)return;
-              const sign=leg.action==='buy'?1:-1;
-              totalPnl+=sign*(cur-prev)*Number(leg.qty||0)*optSz;
-            });
-          });
-        }
-      }
-    }catch(e){console.warn('options PnL:',e);}
-    const col=totalPnl>=0?'var(--green)':'var(--red)';
-    const pct=totalVal>0?(totalPnl/(totalVal-totalPnl))*100:0;
-    const usd=mepVal?totalPnl/mepVal:null;
-    if(pv)pv.innerHTML=`<span style="color:${col}">${totalPnl>=0?'+':''}\$${fmtAR(Math.abs(totalPnl),0)}</span>`;
-    if(ps)ps.innerHTML=`<span style="color:${col}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`+(usd?`<span style="color:var(--text3);margin-left:6px">≈ USD <span style="color:${col}">${usd>=0?'+':''}${fmtUSD(Math.abs(usd),0)}</span></span>`:'');
-    if(enriched.length){
-      const best=enriched.reduce((a,b)=>b.chg>a.chg?b:a);
-      const worst=enriched.reduce((a,b)=>b.chg<a.chg?b:a);
-      const sa=document.getElementById('h-suba-accent');if(sa)sa.style.background=best.chg>=0?'var(--greenG)':'var(--redG)';
-      if(bv)bv.innerHTML=`<span style="color:${best.chg>=0?'var(--green)':'var(--red)'}">${best.ticker}</span>`;
-      if(bs)bs.innerHTML=`<span style="color:${best.chg>=0?'var(--green)':'var(--red)'}">${best.chg>=0?'+':''}${best.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\P&L: <span style="color:${best.pnl>=0?'var(--green)':'var(--red)'}">${best.pnl>=0?'+':''}${fmtUSD(Math.abs(best.pnl),2)}</span></span>`;
-      const ba=document.getElementById('h-baja-accent');if(ba)ba.style.background=worst.chg<0?'var(--redG)':'var(--greenG)';
-      if(wv)wv.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.ticker}</span>`;
-      if(ws)ws.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\P&L: <span style="color:${worst.pnl>=0?'var(--green)':'var(--red)'}">${worst.pnl>=0?'+':''}${fmtUSD(Math.abs(worst.pnl),2)}</span></span>`;
+    // Guardar datos para mostrar solo cuando el toggle este en modo "mostrar"
+    window.__pfHomeData = {
+      totalPnl: totalPnl, pct: pct, usd: usd, col: col,
+      enriched: enriched, best: best, worst: worst,
+      saId: "h-suba-accent", baId: "h-baja-accent"
+    };
+    // Render KPIs solo si toggle ya esta en mostrar
+    var pfc = document.getElementById("pfSaldoContainer");
+    if (pfc && pfc.dataset.hidden === "false") {
+      renderHomeKpis(window.__pfHomeData);
+
     }
     renderHomePF(enriched);
-    if (document.getElementById('pfSaldoContainer')?.dataset?.hidden === 'true') {
-      try { togglePortfolioSaldo(); } catch(e) {}
-    }
+    
 
   }catch(e){console.warn('loadHomePortfolio:',e);}
 
@@ -3115,44 +3085,12 @@ function togglePortfolioSaldo() {
   
   btn.textContent = hidden ? '👁️' : '👁️‍🗨️';
   btn.style.color = hidden ? 'var(--text4)' : 'var(--amber)';
+  
+  // Si estamos mostrando y hay datos guardados, renderizar KPIs reales
+  if (hidden && window.__pfHomeData) {
+    renderHomeKpis(window.__pfHomeData);
+  }
 }
-
-// MutationObserver: auto-ocultar cuando cambien los valores (respaldo)
-(function(){
-  const container = document.getElementById('pfSaldoContainer');
-  if (!container) return;
-  const ob = new MutationObserver(function() {
-    if (container.dataset.hidden === 'true') {
-      // Check if any new values appeared and need hiding
-      let changed = false;
-      container.querySelectorAll('.pkpi-val, .pkpi-sub').forEach(el => {
-        if (el.innerHTML && el.innerHTML !== '***' && el.innerHTML !== ' ' && el.innerHTML.indexOf('***') === -1) {
-          // Has real data, check if it contains a $ value
-          if (/\$[0-9]/.test(el.innerHTML) || /[0-9.,]+%/.test(el.innerHTML)) {
-            changed = true;
-          }
-        }
-      });
-      if (changed) {
-        try { togglePortfolioSaldo(); } catch(e) {}
-      }
-    }
-  });
-  ob.observe(container, { childList: true, subtree: true, characterData: false });
-  // Fallback after 1s to be safe
-  setTimeout(function() {
-    if (container.dataset.hidden === 'true') {
-      const vals = container.querySelectorAll('.pkpi-val, .pkpi-sub');
-      let needsHide = false;
-      vals.forEach(el => {
-        if (el.innerHTML && el.innerHTML !== '***' && el.innerHTML.indexOf('***') === -1 && !/^\s*$/.test(el.innerHTML)) {
-          if (/\$[0-9.]/.test(el.innerHTML)) needsHide = true;
-        }
-      });
-      if (needsHide) { try { togglePortfolioSaldo(); } catch(e) {} }
-    }
-  }, 1500);
-})();
 
 async function captureElement(el, btnEl) {
   if (!el) return;
