@@ -3314,8 +3314,10 @@ async function pfBackfillPnL(opts = {}) {
     ]);
 
     const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
+    // close:null para posiciones activas (sin vencimiento fijo); close:fecha_cierre para trades cerrados.
+    // La condición de exclusión usa <= para que una posición cerrada el mismo día de cálculo quede fuera.
     const allPos = [
-      ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:today})),
+      ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:null})),
       ...(tradeRows||[]).filter(t=>t.tipo!=='OPCION'&&t.fecha_cierre).map(t=>({ticker:t.ticker_ars,tipo:t.tipo,qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre})),
     ].filter(p=>p.ticker&&p.qty>0&&p.open);
 
@@ -3333,7 +3335,7 @@ async function pfBackfillPnL(opts = {}) {
     // 2. Días ya guardados — sólo relevante cuando NO es force
     let existingSet = new Set();
     if(!force){
-      const existing = await sb('pnl_diario',`fecha=gte.${minDate}&select=fecha`) || [];
+      const existing = await sb('pnl_diario',`user_email=eq.${encodeURIComponent(email)}&fecha=gte.${minDate}&select=fecha`) || [];
       existingSet = new Set(existing.map(r=>r.fecha));
     }
 
@@ -3398,7 +3400,8 @@ async function pfBackfillPnL(opts = {}) {
       const mep = mepByDate[date]; if(!mep||mep<=0) continue;
       let totalUsd=0, existingUsd=0, hasPx=false;
       for(const p of allPos){
-        if(p.open>date||p.close<date) continue;
+        if(p.open>date) continue;
+        if(p.close && p.close<=date) continue; // excluir trades cerrados en o antes de esta fecha
         const px = closestBefore(priceByTk[p.ticker]||{}, date);
         if(!px) continue;
         const factor = BONOS.includes(p.tipo)?100:1;
