@@ -1244,7 +1244,14 @@ async function renderHome(){
           <div class="breadth-cell"><div class="breadth-lbl">Sobre SMA50</div><div class="breadth-num" id="h-b-sma50" style="color:var(--cyan)">—</div><div class="breadth-sub" id="h-b-sma50-n">cargando</div></div>
           <div class="breadth-cell"><div class="breadth-lbl">Avanzando hoy</div><div class="breadth-num" id="h-b-adv" style="color:var(--green)">—</div><div class="breadth-sub" id="h-b-adv-n">de —</div></div>
           <div class="breadth-cell"><div class="breadth-lbl">RSI &gt;70</div><div class="breadth-num" id="h-b-rsi" style="color:var(--amber)">—</div><div class="breadth-sub">sobrecomp.</div></div>
-        </div></div>
+        </div>
+        <div style="padding:5px 16px 3px;font-size:8px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;border-top:1px solid var(--border)">Earnings · <span id="h-b-earn-quarter" style="letter-spacing:0;text-transform:none">—</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0">
+          <div class="breadth-cell" style="border-bottom:none"><div class="breadth-lbl">Reportaron</div><div class="breadth-num" id="h-b-earn-rep" style="font-size:20px">—</div><div class="breadth-sub" id="h-b-earn-rep-n">este trimestre</div></div>
+          <div class="breadth-cell" style="border-bottom:none"><div class="breadth-lbl">Beats</div><div class="breadth-num" id="h-b-earn-beat" style="color:var(--green);font-size:20px">—</div><div class="breadth-sub" id="h-b-earn-beat-n">—</div></div>
+          <div class="breadth-cell" style="border-bottom:none;border-right:none"><div class="breadth-lbl">Misses</div><div class="breadth-num" id="h-b-earn-miss" style="color:var(--red);font-size:20px">—</div><div class="breadth-sub" id="h-b-earn-miss-n">—</div></div>
+        </div>
+        </div>
       </div>
       <div class="card"><div class="card-head"><div class="card-title">Sectores USA</div><span style="font-size:10px;color:var(--text3)">retorno hoy</span></div><div id="h-sectores"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div></div>
       <div class="card">
@@ -1268,6 +1275,21 @@ async function renderHome(){
       </div>
     </div>
   </div>
+  <!-- ── Earnings Season ── -->
+  <div style="margin-top:12px">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Earnings Season</div>
+        <div class="tab-bar">
+          <button class="tab tab-sm on" onclick="switchEarnings('proximas',this)">Próximas</button>
+          <button class="tab tab-sm" onclick="switchEarnings('resultados',this)">Resultados</button>
+        </div>
+        <span id="h-earn-quarter" style="font-size:10px;color:var(--text3);margin-left:auto"></span>
+      </div>
+      <div id="h-earn-proximas"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div id="h-earn-resultados" style="display:none"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+    </div>
+  </div>
   <div>
     <div class="sec-label" style="margin-bottom:10px">Noticias — @DeltaOne y otras fuentes</div>
     <div class="card">
@@ -1277,8 +1299,9 @@ async function renderHome(){
     </div>
   </div>`;
 
-  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();
+  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();
   window.moduleTimers.home=setInterval(()=>{loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();},30000);
+  setInterval(()=>{loadEarnings();},600000);
 }
 
 // ── Home: KPIs de mercado ──
@@ -1494,7 +1517,7 @@ async function loadHomeSectores(){
     comMap['USO']?{symbol:'USO',name:'Oil',change_pct:comMap['USO'].change_pct,isCom:true,color:'var(--text3)'}:null,
   ].filter(Boolean);
 
-  const allRows=[...secRows,...extras];
+  const _seenSyms=new Set();const allRows=[...secRows,...extras].filter(r=>!_seenSyms.has(r.symbol)&&_seenSyms.add(r.symbol));
   const maxAbs=Math.max(...allRows.map(r=>Math.abs(Number(r.change_pct||0))),1);
   const pos=allRows.filter(r=>Number(r.change_pct||0)>=0);
   const neg=allRows.filter(r=>Number(r.change_pct||0)<0);
@@ -1508,6 +1531,119 @@ async function loadHomeSectores(){
 
   el.innerHTML=pos.map(row).join('')+(pos.length&&neg.length?'<div class="sec-sep"></div>':'')+neg.map(row).join('');
   setTimeout(()=>{el.querySelectorAll('[data-w]').forEach((b,i)=>{setTimeout(()=>{b.style.width=b.dataset.w+'%';},i*25);});},60);
+}
+
+// ── Home: Earnings Season ──
+function switchEarnings(tab,btn){
+  document.getElementById('h-earn-proximas').style.display=tab==='proximas'?'':'none';
+  document.getElementById('h-earn-resultados').style.display=tab==='resultados'?'':'none';
+  btn.closest('.tab-bar').querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+async function loadEarnings(){
+  const today=new Date().toISOString().slice(0,10);
+  const future=new Date(Date.now()+14*24*3600*1000).toISOString().slice(0,10);
+  const past=new Date(Date.now()-90*24*3600*1000).toISOString().slice(0,10);
+  const [upcoming,results]=await Promise.all([
+    sb('earnings_season',`report_date=gte.${today}&report_date=lte.${future}&order=report_date.asc,company.asc&limit=300`).catch(()=>[]),
+    sb('earnings_season',`reported=eq.true&report_date=gte.${past}&order=report_date.desc&limit=600`).catch(()=>[]),
+  ]);
+
+  // KPIs en Breadth
+  if(results&&results.length){
+    const total=results.length;
+    const beats=results.filter(r=>r.beat===true).length;
+    const misses=results.filter(r=>r.beat===false).length;
+    const eRep=document.getElementById('h-b-earn-rep');
+    const eBeat=document.getElementById('h-b-earn-beat');
+    const eMiss=document.getElementById('h-b-earn-miss');
+    const eBeatN=document.getElementById('h-b-earn-beat-n');
+    const eMissN=document.getElementById('h-b-earn-miss-n');
+    const eRepN=document.getElementById('h-b-earn-rep-n');
+    const eQ=document.getElementById('h-b-earn-quarter');
+    if(eRep)eRep.textContent=total;
+    if(eRepN)eRepN.textContent='reportaron';
+    if(eBeat){eBeat.textContent=Math.round(beats/total*100)+'%';}
+    if(eBeatN)eBeatN.textContent='n='+beats;
+    if(eMiss){eMiss.textContent=Math.round(misses/total*100)+'%';}
+    if(eMissN)eMissN.textContent='n='+misses;
+    // Quarter label
+    const qEl=document.getElementById('h-earn-quarter');
+    const latestQ=results[0]?.fiscal_quarter||'';
+    const qStr=latestQ?'Q '+latestQ.replace('-','/'):'';
+    if(eQ)eQ.textContent=qStr;
+    if(qEl)qEl.textContent=qStr?'Temporada '+qStr:'';
+  }
+
+  // Próximas presentaciones — agenda por día
+  const elPrx=document.getElementById('h-earn-proximas');
+  if(elPrx){
+    if(!upcoming||!upcoming.length){
+      elPrx.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin presentaciones próximas</div>';
+    }else{
+      const byDate={};
+      upcoming.forEach(e=>{if(!byDate[e.report_date])byDate[e.report_date]=[];byDate[e.report_date].push(e);});
+      let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+        +'<thead><tr><th class="th" style="padding:5px 12px;text-align:left;width:70px">Ticker</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:left">Empresa</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:center;width:55px">Hora</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:right;width:90px">EPS est.</th></tr></thead><tbody>';
+      Object.entries(byDate).forEach(([date,items])=>{
+        const d=new Date(date+'T12:00:00');
+        const dayStr=d.toLocaleDateString('es-AR',{weekday:'short',month:'short',day:'numeric'});
+        html+=`<tr><td colspan="4" style="padding:5px 12px 3px;background:rgba(255,255,255,.025);font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border)">${dayStr}</td></tr>`;
+        items.slice(0,10).forEach(e=>{
+          const timeLabel=e.report_time==='BMO'?'<span style="color:var(--cyan)">BMO</span>':e.report_time==='AMC'?'<span style="color:var(--amber)">AMC</span>':'<span style="color:var(--text4)">—</span>';
+          const est=e.eps_estimate!=null?'$'+Number(e.eps_estimate).toFixed(2):'—';
+          html+=`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${e.symbol}</td>
+            <td style="padding:5px 12px;font-size:10px;color:var(--text3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.company||''}</td>
+            <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center">${timeLabel}</td>
+            <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;color:var(--text2)">${est}</td>
+          </tr>`;
+        });
+        if(items.length>10)html+=`<tr><td colspan="4" style="padding:3px 12px;font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace">+${items.length-10} más...</td></tr>`;
+      });
+      html+='</tbody></table></div>';
+      elPrx.innerHTML=html;
+    }
+  }
+
+  // Resultados — lista beats/misses
+  const elRes=document.getElementById('h-earn-resultados');
+  if(elRes){
+    if(!results||!results.length){
+      elRes.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin datos</div>';
+    }else{
+      let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
+        +'<thead><tr>'
+        +'<th class="th" style="padding:5px 12px;text-align:left;width:70px">Ticker</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:left">Empresa</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:center;width:70px">Fecha</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:right;width:80px">EPS est.</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:right;width:80px">EPS real</th>'
+        +'<th class="th" style="padding:5px 12px;text-align:right;width:90px">Resultado</th>'
+        +'</tr></thead><tbody>';
+      results.slice(0,120).forEach(e=>{
+        const d=new Date(e.report_date+'T12:00:00');
+        const dayStr=d.toLocaleDateString('es-AR',{month:'short',day:'numeric'});
+        const beatCls=e.beat===true?'up':e.beat===false?'dn':'';
+        const beatLabel=e.beat===true?'✓ Beat':e.beat===false?'✗ Miss':'—';
+        const surp=e.surprise_pct!=null?` <span style="font-size:9px;opacity:.8">${e.surprise_pct>0?'+':''}${e.surprise_pct.toFixed(1)}%</span>`:'';
+        html+=`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${e.symbol}</td>
+          <td style="padding:5px 12px;font-size:10px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.company||''}</td>
+          <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center;color:var(--text3)">${dayStr}</td>
+          <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right">${e.eps_estimate!=null?'$'+Number(e.eps_estimate).toFixed(2):'—'}</td>
+          <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right">${e.eps_actual!=null?'$'+Number(e.eps_actual).toFixed(2):'—'}</td>
+          <td class="${beatCls}" style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;font-weight:600">${beatLabel}${surp}</td>
+        </tr>`;
+      });
+      html+='</tbody></table></div>';
+      elRes.innerHTML=html;
+    }
+  }
 }
 
 // ── Home: Mercado USA ──

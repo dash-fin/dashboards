@@ -546,6 +546,26 @@
     </div>
   </div>
 
+  <!-- Posiciones hoy: subas / bajas -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head">
+      <div class="card-title">Posiciones hoy</div>
+      <div class="tab-bar">
+        <button class="tab tab-sm on" onclick="pfSwitchMovers('subas',this)">Subas</button>
+        <button class="tab tab-sm" onclick="pfSwitchMovers('bajas',this)">Bajas</button>
+      </div>
+    </div>
+    <div class="th-row" style="grid-template-columns:60px minmax(0,1fr) 76px 56px 72px;gap:6px;padding:5px 12px">
+      <span class="th">Ticker</span>
+      <span class="th">Tipo</span>
+      <span class="th" style="text-align:right">USD act.</span>
+      <span class="th" style="text-align:right">%Día</span>
+      <span class="th" style="text-align:right">P&L hoy</span>
+    </div>
+    <div id="pf-movers-subas" style="max-height:240px;overflow-y:auto"></div>
+    <div id="pf-movers-bajas" style="max-height:240px;overflow-y:auto;display:none"></div>
+  </div>
+
   <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:16px">
     <div class="kpi" style="--accent:var(--blue)">
       <div class="kpi-label">Invertido</div>
@@ -1245,6 +1265,46 @@ function pfRender() {
   pfRenderAlloc(byTipo, totAct);
   pfRenderTypeDistribs(calced);
   pfRenderPositions(calced);
+  pfRenderMovers(calced);
+}
+
+// ── Posiciones hoy: Subas / Bajas ────────────────────────
+function pfSwitchMovers(dir,btn){
+  document.getElementById('pf-movers-subas').style.display=dir==='subas'?'':'none';
+  document.getElementById('pf-movers-bajas').style.display=dir==='bajas'?'':'none';
+  btn.closest('.tab-bar').querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function pfRenderMovers(calced){
+  const movers=calced
+    .filter(p=>p.tipo!=='OPCION'&&p.changeLocal!=null&&p.usdAct!=null&&p.usdAct>0)
+    .map(p=>{
+      const chgPct=Number(p.changeLocal);
+      const chgUsd=(chgPct/100)*p.usdAct;
+      return{ticker:p.ticker_ars,tipo:p.tipo,usdAct:p.usdAct,chgPct,chgUsd};
+    });
+  const subas=movers.filter(p=>p.chgPct>0).sort((a,b)=>b.chgPct-a.chgPct);
+  const bajas=movers.filter(p=>p.chgPct<0).sort((a,b)=>a.chgPct-b.chgPct);
+  const renderList=(list,elId)=>{
+    const el=document.getElementById(elId);if(!el)return;
+    if(!list.length){el.innerHTML='<div style="padding:12px;text-align:center;font-size:11px;color:var(--text3)">Sin datos</div>';return;}
+    el.innerHTML=list.map(p=>{
+      const cls=p.chgPct>0?'up':'dn';
+      const sSep=p.chgPct>=0?'+':'';
+      const uSep=p.chgUsd>=0?'+':'';
+      const tipo=p.tipo.replace('_',' ').toLowerCase().replace(/^\w/,c=>c.toUpperCase());
+      return`<div style="display:grid;grid-template-columns:60px minmax(0,1fr) 76px 56px 72px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--border);align-items:center">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${p.ticker}</span>
+        <span style="font-size:10px;color:var(--text3)">${tipo}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right">$${Math.round(p.usdAct).toLocaleString('es-AR')}</span>
+        <span class="${cls}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right">${sSep}${p.chgPct.toFixed(2)}%</span>
+        <span class="${cls}" style="font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right">${uSep}$${Math.abs(Math.round(p.chgUsd)).toLocaleString('es-AR')}</span>
+      </div>`;
+    }).join('');
+  };
+  renderList(subas,'pf-movers-subas');
+  renderList(bajas,'pf-movers-bajas');
 }
 
 // ── Donut ────────────────────────────────────────────────
