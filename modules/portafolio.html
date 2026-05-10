@@ -4353,7 +4353,7 @@ async function buildLwcChart(pos, entryPrice) {
       const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
       const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SB_KEY, 'apikey': SB_KEY },
+        headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
         body: JSON.stringify({ mode: 'yahoo-history', symbols: [pos.ticker_adr], startDate: '2024-01-01' }),
       });
       if (res.ok) {
