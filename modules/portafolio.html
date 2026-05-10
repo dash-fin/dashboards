@@ -4236,7 +4236,8 @@ window.pfShowChart = function(posId) {
   const fmtArs = v => '$'+Number(v).toLocaleString('es-AR',{maximumFractionDigits:2});
   const fmtUsd = v => v != null ? 'U$S '+Math.round(v).toLocaleString('es-AR') : '—';
   // Entry: si tiene ADR mostrar precio ADR de entrada, si no precio ARS
-  const entryPrice = esUsd && pos.adrInv ? pos.adrInv : pos.precio_compra_ars;
+  // Si no tenemos precio_adr_compra en la BD, estimamos: precio_compra_ars / mep_compra
+  const entryPrice = esUsd ? (pos.adrInv || (pos.mep_compra>0 ? pos.precio_compra_ars/pos.mep_compra : 0)) : pos.precio_compra_ars;
   const entrySymbol = esUsd ? 'U$S ' : '$';
   document.getElementById('pch_entrada').textContent = entrySymbol+Number(entryPrice).toLocaleString('es-AR',{maximumFractionDigits:esUsd?2:0});
   document.getElementById('pch_cant').textContent = Number(pos.cantidad).toLocaleString('es-AR');
