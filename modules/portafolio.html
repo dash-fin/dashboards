@@ -3322,7 +3322,10 @@ async function pfBackfillPnL(opts = {}) {
     ].filter(p=>p.ticker&&p.qty>0&&p.open);
 
     if(!allPos.length) throw new Error('Sin posiciones');
-    const startDate = allPos.reduce((m,p)=>p.open<m?p.open:m, allPos[0].open);
+    // startDate desde posiciones activas solamente — los trades pueden arrancar antes (bonos de feb/mar)
+    const startDate = (posRows||[]).length
+      ? (posRows||[]).reduce((m,p)=>p.fecha_compra<m?p.fecha_compra:m, posRows[0].fecha_compra)
+      : allPos[0].open;
 
     // days: limitar rango; force: sobreescribir existentes
     let minDate = startDate;
