@@ -1246,9 +1246,13 @@ async function renderHome(){
           <div class="breadth-cell"><div class="breadth-lbl">RSI &gt;70</div><div class="breadth-num" id="h-b-rsi" style="color:var(--amber)">—</div><div class="breadth-sub">sobrecomp.</div></div>
         </div>
         <div style="padding:5px 16px 3px;font-size:8px;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;border-top:1px solid var(--border)">Earnings · <span id="h-b-earn-quarter" style="letter-spacing:0;text-transform:none">—</span></div>
-        <div style="padding:5px 16px 6px;display:flex;justify-content:space-between;align-items:baseline">
+        <div style="padding:5px 16px 3px;display:flex;justify-content:space-between;align-items:baseline">
           <span style="font-size:8px;color:var(--text3)">Reportaron</span>
           <span id="h-b-earn-rep" style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--text)">—</span>
+        </div>
+        <div style="padding:2px 16px 5px;display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:8px;color:var(--text3)">Faltan</span>
+          <span id="h-b-earn-falt" style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--amber)">—</span>
         </div>
         <div style="padding:4px 16px 4px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
           <span style="font-size:9px;color:var(--text3)">Beat <span id="h-b-earn-beat" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--green)">—</span></span>
@@ -1615,6 +1619,8 @@ async function loadEarnings(){
     if(eRep)eRep.textContent=beats+misses;
     if(eBeat)eBeat.textContent=beats;
     if(eMiss)eMiss.textContent=misses;
+    const eFalt=document.getElementById('h-b-earn-falt');
+    if(eFalt)eFalt.textContent=(upcoming||[]).length;
     const noEstRow=document.getElementById('h-b-earn-noest-row');
     const noEstEl=document.getElementById('h-b-earn-noest');
     if(noEstEl)noEstEl.textContent=noEst;
@@ -1635,26 +1641,25 @@ async function loadEarnings(){
     }else{
       const byDate={};
       upcoming.forEach(e=>{if(!byDate[e.report_date])byDate[e.report_date]=[];byDate[e.report_date].push(e);});
-      let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
-        +'<thead><tr><th class="th" style="padding:5px 12px;text-align:left;width:70px">Ticker</th>'
-        +'<th class="th" style="padding:5px 12px;text-align:left">Empresa</th>'
-        +'<th class="th" style="padding:5px 12px;text-align:center;width:55px">Hora</th>'
-        +'<th class="th" style="padding:5px 12px;text-align:right;width:90px">EPS est.</th></tr></thead><tbody>';
+      let html='<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
+        +'<colgroup><col style="width:62px"><col style="width:46px"><col style="width:70px"></colgroup>'
+        +'<thead><tr><th class="th" style="padding:5px 10px;text-align:left">Ticker</th>'
+        +'<th class="th" style="padding:5px 10px;text-align:center">Hora</th>'
+        +'<th class="th" style="padding:5px 10px;text-align:right">EPS est.</th></tr></thead><tbody>';
       Object.entries(byDate).forEach(([date,items])=>{
         const d=new Date(date+'T12:00:00');
         const dayStr=d.toLocaleDateString('es-AR',{weekday:'short',month:'short',day:'numeric'});
-        html+=`<tr><td colspan="4" style="padding:5px 12px 3px;background:rgba(255,255,255,.025);font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border)">${dayStr}</td></tr>`;
+        html+=`<tr><td colspan="3" style="padding:5px 10px 3px;background:rgba(255,255,255,.025);font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border)">${dayStr}</td></tr>`;
         items.slice(0,10).forEach(e=>{
           const timeLabel=e.report_time==='BMO'?'<span style="color:var(--cyan)">BMO</span>':e.report_time==='AMC'?'<span style="color:var(--amber)">AMC</span>':'<span style="color:var(--text4)">—</span>';
           const est=e.eps_estimate!=null?'$'+Number(e.eps_estimate).toFixed(2):'—';
           html+=`<tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${e.symbol}</td>
-            <td style="padding:5px 12px;font-size:10px;color:var(--text3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.company||''}</td>
-            <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center">${timeLabel}</td>
-            <td style="padding:5px 12px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;color:var(--text2)">${est}</td>
+            <td style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${e.symbol}</td>
+            <td style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center">${timeLabel}</td>
+            <td style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;color:var(--text2)">${est}</td>
           </tr>`;
         });
-        if(items.length>10)html+=`<tr><td colspan="4" style="padding:3px 12px;font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace">+${items.length-10} más...</td></tr>`;
+        if(items.length>10)html+=`<tr><td colspan="3" style="padding:3px 10px;font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace">+${items.length-10} más...</td></tr>`;
       });
       html+='</tbody></table></div>';
       elPrx.innerHTML=html;
