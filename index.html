@@ -1250,9 +1250,12 @@ async function renderHome(){
           <span style="font-size:8px;color:var(--text3)">Reportaron</span>
           <span id="h-b-earn-rep" style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--text)">—</span>
         </div>
-        <div style="padding:4px 16px 6px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
+        <div style="padding:4px 16px 4px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border)">
           <span style="font-size:9px;color:var(--text3)">Beat <span id="h-b-earn-beat" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--green)">—</span></span>
           <span style="font-size:9px;color:var(--text3)">Miss <span id="h-b-earn-miss" style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--red)">—</span></span>
+        </div>
+        <div id="h-b-earn-noest-row" style="padding:2px 16px 6px;display:none">
+          <span style="font-size:8px;color:var(--text4)">+ <span id="h-b-earn-noest">0</span> sin estimado previo</span>
         </div>
         </div>
       </div>
@@ -1289,6 +1292,7 @@ async function renderHome(){
         </div>
         <span id="h-earn-quarter" style="font-size:10px;color:var(--text3);margin-left:auto"></span>
       </div>
+      <div style="padding:3px 14px 4px;border-bottom:1px solid var(--border);font-size:8px;color:var(--text4)">S&amp;P 500 · ARG · BRA — acciones en seguimiento</div>
       <div id="h-earn-proximas"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
       <div id="h-earn-resultados" style="display:none"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
     </div>
@@ -1587,9 +1591,12 @@ async function loadEarnings(){
   const today=new Date().toISOString().slice(0,10);
   const future=new Date(Date.now()+14*24*3600*1000).toISOString().slice(0,10);
   const past=new Date(Date.now()-90*24*3600*1000).toISOString().slice(0,10);
+  const usaRows=await sb('mercado_usa','select=symbol').catch(()=>[]);
+  const usaSet=new Set((usaRows||[]).map(r=>r.symbol));
+  const symFilter=usaSet.size?`&symbol=in.(${[...usaSet].map(s=>'"'+s+'"').join(',')})` :'';
   const [upcoming,results]=await Promise.all([
-    sb('earnings_season',`report_date=gte.${today}&report_date=lte.${future}&order=report_date.asc,company.asc&limit=300`).catch(()=>[]),
-    sb('earnings_season',`reported=eq.true&report_date=gte.${past}&order=report_date.desc&limit=600`).catch(()=>[]),
+    sb('earnings_season',`report_date=gte.${today}&report_date=lte.${future}&order=report_date.asc,company.asc&limit=300${symFilter}`).catch(()=>[]),
+    sb('earnings_season',`reported=eq.true&report_date=gte.${past}&order=report_date.desc&limit=600${symFilter}`).catch(()=>[]),
   ]);
 
   // KPIs en Breadth
@@ -1604,9 +1611,14 @@ async function loadEarnings(){
     const eMissN=document.getElementById('h-b-earn-miss-n');
     const eRepN=document.getElementById('h-b-earn-rep-n');
     const eQ=document.getElementById('h-b-earn-quarter');
+    const noEst=results.filter(r=>r.beat===null).length;
     if(eRep)eRep.textContent=beats+misses;
     if(eBeat)eBeat.textContent=beats;
     if(eMiss)eMiss.textContent=misses;
+    const noEstRow=document.getElementById('h-b-earn-noest-row');
+    const noEstEl=document.getElementById('h-b-earn-noest');
+    if(noEstEl)noEstEl.textContent=noEst;
+    if(noEstRow)noEstRow.style.display=noEst>0?'':'none';
     // Quarter label
     const qEl=document.getElementById('h-earn-quarter');
     const latestQ=results[0]?.fiscal_quarter||'';
