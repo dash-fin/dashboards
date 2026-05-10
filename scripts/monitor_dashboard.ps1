@@ -278,42 +278,68 @@ if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
                 $chk = Invoke-RestMethod -Uri "$SB_URL/rest/v1/pnl_diario?user_email=eq.$emailEnc&fecha=eq.$hoy&select=fecha" -Headers $SB_HEADERS -ErrorAction Stop
                 if ($chk.Count -gt 0) { $pnlCount++; continue }
 
-                # Posiciones de este usuario
+                # Posiciones activas del portafolio
                 $posAll   = Invoke-RestMethod -Uri "$SB_URL/rest/v1/portafolio?activo=eq.true&tipo=neq.OPCION&user_email=eq.$emailEnc&select=ticker_ars,tipo,cantidad,fecha_compra" -Headers $SB_HEADERS -ErrorAction Stop
                 if (-not $posAll -or $posAll.Count -eq 0) { continue }
                 $posExist = $posAll | Where-Object { $_.fecha_compra -and $_.fecha_compra -lt $hoy }
 
-                # Precios ARS actuales para los tickers de este usuario
-                $tks = ($posAll | Select-Object -ExpandProperty ticker_ars -Unique) -join '","'
-                $pxR = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mercado?symbol=in.(`"$tks`")&settlement=eq.24hs&select=symbol,last" -Headers $SB_HEADERS -ErrorAction Stop
-                $px  = @{}; $pxR | ForEach-Object { $px[$_.symbol] = [double]$_.last }
+                # Trades CEDEAR no-intradía aún abiertos al cierre de hoy (fecha_cierre > hoy)
+                # Estos no están en portafolio pero sí forman parte del patrimonio del día
+                $tradesAbiertos = @()
+                try {
+                    $tradesAbiertos = @(Invoke-RestMethod -Uri "$SB_URL/rest/v1/trades?user_email=eq.$emailEnc&tipo=eq.CEDEAR&fecha_cierre=gt.$hoy&select=ticker_ars,cantidad,fecha_apertura" -Headers $SB_HEADERS -ErrorAction Stop)
+                } catch {}
 
-                # valor_usd = patrimonio total
+                # Trades CEDEAR intradía cerrados hoy (fecha_apertura=hoy AND fecha_cierre=hoy)
+                # Su ganancia_usd se suma al pnl del día
+                $tradesToday = @()
+                try {
+                    $tradesToday = @(Invoke-RestMethod -Uri "$SB_URL/rest/v1/trades?user_email=eq.$emailEnc&tipo=eq.CEDEAR&fecha_apertura=eq.$hoy&fecha_cierre=eq.$hoy&select=ganancia_usd" -Headers $SB_HEADERS -ErrorAction Stop)
+                } catch {}
+                $intradayGain = ($tradesToday | Where-Object { $_.ganancia_usd } | Measure-Object -Property ganancia_usd -Sum).Sum
+                if (-not $intradayGain) { $intradayGain = 0.0 }
+
+                # Todos los tickers a consultar (portafolio + trades abiertos)
+                $allTickers = @($posAll | Select-Object -ExpandProperty ticker_ars) + @($tradesAbiertos | Select-Object -ExpandProperty ticker_ars) | Select-Object -Unique
+                $tks = ($allTickers) -join '","'
+                $pxR = Invoke-RestMethod -Uri "$SB_URL/rest/v1/mercado?symbol=in.(`"$tks`")&settlement=eq.24hs&select=symbol,last" -Headers $SB_HEADERS -ErrorAction Stop
+                $px  = @{}; $pxR | ForEach-Object { if ($_.last) { $px[$_.symbol] = [double]$_.last } }
+
+                # valor_usd = portafolio activo + trades CEDEAR abiertos (sin intradía)
                 $totalUsd = 0
                 foreach ($p in $posAll) {
                     $precio = $px[$p.ticker_ars]; if (-not $precio) { continue }
                     $factor = if ($BONOS -contains $p.tipo) { 100 } else { 1 }
                     $totalUsd += ([double]$p.cantidad * $precio) / ($factor * $mepHoy)
                 }
+                foreach ($t in $tradesAbiertos) {
+                    $precio = $px[$t.ticker_ars]; if (-not $precio) { continue }
+                    $totalUsd += ([double]$t.cantidad * $precio) / $mepHoy
+                }
                 $totalUsd = [math]::Round($totalUsd, 2)
 
-                # existingUsd = solo posiciones que ya existían ayer (pnl sin capital nuevo)
+                # existingUsd = posiciones pre-existentes + trades abiertos (pnl limpio de capital nuevo)
                 $existingUsd = 0
                 foreach ($p in $posExist) {
                     $precio = $px[$p.ticker_ars]; if (-not $precio) { continue }
                     $factor = if ($BONOS -contains $p.tipo) { 100 } else { 1 }
                     $existingUsd += ([double]$p.cantidad * $precio) / ($factor * $mepHoy)
                 }
+                foreach ($t in $tradesAbiertos) {
+                    $precio = $px[$t.ticker_ars]; if (-not $precio) { continue }
+                    $existingUsd += ([double]$t.cantidad * $precio) / $mepHoy
+                }
                 $existingUsd = [math]::Round($existingUsd, 2)
 
-                # P&L vs día anterior de este usuario
+                # P&L vs día anterior + ganancia de trades intradía del día
                 $ayerR  = Invoke-RestMethod -Uri "$SB_URL/rest/v1/pnl_diario?user_email=eq.$emailEnc&fecha=lt.$hoy&order=fecha.desc&limit=1&select=valor_usd" -Headers $SB_HEADERS -ErrorAction Stop
                 $pnlUsd = $null; $pnlPct = $null
                 if ($ayerR.Count -gt 0 -and [double]$ayerR[0].valor_usd -gt 0) {
                     $v0     = [double]$ayerR[0].valor_usd
-                    $pnlUsd = [math]::Round($existingUsd - $v0, 2)
+                    $pnlUsd = [math]::Round(($existingUsd - $v0) + $intradayGain, 2)
                     $pnlPct = [math]::Round(($existingUsd - $v0) / $v0 * 100, 4)
                 }
+                if ($intradayGain -ne 0) { Write-Log "INFO PnL: $email — intraday gain = $intradayGain" }
 
                 $row = @{ user_email=$email; fecha=$hoy; valor_usd=$totalUsd; pnl_usd=$pnlUsd; pnl_pct=$pnlPct } | ConvertTo-Json
                 Invoke-RestMethod -Uri "$SB_URL/rest/v1/pnl_diario" -Method Post -Headers $postH -Body $row | Out-Null
