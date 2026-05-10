@@ -1426,6 +1426,7 @@ async function loadHomePortfolio(){
       enriched: enriched, best: best, worst: worst,
       saId: "h-suba-accent", baId: "h-baja-accent"
     };
+    console.log('__pfHomeData saved:', window.__pfHomeData.totalPnl);
     // Render KPIs solo si toggle ya esta en mostrar
     var pfc = document.getElementById("pfSaldoContainer");
     if (pfc && pfc.dataset.hidden === "false") {
@@ -3063,6 +3064,8 @@ function togglePortfolioSaldo() {
     // Show: render KPIs from saved data
     if (window.__pfHomeData) {
       renderHomeKpis(window.__pfHomeData);
+    } else {
+      console.log('TOGGLE: no __pfHomeData');
     }
     btn.textContent = '👁️';
     btn.style.color = 'var(--text4)';
