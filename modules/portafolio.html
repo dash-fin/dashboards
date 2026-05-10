@@ -4311,13 +4311,74 @@ function getTvSymbol(pos) {
   return pos.ticker_ars + '.BA';
 }
 
-function buildLwcChart(pos, entryPrice) {
+async function buildLwcChart(pos, entryPrice) {
   const symbol = getTvSymbol(pos);
   const esUsd_ = !!pos.ticker_adr;
   const container = document.getElementById('pchLwcContainer');
   if (!container) return;
 
-  // Crear chart con tema oscuro similar a TV
+  // Mostrar loading
+  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Cargando datos históricos...</div>';
+
+  // ── Fetch histórico desde Yahoo / Rava ──
+  const YAHOO_URL = 'https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices';
+  let historicalData = [];
+
+  try {
+    // Determinar qué símbolo pedir y modo
+    const yahooSymbol = esUsd_ ? pos.ticker_adr : symbol; // ADR va directo a Yahoo; ARS a Rava
+    let ohlcData = [];
+
+    if (esUsd_) {
+      // ADR → Yahoo Finance (mode: yahoo-history)
+      const res = await fetch(YAHOO_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'yahoo-history',
+          symbols: [yahooSymbol],
+          startDate: '2024-01-01',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const rows = data[yahooSymbol] || [];
+        // yahoo-history devuelve {fecha, close}
+        ohlcData = rows
+          .filter(r => r.close != null)
+          .map(r => ({ time: r.fecha, value: r.close }));
+      }
+    } else {
+      // ARS → Rava (mode: rava-series) que devuelve {fecha, cierre}
+      const res = await fetch(YAHOO_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'rava-series',
+          symbols: [symbol],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const rows = data[symbol] || [];
+        ohlcData = rows
+          .filter(r => r.cierre > 0)
+          .map(r => ({ time: r.fecha, value: r.cierre }))
+          .sort((a, b) => a.time.localeCompare(b.time));
+      }
+    }
+
+    if (ohlcData.length >= 2) {
+      historicalData = ohlcData;
+    }
+  } catch (e) {
+    console.warn('[buildLwcChart] Error fetching history:', e);
+  }
+
+  // Limpiar loading
+  container.innerHTML = '';
+
+  // ── Crear chart ──
   const chart = LightweightCharts.createChart(container, {
     layout: {
       background: { type: 'solid', color: '#131322' },
@@ -4344,21 +4405,9 @@ function buildLwcChart(pos, entryPrice) {
     height: 500,
   });
 
-  // Obtener datos históricos (pfSeriesData existe en el scope global)
-  const rawData = window.pfSeriesData ? window.pfSeriesData[symbol] : null;
-  let seriesData = [];
-
-  if (rawData && rawData.length > 0) {
-    const sorted = [...rawData].sort((a,b) => a.fecha.localeCompare(b.fecha));
-    seriesData = sorted.map(d => ({
-      time: d.fecha,
-      value: d.cierre,
-    }));
-  }
-
-  // Crear series
+  // ── Serie de línea (con datos históricos o fallback) ──
   let mainSeries;
-  if (seriesData.length >= 2) {
+  if (historicalData.length >= 2) {
     mainSeries = chart.addLineSeries({
       color: '#7c7cf0',
       lineWidth: 2,
@@ -4369,9 +4418,9 @@ function buildLwcChart(pos, entryPrice) {
       crosshairMarkerBorderColor: '#7c7cf0',
       crosshairMarkerBackgroundColor: '#131322',
     });
-    mainSeries.setData(seriesData);
+    mainSeries.setData(historicalData);
   } else {
-    // Sin datos históricos: serie invisible de soporte para priceLines
+    // Sin datos: serie invisible para soportar priceLines
     mainSeries = chart.addLineSeries({
       color: 'transparent',
       lineWidth: 0,
@@ -4392,14 +4441,14 @@ function buildLwcChart(pos, entryPrice) {
     }
   }
 
-  // Price lines: ENTRY, SL, TP
+  // ── Price lines: ENTRY, SL, TP ──
   function addPriceLine(price, label, color) {
     if (price == null) return;
     mainSeries.createPriceLine({
       price: price,
       color: color,
       lineWidth: 2,
-      lineStyle: 2, // Dashed
+      lineStyle: 2,
       axisLabelVisible: true,
       title: label,
     });
@@ -4411,7 +4460,7 @@ function buildLwcChart(pos, entryPrice) {
 
   chart.timeScale().fitContent();
 
-  // ResizeObserver para responsividad
+  // ResizeObserver
   const ro = new ResizeObserver(entries => {
     for (const entry of entries) {
       const { width } = entry.contentRect;
