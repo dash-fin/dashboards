@@ -4246,8 +4246,8 @@ window.pfShowChart = function(posId) {
   const usdAct = (window.__pfMep && !esUsd && preco != null && preco !== '—') ? (preco*pos.cantidad)/(factor*window.__pfMep) : null;
   const gan    = esUsd ? (preco != null && preco !== '—' && pos.adrInv ? (preco*pos.cantidad)-(pos.adrInv*pos.cantidad) : null) : (usdInv!=null && usdAct!=null ? usdAct-usdInv : null);
   
-  document.getElementById('pch_invertido').textContent = esUsd ? fmtUsd(entryPrice*pos.cantidad) : fmtUsd(usdInv);
-  document.getElementById('pch_actual').textContent = esUsd && preco !== '—' ? fmtUsd(preco*pos.cantidad) : fmtUsd(usdAct);
+  document.getElementById('pch_invertido').textContent = fmtUsd(usdInv);
+  document.getElementById('pch_actual').textContent = fmtUsd(usdAct);
   if (gan != null) {
     const s = gan >= 0 ? '+' : '';
     const col = gan >= 0 ? 'var(--green)' : 'var(--red)';
@@ -4325,46 +4325,40 @@ async function buildLwcChart(pos, entryPrice) {
   let historicalData = [];
 
   try {
+    // Auth headers para Supabase edge function
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    const authH = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + SB_KEY,
+      'apikey': SB_KEY,
+    };
     // Determinar qué símbolo pedir y modo
-    const yahooSymbol = esUsd_ ? pos.ticker_adr : symbol; // ADR va directo a Yahoo; ARS a Rava
+    const yahooSymbol = esUsd_ ? pos.ticker_adr : symbol;
     let ohlcData = [];
 
     if (esUsd_) {
       // ADR → Yahoo Finance (mode: yahoo-history)
       const res = await fetch(YAHOO_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'yahoo-history',
-          symbols: [yahooSymbol],
-          startDate: '2024-01-01',
-        }),
+        headers: authH,
+        body: JSON.stringify({ mode: 'yahoo-history', symbols: [yahooSymbol], startDate: '2024-01-01' }),
       });
       if (res.ok) {
         const data = await res.json();
         const rows = data[yahooSymbol] || [];
-        // yahoo-history devuelve {fecha, close}
-        ohlcData = rows
-          .filter(r => r.close != null)
-          .map(r => ({ time: r.fecha, value: r.close }));
+        ohlcData = rows.filter(r => r.close != null).map(r => ({ time: r.fecha, value: r.close }));
       }
     } else {
-      // ARS → Rava (mode: rava-series) que devuelve {fecha, cierre}
+      // ARS → Rava (mode: rava-series)
       const res = await fetch(YAHOO_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'rava-series',
-          symbols: [symbol],
-        }),
+        headers: authH,
+        body: JSON.stringify({ mode: 'rava-series', symbols: [symbol] }),
       });
       if (res.ok) {
         const data = await res.json();
         const rows = data[symbol] || [];
-        ohlcData = rows
-          .filter(r => r.cierre > 0)
-          .map(r => ({ time: r.fecha, value: r.cierre }))
-          .sort((a, b) => a.time.localeCompare(b.time));
+        ohlcData = rows.filter(r => r.cierre > 0).map(r => ({ time: r.fecha, value: r.cierre })).sort((a, b) => a.time.localeCompare(b.time));
       }
     }
 
