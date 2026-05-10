@@ -4310,7 +4310,7 @@ async function buildLwcChart(pos, entryPrice) {
   container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Cargando...</div>';
 
   let seriesData = [];
-  const yahooSymbol = esUsd_ && pos.ticker_adr ? pos.ticker_adr : (pos.ticker_ars.endsWith('.BA') ? pos.ticker_ars : pos.ticker_ars+'.BA');
+  const yahooSymbol = esUsd_ && pos.ticker_adr ? pos.ticker_adr : pos.ticker_ars;
 
   try {
     if (esUsd_ && pos.ticker_adr) {
