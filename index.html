@@ -1275,8 +1275,14 @@ async function renderHome(){
       </div>
     </div>
   </div>
-  <!-- ── Earnings Season ── -->
-  <div style="margin-top:12px">
+  <!-- ── Portafolio + Earnings Season ── -->
+  <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:12px">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Portafolio hoy</div><div class="tab-bar"><button class="tab tab-sm on" onclick="switchHomePF('subas',this)">Subas</button><button class="tab tab-sm" onclick="switchHomePF('bajas',this)">Bajas</button></div></div>
+      <div class="th-row" style="grid-template-columns:62px 1fr 60px;gap:6px;padding:6px 10px"><span class="th">Ticker</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
+      <div id="h-pf-subas" style="max-height:320px;overflow-y:auto"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div id="h-pf-bajas" style="max-height:320px;overflow-y:auto;display:none"></div>
+    </div>
     <div class="card">
       <div class="card-head">
         <div class="card-title">Earnings Season</div>
@@ -1436,7 +1442,33 @@ async function loadHomePortfolio(){
       if(wv)wv.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.ticker}</span>`;
       if(ws)ws.innerHTML=`<span style="color:${worst.chg>=0?'var(--green)':'var(--red)'}">${worst.chg>=0?'+':''}${worst.chg.toFixed(2)}%</span><span style="color:var(--text3);margin-left:8px">\$${fmtAR(worst.last,2)}</span>`;
     }
+    renderHomePF(enriched);
   }catch(e){console.warn('loadHomePortfolio:',e);}
+}
+
+function switchHomePF(dir,btn){
+  document.getElementById('h-pf-subas').style.display=dir==='subas'?'':'none';
+  document.getElementById('h-pf-bajas').style.display=dir==='bajas'?'':'none';
+  btn.closest('.tab-bar').querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function renderHomePF(enriched){
+  const noAuth=!window.currentUser;
+  const render=(list,elId)=>{
+    const el=document.getElementById(elId);if(!el)return;
+    if(!list||!list.length){el.innerHTML='<div style="padding:12px;text-align:center;font-size:11px;color:var(--text3)">'+(noAuth?'— Inicia sesión':'Sin posiciones')+'</div>';return;}
+    el.innerHTML=list.map(r=>{
+      const cls=r.chg>0?'up':r.chg<0?'dn':'neu';
+      return `<div style="display:grid;grid-template-columns:62px 1fr 60px;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border)">
+        <span style="font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ticker}</span>
+        <span style="font-size:12px;font-family:'IBM Plex Mono',monospace;color:var(--text2);text-align:right">$${fmtAR(r.last,2)}</span>
+        <span style="font-size:12px;font-weight:700;font-family:'IBM Plex Mono',monospace;text-align:right" class="${cls}">${r.chg>=0?'+':''}${r.chg.toFixed(2)}%</span>
+      </div>`;
+    }).join('');
+  };
+  render([...enriched].sort((a,b)=>b.chg-a.chg),'h-pf-subas');
+  render([...enriched].sort((a,b)=>a.chg-b.chg),'h-pf-bajas');
 }
 
 // ── Home: Dólar ──
