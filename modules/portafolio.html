@@ -4336,13 +4336,32 @@ async function buildLwcChart(pos, entryPrice) {
   const container = document.getElementById('pchLwcContainer');
   if (!container) return;
 
-  // Mostrar loading
-  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Loading...</div>';
+  container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#434358;font-size:13px">Cargando...</div>';
 
-  // Esperar un tick para que el DOM renderice el loading, luego crear chart
-  await new Promise(r => setTimeout(r, 50));
+  let seriesData = [];
+  const yahooSymbol = esUsd_ && pos.ticker_adr ? pos.ticker_adr : (pos.ticker_ars.endsWith('.BA') ? pos.ticker_ars : pos.ticker_ars+'.BA');
 
-  // Limpiar loading
+  try {
+    if (esUsd_ && pos.ticker_adr) {
+      const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+      const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
+        body: JSON.stringify({ mode: 'yahoo-history', symbols: [pos.ticker_adr], startDate: '2024-01-01' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const rows = data[pos.ticker_adr] || [];
+        seriesData = rows.filter(r => r.close != null).map(r => ({ time: r.fecha, value: r.close }));
+      }
+    } else {
+      const rawData = window.pfSeriesData ? window.pfSeriesData[yahooSymbol] : null;
+      if (rawData && rawData.length > 0) {
+        seriesData = [...rawData].sort((a,b) => (a.fecha||'').localeCompare(b.fecha||'')).map(d => ({ time: d.fecha, value: d.cierre })).filter(d => d.time && d.value > 0);
+      }
+    }
+  } catch(e) { console.warn('[LWC] fetch error:', e); }
+
   container.innerHTML = '';
 
   const chart = LightweightCharts.createChart(container, {
@@ -4354,98 +4373,41 @@ async function buildLwcChart(pos, entryPrice) {
     width: container.clientWidth, height: 500,
   });
 
-  // Crear serie de velas inmediatamente
-  const mainSeries = chart.addCandlestickSeries({
-    upColor: '#26a69a',
-    downColor: '#ef5350',
-    borderDownColor: '#ef5350',
-    borderUpColor: '#26a69a',
-    wickDownColor: '#ef5350',
-    wickUpColor: '#26a69a',
-  });
-
-  try {
-    let seriesData = [];
-    if (esUsd_ && pos.ticker_adr) {
-      const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
-      const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY },
-        body: JSON.stringify({ mode: 'yahoo-history', symbols: [pos.ticker_adr], startDate: '2024-01-01' }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const rows = data[pos.ticker_adr] || [];
-        seriesData = rows.filter(r => r.close != null && r.open != null).map(r => ({
-          time: r.fecha,
-          open: r.open,
-          high: r.high,
-          low: r.low,
-          close: r.close,
-        }));
-      }
-    } else {
-      const symbol = pos.ticker_ars.endsWith('.BA') ? pos.ticker_ars : pos.ticker_ars+'.BA';
-      const rawData = window.pfSeriesData ? window.pfSeriesData[symbol] : null;
-      if (rawData && rawData.length > 0) {
-        const sorted = [...rawData].sort((a,b) => a.fecha.localeCompare(b.fecha));
-        seriesData = sorted
-          .filter(d => d.cierre > 0)
-          .map(d => {
-            const spread = d.cierre * 0.003;
-            return {
-              time: d.fecha,
-              open: d.cierre - spread + (Math.random() - 0.5) * spread,
-              high: d.cierre + spread * 2,
-              low: d.cierre - spread * 2,
-              close: d.cierre,
-            };
-          });
-      }
+  let mainSeries;
+  if (seriesData.length >= 2) {
+    mainSeries = chart.addLineSeries({
+      color: '#7c7cf0', lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+      crosshairMarkerVisible: true, crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: '#7c7cf0', crosshairMarkerBackgroundColor: '#131322',
+    });
+    mainSeries.setData(seriesData);
+  } else {
+    mainSeries = chart.addLineSeries({
+      color: 'transparent', lineWidth: 0, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    });
+    const preco = esUsd_ && pos.ticker_adr
+      ? (window.__pfAdrPrices ? (window.__pfAdrPrices[pos.ticker_adr]?.last ?? null) : null)
+      : (window.__pfPrices ? (window.__pfPrices[pos.ticker_ars]?.last ?? null) : null);
+    if (preco) {
+      const margin = Math.max(entryPrice, preco) * 0.15;
+      const now = new Date().toISOString().split('T')[0];
+      mainSeries.setData([
+        { time: now, value: Math.min(entryPrice, preco) - margin },
+        { time: now, value: Math.max(entryPrice, preco) + margin },
+      ]);
     }
-
-    if (seriesData.length >= 2) {
-      mainSeries.setData(seriesData);
-
-      // Línea vertical en fecha de compra
-      if (pos.fecha_compra) {
-        chart.timeScale().addVertLine({
-          time: pos.fecha_compra,
-          color: '#7c7cf066',
-          width: 1,
-          style: 2,
-          label: 'Compra',
-        });
-      }
-    } else {
-      // Sin datos históricos: mostrar fallback con precio actual
-      const preco = esUsd_ && pos.ticker_adr
-        ? (window.__pfAdrPrices ? (window.__pfAdrPrices[pos.ticker_adr]?.last ?? null) : null)
-        : (window.__pfPrices ? (window.__pfPrices[pos.ticker_ars]?.last ?? null) : null);
-      if (preco) {
-        const margin = Math.max(entryPrice, preco) * 0.15;
-        const now = new Date().toISOString().split('T')[0];
-        mainSeries.setData([
-          { time: now, open: Math.min(entryPrice, preco) - margin, high: Math.max(entryPrice, preco) + margin, low: Math.min(entryPrice, preco) - margin, close: Math.max(entryPrice, preco) + margin },
-        ]);
-      }
-    }
-
-    function addPriceLine(price, label, color) {
-      if (price == null) return;
-      mainSeries.createPriceLine({ price, color, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: label });
-    }
-
-    addPriceLine(entryPrice, 'ENTRY', '#7c7cf0');
-    if (pos.stop_loss) addPriceLine(pos.stop_loss, 'SL', '#ef5350');
-    if (pos.take_profit) addPriceLine(pos.take_profit, 'TP', '#26a69a');
-
-    chart.timeScale().fitContent();
-  } catch(e) {
-    console.warn('[LWC] error:', e);
-    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ef5350;font-size:12px">Error al cargar</div>';
-    return;
   }
+
+  function addPriceLine(price, label, color) {
+    if (price == null) return;
+    mainSeries.createPriceLine({ price, color, lineWidth: 2, lineStyle: 2, axisLabelVisible: true, title: label });
+  }
+
+  addPriceLine(entryPrice, 'ENTRY', '#7c7cf0');
+  if (pos.stop_loss) addPriceLine(pos.stop_loss, 'SL', '#ef5350');
+  if (pos.take_profit) addPriceLine(pos.take_profit, 'TP', '#26a69a');
+
+  chart.timeScale().fitContent();
 
   const ro = new ResizeObserver(entries => {
     for (const entry of entries) { const { width } = entry.contentRect; chart.applyOptions({ width }); }
