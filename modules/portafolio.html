@@ -927,8 +927,8 @@ const PF_COLS = [
   { id:'varlocal',   label:'Var %',         sortKey: p=>p.changeLocal??-Infinity, def:true  },
   { id:'adr',        label:'ADR',           sortKey: p=>p.ticker_adr||'',         def:true  },
   { id:'adrentrada', label:'P. Entrada ADR',sortKey: p=>p.adrInv??-Infinity,      def:true  },
-  { id:'stop_loss',  label:'SL $',         sortKey: p=>p.stop_loss??-Infinity,       def:false },
-  { id:'take_profit',label:'TP $',         sortKey: p=>p.take_profit??-Infinity,     def:false },
+  { id:'stop_loss',  label:'SL $',         sortKey: p=>p.stop_loss??-Infinity,       def:true },
+  { id:'take_profit',label:'TP $',         sortKey: p=>p.take_profit??-Infinity,     def:true },
   { id:'adrprecio',  label:'P. ADR',        sortKey: p=>p.adrActual??-Infinity,   def:true  },
   { id:'adrvar',     label:'Var ADR',       sortKey: p=>p.adrChangePct??-Infinity,def:true  },
   { id:'adrgan',     label:'Gan. ADR',      sortKey: p=>p.adrGan??-Infinity,      def:true  },
@@ -941,6 +941,18 @@ const PF_COLS = [
   { id:'pct',        label:'%',             sortKey: p=>p.pct??-Infinity,         def:true  },
 ];
 let pfColVis = Object.fromEntries(PF_COLS.map(c=>[c.id, c.def]));
+// Restaurar visibilidad guardada (sobrescribe defaults)
+function pfLoadColVis() {
+  try {
+    const stored = localStorage.getItem('pfColVis');
+    if(!stored) return;
+    const parsed = JSON.parse(stored);
+    if(typeof parsed !== 'object' || parsed === null) return;
+    Object.keys(parsed).forEach(function(k) {
+      if(k in pfColVis) pfColVis[k] = !!parsed[k];
+    });
+  } catch(e) { /* ignore */ }
+}
 let pfEditId = null;
 
 // ── Drag & drop column order persistence ────────────────
@@ -1973,6 +1985,7 @@ window.pfToggleColPanel = () => {
 };
 window.pfToggleCol = (id, vis) => {
   pfColVis[id] = vis;
+  try { localStorage.setItem('pfColVis', JSON.stringify(pfColVis)); } catch(e) {}
   pfRenderPositions(pfPositions.map(pfCalc));
 };
 document.addEventListener('click', e => {
@@ -4129,6 +4142,7 @@ function pfRenderCharts() {
 
 // ── Init — cargar y arrancar auto-refresh ─────────────────
 pfLoadColOrder();
+pfLoadColVis();
 pfLoadAll();
 window.moduleTimers = window.moduleTimers || {};
 window.moduleTimers.portafolio = setInterval(pfLoadAll, 30000);
@@ -4236,18 +4250,20 @@ window.pfShowChart = function(posId) {
   const levelsEl = document.getElementById('pchLevels');
   let levelsHtml = '';
 
-  // Entry badge
-  const entryPrice = pos.precio_compra_ars;
+  // Entry: si tiene ADR mostrar precio ADR, si no precio ARS
+  const entryPrice = pos.ticker_adr && pos.adrInv ? pos.adrInv : pos.precio_compra_ars;
+  const precioActualTv = pos.ticker_adr && pfAdrPrices[pos.ticker_adr]?.last != null ? pfAdrPrices[pos.ticker_adr].last : preco;
+  
   levelsHtml += `<span style="background:rgba(124,124,240,.15);color:#7c7cf0;border:1px solid rgba(124,124,240,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">ENTRY $${Number(entryPrice).toFixed(2)}</span>`;
 
   // SL badge
   if (pos.stop_loss) {
-    const slDist = preco !== '—' ? ((pos.stop_loss - preco) / preco * 100) : null;
+    const slDist = precioActualTv !== '—' && precioActualTv != null ? ((pos.stop_loss - precioActualTv) / precioActualTv * 100) : null;
     levelsHtml += `<span style="background:rgba(239,83,80,.15);color:#ef5350;border:1px solid rgba(239,83,80,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">SL $${Number(pos.stop_loss).toFixed(2)}${slDist != null ? ' ('+slDist.toFixed(2)+'%)' : ''}</span>`;
   }
   // TP badge
   if (pos.take_profit) {
-    const tpDist = preco !== '—' ? ((pos.take_profit - preco) / preco * 100) : null;
+    const tpDist = precioActualTv !== '—' && precioActualTv != null ? ((pos.take_profit - precioActualTv) / precioActualTv * 100) : null;
     levelsHtml += `<span style="background:rgba(38,166,154,.15);color:#26a69a;border:1px solid rgba(38,166,154,.3);border-radius:4px;padding:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600">TP $${Number(pos.take_profit).toFixed(2)}${tpDist != null ? ' ('+tpDist.toFixed(2)+'%)' : ''}</span>`;
   }
   // R:R
@@ -4277,13 +4293,11 @@ window.pfShowChart = function(posId) {
 };
 
 function getTvSymbol(pos) {
-  // Para tickers ARS (terminan en .BA): directamente el ticker_ars
-  // Para tickers ADR: usar NYSE:{ticker_adr}
-  if (pos.ticker_adr) {
-    // Si tiene ADR, usar ese para el chart
-    return 'NYSE:' + pos.ticker_adr;
-  }
-  // Si no tiene ADR, asumir que es .BA
+  // Si tiene ADR, usar el ticker ADR directamente (TV lo encuentra sin prefijo)
+  if (pos.ticker_adr) return pos.ticker_adr;
+  // Si termina en .BA ya está bien para BYMA
+  if (pos.ticker_ars && pos.ticker_ars.endsWith('.BA')) return pos.ticker_ars;
+  // Asumir BYMA
   return pos.ticker_ars + '.BA';
 }
 
