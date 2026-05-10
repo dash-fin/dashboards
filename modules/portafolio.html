@@ -3318,7 +3318,7 @@ async function pfBackfillPnL(opts = {}) {
     // La condición de exclusión usa <= para que una posición cerrada el mismo día de cálculo quede fuera.
     const allPos = [
       ...(posRows||[]).map(p=>({ticker:p.ticker_ars,tipo:p.tipo,qty:Number(p.cantidad),open:p.fecha_compra,close:null})),
-      ...(tradeRows||[]).filter(t=>t.tipo!=='OPCION'&&t.fecha_cierre).map(t=>({ticker:t.ticker_ars,tipo:t.tipo,qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre})),
+      ...(tradeRows||[]).filter(t=>t.tipo==='CEDEAR'&&t.fecha_cierre).map(t=>({ticker:t.ticker_ars,tipo:t.tipo,qty:Number(t.cantidad),open:t.fecha_apertura,close:t.fecha_cierre})),
     ].filter(p=>p.ticker&&p.qty>0&&p.open);
 
     if(!allPos.length) throw new Error('Sin posiciones');
