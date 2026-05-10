@@ -1285,8 +1285,8 @@ async function renderHome(){
       </div>
     </div>
   </div>
-  <!-- ── Earnings Season + Portafolio ── -->
-  <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px">
+  <!-- ── Earnings · Portafolio · Noticias ── -->
+  <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1.5fr);gap:12px">
     <div class="card">
       <div class="card-head">
         <div class="card-title">Earnings Season</div>
@@ -1297,22 +1297,19 @@ async function renderHome(){
         <span id="h-earn-quarter" style="font-size:10px;color:var(--text3);margin-left:auto"></span>
       </div>
       <div style="padding:3px 14px 4px;border-bottom:1px solid var(--border);font-size:8px;color:var(--text4)">S&amp;P 500 · ARG · BRA — acciones en seguimiento</div>
-      <div id="h-earn-proximas"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
-      <div id="h-earn-resultados" style="display:none"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div id="h-earn-proximas" style="max-height:260px;overflow-y:auto"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div id="h-earn-resultados" style="max-height:260px;overflow-y:auto;display:none"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
     </div>
     <div class="card">
       <div class="card-head"><div class="card-title">Portafolio hoy</div><div class="tab-bar"><button class="tab tab-sm on" onclick="switchHomePF('subas',this)">Subas</button><button class="tab tab-sm" onclick="switchHomePF('bajas',this)">Bajas</button></div></div>
       <div class="th-row" style="grid-template-columns:62px 1fr 60px;gap:6px;padding:6px 10px"><span class="th">Ticker</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span></div>
-      <div id="h-pf-subas" style="max-height:320px;overflow-y:auto"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
-      <div id="h-pf-bajas" style="max-height:320px;overflow-y:auto;display:none"></div>
+      <div id="h-pf-subas" style="max-height:260px;overflow-y:auto"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div id="h-pf-bajas" style="max-height:260px;overflow-y:auto;display:none"></div>
     </div>
-  </div>
-  <div>
-    <div class="sec-label" style="margin-bottom:10px">Noticias — @DeltaOne y otras fuentes</div>
     <div class="card">
-      <div class="card-head"><div class="card-title">Breaking &amp; Market News</div><span style="font-size:10px;color:var(--text3)" id="h-news-count">—</span></div>
-      <div class="news-search-wrap"><span class="news-search-icon">🔍</span><input class="news-search-input" id="h-news-search" placeholder="Filtrar por palabra clave..." oninput="homeFilterNews(this.value)"><span class="news-count" id="h-news-vis"></span></div>
-      <div id="h-news" style="max-height:280px;overflow-y:auto"><div style="padding:16px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
+      <div class="card-head"><div class="card-title">Market News</div><span style="font-size:10px;color:var(--text3)" id="h-news-count">—</span></div>
+      <div class="news-search-wrap"><span class="news-search-icon">🔍</span><input class="news-search-input" id="h-news-search" placeholder="Filtrar..." oninput="homeFilterNews(this.value)"><span class="news-count" id="h-news-vis"></span></div>
+      <div id="h-news" style="max-height:218px;overflow-y:auto"><div style="padding:16px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
     </div>
   </div>`;
 
@@ -1641,25 +1638,26 @@ async function loadEarnings(){
     }else{
       const byDate={};
       upcoming.forEach(e=>{if(!byDate[e.report_date])byDate[e.report_date]=[];byDate[e.report_date].push(e);});
-      let html='<table style="width:100%;border-collapse:collapse;table-layout:fixed">'
-        +'<colgroup><col style="width:62px"><col style="width:46px"><col style="width:70px"></colgroup>'
-        +'<thead><tr><th class="th" style="padding:5px 10px;text-align:left">Ticker</th>'
-        +'<th class="th" style="padding:5px 10px;text-align:center">Hora</th>'
-        +'<th class="th" style="padding:5px 10px;text-align:right">EPS est.</th></tr></thead><tbody>';
+      let html='<table style="width:100%;border-collapse:collapse">'
+        +'<thead><tr><th class="th" style="padding:4px 10px;text-align:left;width:62px">Ticker</th>'
+        +'<th class="th" style="padding:4px 10px;text-align:left">Empresa</th>'
+        +'<th class="th" style="padding:4px 10px;text-align:center;width:46px">Hora</th>'
+        +'<th class="th" style="padding:4px 10px;text-align:right;width:64px">EPS est.</th></tr></thead><tbody>';
       Object.entries(byDate).forEach(([date,items])=>{
         const d=new Date(date+'T12:00:00');
         const dayStr=d.toLocaleDateString('es-AR',{weekday:'short',month:'short',day:'numeric'});
-        html+=`<tr><td colspan="3" style="padding:5px 10px 3px;background:rgba(255,255,255,.025);font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border)">${dayStr}</td></tr>`;
+        html+=`<tr><td colspan="4" style="padding:5px 10px 3px;background:rgba(255,255,255,.025);font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border)">${dayStr}</td></tr>`;
         items.slice(0,10).forEach(e=>{
           const timeLabel=e.report_time==='BMO'?'<span style="color:var(--cyan)">BMO</span>':e.report_time==='AMC'?'<span style="color:var(--amber)">AMC</span>':'<span style="color:var(--text4)">—</span>';
           const est=e.eps_estimate!=null?'$'+Number(e.eps_estimate).toFixed(2):'—';
           html+=`<tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${e.symbol}</td>
-            <td style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center">${timeLabel}</td>
-            <td style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;color:var(--text2)">${est}</td>
+            <td style="padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text2)">${e.symbol}</td>
+            <td style="padding:4px 10px;font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.company||''}</td>
+            <td style="padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:center">${timeLabel}</td>
+            <td style="padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-align:right;color:var(--text2)">${est}</td>
           </tr>`;
         });
-        if(items.length>10)html+=`<tr><td colspan="3" style="padding:3px 10px;font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace">+${items.length-10} más...</td></tr>`;
+        if(items.length>10)html+=`<tr><td colspan="4" style="padding:3px 10px;font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace">+${items.length-10} más...</td></tr>`;
       });
       html+='</tbody></table></div>';
       elPrx.innerHTML=html;
