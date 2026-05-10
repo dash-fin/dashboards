@@ -1209,7 +1209,10 @@ async function renderHome(){
       <div class="kpi" id="h-kpi-mep"><div class="kpi-glow" style="background:linear-gradient(135deg,var(--green),var(--cyan))"></div><div class="kpi-label">MEP / CCL <span style="font-size:8px;opacity:.5">spread</span></div><div class="kpi-val" style="color:var(--green)">—</div><div class="kpi-sub"> </div></div>
     </div>
   </div>
-  <button class="btn-dolar" id="btnDolarToggle" onclick="toggleDolarChart()">📈 Ver gráfico del dólar</button>
+  <div style="display:flex;align-items:center;gap:8px">
+      <button class="btn-dolar" id="btnDolarToggle" onclick="toggleDolarChart()">📈 Ver gráfico del dólar</button>
+      <button onclick="shareChartImage()" type="button" title="Copiar imagen del dashboard" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px;white-space:nowrap">📷 Compartir</button>
+    </div>
   <div class="dolar-chart-area" id="dolarChartArea" style="display:none">
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px">
       <button class="flt" data-range="wtd" onclick="selectDolarRange('wtd',this)">WTD</button>
@@ -1228,11 +1231,13 @@ async function renderHome(){
     </div>
   </div>
   <div>
-    <div class="sec-label" style="margin-bottom:10px">Mi portafolio — hoy</div>
-    <div class="port-strip">
+    <div class="sec-label" style="margin-bottom:10px">Mi portafolio — hoy
+      <button onclick="togglePortfolioSaldo()" type="button" id="pfSaldoToggle" title="Mostrar/ocultar saldos" style="margin-left:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;cursor:pointer;color:var(--text4);font-size:10px">👁️</button>
+    </div>
+    <div class="port-strip" id="pfSaldoContainer">
       <div class="pkpi"><div class="pkpi-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">📈</div><div class="pkpi-info"><div class="pkpi-label">P&amp;L del día</div><div class="pkpi-val" id="h-pnl-val">—</div><div class="pkpi-sub" id="h-pnl-sub"> </div></div></div>
       <div class="pkpi"><div class="pkpi-accent" id="h-suba-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(16,232,152,.1)">▲</div><div class="pkpi-info"><div class="pkpi-label">Mayor suba portafolio</div><div class="pkpi-val" id="h-best-val">—</div><div class="pkpi-sub" id="h-best-sub"> </div></div></div>
-      <div class="pkpi"><div class="pkpi-accent" id="h-baja-accent" style="background:var(--redG)"></div><div class="pkpi-icon" style="background:rgba(255,64,96,.1)">▼</div><div class="pkpi-info"><div class="pkpi-label">Mayor baja portafolio</div><div class="pkpi-val" id="h-worst-val">—</div><div class="pkpi-sub" id="h-worst-sub"> </div></div></div>
+      <div class="pkpi"><div class="pkpi-accent" id="h-baja-accent" style="background:var(--greenG)"></div><div class="pkpi-icon" style="background:rgba(255,64,96,.1)">▼</div><div class="pkpi-info"><div class="pkpi-label">Mayor baja portafolio</div><div class="pkpi-val" id="h-worst-val">—</div><div class="pkpi-sub" id="h-worst-sub"> </div></div></div>
     </div>
   </div>
   <div>
@@ -3071,5 +3076,78 @@ async function selectDolarRange(range, el){
   }
 })();
 </script>
+<script>
+// Toggle ocultar saldos del portafolio
+function togglePortfolioSaldo() {
+  const container = document.getElementById('pfSaldoContainer');
+  const btn = document.getElementById('pfSaldoToggle');
+  if (!container) return;
+  const hidden = container.dataset.hidden === 'true';
+  container.dataset.hidden = hidden ? 'false' : 'true';
+  container.style.filter = hidden ? 'none' : 'blur(8px)';
+  container.style.pointerEvents = hidden ? 'auto' : 'none';
+  btn.textContent = hidden ? '👁️' : '👁️‍🗨️';
+  btn.style.color = hidden ? 'var(--text4)' : 'var(--amber)';
+}
+
+// Compartir imagen del dashboard (gráficos)
+function shareChartImage() {
+  // Capturar el área de gráficos principales
+  const charts = document.querySelectorAll('canvas');
+  if (!charts.length) return;
+  
+  // Crear canvas temporal que combine todos los charts visibles
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  const chartList = [];
+  let totalWidth = 0;
+  let totalHeight = 0;
+  let maxH = 0;
+  
+  charts.forEach(c => {
+    const rect = c.getBoundingClientRect();
+    if (rect.width > 100 && rect.height > 50) {
+      chartList.push(c);
+      totalWidth = Math.max(totalWidth, rect.width);
+      totalHeight += rect.height + 10;
+    }
+  });
+  
+  if (!chartList.length) return;
+  
+  // Aproximación simple: capturar cada chart y dibujar en un canvas
+  // Usar html2canvas no disponible, así que hacemos screenshot de toda la ventana
+  // y recortamos
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  chartList.forEach((c, i) => {
+    try {
+      const img = c.toDataURL('image/png');
+      const imgEl = new Image();
+      imgEl.onload = function() {
+        ctx.drawImage(imgEl, 0, 0);
+      };
+      imgEl.src = img;
+    } catch(e) {}
+  });
+  
+  // Usar canvas.toBlob para copiar al portapapeles
+  canvas.toBlob(function(blob) {
+    if (!blob) return;
+    navigator.clipboard.write([
+      new ClipboardItem({ 'image/png': blob })
+    ]).then(function() {
+      const btn = document.querySelector('[onclick*="shareChartImage"]');
+      if (btn) { btn.textContent = '✅ Copiado!'; setTimeout(() => { btn.textContent = '📷 Compartir'; }, 2000); }
+    }).catch(function(e) {
+      console.warn('Clipboard write failed:', e);
+      alert('No se pudo copiar. Intentá con screenshot manual.');
+    });
+  });
+}</script>
 </body>
 </html>

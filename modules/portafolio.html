@@ -546,37 +546,7 @@
 <!-- ── PANEL: RESUMEN ─────────────────────────────── -->
 <div class="sub-panel active" id="pfpanel-resumen">
 
-  <!-- Destacados del día -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px" id="pfDestacados">
-    <div class="card" style="padding:14px 16px;border-left:3px solid var(--green)">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">⬆ Mejor posición hoy</div>
-      <div id="pfBest" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">—</div>
-    </div>
-    <div class="card" style="padding:14px 16px;border-left:3px solid var(--red)">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">⬇ Peor posición hoy</div>
-      <div id="pfWorst" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)">—</div>
-    </div>
-  </div>
-
-  <!-- Posiciones hoy: subas / bajas -->
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-head">
-      <div class="card-title">Posiciones hoy</div>
-      <div class="tab-bar">
-        <button class="tab tab-sm on" onclick="pfSwitchMovers('subas',this)">Subas</button>
-        <button class="tab tab-sm" onclick="pfSwitchMovers('bajas',this)">Bajas</button>
-      </div>
-    </div>
-    <div class="th-row" style="grid-template-columns:60px minmax(0,1fr) 76px 56px 72px;gap:6px;padding:5px 12px">
-      <span class="th">Ticker</span>
-      <span class="th">Tipo</span>
-      <span class="th" style="text-align:right">USD act.</span>
-      <span class="th" style="text-align:right">%Día</span>
-      <span class="th" style="text-align:right">P&L hoy</span>
-    </div>
-    <div id="pf-movers-subas" style="max-height:240px;overflow-y:auto"></div>
-    <div id="pf-movers-bajas" style="max-height:240px;overflow-y:auto;display:none"></div>
-  </div>
+  
 
   <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:16px">
     <div class="kpi" style="--accent:var(--blue)">
