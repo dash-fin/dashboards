@@ -1665,7 +1665,7 @@ async function loadEarnings(){
     sb('earnings_season',`report_date=gte.${today}&report_date=lte.${future}&order=report_date.asc,company.asc&limit=300${symFilter}`).catch(()=>[]),
     sb('earnings_season',`reported=eq.true&report_date=gte.${past}&order=report_date.desc&limit=600${symFilter}`).catch(()=>[]),
   ]);
-  window.__earnCalendarWeek = { upcoming: upcoming || [], results: results || [] };
+  window.__earnCalendarWeek = { upcoming: upcoming || [], results: results || [] }; if (typeof renderEarningsCalendar === 'function') setTimeout(renderEarningsCalendar, 100);
 
   // KPIs en Breadth
   if(results&&results.length){
