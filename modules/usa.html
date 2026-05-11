@@ -272,12 +272,12 @@
       <div class="kpi-sub" id="tkpi-rsi30">—</div>
     </div>
   </div>
-  <div id="topo-grid" style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start">
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start">
     <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;overflow:hidden">
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px">Momentum 20d vs Volatilidad Relativa</span>
         <div style="display:flex;gap:12px">
-          <button onclick="captureElement(document.getElementById('topo-grid'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 8px;cursor:pointer;color:var(--text4);font-size:9px;white-space:nowrap;margin-right:4px">📷</button>
+          <button onclick="captureElement(document.getElementById('topoScatter').parentElement,this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 8px;cursor:pointer;color:var(--text4);font-size:9px;white-space:nowrap;margin-right:4px">📷</button>
           <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;background:rgba(22,184,94,.85)"></div>Alcista</div>
           <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;background:rgba(184,42,42,.85)"></div>Bajista</div>
           <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;border:1px dashed rgba(240,165,0,.7)"></div>Vol &gt;2x</div>
@@ -365,11 +365,11 @@
     </div>
     <div style="font-size:9px;color:var(--text4)" id="rrg-meta">—</div>
   </div>
-  <div id="rrg-chart-card" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-title">ETFs de Sectores — S&amp;P 500</div>
       <div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text4)">Benchmark: SPY · <span id="rrg-benchmark">EMA 10/26 · Cola 8w</span>
-        <button onclick="captureElement(document.getElementById('rrg-chart-card'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 8px;cursor:pointer;color:var(--text4);font-size:9px;white-space:nowrap">📷</button>
+        <button onclick="captureElement(document.getElementById('rrgChart').parentElement,this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 8px;cursor:pointer;color:var(--text4);font-size:9px;white-space:nowrap">📷</button>
       </div>
     </div>
     <div style="padding:14px 14px 8px"><canvas id="rrgChart"></canvas></div>
