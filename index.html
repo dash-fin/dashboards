@@ -1454,16 +1454,16 @@ async function loadHomePortfolio(){
     const pct=totalVal>0?(totalPnl/(totalVal-totalPnl))*100:0;
     const usd=mepVal?totalPnl/mepVal:null;
     if(pv)pv.innerHTML='<span style="color:'+col+'">'+(totalPnl>=0?'+':'')+'$'+fmtAR(Math.abs(totalPnl),0)+'</span>';
-    if(ps)ps.innerHTML='<span style="color:'+col+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span>'+(usd?'<span style="color:var(--text3);margin-left:6px">≈ USD <span style="color:'+col+'">'+(usd>=0?'+':'')+'$'+fmtUSD(Math.abs(usd),0)+'</span></span>':'');
+    if(ps)ps.innerHTML='<span style="color:'+col+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span>'+(usd?'<span style="color:var(--text3);margin-left:6px">≈ USD <span style="color:'+col+'">'+(usd>=0?'+':'')+fmtUSD(Math.abs(usd),0)+'</span></span>':'');
     if(enriched.length){
       const best=enriched.reduce((a,b)=>b.chg>a.chg?b:a);
       const worst=enriched.reduce((a,b)=>b.chg<a.chg?b:a);
       const sa=document.getElementById('h-suba-accent');if(sa)sa.style.background=best.chg>=0?'var(--greenG)':'var(--redG)';
       if(bv)bv.innerHTML='<span style="color:'+(best.chg>=0?'var(--green)':'var(--red)')+'">'+best.ticker+'</span>';
-      if(bs)bs.innerHTML='<span style="color:'+(best.chg>=0?'var(--green)':'var(--red)')+'">'+(best.chg>=0?'+':'')+best.chg.toFixed(2)+'%</span><span style="color:var(--text3);margin-left:8px">P&L: <span style="color:'+(best.pnl>=0?'var(--green)':'var(--red)')+'">'+(best.pnl>=0?'+':'')+'$'+fmtUSD(Math.abs(best.pnl),2)+'</span></span>';
+      if(bs)bs.innerHTML='<span style="color:'+(best.chg>=0?'var(--green)':'var(--red)')+'">'+(best.chg>=0?'+':'')+best.chg.toFixed(2)+'%</span><span style="color:var(--text3);margin-left:8px">P&L: <span style="color:'+(best.pnl>=0?'var(--green)':'var(--red)')+'">'+(best.pnl>=0?'+':'')+fmtUSD(Math.abs(best.pnl),2)+'</span></span>';
       const ba=document.getElementById('h-baja-accent');if(ba)ba.style.background=worst.chg<0?'var(--redG)':'var(--greenG)';
       if(wv)wv.innerHTML='<span style="color:'+(worst.chg>=0?'var(--green)':'var(--red)')+'">'+worst.ticker+'</span>';
-      if(ws)ws.innerHTML='<span style="color:'+(worst.chg>=0?'var(--green)':'var(--red)')+'">'+(worst.chg>=0?'+':'')+worst.chg.toFixed(2)+'%</span><span style="color:var(--text3);margin-left:8px">P&L: <span style="color:'+(worst.pnl>=0?'var(--green)':'var(--red)')+'">'+(worst.pnl>=0?'+':'')+'$'+fmtUSD(Math.abs(worst.pnl),2)+'</span></span>';
+      if(ws)ws.innerHTML='<span style="color:'+(worst.chg>=0?'var(--green)':'var(--red)')+'">'+(worst.chg>=0?'+':'')+worst.chg.toFixed(2)+'%</span><span style="color:var(--text3);margin-left:8px">P&L: <span style="color:'+(worst.pnl>=0?'var(--green)':'var(--red)')+'">'+(worst.pnl>=0?'+':'')+fmtUSD(Math.abs(worst.pnl),2)+'</span></span>';
     }
     renderHomePF(enriched);
     
