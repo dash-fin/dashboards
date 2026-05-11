@@ -3252,7 +3252,7 @@ async function captureElement(el, btnEl) {
   try {
     // Usar html2canvas si está disponible, si no, toDataURL directo del canvas
     if (typeof html2canvas === 'function') {
-      const c = await html2canvas(el, { backgroundColor: '#0d0d1a', scale: 4, useCORS: true });
+      const c = await html2canvas(el, { backgroundColor: '#0d0d1a', scale: 2, useCORS: true });
       c.toBlob(async function(blob) {
         if (!blob) { alert('Error al capturar'); return; }
         try {
