@@ -1331,7 +1331,7 @@ async function renderHome(){
     <div id="h-earncal"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
   </div>`;
 
-  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();renderEarningsCalendar();
+  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();
   window.moduleTimers.home=setInterval(()=>{loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();},30000);
   setInterval(()=>{loadEarnings();},600000);
 }
