@@ -1844,10 +1844,14 @@ function usDrawTopoScatter() {
   if (!canvas || !usAllData.length) return;
   const W = canvas.offsetWidth;
   if (!W) return;
-  canvas.width = W;
-  canvas.height = +canvas.getAttribute('height') || 460;
-  const H = canvas.height;
+  var dpr = window.devicePixelRatio || 1;
+  var H = +canvas.getAttribute('height') || 460;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
 
   const pad = {top:30, right:20, bottom:40, left:48};
