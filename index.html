@@ -1348,35 +1348,49 @@ function renderEarningsCalendar() {
     return;
   }
   var n = new Date(), dw = n.getDay();
-  var mon = new Date(n); mon.setDate(n.getDate() - (dw === 0 ? 6 : dw - 1));
-  var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+  var mon = new Date(n);
+  mon.setDate(n.getDate() - (dw === 0 ? 6 : dw - 1));
+  var fri = new Date(mon);
+  fri.setDate(mon.getDate() + 4);
   if (w) w.textContent = mon.toLocaleDateString('es-AR',{month:'short',day:'numeric'}) + ' \u2014 ' + fri.toLocaleDateString('es-AR',{month:'short',day:'numeric',year:'numeric'});
   var byDay = {};
   for (var i = 0; i < 7; i++) { var dt = new Date(mon); dt.setDate(mon.getDate() + i); byDay[dt.toISOString().slice(0,10)] = { date: dt, bto: [], amc: [], tns: [] }; }
-  d.upcoming.forEach(function(e) { if (byDay[e.report_date]) { if (e.report_time === 'BMO') byDay[e.report_date].bto.push(e); else if (e.report_time === 'AMC') byDay[e.report_date].amc.push(e); else byDay[e.report_date].tns.push(e); } });
-  var h = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px">';
+  d.upcoming.forEach(function(e) {
+    if (byDay[e.report_date]) {
+      if (e.report_time === 'BMO') byDay[e.report_date].bto.push(e);
+      else if (e.report_time === 'AMC') byDay[e.report_date].amc.push(e);
+      else byDay[e.report_date].tns.push(e);
+    }
+  });
+  var h = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:10px;font-family:monospace">';
   for (var i = 0; i < 5; i++) {
-    var dt = new Date(mon); dt.setDate(mon.getDate() + i);
+    var dt = new Date(mon);
+    dt.setDate(mon.getDate() + i);
     var k = dt.toISOString().slice(0,10), dd = byDay[k], today = k === n.toISOString().slice(0,10);
-    h += '<div style="display:flex;flex-direction:column;gap:0"><div style="text-align:center;padding:6px 4px;border-radius:8px;margin-bottom:4px;background:' + (today ? 'var(--amber)' : 'var(--bg3)') + ';color:' + (today ? '#1a1a2e' : 'var(--text)') + '"><div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px">' + dt.toLocaleDateString('es-AR',{weekday:'short'}).replace('.','') + '</div><div style="font-size:18px;font-weight:700;font-family:monospace">' + dt.getDate() + '</div></div>';
-    function ms(label, col, items, maxItems) {
+    h += '<div style="display:flex;flex-direction:column;gap:0;min-width:0"><div style="text-align:center;padding:5px 2px;border-radius:8px;margin-bottom:3px;background:' + (today ? 'var(--amber)' : 'var(--bg3)') + ';color:' + (today ? '#1a1a2e' : 'var(--text)') + '"><div style="font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px;font-family:monospace">' + dt.toLocaleDateString('es-AR',{weekday:'short'}).replace('.','') + '</div><div style="font-size:16px;font-weight:700;font-family:monospace">' + dt.getDate() + '</div></div>';
+    function ms(label, col, items) {
       if (items.length === 0) return '';
-      var s = '<div style="margin-bottom:2px"><div style="font-size:7px;color:' + col + ';text-transform:uppercase;letter-spacing:1px;padding:1px 4px;margin-bottom:2px">' + label + '</div>';
-      items.slice(0, maxItems).forEach(function(e) {
-        s += '<div style="font-family:monospace;font-size:10px;padding:2px 4px;border-radius:4px;background:rgba(255,255,255,.03);margin-bottom:1px;display:flex;justify-content:space-between"><span style="font-weight:600;color:var(--text2)">' + e.symbol + '</span><span style="color:var(--text3);font-size:8px">' + (e.eps_estimate != null ? '$' + Number(e.eps_estimate).toFixed(2) : '\u2014') + '</span></div>';
-      });
-      if (items.length > maxItems) s += '<div style="font-size:8px;color:var(--text4);text-align:center;padding:1px">+' + (items.length - maxItems) + ' mas</div>';
+      var MAX = 5;
+      var s = '<div style="margin-bottom:1px"><div style="font-size:7px;color:' + col + ';text-transform:uppercase;letter-spacing:1px;padding:1px 3px;margin-bottom:1px;font-family:monospace">' + label + '</div>';
+      var arr = items.slice(0, MAX);
+      for (var j = 0; j < arr.length; j++) {
+        var item = arr[j];
+        var logoUrl = 'https://img.logo.dev/ticker/' + item.symbol + '.svg?token=pk_gR9bYN7QTWiWjGeXRLagNw';
+        s += '<div style="font-family:monospace;font-size:9px;padding:1px 3px;border-radius:3px;background:rgba(255,255,255,.03);margin-bottom:1px;display:flex;align-items:center;gap:3px"><img src="' + logoUrl + '" alt="" style="width:14px;height:14px;border-radius:50%;flex-shrink:0" onerror="this.style.display=' + "'" + 'none' + "'" + '"><span style="font-weight:600;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + item.symbol + '</span><span style="margin-left:auto;color:var(--text3);font-size:7px;white-space:nowrap">' + (item.eps_estimate != null ? '$' + Number(item.eps_estimate).toFixed(2) : '\u2014') + '</span></div>';
+      }
+      if (items.length > MAX) s += '<div style="font-size:7px;color:var(--text4);text-align:center;padding:1px;font-family:monospace">+' + (items.length - MAX) + ' m\u00e1s</div>';
       return s;
     }
-    h += ms('Before Open','var(--cyan)', dd.bto, 6);
-    h += ms('After Close','var(--amber)', dd.amc, 6);
-    if (dd.tns.length > 0 && dd.bto.length === 0 && dd.amc.length === 0) h += ms('Time TBD','var(--text4)', dd.tns, 4);
-    if (dd.bto.length === 0 && dd.amc.length === 0 && dd.tns.length === 0) h += '<div style="font-size:9px;color:var(--text4);text-align:center;padding:12px 4px">-</div>';
+    h += ms('Before Open','var(--cyan)', dd.bto);
+    h += ms('After Close','var(--amber)', dd.amc);
+    if (dd.tns.length > 0 && dd.bto.length === 0 && dd.amc.length === 0) h += ms('Time TBD','var(--text4)', dd.tns);
+    if (dd.bto.length === 0 && dd.amc.length === 0 && dd.tns.length === 0) h += '<div style="font-size:8px;color:var(--text4);text-align:center;padding:10px 2px;font-family:monospace">-</div>';
     h += '</div>';
   }
-  h += '</div><div style="margin-top:6px;font-size:8px;color:var(--text4);text-align:right;padding:0 4px">S&P 500 - ARG - BRA</div>';
+  h += '</div><div style="margin-top:4px;font-size:7px;color:var(--text4);text-align:right;padding:0 4px;font-family:monospace">S&P 500 - ARG - BRA</div>';
   c.innerHTML = h;
 }
+
 
 // ── Home: KPIs de mercado ──
 async function loadHomeKPIs(){
