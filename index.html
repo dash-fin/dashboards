@@ -1319,11 +1319,158 @@ async function renderHome(){
       <div class="news-search-wrap"><span class="news-search-icon">🔍</span><input class="news-search-input" id="h-news-search" placeholder="Filtrar..." oninput="homeFilterNews(this.value)"><span class="news-count" id="h-news-vis"></span></div>
       <div id="h-news" style="max-height:218px;overflow-y:auto"><div style="padding:16px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
     </div>
+  </div>
+  <!-- ── Earnings Calendar (visual) ── -->
+  <div style="margin-top:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(135deg,var(--amber),#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Earnings Calendar</div>
+      <span style="font-size:10px;color:var(--text3)" id="h-earncal-week"></span>
+      <button onclick="captureElement(document.getElementById('h-earncal'),this)" type="button" title="Copiar imagen" style="margin-left:auto;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px;white-space:nowrap">📷 Compartir</button>
+    </div>
+    <div id="h-earncal"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
   </div>`;
 
-  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();
+  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();loadEarningsCalendar();
   window.moduleTimers.home=setInterval(()=>{loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();},30000);
   setInterval(()=>{loadEarnings();},600000);
+}
+
+
+// ── Home: Earnings Calendar visual ──
+function loadEarningsCalendar() {
+  const container = document.getElementById('h-earncal');
+  const weekEl = document.getElementById('h-earncal-week');
+  if (!container) return;
+  
+  const data = window.__earnCalendarWeek;
+  if (!data || !data.upcoming || !data.upcoming.length) {
+    container.innerHTML = '<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin earnings esta semana</div>';
+    if (weekEl) weekEl.textContent = '';
+    return;
+  }
+  
+  // Get current week Monday-Friday
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  
+  const weekStr = monday.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' }) 
+    + ' — ' + friday.toLocaleDateString('es-AR', { month: 'short', day: 'numeric', year: 'numeric' });
+  if (weekEl) weekEl.textContent = weekStr;
+  
+  // Also add BR/ARG SDRs not in mercado_usa
+  const extraSyms = new Set(['PBR','VALE','ABEV','BBD','ITUB','BSBR','GGB','BRFS','SUZ','AMX','CX','FMX','KOF','TEL','TV','WALMEX','BAP','BBDO','ERJ','SBS','VIV','CEPU','BIOX','CAAP','SID','GLOB','MELI','YPF','GGAL','SUPV','PAM','CRESY','TGS','EDN','IRS','LOMA','BMA']);
+  
+  // Filter to this week + our watchlist (mercado_usa + BR/ARG)
+  const dayNames = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  
+  // Group by day of week
+  const byDay = {};
+  for (let d = 0; d < 7; d++) {
+    const dt = new Date(monday);
+    dt.setDate(monday.getDate() + d);
+    const key = dt.toISOString().slice(0, 10);
+    byDay[key] = { date: dt, bto: [], amc: [], tns: [] };
+  }
+  
+  data.upcoming.forEach(e => {
+    if (!byDay[e.report_date]) return;
+    // Check if in our watchlist (mercado_usa ∩ extraSyms)
+    // We already filtered by mercado_usa in the query, so most are included
+    // But also include extraSyms
+    if (!extraSyms.has(e.symbol)) {
+      // It's already filtered against mercado_usa in the query, keep it
+    }
+    if (e.report_time === 'BMO') {
+      byDay[e.report_date].bto.push(e);
+    } else if (e.report_time === 'AMC') {
+      byDay[e.report_date].amc.push(e);
+    } else {
+      byDay[e.report_date].tns.push(e);
+    }
+  });
+  
+  // Render calendar
+  let html = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px">';
+  
+  // Header row (weekdays)
+  for (let d = 0; d < 5; d++) {
+    const dt = new Date(monday);
+    dt.setDate(monday.getDate() + d);
+    const key = dt.toISOString().slice(0, 10);
+    const dayData = byDay[key];
+    const isToday = key === now.toISOString().slice(0, 10);
+    
+    html += '<div style="display:flex;flex-direction:column;gap:0">';
+    // Day header
+    html += '<div style="text-align:center;padding:6px 4px;border-radius:8px;margin-bottom:4px;background:' + (isToday ? 'var(--amber)' : 'var(--bg3)') + ';color:' + (isToday ? '#1a1a2e' : 'var(--text)') + '">';
+    html += '<div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px">' + dt.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.','') + '</div>';
+    html += '<div style="font-size:18px;font-weight:700;font-family:\\'IBM Plex Mono\\',monospace">' + dt.getDate() + '</div>';
+    html += '</div>';
+    
+    // BTO section
+    if (dayData.bto.length > 0) {
+      html += '<div style="margin-bottom:2px">';
+      html += '<div style="font-size:7px;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;padding:1px 4px;margin-bottom:2px">Before Open</div>';
+      dayData.bto.slice(0, 6).forEach(e => {
+        html += '<div style="font-family:\\'IBM Plex Mono\\',monospace;font-size:10px;padding:2px 4px;border-radius:4px;background:rgba(255,255,255,.03);margin-bottom:1px;display:flex;justify-content:space-between">';
+        html += '<span style="font-weight:600;color:var(--text2)">' + e.symbol + '</span>';
+        html += '<span style="color:var(--text3);font-size:8px">' + (e.eps_estimate != null ? '$' + Number(e.eps_estimate).toFixed(2) : '—') + '</span>';
+        html += '</div>';
+      });
+      if (dayData.bto.length > 6) {
+        html += '<div style="font-size:8px;color:var(--text4);text-align:center;padding:1px">+' + (dayData.bto.length - 6) + ' más</div>';
+      }
+      html += '</div>';
+    }
+    
+    // AMC section
+    if (dayData.amc.length > 0) {
+      html += '<div style="margin-bottom:2px">';
+      html += '<div style="font-size:7px;color:var(--amber);text-transform:uppercase;letter-spacing:1px;padding:1px 4px;margin-bottom:2px">After Close</div>';
+      dayData.amc.slice(0, 6).forEach(e => {
+        html += '<div style="font-family:\\'IBM Plex Mono\\',monospace;font-size:10px;padding:2px 4px;border-radius:4px;background:rgba(255,255,255,.03);margin-bottom:1px;display:flex;justify-content:space-between">';
+        html += '<span style="font-weight:600;color:var(--text2)">' + e.symbol + '</span>';
+        html += '<span style="color:var(--text3);font-size:8px">' + (e.eps_estimate != null ? '$' + Number(e.eps_estimate).toFixed(2) : '—') + '</span>';
+        html += '</div>';
+      });
+      if (dayData.amc.length > 6) {
+        html += '<div style="font-size:8px;color:var(--text4);text-align:center;padding:1px">+' + (dayData.amc.length - 6) + ' más</div>';
+      }
+      html += '</div>';
+    }
+    
+    // TNS section (only if no BTO or AMC)
+    if (dayData.tns.length > 0 && dayData.bto.length === 0 && dayData.amc.length === 0) {
+      html += '<div style="margin-bottom:2px">';
+      html += '<div style="font-size:7px;color:var(--text4);text-transform:uppercase;letter-spacing:1px;padding:1px 4px;margin-bottom:2px">Time TBD</div>';
+      dayData.tns.slice(0, 4).forEach(e => {
+        html += '<div style="font-family:\\'IBM Plex Mono\\',monospace;font-size:10px;padding:2px 4px;border-radius:4px;margin-bottom:1px;display:flex;justify-content:space-between">';
+        html += '<span style="font-weight:600;color:var(--text2)">' + e.symbol + '</span>';
+        html += '<span style="color:var(--text3);font-size:8px">—</span>';
+        html += '</div>';
+      });
+      if (dayData.tns.length > 4) {
+        html += '<div style="font-size:8px;color:var(--text4);text-align:center;padding:1px">+' + (dayData.tns.length - 4) + ' más</div>';
+      }
+      html += '</div>';
+    }
+    
+    // Empty day
+    if (dayData.bto.length === 0 && dayData.amc.length === 0 && dayData.tns.length === 0) {
+      html += '<div style="font-size:9px;color:var(--text4);text-align:center;padding:12px 4px">—</div>';
+    }
+    
+    html += '</div>';
+  }
+  
+  html += '</div>';
+  html += '<div style="margin-top:6px;font-size:8px;color:var(--text4);text-align:right;padding:0 4px">S&P 500 · ARG · BRA</div>';
+  
+  container.innerHTML = html;
 }
 
 // ── Home: KPIs de mercado ──
@@ -1607,13 +1754,18 @@ async function loadEarnings(){
   const past=new Date(Date.now()-90*24*3600*1000).toISOString().slice(0,10);
   const usaRows=await sb('mercado_usa','select=symbol').catch(()=>[]);
   const usaSet=new Set((usaRows||[]).map(r=>r.symbol));
-  const symFilter=usaSet.size?`&symbol=in.(${[...usaSet].map(s=>'"'+s+'"').join(',')})` :'';
+  const watchSet=new Set([...usaSet,'PBR','VALE','ABEV','BBD','ITUB','BSBR','GGB','BRFS','SUZ','AMX','CX','FMX','KOF','TEL','TV','WALMEX','BAP','BBDO','ERJ','SBS','VIV','CEPU','BIOX','CAAP','SID','GLOB','MELI','YPF','GGAL','SUPV','PAM','CRESY','TGS','EDN','IRS','LOMA','BMA']);
+  const symFilter=watchSet.size?`&symbol=in.(${[...watchSet].map(s=>'"'+s+'"').join(',')})` :'';
   const [upcoming,results]=await Promise.all([
     sb('earnings_season',`report_date=gte.${today}&report_date=lte.${future}&order=report_date.asc,company.asc&limit=300${symFilter}`).catch(()=>[]),
     sb('earnings_season',`reported=eq.true&report_date=gte.${past}&order=report_date.desc&limit=600${symFilter}`).catch(()=>[]),
   ]);
-
-  // KPIs en Breadth
+  // Guardar datos para el calendario visual
+  // Filtrar solo los de esta semana (lun-vie) + BTO/AMC/TNS
+  window.__earnCalendarWeek = { upcoming: upcoming || [], results: results || [] };
+  if (typeof loadEarningsCalendar === 'function') {
+    loadEarningsCalendar();
+  }  // KPIs en Breadth
   if(results&&results.length){
     const total=results.length;
     const beats=results.filter(r=>r.beat===true).length;
