@@ -1330,7 +1330,7 @@ async function renderHome(){
     <div id="h-earncal"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
   </div>`;
 
-  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();
+  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();loadEarningsCalendar();
   window.moduleTimers.home=setInterval(()=>{loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();},30000);
   setInterval(()=>{loadEarnings();},600000);
 }
@@ -1765,9 +1765,7 @@ async function loadEarnings(){
   window.__earnCalendarWeek = { upcoming: upcoming || [], results: results || [] };
   if (typeof loadEarningsCalendar === 'function') {
     loadEarningsCalendar();
-  }
-
-  // KPIs en Breadth
+  }  // KPIs en Breadth
   if(results&&results.length){
     const total=results.length;
     const beats=results.filter(r=>r.beat===true).length;
