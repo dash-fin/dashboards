@@ -160,6 +160,18 @@
 .pfChartLink:hover { color: #9b9bf5; border-bottom-color: #9b9bf5; }
 
 /* ── Chart modal (LWC) ──────────────────────────────── */
+
+/* ── Animations ─────────────────────────────────────── */
+@keyframes pfFadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+#pfKPIGrid .kpi{animation:pfFadeUp .35s ease both}
+#pfKPIGrid .kpi:nth-child(1){animation-delay:0ms}
+#pfKPIGrid .kpi:nth-child(2){animation-delay:55ms}
+#pfKPIGrid .kpi:nth-child(3){animation-delay:110ms}
+#pfKPIGrid .kpi:nth-child(4){animation-delay:165ms}
+#pfKPIGrid .kpi:nth-child(5){animation-delay:220ms}
+#pfKPIGrid .kpi:nth-child(6){animation-delay:275ms}
+#pfKPIGrid .kpi:nth-child(7){animation-delay:330ms}
+#pfKPIGrid .kpi:nth-child(8){animation-delay:385ms}
 </style>
 <!-- ── Modal: Nueva / Editar posición ────────────────── -->
 <div id="pfModalOverlay" onclick="pfModalClose(event)" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center">
@@ -1318,6 +1330,9 @@ function pfRenderMovers(calced){
   };
   renderList(subas,'pf-movers-subas');
   renderList(bajas,'pf-movers-bajas');
+  ['pf-movers-subas','pf-movers-bajas'].forEach(id=>{
+    const el=document.getElementById(id);if(el)pfAnimRows(el);
+  });
 }
 
 // ── Donut ────────────────────────────────────────────────
@@ -2281,6 +2296,7 @@ function pfRenderPositions(calced) {
         </td>`;
     return '<tr>' + visibleCols.map(c=>cell(p,c.id)).join('') + actions + '</tr>';
   }).join('');
+  pfAnimRows(tbody);
 }
 
 // ── Filtro ────────────────────────────────────────────────
@@ -4484,6 +4500,20 @@ window.captureElement = async function(el, btnEl) {
     alert('Error al capturar imagen');
   }
 };
+
+// ── Row stagger animation ─────────────────────────────
+function pfAnimRows(container) {
+  const items = container.querySelectorAll('tr, [style*="display:grid"]');
+  items.forEach((el, i) => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(5px)';
+    el.style.transition = `opacity .2s ease ${i*22}ms, transform .2s ease ${i*22}ms`;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    }));
+  });
+}
 </script>
 <!-- ── Modal detalle de posición ── -->
 <div id="pfChartOverlay" onclick="pfChartClose(event)" 
