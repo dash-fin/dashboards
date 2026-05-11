@@ -370,7 +370,7 @@
       <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-title">Reloj de Rotación Sectorial</div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:9px;color:var(--text4)">Benchmark: SPY · <span id="rrg-benchmark">EMA 10/26 · Cola 8w</span></span>
-        <button onclick="captureElement(document.getElementById('rrg-chart-card'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--text2);font-size:10px;white-space:nowrap;letter-spacing:.5px;transition:all .15s">📷 Compartir</button>
+        <button onclick="captureElement(document.getElementById('rrg-chart-card'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 14px;cursor:pointer;color:var(--amber);font-size:12px;white-space:nowrap;letter-spacing:.5px;transition:all .15s;font-weight:600">📷 Compartir</button>
       </div>
     </div>
     <div style="padding:14px 14px 8px"><canvas id="rrgChart"></canvas></div>
@@ -1843,10 +1843,12 @@ function usDrawTopoScatter() {
   if (!canvas || !usAllData.length) return;
   const W = canvas.offsetWidth;
   if (!W) return;
-  canvas.width = W;
-  canvas.height = +canvas.getAttribute('height') || 460;
-  const H = canvas.height;
-  const ctx = canvas.getContext('2d');
+  canvas.width = W * 2;
+  canvas.height = (+canvas.getAttribute('height') || 460) * 2;
+  canvas.style.width = W + 'px';
+  canvas.style.height = (+canvas.getAttribute('height') || 460) + 'px';
+  var H = canvas.height;
+  var ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, W, H);
 
   const pad = {top:30, right:20, bottom:40, left:48};
