@@ -367,7 +367,7 @@
   </div>
   <div id="rrg-chart-card" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border)">
-      <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-title">Reloj de Rotación Sectorial</div>
+      <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-title">ETFs de Sectores — S&amp;P 500</div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:9px;color:var(--text4)">Benchmark: SPY · <span id="rrg-benchmark">EMA 10/26 · Cola 8w</span></span>
         <button onclick="captureElement(document.getElementById('rrg-chart-card'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 14px;cursor:pointer;color:var(--amber);font-size:12px;white-space:nowrap;letter-spacing:.5px;transition:all .15s;font-weight:600">📷 Compartir</button>
@@ -396,10 +396,11 @@
     </div>
   </div>
   <!-- Rotation clock -->
-  <div style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+  <div id="rotation-clock-card" style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
     <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px">Reloj de Rotación Sectorial</span>
-      <div style="display:flex;gap:14px">
+      <div style="display:flex;gap:14px;align-items:center">
+        <button onclick="captureElement(document.getElementById('rotation-clock-card'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--text2);font-size:10px;white-space:nowrap;letter-spacing:.5px">📷 Compartir</button>
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(0,229,168,.6)"></div>Leading</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(240,165,0,.6)"></div>Weakening</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(255,63,94,.6)"></div>Lagging</div>
