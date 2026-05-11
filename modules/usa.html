@@ -20,6 +20,19 @@
 .signal-stats{margin-left:auto;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
 .signal-pc{font-size:13px;font-weight:500}
 .pc-bull{color:var(--green)}.pc-bear{color:var(--red)}.pc-neutral{color:var(--text2)}
+
+/* ── Animations ─────────────────────────────────────── */
+@keyframes usaFadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes usaFadeIn{from{opacity:0}to{opacity:1}}
+#uspanel-topology .kpi{animation:usaFadeUp .35s ease both}
+#uspanel-topology .kpi:nth-child(1){animation-delay:0ms}
+#uspanel-topology .kpi:nth-child(2){animation-delay:55ms}
+#uspanel-topology .kpi:nth-child(3){animation-delay:110ms}
+#uspanel-topology .kpi:nth-child(4){animation-delay:165ms}
+#uspanel-topology .kpi:nth-child(5){animation-delay:220ms}
+#uspanel-topology .kpi:nth-child(6){animation-delay:275ms}
+#rrgChart{animation:usaFadeIn .5s ease both}
+.rrg-legend-item{opacity:0;transform:translateY(4px);transition:opacity .2s ease,transform .2s ease}
 </style>
 
 <div class="sub-tabs-row">
@@ -1409,15 +1422,23 @@ function rrgBuildLegend() {
     const qb=rrgQ(b.p[b.p.length-1][0],b.p[b.p.length-1][1]);
     return (qOrder[qa.name]??4)-(qOrder[qb.name]??4);
   });
+  let legendHtml='';
   allEntries.forEach(({s,c,p})=>{
     const last=p[p.length-1];
     const {name,color}=rrgQ(last[0],last[1]);
     const dimmed = rrgFilter!=='all' && name.toLowerCase()!==rrgFilter;
-    el.innerHTML+=`<div style="display:flex;align-items:center;gap:5px;font-size:9px;opacity:${dimmed?.35:1}">
+    legendHtml+=`<div class="rrg-legend-item" data-dimmed="${dimmed?'1':'0'}" style="display:flex;align-items:center;gap:5px;font-size:9px">
       <div style="width:7px;height:7px;border-radius:50%;background:${c};flex-shrink:0"></div>
       <span style="color:#a8bdd0">${s}</span>
       <span style="color:${color};font-size:8px">${name}</span>
     </div>`;
+  });
+  el.innerHTML=legendHtml;
+  el.querySelectorAll('.rrg-legend-item').forEach((item,i)=>{
+    setTimeout(()=>{
+      item.style.opacity=item.dataset.dimmed==='1'?'0.35':'1';
+      item.style.transform='translateY(0)';
+    }, i*18);
   });
 }
 
