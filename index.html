@@ -1342,7 +1342,11 @@ function renderEarningsCalendar() {
   var w = document.getElementById('h-earncal-week');
   if (!c) return;
   var d = window.__earnCalendarWeek;
-  if (!d || !d.upcoming || !d.upcoming.length) {
+  if (!d || !d.upcoming) {
+    setTimeout(renderEarningsCalendar, 500);
+    return;
+  }
+  if (!d.upcoming.length) {
     c.innerHTML = '<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin earnings esta semana</div>';
     if (w) w.textContent = '';
     return;
@@ -1679,7 +1683,7 @@ async function loadEarnings(){
     sb('earnings_season',`report_date=gte.${today}&report_date=lte.${future}&order=report_date.asc,company.asc&limit=300${symFilter}`).catch(()=>[]),
     sb('earnings_season',`reported=eq.true&report_date=gte.${past}&order=report_date.desc&limit=600${symFilter}`).catch(()=>[]),
   ]);
-  window.__earnCalendarWeek = { upcoming: upcoming || [], results: results || [] }; if (typeof renderEarningsCalendar === 'function') setTimeout(renderEarningsCalendar, 100);
+  window.__earnCalendarWeek = { upcoming: upcoming || [], results: results || [] }; if (typeof renderEarningsCalendar === 'function') { renderEarningsCalendar(); }
 
   // KPIs en Breadth
   if(results&&results.length){
