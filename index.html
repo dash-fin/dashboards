@@ -1319,11 +1319,63 @@ async function renderHome(){
       <div class="news-search-wrap"><span class="news-search-icon">🔍</span><input class="news-search-input" id="h-news-search" placeholder="Filtrar..." oninput="homeFilterNews(this.value)"><span class="news-count" id="h-news-vis"></span></div>
       <div id="h-news" style="max-height:218px;overflow-y:auto"><div style="padding:16px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
     </div>
+  </div>
+
+  <!-- ── Earnings Calendar visual ── -->
+  <div style="margin-top:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:linear-gradient(135deg,var(--amber),#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Earnings Calendar</div>
+      <span style="font-size:10px;color:var(--text3)" id="h-earncal-week"></span>
+      <button onclick="captureElement(document.getElementById('h-earncal'),this)" type="button" title="Copiar imagen" style="margin-left:auto;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px;white-space:nowrap">📷 Compartir</button>
+    </div>
+    <div id="h-earncal"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
   </div>`;
 
-  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();
+  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();renderEarningsCalendar();
   window.moduleTimers.home=setInterval(()=>{loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();},30000);
   setInterval(()=>{loadEarnings();},600000);
+}
+
+// ── Home: Earnings Calendar visual ──
+function renderEarningsCalendar() {
+  var c = document.getElementById('h-earncal');
+  var w = document.getElementById('h-earncal-week');
+  if (!c) return;
+  var d = window.__earnCalendarWeek;
+  if (!d || !d.upcoming || !d.upcoming.length) {
+    c.innerHTML = '<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin earnings esta semana</div>';
+    if (w) w.textContent = '';
+    return;
+  }
+  var n = new Date(), dw = n.getDay();
+  var mon = new Date(n); mon.setDate(n.getDate() - (dw === 0 ? 6 : dw - 1));
+  var fri = new Date(mon); fri.setDate(mon.getDate() + 4);
+  if (w) w.textContent = mon.toLocaleDateString('es-AR',{month:'short',day:'numeric'}) + ' \u2014 ' + fri.toLocaleDateString('es-AR',{month:'short',day:'numeric',year:'numeric'});
+  var byDay = {};
+  for (var i = 0; i < 7; i++) { var dt = new Date(mon); dt.setDate(mon.getDate() + i); byDay[dt.toISOString().slice(0,10)] = { date: dt, bto: [], amc: [], tns: [] }; }
+  d.upcoming.forEach(function(e) { if (byDay[e.report_date]) { if (e.report_time === 'BMO') byDay[e.report_date].bto.push(e); else if (e.report_time === 'AMC') byDay[e.report_date].amc.push(e); else byDay[e.report_date].tns.push(e); } });
+  var h = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px">';
+  for (var i = 0; i < 5; i++) {
+    var dt = new Date(mon); dt.setDate(mon.getDate() + i);
+    var k = dt.toISOString().slice(0,10), dd = byDay[k], today = k === n.toISOString().slice(0,10);
+    h += '<div style="display:flex;flex-direction:column;gap:0"><div style="text-align:center;padding:6px 4px;border-radius:8px;margin-bottom:4px;background:' + (today ? 'var(--amber)' : 'var(--bg3)') + ';color:' + (today ? '#1a1a2e' : 'var(--text)') + '"><div style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px">' + dt.toLocaleDateString('es-AR',{weekday:'short'}).replace('.','') + '</div><div style="font-size:18px;font-weight:700;font-family:monospace">' + dt.getDate() + '</div></div>';
+    function ms(label, col, items, maxItems) {
+      if (items.length === 0) return '';
+      var s = '<div style="margin-bottom:2px"><div style="font-size:7px;color:' + col + ';text-transform:uppercase;letter-spacing:1px;padding:1px 4px;margin-bottom:2px">' + label + '</div>';
+      items.slice(0, maxItems).forEach(function(e) {
+        s += '<div style="font-family:monospace;font-size:10px;padding:2px 4px;border-radius:4px;background:rgba(255,255,255,.03);margin-bottom:1px;display:flex;justify-content:space-between"><span style="font-weight:600;color:var(--text2)">' + e.symbol + '</span><span style="color:var(--text3);font-size:8px">' + (e.eps_estimate != null ? '$' + Number(e.eps_estimate).toFixed(2) : '\u2014') + '</span></div>';
+      });
+      if (items.length > maxItems) s += '<div style="font-size:8px;color:var(--text4);text-align:center;padding:1px">+' + (items.length - maxItems) + ' mas</div>';
+      return s;
+    }
+    h += ms('Before Open','var(--cyan)', dd.bto, 6);
+    h += ms('After Close','var(--amber)', dd.amc, 6);
+    if (dd.tns.length > 0 && dd.bto.length === 0 && dd.amc.length === 0) h += ms('Time TBD','var(--text4)', dd.tns, 4);
+    if (dd.bto.length === 0 && dd.amc.length === 0 && dd.tns.length === 0) h += '<div style="font-size:9px;color:var(--text4);text-align:center;padding:12px 4px">-</div>';
+    h += '</div>';
+  }
+  h += '</div><div style="margin-top:6px;font-size:8px;color:var(--text4);text-align:right;padding:0 4px">S&P 500 - ARG - BRA</div>';
+  c.innerHTML = h;
 }
 
 // ── Home: KPIs de mercado ──
@@ -1607,11 +1659,13 @@ async function loadEarnings(){
   const past=new Date(Date.now()-90*24*3600*1000).toISOString().slice(0,10);
   const usaRows=await sb('mercado_usa','select=symbol').catch(()=>[]);
   const usaSet=new Set((usaRows||[]).map(r=>r.symbol));
-  const symFilter=usaSet.size?`&symbol=in.(${[...usaSet].map(s=>'"'+s+'"').join(',')})` :'';
+  const watchSet=new Set([...usaSet,'PBR','VALE','ABEV','BBD','ITUB','BSBR','GGB','BRFS','SUZ','AMX','CX','FMX','KOF','TEL','TV','WALMEX','BAP','BBDO','ERJ','SBS','VIV','CEPU','BIOX','CAAP','SID','GLOB','MELI','YPF','GGAL','SUPV','PAM','CRESY','TGS','EDN','IRS','LOMA','BMA']);
+  const symFilter=watchSet.size?`&symbol=in.(${[...watchSet].map(s=>'"'+s+'"').join(',')})` :'';
   const [upcoming,results]=await Promise.all([
     sb('earnings_season',`report_date=gte.${today}&report_date=lte.${future}&order=report_date.asc,company.asc&limit=300${symFilter}`).catch(()=>[]),
     sb('earnings_season',`reported=eq.true&report_date=gte.${past}&order=report_date.desc&limit=600${symFilter}`).catch(()=>[]),
   ]);
+  window.__earnCalendarWeek = { upcoming: upcoming || [], results: results || [] };
 
   // KPIs en Breadth
   if(results&&results.length){
@@ -3100,7 +3154,7 @@ async function captureElement(el, btnEl) {
   try {
     // Usar html2canvas si está disponible, si no, toDataURL directo del canvas
     if (typeof html2canvas === 'function') {
-      const c = await html2canvas(el, { backgroundColor: '#0d0d1a', scale: 2, useCORS: true });
+      const c = await html2canvas(el, { backgroundColor: '#0d0d1a', scale: 4, useCORS: true });
       c.toBlob(async function(blob) {
         if (!blob) { alert('Error al capturar'); return; }
         try {
