@@ -162,7 +162,10 @@
 /* ── Chart modal (LWC) ──────────────────────────────── */
 
 /* ── Animations ─────────────────────────────────────── */
-/* (JS-driven — see pfAnimRows / pfAnimKPIs) */
+@keyframes flashUp{0%{background:rgba(0,229,168,.28)}100%{background:transparent}}
+@keyframes flashDn{0%{background:rgba(255,63,94,.28)}100%{background:transparent}}
+.flash-up{animation:flashUp .8s ease}
+.flash-dn{animation:flashDn .8s ease}
 </style>
 <!-- ── Modal: Nueva / Editar posición ────────────────── -->
 <div id="pfModalOverlay" onclick="pfModalClose(event)" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center">
@@ -1133,7 +1136,7 @@ function pfRenderDailyKpi(dailyUSD, totActUSD) {
   const pct    = totActUSD > 0 ? (dailyUSD / totActUSD) * 100 : null;
   const sign   = dailyUSD >= 0 ? '+' : '';
   const color  = dailyUSD >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('pfk-daily').textContent     = sign + 'U$S ' + Math.abs(Math.round(dailyUSD)).toLocaleString('es-AR');
+  pfCountUp(document.getElementById('pfk-daily'), dailyUSD, {prefix:'U$S ', sign});
   document.getElementById('pfk-daily').style.color     = color;
   document.getElementById('pfk-daily-pct').textContent = pct != null ? (sign + pct.toFixed(2) + '%') : 'variación diaria USD';
   document.getElementById('pfk-daily-pct').style.color = color;
@@ -1148,13 +1151,13 @@ function pfPatchOpsKpis() {
 
   // Valuación actual
   const totAct = pfBaseAct + opsUsd;
-  document.getElementById('pfk-actual').textContent = fmt(totAct);
+  pfCountUp(document.getElementById('pfk-actual'), totAct, {prefix:'U$S '});
 
   // Ganancia total
   const ganTotal    = pfBaseGan + opsUsd + pfGanRealizada;
   const ganTotalPct = pfBaseInv > 0 ? ganTotal / pfBaseInv : null;
   const sign = ganTotal>=0?'+':'';
-  document.getElementById('pfk-gain').textContent     = sign+fmt(ganTotal);
+  pfCountUp(document.getElementById('pfk-gain'), ganTotal, {prefix:'U$S ', sign});
   document.getElementById('pfk-gain-pct').textContent = ganTotalPct!=null?(sign+(ganTotalPct*100).toFixed(2)+'%'):'—';
   document.getElementById('pfk-gain-box').style.setProperty('--accent', ganTotal>=0?'var(--green)':'var(--red)');
 
@@ -1213,13 +1216,13 @@ function pfRender() {
   pfBaseDailyUSD = pfBaseDailyUSD_calc;
 
   const fmt = v => 'U$S '+Math.round(v).toLocaleString('es-AR');
-  document.getElementById('pfk-invested').textContent = fmt(totInv);
-  document.getElementById('pfk-actual').textContent   = fmt(totAct);
+  pfCountUp(document.getElementById('pfk-invested'), totInv, {prefix:'U$S '});
+  pfCountUp(document.getElementById('pfk-actual'),   totAct, {prefix:'U$S '});
 
   const ganTotal    = totGan + pfGanRealizada;
   const ganTotalPct = totInv > 0 ? ganTotal / totInv : null;
   const sign = ganTotal>=0?'+':'';
-  document.getElementById('pfk-gain').textContent     = sign+fmt(ganTotal);
+  pfCountUp(document.getElementById('pfk-gain'), ganTotal, {prefix:'U$S ', sign});
   document.getElementById('pfk-gain-pct').textContent = ganTotalPct!=null?(sign+(ganTotalPct*100).toFixed(2)+'%'):'—';
   document.getElementById('pfk-gain-box').style.setProperty('--accent', ganTotal>=0?'var(--green)':'var(--red)');
   document.getElementById('pfk-gain').title =
@@ -2250,13 +2253,13 @@ function pfRenderPositions(calced) {
         return `<td>${Number(p.cantidad).toLocaleString('es-AR')}</td>`;
       case 'pcompra':   return `<td>${fmtArs(p.precio_compra_ars)}</td>`;
       case 'pactual':   return `<td>${p.precioActual!=null?fmtArs(p.precioActual):'—'}</td>`;
-      case 'varlocal':  return `<td>${fmtVar(p.changeLocal, true)}</td>`;
+      case 'varlocal':  { const fv=p.changeLocal; return `<td class="${fv!=null?(fv>=0?'flash-up':'flash-dn'):''}">${fmtVar(fv, true)}</td>`; }
       case 'adr':       return `<td style="${border}color:var(--text2)">${p.ticker_adr||'—'}</td>`;
       case 'stop_loss':  return `<td style="color:var(--red)">${p.stop_loss ? fmtAdr(p.stop_loss) : '—'}</td>`;
       case 'take_profit':return `<td style="color:var(--green)">${p.take_profit ? fmtAdr(p.take_profit) : '—'}</td>`;
       case 'adrentrada':return `<td>${fmtAdr(p.adrInv)}</td>`;
       case 'adrprecio': return `<td>${fmtAdr(p.adrActual)}</td>`;
-      case 'adrvar':    return `<td>${fmtVar(p.adrChangePct, true)}</td>`;
+      case 'adrvar':    { const fv=p.adrChangePct; return `<td class="${fv!=null?(fv>=0?'flash-up':'flash-dn'):''}">${fmtVar(fv, true)}</td>`; }
       case 'adrgan':    return `<td style="color:${p.adrGan!=null?(p.adrGan>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${p.adrGan!=null?((p.adrGan>=0?'+':'')+fmtAdr(p.adrGan)):'—'}</td>`;
       case 'adrpct':    return `<td style="color:${p.adrPct!=null?(p.adrPct>=0?'var(--green)':'var(--red)'):'var(--text3)'}">${p.adrPct!=null?((p.adrPct>=0?'+':'')+(p.adrPct*100).toFixed(1)+'%'):'—'}</td>`;
       case 'beta':      return `<td>${p.betaAdr!=null?`<span style="color:${p.betaAdr>1.2?'var(--orange)':p.betaAdr<0.8?'var(--cyan)':'var(--text2)'}">${p.betaAdr.toFixed(2)}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`;
@@ -4495,6 +4498,19 @@ window.captureElement = async function(el, btnEl) {
 };
 
 // ── Animations ───────────────────────────────────────
+function pfCountUp(el, to, {prefix='', sign='', dur=600}={}) {
+  if (!el) return;
+  const absTo = Math.abs(to);
+  const start = performance.now();
+  const step = ts => {
+    const p = Math.min((ts - start) / dur, 1);
+    const ease = p < 0.5 ? 2*p*p : -1+(4-2*p)*p;
+    el.textContent = sign + prefix + Math.round(absTo * ease).toLocaleString('es-AR');
+    if (p < 1) requestAnimationFrame(step);
+    else el.textContent = sign + prefix + Math.round(absTo).toLocaleString('es-AR');
+  };
+  requestAnimationFrame(step);
+}
 function pfAnimEl(el, i) {
   el.style.opacity = '0';
   el.style.transform = 'translateY(6px)';
