@@ -21,17 +21,6 @@
 .signal-pc{font-size:13px;font-weight:500}
 .pc-bull{color:var(--green)}.pc-bear{color:var(--red)}.pc-neutral{color:var(--text2)}
 
-/* ── Animations ─────────────────────────────────────── */
-@keyframes usaFadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-@keyframes usaFadeIn{from{opacity:0}to{opacity:1}}
-#uspanel-topology .kpi{animation:usaFadeUp .35s ease both}
-#uspanel-topology .kpi:nth-child(1){animation-delay:0ms}
-#uspanel-topology .kpi:nth-child(2){animation-delay:55ms}
-#uspanel-topology .kpi:nth-child(3){animation-delay:110ms}
-#uspanel-topology .kpi:nth-child(4){animation-delay:165ms}
-#uspanel-topology .kpi:nth-child(5){animation-delay:220ms}
-#uspanel-topology .kpi:nth-child(6){animation-delay:275ms}
-#rrgChart{animation:usaFadeIn .5s ease both}
 .rrg-legend-item{opacity:0;transform:translateY(4px);transition:opacity .2s ease,transform .2s ease}
 </style>
 
@@ -1745,6 +1734,17 @@ document.addEventListener('click', e => {
 
 // ── Market Topology ─────────────────────────────────────────
 
+function usAnimEl(el, i) {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(6px)';
+  setTimeout(() => {
+    el.style.transition = 'opacity .25s ease, transform .25s ease';
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+  }, i * 55);
+}
+
+let _topoAnimated = false;
 function usRenderTopology() {
   if (!usAllData.length) return;
   const withChg = usAllData.filter(r => r.change_pct != null);
@@ -1858,6 +1858,11 @@ function usRenderTopology() {
   usRenderTopoSectors();
   usDrawTopoScatter();
   _topoSetupTip();
+  if (!_topoAnimated) {
+    _topoAnimated = true;
+    const grid = document.querySelector('#uspanel-topology .kpi')?.closest('[style*="grid"]');
+    if (grid) Array.from(grid.children).forEach((el, i) => usAnimEl(el, i));
+  }
 }
 
 function usDrawTopoScatter() {

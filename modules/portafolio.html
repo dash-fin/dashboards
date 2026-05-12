@@ -162,16 +162,7 @@
 /* ── Chart modal (LWC) ──────────────────────────────── */
 
 /* ── Animations ─────────────────────────────────────── */
-@keyframes pfFadeUp{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-#pfKPIGrid .kpi{animation:pfFadeUp .35s ease both}
-#pfKPIGrid .kpi:nth-child(1){animation-delay:0ms}
-#pfKPIGrid .kpi:nth-child(2){animation-delay:55ms}
-#pfKPIGrid .kpi:nth-child(3){animation-delay:110ms}
-#pfKPIGrid .kpi:nth-child(4){animation-delay:165ms}
-#pfKPIGrid .kpi:nth-child(5){animation-delay:220ms}
-#pfKPIGrid .kpi:nth-child(6){animation-delay:275ms}
-#pfKPIGrid .kpi:nth-child(7){animation-delay:330ms}
-#pfKPIGrid .kpi:nth-child(8){animation-delay:385ms}
+/* (JS-driven — see pfAnimRows / pfAnimKPIs) */
 </style>
 <!-- ── Modal: Nueva / Editar posición ────────────────── -->
 <div id="pfModalOverlay" onclick="pfModalClose(event)" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center">
@@ -560,7 +551,7 @@
 
   
 
-  <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:16px">
+  <div id="pfKPIGrid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:16px">
     <div class="kpi" style="--accent:var(--blue)">
       <div class="kpi-label">Invertido</div>
       <div class="kpi-val" id="pfk-invested">—</div>
@@ -1194,6 +1185,7 @@ function pfPatchOpsKpis() {
 
 // ── Render principal ─────────────────────────────────────
 function pfRender() {
+  pfAnimKPIs();
   const calced = pfPositions.map(pfCalc);
   const totInv = calced.reduce((s,p)=>s+(p.usdInv||0),0);
   const totAct = calced.reduce((s,p)=>s+(p.usdAct||0),0);
@@ -1330,9 +1322,10 @@ function pfRenderMovers(calced){
   };
   renderList(subas,'pf-movers-subas');
   renderList(bajas,'pf-movers-bajas');
-  ['pf-movers-subas','pf-movers-bajas'].forEach(id=>{
-    const el=document.getElementById(id);if(el)pfAnimRows(el);
-  });
+  const elS=document.getElementById('pf-movers-subas');
+  const elB=document.getElementById('pf-movers-bajas');
+  if(elS)pfAnimDivs(elS);
+  if(elB)pfAnimDivs(elB);
 }
 
 // ── Donut ────────────────────────────────────────────────
@@ -4501,18 +4494,28 @@ window.captureElement = async function(el, btnEl) {
   }
 };
 
-// ── Row stagger animation ─────────────────────────────
+// ── Animations ───────────────────────────────────────
+function pfAnimEl(el, i) {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(6px)';
+  setTimeout(() => {
+    el.style.transition = 'opacity .25s ease, transform .25s ease';
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+  }, i * 30);
+}
 function pfAnimRows(container) {
-  const items = container.querySelectorAll('tr, [style*="display:grid"]');
-  items.forEach((el, i) => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(5px)';
-    el.style.transition = `opacity .2s ease ${i*22}ms, transform .2s ease ${i*22}ms`;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      el.style.opacity = '1';
-      el.style.transform = 'translateY(0)';
-    }));
-  });
+  container.querySelectorAll('tr').forEach((el, i) => pfAnimEl(el, i));
+}
+function pfAnimDivs(container) {
+  Array.from(container.children).forEach((el, i) => pfAnimEl(el, i));
+}
+let _pfKPIAnimated = false;
+function pfAnimKPIs() {
+  if (_pfKPIAnimated) return;
+  _pfKPIAnimated = true;
+  const grid = document.getElementById('pfKPIGrid'); if (!grid) return;
+  Array.from(grid.children).forEach((el, i) => pfAnimEl(el, i * 1.5));
 }
 </script>
 <!-- ── Modal detalle de posición ── -->
