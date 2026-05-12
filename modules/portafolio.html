@@ -1198,21 +1198,16 @@ function pfRender() {
   // Guardar base para que pfPatchOpsKpis() pueda sumar opciones después
   pfBaseInv = totInv; pfBaseAct = totAct; pfBaseGan = totGan;
 
-  // Variación diaria del portafolio (sin opciones — se suman en pfPatchOpsKpis)
-  // Preferir cálculo vs último pnl_diario (excluye inyecciones de capital, más preciso)
-  let pfBaseDailyUSD_calc;
-  if (pfLastPnlUsd != null && pfLastPnlUsd > 0) {
-    const today = new Date().toISOString().split('T')[0];
-    const existingUsd = calced
-      .filter(p => p.fecha_compra && p.fecha_compra < today)
-      .reduce((s, p) => s + (p.usdAct || 0), 0);
-    pfBaseDailyUSD_calc = existingUsd - pfLastPnlUsd;
-  } else {
-    pfBaseDailyUSD_calc = calced.reduce((s, p) => {
+  // Variación diaria: cambio % de mercado solo en posiciones pre-existentes (fecha_compra < hoy).
+  // Robusto contra cambios de composición: ignora posiciones cerradas y abiertas hoy,
+  // sin depender de la exactitud del último pnl_diario.
+  const _pfToday = new Date().toISOString().split('T')[0];
+  const pfBaseDailyUSD_calc = calced
+    .filter(p => p.fecha_compra && p.fecha_compra < _pfToday)
+    .reduce((s, p) => {
       if (p.usdAct != null && p.changeLocal != null) return s + (p.usdAct * Number(p.changeLocal) / 100);
       return s;
     }, 0);
-  }
   pfBaseDailyUSD = pfBaseDailyUSD_calc;
 
   const fmt = v => 'U$S '+Math.round(v).toLocaleString('es-AR');
