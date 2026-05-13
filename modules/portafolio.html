@@ -709,7 +709,10 @@
       <div class="card" style="padding:18px 20px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Por ticker · % USD</span>
-          <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button id="pfTickersToggleBtn" onclick="pfTickersToggleAll()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:2px 8px;border:1px solid var(--border2);background:transparent;color:var(--text4);border-radius:2px;cursor:pointer;letter-spacing:0.5px">DESELECCIONAR TODAS</button>
+            <span id="pfChartTickersStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)">cargando...</span>
+          </div>
         </div>
         <div style="position:relative;height:240px">
           <canvas id="pfChartTickers"></canvas>
@@ -876,6 +879,7 @@ let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart2 = null;
 let pfPnlCache = null;
 let pfSpyCache = null;
+let pfPnlYTD   = []; // rows de pnl_diario desde ene-01, para fallback YTD cuando no hay MEP histórico
 // ⚠ FIX (mayo-2026): _pfEmail se cachea en pfLoadAll para que pfRenderResumenCalendar y
 // pfRenderBenchmark no queden vacíos cuando window.currentUser aún no resolvió (auth es async).
 // Si se elimina esta variable y se vuelve a usar window.currentUser?.email||'' directamente,
@@ -3158,6 +3162,16 @@ async function pfRenderResumenCalendar() {
       allRows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${combinedStart}&fecha=lte.${combinedEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
     } catch(e) { console.warn('[pnl-resumen-cal]', e); }
 
+    // Inyectar hoy con datos live si el snapshot aún no fue guardado
+    const _calToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+    if (!allRows.some(r => r.fecha === _calToday) && pfBaseAct > 0) {
+      const _liveUsd = +(pfBaseDailyUSD + (isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD)).toFixed(2);
+      const _livePct = +(_liveUsd / pfBaseAct * 100).toFixed(4);
+      if (_liveUsd !== 0) {
+        allRows = [...allRows, { fecha: _calToday, pnl_usd: _liveUsd, pnl_pct: _livePct, valor_usd: pfBaseAct, _live: true }];
+      }
+    }
+
     // Separar rows por mes
     const rowsByMonth = {};
     allRows.forEach(r => {
@@ -3212,11 +3226,12 @@ async function pfRenderResumenCalendar() {
       const pnl = row.pnl_usd;
       const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
       const bg = pnl >= 0 ? `rgba(0,229,168,${intensity.toFixed(2)})` : `rgba(255,63,94,${intensity.toFixed(2)})`;
-      const tip = `${key}\nP&L: U\$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
-      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden">
+      const liveBorder = row._live ? ';outline:1px dashed rgba(255,255,255,0.55);outline-offset:-1px' : '';
+      const tip = `${key}${row._live ? ' (en curso)' : ''}\nP&L: U\$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
+      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden${liveBorder}">
         <span style="font-size:8px;font-weight:600;text-align:center">${d}</span>
         ${!privacy ? `<span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>` : ''}
-        <span style="font-size:7px;opacity:0.85;white-space:nowrap;text-align:center">${fmtPct(row.pnl_pct||0)}</span>
+        <span style="font-size:7px;opacity:0.85;white-space:nowrap;text-align:center">${fmtPct(row.pnl_pct||0)}${row._live ? ' ●' : ''}</span>
       </div>`;
     }).join('');
 
@@ -3284,7 +3299,13 @@ window.pfRenderBenchmark = __pfRB;
     // ⚠ FIX (mayo-2026): ídem al calendario — usar _pfEmail como fallback para no depender de auth async.
     const _email = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
     pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct`) || [];
-    pfPnlCache = pnlRows;
+    pfPnlCache = pnlRows; // cachear SIN hoy para que cada render re-inyecte el dato live actualizado
+  }
+  // Inyectar hoy con pnl_pct live si el snapshot aún no fue guardado
+  const _benchToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+  if (pfBaseAct > 0 && !pnlRows.some(r => r.fecha === _benchToday)) {
+    const _todayPct = +((pfBaseDailyUSD + (isNaN(pfOpsDailyUSD)?0:pfOpsDailyUSD)) / pfBaseAct * 100).toFixed(4);
+    pnlRows = [...pnlRows, { fecha: _benchToday, pnl_pct: _todayPct }];
   }
   if(!pnlRows.length) {
     kpis.innerHTML = '';
@@ -3816,7 +3837,7 @@ async function pfLoadHistory() {
   try {
     const session = await window.sbAuth?.auth?.getSession();
     const token   = session?.data?.session?.access_token || SB_KEY;
-    const [ravaRes, mepSeriesRows, mepYtdRows, mepWtdRows] = await Promise.all([
+    const [ravaRes, mepSeriesRows, mepYtdRows, mepWtdRows, pnlYtdRows] = await Promise.all([
       fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': SB_KEY },
@@ -3825,12 +3846,14 @@ async function pfLoadHistory() {
       sb('mep_historico', `fecha=gte.${ytdStart}&order=fecha.asc&select=fecha,mep`),
       sb('mep_historico', `fecha=lte.${ytd}&order=fecha.desc&limit=1&select=fecha,mep`),
       sb('mep_historico', `fecha=lte.${wtd}&order=fecha.desc&limit=1&select=fecha,mep`),
+      sb('pnl_diario', `user_email=eq.${encodeURIComponent(_pfEmail)}&fecha=gte.${ytdStart}&order=fecha.asc&select=fecha,pnl_pct`).catch(()=>[]),
     ]);
     if (!ravaRes.ok) { console.warn('[pf-history] error HTTP', ravaRes.status, await ravaRes.text()); setHistErr('sin conexión'); return; }
     const data = await ravaRes.json();
     if (data.error) { console.warn('[pf-history]', data.error); setHistErr('API error'); return; }
     pfSeriesData = data;
     pfMepSeries  = mepSeriesRows || [];
+    pfPnlYTD     = pnlYtdRows   || [];
 
     // Pre-ordenar cada serie
     const sorted = {};
@@ -3889,7 +3912,20 @@ function pfRenderPeriodKPIs() {
   }
 
   const wtdPct = wtdD > 0 ? wtdN / wtdD : null;
-  const ytdPct = ytdD > 0 ? ytdN / ytdD : null;
+  let   ytdPct = ytdD > 0 ? ytdN / ytdD : null;
+
+  // Fallback YTD desde pnl_diario compuesto cuando no hay MEP histórico de dic-31
+  // (mep_historico comienza desde el inicio del portafolio, no desde ene-01 del año anterior)
+  if (ytdPct == null && pfPnlYTD.length > 0) {
+    const _ytdToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+    const rows = pfBaseAct > 0 && !pfPnlYTD.some(r => r.fecha === _ytdToday)
+      ? [...pfPnlYTD, { fecha: _ytdToday, pnl_pct: +((pfBaseDailyUSD + (isNaN(pfOpsDailyUSD)?0:pfOpsDailyUSD)) / pfBaseAct * 100).toFixed(4) }]
+      : pfPnlYTD;
+    let comp = 1;
+    rows.forEach(r => { if (r.pnl_pct != null) comp *= (1 + Number(r.pnl_pct) / 100); });
+    ytdPct = comp - 1;
+  }
+
   // wtdN ≈ cambio en USD del portafolio en el período
   const totAct = calced.reduce((s,p) => s+(p.usdAct||0), 0);
 
@@ -3982,6 +4018,15 @@ window.pfGetRangeDates = function pfGetRangeDates() {
 }
 
 // ── Gráficos ─────────────────────────────────────────────
+window.pfTickersToggleAll = function() {
+  if (!pfLineChart2) return;
+  const btn = document.getElementById('pfTickersToggleBtn');
+  const anyVisible = pfLineChart2.data.datasets.some((_, i) => pfLineChart2.isDatasetVisible(i));
+  pfLineChart2.data.datasets.forEach((_, i) => pfLineChart2.setDatasetVisibility(i, !anyVisible));
+  pfLineChart2.update('none');
+  if (btn) btn.textContent = anyVisible ? 'SELECCIONAR TODAS' : 'DESELECCIONAR TODAS';
+};
+
 function pfRenderCharts() {
   if (!pfSeriesData || !Object.keys(pfSeriesData).length) return;
 
@@ -4166,6 +4211,9 @@ function pfRenderCharts() {
         },
       },
     });
+    // Resetear texto del botón al re-renderizar (el chart nuevo tiene todas visibles)
+    const _tb = document.getElementById('pfTickersToggleBtn');
+    if (_tb) _tb.textContent = 'DESELECCIONAR TODAS';
   }
 }
 
