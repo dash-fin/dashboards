@@ -4136,13 +4136,35 @@ function pfRenderCharts() {
     }
   }
 
+  // ⚠ FIX (mayo-2026): precio de compra en USD por ticker como fallback cuando Rava no tiene serie.
+  // Aplica a CEDEARs nuevos / tickers recién abiertos que no tienen historia en la API.
+  const tickerPurchaseUsd = {};
+  for (const p of pfPositions) {
+    if (p.ticker_ars && p.precio_compra_ars > 0 && p.mep_compra > 0 && !tickerPurchaseUsd[p.ticker_ars]) {
+      tickerPurchaseUsd[p.ticker_ars] = p.precio_compra_ars / p.mep_compra;
+    }
+  }
+
   // Truncar eje X desde la compra más antigua del portafolio
   const earliestBuy = Object.keys(tickerBaseDate).length
     ? Object.values(tickerBaseDate).sort().find(Boolean)
     : null;
-  const filteredMepDates = earliestBuy
+  let filteredMepDates = earliestBuy
     ? allMepDates.filter(d => d >= earliestBuy)
     : allMepDates;
+
+  // ⚠ FIX (mayo-2026): inyectar hoy como punto live si no está en mep_historico todavía.
+  // mep_historico se llena a las 17hs — durante el día hoy no aparece en el eje X.
+  // pfMep y pfPrices[ticker].last ya están en memoria desde la carga inicial.
+  const _tickerToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+  const _tickerTodayDow = new Date(_tickerToday + 'T12:00:00Z').getDay();
+  const _injectToday = pfMep && pfMep > 0 && _tickerTodayDow !== 0 && _tickerTodayDow !== 6
+    && !filteredMepDates.includes(_tickerToday)
+    && (!earliestBuy || _tickerToday >= earliestBuy);
+  if (_injectToday) {
+    filteredMepDates = [...filteredMepDates, _tickerToday];
+    allMepByDate[_tickerToday] = pfMep;
+  }
 
   // Cada ticker inicia desde su propia fecha de compra
   function tickerHasDate(tk, d) {
@@ -4162,13 +4184,17 @@ function pfRenderCharts() {
       // Encontrar precio en fecha de compra
       const basePrice = closestBefore(arr, tickerStart);
       const mepBase = allMepByDate[tickerStart] || allMepByDate[allMepDates.find(d => d >= tickerStart)] || 1;
-      const baseUsd = basePrice ? basePrice / mepBase : 0;
+      // ⚠ FIX (mayo-2026): si Rava no tiene serie (ej: CEDEAR recién abierto), usar precio_compra_ars/mep_compra
+      let baseUsd = basePrice ? basePrice / mepBase : (tickerPurchaseUsd[ticker] || 0);
       if (baseUsd <= 0) return { data: [], label: ticker, borderColor: PALETTE[i % PALETTE.length], spanGaps: true, pointRadius: 0, borderWidth: 1.5, tension: 0.2, fill: false };
 
       const values = filteredMepDates.map(date => {
         if (!tickerHasDate(ticker, date)) return null;
         const mep = allMepByDate[date];
-        const price = closestBefore(arr, date);
+        // ⚠ FIX (mayo-2026): para hoy usar precio live de pfPrices (RT), no closestBefore (histórico)
+        const price = (date === _tickerToday && pfPrices[ticker]?.last != null)
+          ? pfPrices[ticker].last
+          : closestBefore(arr, date);
         if (!mep || price == null || baseUsd <= 0) return null;
         return +((price / mep / baseUsd - 1) * 100).toFixed(2);
       });
