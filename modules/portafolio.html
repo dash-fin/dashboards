@@ -1203,6 +1203,7 @@ function pfPatchOpsKpis() {
   if (opsDailyUsd !== 0) {
     pfRenderResumenCalendar();
     pfRenderBenchmark();
+    pfRenderPeriodKPIs(); // ⚠ FIX (mayo-2026): re-renderizar YTD con pfOpsDailyUSD actualizado
   }
 }
 

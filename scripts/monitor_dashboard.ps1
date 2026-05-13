@@ -164,7 +164,22 @@ if ($hNow -ge [TimeSpan]"17:01:00" -and $hNow -lt [TimeSpan]"17:59:00") {
                 if ($ofTry -lt $oficialRetries) { Start-Sleep -Seconds 5 }
             }
             if (-not $oficialLoaded) {
-                Write-Log "WARN oficial: no se pudo obtener cotización del día $hoy después de $($oficialRetries+1) intentos"
+                # ⚠ FIX (mayo-2026): fallback al API del BCRA cuando ArgentinaDatos no tiene el dato del día.
+                # Variable 4 = Tipo de cambio minorista (promedio vendedor). Misma fuente que usa lamacro.ar/variables.
+                try {
+                    $bcraUrl = "https://api.bcra.gob.ar/estadisticas/v3.0/datosvariable/4/$hoy/$hoy"
+                    $bcraResp = Invoke-RestMethod -Uri $bcraUrl -Headers @{"Accept"="application/json"} -ErrorAction Stop
+                    $bcraVal = $bcraResp.results | Select-Object -Last 1
+                    if ($bcraVal -and $bcraVal.valor -gt 0) {
+                        $row = @{ fecha=$hoy; tipo="oficial"; close=[math]::Round($bcraVal.valor,2); fuente="bcra" } | ConvertTo-Json
+                        Invoke-RestMethod -Uri "$SB_URL/rest/v1/dolar_historico" -Method Post -Headers $postH -Body $row | Out-Null
+                        Write-Log "INFO oficial fallback BCRA: $($bcraVal.valor)"
+                        $oficialLoaded = $true
+                    }
+                } catch { Write-Log "WARN oficial fallback BCRA: $($_ | Out-String)" }
+            }
+            if (-not $oficialLoaded) {
+                Write-Log "WARN oficial: no se pudo obtener cotización del día $hoy (ArgentinaDatos + BCRA fallback)"
             }
         }
     } catch { Write-Log "ERROR oficial: $($_ | Out-String)" }
