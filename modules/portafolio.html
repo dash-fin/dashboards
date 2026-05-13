@@ -1194,6 +1194,16 @@ function pfPatchOpsKpis() {
     if(opsDailyUsd !== 0)    lines.push(`Opciones ${fmtS(opsDailyUsd)}`);
     dailyDetail.innerHTML = lines.join('<br>');
   }
+
+  // ⚠ FIX (mayo-2026): re-renderizar calendario y benchmark con pfOpsDailyUSD actualizado.
+  // pfRenderOpciones() es async y termina DESPUÉS de que el calendario y benchmark ya se
+  // renderizaron con pfOpsDailyUSD=0. Al llamar pfPatchOpsKpis() desde pfApplyOpsData(),
+  // ya tenemos el valor correcto → forzar re-render para que la celda de hoy y la curva
+  // reflejen el P&L total (base + opciones).
+  if (opsDailyUsd !== 0) {
+    pfRenderResumenCalendar();
+    pfRenderBenchmark();
+  }
 }
 
 // ── Render principal ─────────────────────────────────────
@@ -3162,17 +3172,7 @@ async function pfRenderResumenCalendar() {
       allRows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${combinedStart}&fecha=lte.${combinedEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
     } catch(e) { console.warn('[pnl-resumen-cal]', e); }
 
-    // Inyectar hoy con datos live si el snapshot aún no fue guardado
-    const _calToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
-    if (!allRows.some(r => r.fecha === _calToday) && pfBaseAct > 0) {
-      const _liveUsd = +(pfBaseDailyUSD + (isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD)).toFixed(2);
-      const _livePct = +(_liveUsd / pfBaseAct * 100).toFixed(4);
-      if (_liveUsd !== 0) {
-        allRows = [...allRows, { fecha: _calToday, pnl_usd: _liveUsd, pnl_pct: _livePct, valor_usd: pfBaseAct, _live: true }];
-      }
-    }
-
-    // Separar rows por mes
+    // Separar rows por mes y cachear (SIN hoy — se inyecta siempre abajo, fuera del cache)
     const rowsByMonth = {};
     allRows.forEach(r => {
       const mKey = r.fecha.substring(0, 7);
@@ -3188,6 +3188,25 @@ async function pfRenderResumenCalendar() {
       pfCalCache[cacheKey] = { daysInMonth, rows };
       return pfCalCache[cacheKey];
     });
+  }
+
+  // Inyectar hoy con datos live SIEMPRE (fuera del cache) para reflejar pfOpsDailyUSD actualizado
+  {
+    const _calToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+    const _todayMKey = _calToday.substring(0, 7);
+    if (pfBaseAct > 0) {
+      const _liveUsd = +(pfBaseDailyUSD + (isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD)).toFixed(2);
+      const _livePct = +(_liveUsd / pfBaseAct * 100).toFixed(4);
+      if (_liveUsd !== 0) {
+        monthData = monthData.map((md, idx) => {
+          const { year: y, month: m } = months[idx];
+          const mKey = `${y}-${String(m+1).padStart(2,'0')}`;
+          if (mKey !== _todayMKey) return md;
+          const filteredRows = md.rows.filter(r => r.fecha !== _calToday); // quitar versión anterior si existe
+          return { ...md, rows: [...filteredRows, { fecha: _calToday, pnl_usd: _liveUsd, pnl_pct: _livePct, valor_usd: pfBaseAct, _live: true }] };
+        });
+      }
+    }
   }
 
   // Renderizar ambos meses side-by-side
