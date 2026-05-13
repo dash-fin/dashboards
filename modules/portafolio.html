@@ -876,7 +876,11 @@ let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart2 = null;
 let pfPnlCache = null;
 let pfSpyCache = null;
-let _pfEmail   = ''; // cacheado en pfLoadAll, disponible para calendar/benchmark sin esperar auth
+// ⚠ FIX (mayo-2026): _pfEmail se cachea en pfLoadAll para que pfRenderResumenCalendar y
+// pfRenderBenchmark no queden vacíos cuando window.currentUser aún no resolvió (auth es async).
+// Si se elimina esta variable y se vuelve a usar window.currentUser?.email||'' directamente,
+// el calendario y el benchmark quedarán en blanco hasta que el usuario recargue.
+let _pfEmail   = '';
 // Opciones: PnL en USD del bloque de estrategias (se suma a los KPIs generales)
 let pfOpsUsdPnl = 0, pfOpsDailyUSD = 0, pfBaseInv = 0, pfBaseAct = 0, pfBaseGan = 0, pfBaseDailyUSD = 0;
 let pfSort = { col: null, dir: 1 };
@@ -991,7 +995,7 @@ async function pfFetchYahoo(symbols) {
 window.pfLoadAll = async () => {
   const email = window.currentUser?.email;
   if(!email) { document.getElementById('pfMeta').textContent = 'Sin sesión'; return; }
-  _pfEmail = email; // cachear para calendar/benchmark
+  _pfEmail = email; // ⚠ cachear ANTES de cualquier render async — ver declaración de _pfEmail
   document.getElementById('pfMeta').textContent = 'Cargando...';
   try {
     const [posData, mepData] = await Promise.all([
@@ -1200,10 +1204,12 @@ function pfRender() {
   // Guardar base para que pfPatchOpsKpis() pueda sumar opciones después
   pfBaseInv = totInv; pfBaseAct = totAct; pfBaseGan = totGan;
 
-  // Variación diaria: cambio % de mercado solo en posiciones pre-existentes (fecha_compra < hoy).
-  // Robusto contra cambios de composición: ignora posiciones cerradas y abiertas hoy,
-  // sin depender de la exactitud del último pnl_diario.
-  const _pfToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0]; // Argentina UTC-3
+  // ⚠ FIX (mayo-2026): NO comparar contra pnl_diario anterior para calcular variación diaria.
+  // El valor_usd en pnl_diario puede incluir posiciones ya cerradas o tener datos incorrectos,
+  // lo que generaba un KPI de -6% falso. La fórmula correcta es: Σ(usdAct × changeLocal/100)
+  // filtrando solo posiciones con fecha_compra < hoy (excluye compras del día actual).
+  // ⚠ No revertir a comparación vs pnl_diario sin revisar la consistencia de esa tabla primero.
+  const _pfToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0]; // Argentina UTC-3 (⚠ no usar new Date().toISOString() — da fecha UTC incorrecta después de las 21hs ARG)
   const pfBaseDailyUSD_calc = calced
     .filter(p => p.fecha_compra && p.fecha_compra < _pfToday)
     .reduce((s, p) => {
@@ -1595,6 +1601,10 @@ let pfOpsSpot = 0;
 async function pfFetchOpsData() {
   // Argentina date (UTC-3, sin DST)
   const _arToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+  // ⚠ FIX (mayo-2026): operaciones tiene RLS — el anon key SOLO puede leer registros del usuario
+  // autenticado. closedToday usa .catch(()=>[]) para fallar silencioso si el JWT no está presente.
+  // ⚠ No usar pnl_realizado de operaciones: suele ser null porque las escrituras con anon key
+  // también fallan por RLS. El P&L realizado se extrae de patas[].prima_cierre en su lugar.
   const [ops, closedToday, spotR, optRT, caucR] = await Promise.all([
     sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
     sb('operaciones',`estado=eq.cerrada&fecha_cierre=eq.${_arToday}&select=id,patas`).catch(()=>[]),
@@ -1684,7 +1694,8 @@ async function pfFetchOpsData() {
   const hasPricedRows  = rows.some(r => !r.anyNull);
   const totDailyPnL    = rows.reduce((s,r) => r.hasDailyPnl ? s + r.legsDailySum : s, 0);
   const hasDailyData   = rows.some(r => r.hasDailyPnl);
-  // Combinar P&L diario de posiciones abiertas (movimiento de mercado) + realizados de hoy
+  // ⚠ FIX (mayo-2026): sumar P&L de posiciones abiertas (mercado) + realizados de opciones cerradas hoy.
+  // Sin realizedDailyARS las ganancias de opciones que se cerraron ese día no aparecen en el KPI.
   const finalDailyARS  = (hasDailyData ? totDailyPnL : 0) + realizedDailyARS;
   return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null,
            dailyPnL: (hasDailyData || realizedDailyARS !== 0) ? finalDailyARS : null,
@@ -3139,6 +3150,8 @@ async function pfRenderResumenCalendar() {
   } else {
     const combinedStart = `${firstMonth.year}-${String(firstMonth.month+1).padStart(2,'0')}-01`;
     const combinedEnd = `${lastMonth.year}-${String(lastMonth.month+1).padStart(2,'0')}-${String(lastMonthDays).padStart(2,'0')}`;
+    // ⚠ FIX (mayo-2026): _pfEmail como fallback — si window.currentUser aún no resolvió,
+    // el email queda '' y la query no retorna datos → calendario en blanco.
     const _calEmail = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
     let allRows = [];
     try {
@@ -3268,6 +3281,7 @@ window.pfRenderBenchmark = __pfRB;
   // Portafolio histórico desde pnl_diario — usamos pnl_pct para excluir inyecciones de capital
   let pnlRows = pfPnlCache;
   if (!pnlRows) {
+    // ⚠ FIX (mayo-2026): ídem al calendario — usar _pfEmail como fallback para no depender de auth async.
     const _email = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
     pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct`) || [];
     pfPnlCache = pnlRows;
@@ -3527,6 +3541,9 @@ async function pfBackfillPnL(opts = {}) {
     let prevDate = null; // último día hábil procesado (para close vs close anterior)
 
     for(const date of mepDates){
+      // ⚠ FIX (mayo-2026): saltear fines de semana. mep_historico a veces tiene fechas de sáb/dom;
+      // si no se filtran, closestBefore devuelve el mismo precio que el viernes → pnlUsd=0 →
+      // se insertan registros bogus en pnl_diario que distorsionan el calendario y el benchmark.
       const _dow = new Date(date + 'T12:00:00').getDay(); // 0=Dom, 6=Sáb
       if(_dow === 0 || _dow === 6) continue;
       const mep = mepByDate[date]; if(!mep||mep<=0) continue;
