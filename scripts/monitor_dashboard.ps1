@@ -280,8 +280,15 @@ if ($hNow -ge [TimeSpan]"17:06:00" -and $hNow -lt [TimeSpan]"17:59:00") {
         } catch { Write-Log "WARN PnL: no se pudo verificar frescura de mercado: $($_ | Out-String)" }
 
         # Obtener todos los usuarios con posiciones activas
-        $usuarios = Invoke-RestMethod -Uri "$SB_URL/rest/v1/portafolio?activo=eq.true&tipo=neq.OPCION&select=user_email" -Headers $SB_HEADERS -ErrorAction Stop |
-                    Select-Object -ExpandProperty user_email -Unique
+        # ⚠ FIX (mayo-2026): retry si devuelve 0 — ocurrió el 12-may por respuesta vacía transitoria de Supabase.
+        $usuarios = @()
+        for ($uTry = 0; $uTry -lt 3; $uTry++) {
+            $usuarios = @(Invoke-RestMethod -Uri "$SB_URL/rest/v1/portafolio?activo=eq.true&tipo=neq.OPCION&select=user_email" -Headers $SB_HEADERS -ErrorAction Stop |
+                        Select-Object -ExpandProperty user_email -Unique)
+            if ($usuarios.Count -gt 0) { break }
+            Write-Log "WARN PnL: 0 usuarios en intento $($uTry+1), reintentando..."
+            Start-Sleep -Seconds 5
+        }
         Write-Log "INFO PnL: $($usuarios.Count) usuarios con posiciones activas"
 
         $pnlCount = 0
