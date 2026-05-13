@@ -1201,7 +1201,7 @@ function pfRender() {
   // Variación diaria: cambio % de mercado solo en posiciones pre-existentes (fecha_compra < hoy).
   // Robusto contra cambios de composición: ignora posiciones cerradas y abiertas hoy,
   // sin depender de la exactitud del último pnl_diario.
-  const _pfToday = new Date().toISOString().split('T')[0];
+  const _pfToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0]; // Argentina UTC-3
   const pfBaseDailyUSD_calc = calced
     .filter(p => p.fecha_compra && p.fecha_compra < _pfToday)
     .reduce((s, p) => {
@@ -1591,12 +1591,24 @@ let pfOpsSpot = 0;
 
 // Fetches open strategies + GGAL spot + RT prices, computes rows + totPnL
 async function pfFetchOpsData() {
-  const [ops, spotR, optRT, caucR] = await Promise.all([
+  // Argentina date (UTC-3, sin DST)
+  const _arToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+  const [ops, closedToday, spotR, optRT, caucR] = await Promise.all([
     sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
+    sb('operaciones',`estado=eq.cerrada&fecha_cierre=eq.${_arToday}&select=id,patas`).catch(()=>[]),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
     sb('opciones_rt','select=symbol,kind,last,bid,ask,strike,previous_close&order=symbol.asc'),
     sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=last&limit=5'),
   ]);
+  // P&L realizado de opciones cerradas hoy (prima_cierre ya guardada en patas)
+  const realizedDailyARS = (closedToday||[]).reduce((total, op) => {
+    const optSz = Number(op.patas?.[0]?.option_size) || 100;
+    return total + (op.patas||[]).reduce((s, leg) => {
+      const pc = Number(leg.prima_cierre), pr = Number(leg.prima), qty = Number(leg.qty);
+      if (!pc || !pr || !qty) return s;
+      return s + (leg.action === 'buy' ? 1 : -1) * (pc - pr) * qty * optSz;
+    }, 0);
+  }, 0);
   const S = spotR?.length ? Number(spotR[0].last) : pfOpsSpot;
   pfOpsSpot = S || pfOpsSpot;
   const caucTna = caucR?.length ? caucR.reduce((s,r)=>s+Number(r.last||0),0)/caucR.length : 0;
@@ -1670,7 +1682,11 @@ async function pfFetchOpsData() {
   const hasPricedRows  = rows.some(r => !r.anyNull);
   const totDailyPnL    = rows.reduce((s,r) => r.hasDailyPnl ? s + r.legsDailySum : s, 0);
   const hasDailyData   = rows.some(r => r.hasDailyPnl);
-  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null, dailyPnL: hasDailyData ? totDailyPnL : null, S, greeks: portHasGreeks ? {delta:portDelta, theta:portTheta, vega:portVega} : null };
+  // Combinar P&L diario de posiciones abiertas (movimiento de mercado) + realizados de hoy
+  const finalDailyARS  = (hasDailyData ? totDailyPnL : 0) + realizedDailyARS;
+  return { ops: ops||[], rows, totPnL: hasPricedRows ? totPnL : null,
+           dailyPnL: (hasDailyData || realizedDailyARS !== 0) ? finalDailyARS : null,
+           S, greeks: portHasGreeks ? {delta:portDelta, theta:portTheta, vega:portVega} : null };
 }
 
 // Barra de Greeks del portafolio de opciones
