@@ -876,6 +876,7 @@ let pfBetas = {}; // ADR ticker → beta (vs S&P 500)
 let pfLineChart2 = null;
 let pfPnlCache = null;
 let pfSpyCache = null;
+let _pfEmail   = ''; // cacheado en pfLoadAll, disponible para calendar/benchmark sin esperar auth
 // Opciones: PnL en USD del bloque de estrategias (se suma a los KPIs generales)
 let pfOpsUsdPnl = 0, pfOpsDailyUSD = 0, pfBaseInv = 0, pfBaseAct = 0, pfBaseGan = 0, pfBaseDailyUSD = 0;
 let pfSort = { col: null, dir: 1 };
@@ -990,6 +991,7 @@ async function pfFetchYahoo(symbols) {
 window.pfLoadAll = async () => {
   const email = window.currentUser?.email;
   if(!email) { document.getElementById('pfMeta').textContent = 'Sin sesión'; return; }
+  _pfEmail = email; // cachear para calendar/benchmark
   document.getElementById('pfMeta').textContent = 'Cargando...';
   try {
     const [posData, mepData] = await Promise.all([
@@ -3137,7 +3139,7 @@ async function pfRenderResumenCalendar() {
   } else {
     const combinedStart = `${firstMonth.year}-${String(firstMonth.month+1).padStart(2,'0')}-01`;
     const combinedEnd = `${lastMonth.year}-${String(lastMonth.month+1).padStart(2,'0')}-${String(lastMonthDays).padStart(2,'0')}`;
-    const _calEmail = encodeURIComponent(window.currentUser?.email||'');
+    const _calEmail = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
     let allRows = [];
     try {
       allRows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${combinedStart}&fecha=lte.${combinedEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
@@ -3266,7 +3268,7 @@ window.pfRenderBenchmark = __pfRB;
   // Portafolio histórico desde pnl_diario — usamos pnl_pct para excluir inyecciones de capital
   let pnlRows = pfPnlCache;
   if (!pnlRows) {
-    const _email = encodeURIComponent(window.currentUser?.email||'');
+    const _email = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
     pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct`) || [];
     pfPnlCache = pnlRows;
   }
