@@ -3527,6 +3527,8 @@ async function pfBackfillPnL(opts = {}) {
     let prevDate = null; // último día hábil procesado (para close vs close anterior)
 
     for(const date of mepDates){
+      const _dow = new Date(date + 'T12:00:00').getDay(); // 0=Dom, 6=Sáb
+      if(_dow === 0 || _dow === 6) continue;
       const mep = mepByDate[date]; if(!mep||mep<=0) continue;
       let totalUsd=0, pnlUsd=0, basePnl=0, hasPx=false;
 
