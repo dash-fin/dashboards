@@ -3479,10 +3479,11 @@ async function pfBackfillPnL(opts = {}) {
     const email = window.currentUser?.email;
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Posiciones activas + trades CEDEAR (historia completa)
-    const [posRows, tradeRows] = await Promise.all([
+    // 1. Posiciones activas + trades CEDEAR + opciones cerradas (historia completa)
+    const [posRows, tradeRows, opsClosedRows] = await Promise.all([
       sb('portafolio', `user_email=eq.${encodeURIComponent(email)}&activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,fecha_compra,precio_compra_ars`),
       sb('trades', `user_email=eq.${encodeURIComponent(email)}&tipo=eq.CEDEAR&select=ticker_ars,cantidad,fecha_apertura,fecha_cierre,precio_entrada_ars,ganancia_usd`).catch(()=>[]),
+      sb('operaciones', `estado=eq.cerrada&select=id,fecha_cierre,patas`).catch(()=>[]),
     ]);
 
     const BONOS = ['BONO_SOBERANO','DOLAR_LINKED','BONO_CER','BONO_DUAL'];
@@ -3497,6 +3498,31 @@ async function pfBackfillPnL(opts = {}) {
     const intradayGains = {};
     (tradeRows||[]).filter(t=>t.fecha_apertura===t.fecha_cierre&&t.ganancia_usd!=null).forEach(t=>{
       intradayGains[t.fecha_apertura] = (intradayGains[t.fecha_apertura]||0) + Number(t.ganancia_usd);
+    });
+
+    // realizedGains: ganancia_usd de trades multi-día (open<close) agrupada por fecha_cierre
+    // Para que cuando un trade se cierra, su ganancia se sume al PnL del día de cierre.
+    const realizedGains = {};
+    (tradeRows||[]).filter(t=>t.fecha_cierre&&t.fecha_apertura<t.fecha_cierre&&t.ganancia_usd!=null).forEach(t=>{
+      realizedGains[t.fecha_cierre] = (realizedGains[t.fecha_cierre]||0) + Number(t.ganancia_usd);
+    });
+
+    // realizedOpsGains: PnL de opciones cerradas (fecha_cierre) en USD
+    // Calculado desde patas[].prima_cierre (misma lógica que pfFetchOpsData)
+    // Se convierte a USD usando MEP de la fecha de cierre (se resuelve después cuando tenemos mepByDate)
+    const realizedOpsGains = {}; // raw ARS, se convierte a USD en el loop
+    (opsClosedRows||[]).forEach(op => {
+      const date = op.fecha_cierre;
+      if(!date) return;
+      const optSz = Number(op.patas?.[0]?.option_size) || 100;
+      const pnlArs = (op.patas||[]).reduce((s, leg) => {
+        const pc = Number(leg.prima_cierre), pr = Number(leg.prima), qty = Number(leg.qty);
+        if (!pc || !pr || !qty) return s;
+        return s + (leg.action === 'buy' ? 1 : -1) * (pc - pr) * qty * optSz;
+      }, 0);
+      if(pnlArs !== 0) {
+        realizedOpsGains[date] = (realizedOpsGains[date]||0) + pnlArs;
+      }
     });
 
     if(!allPos.length) throw new Error('Sin posiciones');
@@ -3617,6 +3643,11 @@ async function pfBackfillPnL(opts = {}) {
       }
       if(!hasPx||totalUsd<=0) continue;
       pnlUsd += intradayGains[date] || 0; // sumar ganancia de trades intradía del día
+      pnlUsd += realizedGains[date] || 0; // sumar ganancia de trades multi-día cerrados hoy
+      // Opciones cerradas: convertir ARS a USD con MEP del día
+      if(realizedOpsGains[date]) {
+        pnlUsd += realizedOpsGains[date] / mep;
+      }
       toInsert.push({
         fecha:date, valor_usd:Math.round(totalUsd*100)/100,
         _pnl:Math.round(pnlUsd*100)/100, _base:Math.round(basePnl*100)/100,
@@ -3932,11 +3963,14 @@ function pfRenderPeriodKPIs() {
   }
 
   const wtdPct = wtdD > 0 ? wtdN / wtdD : null;
-  let   ytdPct = ytdD > 0 ? ytdN / ytdD : null;
+  let   ytdPct = null;
 
-  // Fallback YTD desde pnl_diario compuesto cuando no hay MEP histórico de dic-31
-  // (mep_historico comienza desde el inicio del portafolio, no desde ene-01 del año anterior)
-  if (ytdPct == null && pfPnlYTD.length > 0) {
+  // YTD desde pnl_diario compuesto (retorno REAL del portafolio desde ene-01)
+  // Es más preciso que comparar precios contra 31-dic porque:
+  // - Captura inyecciones de capital (compras después de año nuevo)
+  // - Usa tu PnL real, no el retorno del activo desde diciembre
+  // - Incluye opciones, trades realizados y dividendos si los hubiera
+  if (pfPnlYTD.length > 0) {
     const _ytdToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
     const rows = pfBaseAct > 0 && !pfPnlYTD.some(r => r.fecha === _ytdToday)
       ? [...pfPnlYTD, { fecha: _ytdToday, pnl_pct: +((pfBaseDailyUSD + (isNaN(pfOpsDailyUSD)?0:pfOpsDailyUSD)) / pfBaseAct * 100).toFixed(4) }]
@@ -3944,6 +3978,11 @@ function pfRenderPeriodKPIs() {
     let comp = 1;
     rows.forEach(r => { if (r.pnl_pct != null) comp *= (1 + Number(r.pnl_pct) / 100); });
     ytdPct = comp - 1;
+  }
+
+  // Fallback: si no hay pnl_diario, usar retorno de precios contra 31-dic
+  if (ytdPct == null && ytdD > 0) {
+    ytdPct = ytdN / ytdD;
   }
 
   // wtdN ≈ cambio en USD del portafolio en el período
