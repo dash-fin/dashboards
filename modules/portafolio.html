@@ -287,8 +287,15 @@
           </div>
         </div>
 
-        <!-- Fila B: CALL/PUT + Strike dropdown + Vencimiento dropdown -->
-        <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:12px;margin-bottom:12px;align-items:end">
+        <!-- Fila B: Compra/Venta + CALL/PUT + Strike dropdown + Vencimiento dropdown -->
+        <div style="display:grid;grid-template-columns:auto auto 1fr 1fr;gap:12px;margin-bottom:12px;align-items:end">
+          <div>
+            <div class="field-label">Dirección</div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="flt on-blue on" id="pfmActionBuy" onclick="pfmSetAction('buy',this)">▲ COMPRA</button>
+              <button class="flt" id="pfmActionSell" onclick="pfmSetAction('sell',this)">▼ VENTA</button>
+            </div>
+          </div>
           <div>
             <div class="field-label">Tipo</div>
             <div style="display:flex;gap:6px;margin-top:4px">
@@ -1006,7 +1013,35 @@ window.pfLoadAll = async () => {
       sb('portafolio', `user_email=eq.${encodeURIComponent(email)}&activo=eq.true&order=tipo,ticker_ars`),
       sb('mercado',    'symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last'),
     ]);
-    pfPositions = posData || [];
+    pfPositions = (posData || []).map(p => {
+      // Inferir _action desde la operación vinculada para opciones (o signo legacy de cantidad)
+      if(p.tipo === 'OPCION' && p.operacion_id) {
+        p._action = null; // se resuelve en pfCalc mediante la operación
+      } else if(p.tipo === 'OPCION' && (p.cantidad||0) < 0) {
+        p._action = 'sell';
+        p.cantidad = Math.abs(p.cantidad);
+      } else {
+        p._action = 'buy';
+      }
+      return p;
+    });
+
+    // Cargar action de operaciones vinculadas para opciones
+    const optPosWtOp = pfPositions.filter(p => p.tipo === 'OPCION' && p.operacion_id);
+    if(optPosWtOp.length) {
+      const opIds = [...new Set(optPosWtOp.map(p => p.operacion_id))];
+      const opRows = await sb('operaciones', `id=in.(${opIds.map(id=>`"${id}"`).join(',')})&select=id,patas`).catch(()=>[]);
+      const opActionMap = {};
+      (opRows||[]).forEach(op => {
+        const action = op.patas?.[0]?.action;
+        if(action) opActionMap[op.id] = action;
+      });
+      pfPositions.forEach(p => {
+        if(p._action !== undefined && opActionMap[p.operacion_id]) {
+          p._action = opActionMap[p.operacion_id];
+        }
+      });
+    }
 
     // Ganancia realizada + último pnl_diario (referencia para KPI diario) — en paralelo
     const _today = new Date().toISOString().split('T')[0];
@@ -1112,7 +1147,8 @@ function pfCalc(pos) {
     const currentOpt = pfOptPrices[pos.ticker_ars] || 0;
     const precioActual = currentOpt || null;
     const qty   = Math.abs(pos.cantidad || 0);
-    const sign  = (pos.cantidad || 0) >= 0 ? 1 : -1;
+    // Determinar dirección desde la operación vinculada (action) o desde el signo legacy de cantidad
+    const sign  = pos._action === 'sell' ? -1 : ((pos.cantidad || 0) >= 0 ? 1 : -1);
     const prima = pos.precio_compra_ars || 0;
     const pnlARS = (precioActual && prima > 0) ? sign * (precioActual - prima) * qty : null;
     // usdInv/usdAct/gan son 0 para no duplicar con pfOpsUsdPnl que viene de operaciones
@@ -2373,8 +2409,13 @@ window.pfModalOpen = async (id) => {
         _pfmKind = pata.kind || 'call';
         document.getElementById('pfmKindCall').className = _pfmKind==='call' ? 'flt on-green on' : 'flt';
         document.getElementById('pfmKindPut').className  = _pfmKind==='put'  ? 'flt on-red on'  : 'flt';
+        // Action: si pata.action es 'sell', mostrar VENTA; si cantidad<0 (datos legacy), inferir venta
+        const legacyAction = (Number(pos.cantidad)||0) < 0 ? 'sell' : 'buy';
+        _pfmAction = (pata.action || legacyAction) === 'sell' ? 'sell' : 'buy';
+        document.getElementById('pfmActionBuy').className  = _pfmAction==='buy'  ? 'flt on-blue on' : 'flt';
+        document.getElementById('pfmActionSell').className = _pfmAction==='sell' ? 'flt on-red on'  : 'flt';
         document.getElementById('pfmPrima').value       = pata.prima || '';
-        document.getElementById('pfmQtyOpt').value      = pata.qty   || '';
+        document.getElementById('pfmQtyOpt').value      = Math.abs(pata.qty || Number(pos.cantidad)||0) || '';
         document.getElementById('pfmSpotEntrada').value = op?.spot_entrada || '';
         document.getElementById('pfmMepCompraOpt').value = pos.mep_compra || '';
         document.getElementById('pfmTickerUsdOpt').value = pata.symbol || pos.ticker_usd || '';
@@ -2411,10 +2452,13 @@ window.pfModalOpen = async (id) => {
     document.getElementById('pfmTipo').value = 'CEDEAR';
     document.getElementById('pfmFecha').value = new Date().toISOString().slice(0,10);
     if(pfMep) document.getElementById('pfmMepCompra').value = Math.round(pfMep);
-    // Reset kind toggle
-    _pfmKind = 'call';
-    document.getElementById('pfmKindCall').className = 'flt on-green on';
-    document.getElementById('pfmKindPut').className  = 'flt';
+    // Reset toggles
+    _pfmKind   = 'call';
+    _pfmAction = 'buy';
+    document.getElementById('pfmKindCall').className   = 'flt on-green on';
+    document.getElementById('pfmKindPut').className    = 'flt';
+    document.getElementById('pfmActionBuy').className  = 'flt on-blue on';
+    document.getElementById('pfmActionSell').className = 'flt';
     // Reset dropdowns
     ['pfmStrikeSelect','pfmVtoSelect'].forEach(id => {
       const el = document.getElementById(id); if(!el) return;
@@ -2492,8 +2536,20 @@ window.pfModalTipoChange = () => {
 };
 
 // ── Toggle kind para modal OPCION ────────────────────────
-let _pfmKind = 'call';
+let _pfmKind   = 'call';
+let _pfmAction = 'buy';
 let pfmOptData = [];
+
+window.pfmSetAction = (a, btn) => {
+  _pfmAction = a;
+  ['pfmActionBuy','pfmActionSell'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.className = 'flt';
+  });
+  btn.className = 'flt ' + (a==='buy' ? 'on-blue' : 'on-red') + ' on';
+  pfmOptPreview();
+};
+
 window.pfmSetKind = (k, btn) => {
   _pfmKind = k;
   ['pfmKindCall','pfmKindPut'].forEach(id => {
@@ -2564,14 +2620,16 @@ window.pfmOptAutoFillPrima = () => {
 };
 
 window.pfmOptPreview = () => {
-  const prima = parseFloat(document.getElementById('pfmPrima')?.value||'0')||0;
-  const qty   = parseInt(document.getElementById('pfmQtyOpt')?.value||'0')||0;
+  const prima  = parseFloat(document.getElementById('pfmPrima')?.value||'0')||0;
+  const qty    = parseInt(document.getElementById('pfmQtyOpt')?.value||'0')||0;
+  const action = _pfmAction === 'sell' ? 'sell' : 'buy';
   const box   = document.getElementById('pfmOptPreviewBox');
   if(!box) return;
   if(!prima || !qty) { box.style.display='none'; return; }
-  const costoTotal = prima * qty * 100;
+  const total = prima * qty * 100;
+  const label = action === 'buy' ? 'Débito estimado' : 'Crédito estimado';
   box.style.display = 'block';
-  box.textContent = `Débito estimado: $${Math.round(costoTotal).toLocaleString('es-AR')} ARS (${qty} lote${qty>1?'s':''} × $${prima} × 100)`;
+  box.textContent = `${label}: $${Math.round(total).toLocaleString('es-AR')} ARS (${qty} lote${qty>1?'s':''} × $${prima} × 100)`;
 };
 
 // ── Modal: guardar ────────────────────────────────────────
@@ -2604,6 +2662,7 @@ window.pfModalSave = async () => {
     if(pfEditId) {
       btn.disabled = true; btn.textContent = 'Guardando...';
       try {
+        const saveAction = _pfmAction === 'sell' ? 'sell' : 'buy';
         await sbPatch('portafolio', `id=eq.${pfEditId}`, {
           precio_compra_ars: prima,
           cantidad: qty,
@@ -2616,7 +2675,7 @@ window.pfModalSave = async () => {
           const opRows = await sb('operaciones', `id=eq.${pos.operacion_id}&select=patas`);
           const op = opRows?.[0];
           if(op?.patas?.length) {
-            const updatedPatas = op.patas.map(p => ({...p, prima, qty, symbol: tickerUsd||p.symbol}));
+            const updatedPatas = op.patas.map(p => ({...p, prima, qty, action: saveAction, symbol: tickerUsd||p.symbol}));
             const session = await window.sbAuth?.auth?.getSession();
             const token = session?.data?.session?.access_token;
             const h = { ...CFG.SBH, 'Content-Type':'application/json' };
@@ -2637,9 +2696,11 @@ window.pfModalSave = async () => {
     if(!subyacente) { pfShowMsg('error','Ingresá el subyacente'); return; }
     if(!strike)     { pfShowMsg('error','Seleccioná el strike'); return; }
 
+    const action    = _pfmAction === 'sell' ? 'sell' : 'buy';
     const kindLabel = _pfmKind.toUpperCase();
-    const nombre    = `${subyacente} ${kindLabel} $${Math.round(strike)}${venc ? ' '+venc : ''}`;
-    const pata      = { kind: _pfmKind, action: 'buy', strike, prima, qty, option_size: 100, symbol: tickerUsd };
+    const dirLabel  = action === 'buy' ? 'COMPRA' : 'VENTA';
+    const nombre    = `${dirLabel} ${subyacente} ${kindLabel} $${Math.round(strike)}${venc ? ' '+venc : ''}`;
+    const pata      = { kind: _pfmKind, action, strike, prima, qty, option_size: 100, symbol: tickerUsd };
     const costoNeto = prima * qty * 100;
 
     btn.disabled = true; btn.textContent = 'Guardando...';
