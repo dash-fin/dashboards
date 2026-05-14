@@ -171,47 +171,43 @@ serve(async (req) => {
 
       await Promise.all(symbols.map(async (sym) => {
         try {
-          const body = {
-            compareFilters: [
-              { compareType: "equal", fieldName: "productSymbolCode", fieldValue: sym }
-            ],
-            delimiter: "|",
-            fields: ["productSymbolCode", "totalVolume", "totalShortVolume", "marketCode", "deficit", "tradeReportDate"],
-            limit: 500,
-            offset: 0,
-            quoteValues: false,
-            sortFields: [{ fieldName: "tradeReportDate", ascending: false }]
-          };
-
-          const resp = await fetch("https://api.finra.org/data/group/otcMarket/name/regShoDaily", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
+          // FINRA API: POST endpoint no parsea JSON correctamente, usamos GET y filtramos localmente
+          // Descargamos dataset del ultimo mes (500 rows es suficiente)
+          const resp = await fetch("https://api.finra.org/data/group/OTCMARKET/name/REGSHODAILY?$top=500&$orderby=tradeReportDate%20desc");
 
           if (!resp.ok) {
             result[sym] = [];
             return;
           }
 
-          const data = await resp.json();
-          const rows: Array<{fecha: string; total_vol: number; short_vol: number; short_pct: number}> =
-            (Array.isArray(data) ? data : [])
-              .filter((r: any) => {
-                const tv = Number(r.totalVolume || 0);
-                return tv > 0;
-              })
-              .map((r: any) => {
-                const tv = Number(r.totalVolume || 0);
-                const sv = Number(r.totalShortVolume || 0);
-                return {
-                  fecha: r.tradeReportDate || "",
-                  total_vol: tv,
-                  short_vol: sv,
-                  short_pct: tv > 0 ? Math.round(sv / tv * 1000) / 10 : 0,
-                };
-              })
-              .filter((r) => r.fecha && r.total_vol > 0);
+          const csvText = await resp.text();
+          const lines = csvText.trim().split("\n");
+          if (lines.length < 2) {
+            result[sym] = [];
+            return;
+          }
+
+          const csvHeaders = lines[0].split(",");
+          const symIdx = csvHeaders.indexOf("securitiesInformationProcessorSymbolIdentifier");
+          const tvIdx = csvHeaders.indexOf("totalParQuantity");
+          const svIdx = csvHeaders.indexOf("shortParQuantity");
+          const dtIdx = csvHeaders.indexOf("tradeReportDate");
+
+          const rows: Array<{fecha: string; total_vol: number; short_vol: number; short_pct: number}> = [];
+          for (let i = 1; i < lines.length && rows.length < 500; i++) {
+            const vals = lines[i].split(",");
+            const symbol = (vals[symIdx] || "").trim();
+            if (symbol !== sym) continue;
+            const tv = Number(vals[tvIdx] || 0);
+            const sv = Number(vals[svIdx] || 0);
+            if (tv <= 0) continue;
+            rows.push({
+              fecha: (vals[dtIdx] || "").trim(),
+              total_vol: Math.round(tv),
+              short_vol: Math.round(sv),
+              short_pct: Math.round(sv / tv * 1000) / 10,
+            });
+          }
 
           result[sym] = rows;
         } catch {
