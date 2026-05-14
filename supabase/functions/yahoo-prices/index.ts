@@ -161,7 +161,70 @@ serve(async (req) => {
       });
     }
 
-    // ── Modo 5: histórico Yahoo Finance (benchmark) ─────────
+    // ── Modo 5: FINRA Short Volume ─────────────────────────
+    // POST { mode: "finra-short-volume", symbols: ["GGAL","AAPL","ASTS"] }
+    // Devuelve { "GGAL": [{ fecha, total_vol, short_vol, short_pct }], ... }
+    if (mode === "finra-short-volume") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+
+      const result: Record<string, Array<{fecha: string; total_vol: number; short_vol: number; short_pct: number}>> = {};
+
+      await Promise.all(symbols.map(async (sym) => {
+        try {
+          const body = {
+            compareFilters: [
+              { compareType: "equal", fieldName: "productSymbolCode", fieldValue: sym }
+            ],
+            delimiter: "|",
+            fields: ["productSymbolCode", "totalVolume", "totalShortVolume", "marketCode", "deficit", "tradeReportDate"],
+            limit: 500,
+            offset: 0,
+            quoteValues: false,
+            sortFields: [{ fieldName: "tradeReportDate", ascending: false }]
+          };
+
+          const resp = await fetch("https://api.finra.org/data/group/otcMarket/name/regShoDaily", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
+          if (!resp.ok) {
+            result[sym] = [];
+            return;
+          }
+
+          const data = await resp.json();
+          const rows: Array<{fecha: string; total_vol: number; short_vol: number; short_pct: number}> =
+            (Array.isArray(data) ? data : [])
+              .filter((r: any) => {
+                const tv = Number(r.totalVolume || 0);
+                return tv > 0;
+              })
+              .map((r: any) => {
+                const tv = Number(r.totalVolume || 0);
+                const sv = Number(r.totalShortVolume || 0);
+                return {
+                  fecha: r.tradeReportDate || "",
+                  total_vol: tv,
+                  short_vol: sv,
+                  short_pct: tv > 0 ? Math.round(sv / tv * 1000) / 10 : 0,
+                };
+              })
+              .filter((r) => r.fecha && r.total_vol > 0);
+
+          result[sym] = rows;
+        } catch {
+          result[sym] = [];
+        }
+      }));
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Modo 6: histórico Yahoo Finance (benchmark) ─────────
     if (mode === "yahoo-history") {
       if (!symbols?.length) throw new Error("symbols requerido");
       const startDate = (body as any).startDate || new Date(Date.now() - 365*86400*1000).toISOString().split("T")[0];
