@@ -732,6 +732,7 @@
           <div style="display:flex;align-items:center;gap:10px">
             <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Calendario PnL</span>
             <button id="pfBackfillBtn" onclick="pfBackfillPnLBtn()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 10px;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:2px;cursor:pointer;letter-spacing:0.5px;transition:background 0.15s" title="Recalcular los últimos 15 días desde Rava" onmouseover="this.style.background='color-mix(in srgb,var(--accent) 15%,transparent)'" onmouseout="this.style.background='transparent'">Recalcular</button>
+            <button onclick="pfSaveDay()" style="font-family:'IBM Plex Mono',monospace;font-size:8px;padding:3px 10px;border:1px solid var(--blue);background:transparent;color:var(--blue);border-radius:2px;cursor:pointer;letter-spacing:0.5px;transition:background 0.15s" title="Guardar el snapshot de hoy en pnl_diario" onmouseover="this.style.background='color-mix(in srgb,var(--blue) 15%,transparent)'" onmouseout="this.style.background='transparent'">📸 Guardar día</button>
             <span id="pfBackfillStatus" style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)"></span>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
@@ -3789,6 +3790,38 @@ window.pfBackfillPnLBtn = async function pfBackfillPnLBtn() {
     }, 6000);
   }
 }
+
+// ── Guardar snapshot de hoy manualmente ─────────────────────────────
+window.pfSaveDay = async () => {
+  const btn = document.querySelector('button[onclick*="pfSaveDay"]');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '📸 guardando…'; }
+  try {
+    const pnl_usd  = +(pfBaseDailyUSD + (isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD)).toFixed(2);
+    const valor_usd = pfBaseAct;
+    const pnl_pct   = valor_usd > 0 ? +((pnl_usd / valor_usd) * 100).toFixed(4) : 0;
+    const fecha    = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+    const user_email = _pfEmail || window.currentUser?.email || '';
+    if (!user_email) { alert('No hay sesión — no se puede guardar.'); return; }
+
+    const body = { user_email, fecha, valor_usd, pnl_usd, pnl_pct };
+    const r = await fetch(`${CFG.SB_URL}/rest/v1/pnl_diario`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) { const e = await r.text(); throw new Error(e); }
+    if (btn) { btn.textContent = '✅ guardado'; }
+    window.pfCalCache = {};
+    window.pfPnlCache = null;
+    await pfRenderResumenCalendar();
+    pfRenderBenchmark();
+    setTimeout(() => { if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '📸 Guardar día'; } }, 4000);
+  } catch(e) {
+    console.error('[pfSaveDay]', e);
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '❌ error'; }
+    alert('Error al guardar: ' + e.message);
+  }
+};
 
 // ── Historial de trades ───────────────────────────────────────────
 async function pfLoadHistorial() {
