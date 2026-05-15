@@ -262,12 +262,13 @@
   </div>
 
   <!-- KPIs -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px" id="si-kpi-row">
+  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px" id="si-kpi-row">
     <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Precio</div><div class="kpi-val" id="si-kpi-price">—</div><div class="kpi-sub" id="si-kpi-price-chg">—</div></div>
     <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Short Vol Hoy</div><div class="kpi-val" id="si-kpi-sv">—</div><div class="kpi-sub" id="si-kpi-sv-pct">—</div></div>
     <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Short % Prom 30d</div><div class="kpi-val" id="si-kpi-ma30">—</div><div class="kpi-sub">media móvil</div></div>
     <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Percentil Hist.</div><div class="kpi-val" id="si-kpi-percentile">—</div><div class="kpi-sub">vs histórico</div></div>
     <div class="kpi" style="--accent:var(--orange)"><div class="kpi-label">Benchmark SPY</div><div class="kpi-val" id="si-kpi-benchmark">—</div><div class="kpi-sub" id="si-kpi-benchmark-label">short % SPY</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Short Interest</div><div class="kpi-val" id="si-kpi-si">—</div><div class="kpi-sub" id="si-kpi-si-dtc">—</div></div>
   </div>
 
   <!-- Chart 1: precio + volumen (Chart.js style) -->
@@ -2396,10 +2397,11 @@ let siChart1 = null, siChart2 = null;
 
 function siRender(symbol, data, siData) {
   if (!data || data.length === 0) {
-    ['si-kpi-price','si-kpi-sv','si-kpi-ma30','si-kpi-percentile','si-kpi-benchmark'].forEach(id =>
+    ['si-kpi-price','si-kpi-sv','si-kpi-ma30','si-kpi-percentile','si-kpi-benchmark','si-kpi-si'].forEach(id =>
       document.getElementById(id).textContent = '—');
     document.getElementById('si-kpi-price-chg').textContent = '—';
     document.getElementById('si-kpi-benchmark-label').textContent = '—';
+    document.getElementById('si-kpi-si-dtc').textContent = '—';
     document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos disponibles para ' + symbol + '</td></tr>';
     document.getElementById('si-last-update').style.display = 'none';
     return;
@@ -2573,105 +2575,61 @@ function siRender(symbol, data, siData) {
       'Posición corta: <b>' + fmtVol(last.currentShortPosition) + '</b> | ' +
       'Cambio: <b style="color:' + (last.changePercent >= 0 ? 'var(--red)' : 'var(--green)') + '">' + (last.changePercent != null ? (last.changePercent >= 0 ? '+' : '') + last.changePercent.toFixed(2) + '%' : '—') + '</b> | ' +
       'Days to Cover: <b>' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + '</b>';
+    // Update SI KPI
+    document.getElementById('si-kpi-si').textContent = fmtVol(last.currentShortPosition);
+    document.getElementById('si-kpi-si').style.color = last.changePercent >= 5 ? 'var(--red)' : last.changePercent <= -5 ? 'var(--green)' : 'var(--text)';
+    document.getElementById('si-kpi-si-dtc').textContent = (last.daysToCover != null ? 'DTC ' + last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
   } else {
     siRow.style.display = 'none';
+    document.getElementById('si-kpi-si').textContent = '—';
+    document.getElementById('si-kpi-si-dtc').textContent = '—';
   }
 }
 
 
-// ── Share chart helper (LightweightCharts via html2canvas) ──
+// ── Share chart helper (Chart.js canvas → PNG with title watermark) ──
 function shareSiChart(elId, title) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  
-  // Try html2canvas or fallback to screenshot
+  const cvs = document.getElementById(elId);
+  if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('No canvas:', elId); return; }
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
-  
-  // Use built-in LightweightCharts screenshot if available
-  const cvs = document.getElementById(elId);
-  if (cvs && typeof Chart !== 'undefined') {
-    try {
-      const dataUrl = cvs.toDataURL('image/png');
-      // Add title watermark
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = img.width; c.height = img.height + 30;
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(img, 0, 15);
-        ctx.fillStyle = 'rgba(255,255,255,0.25)';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(title + ' | ' + dateStr + ' | dash-fin.github.io', c.width - 15, c.height - 8);
-        c.toBlob(async (blob) => {
-          if (!blob) return;
-          const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try { await navigator.share({ files: [file], title }); return; }
-            catch(e) { if (e.name === 'AbortError') return; }
-          }
-          const a = document.createElement('a');
-          a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
-          a.href = URL.createObjectURL(blob);
-          a.click();
-          URL.revokeObjectURL(a.href);
-        });
-      };
-      img.src = dataUrl;
-      return;
-    } catch(e) { console.log(e); }
-  }
-  
-  // Fallback: capture the div via html2canvas if loaded
-  if (typeof html2canvas !== 'undefined') {
-    html2canvas(el, { backgroundColor: '#1a1a2e', scale: 2 }).then((canvas) => {
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          try { await navigator.share({ files: [file], title }); return; }
-          catch(e) { if (e.name === 'AbortError') return; }
-        }
-        const a = document.createElement('a');
-        a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
-        a.href = URL.createObjectURL(blob);
-        a.click();
-        URL.revokeObjectURL(a.href);
-      });
-    });
-  } else {
-    // Last resort: snapshot via canvas drawing
-    try {
-      html2canvas = undefined;
+  // Force chart re-render before capture
+  try {
+    const dataUrl = cvs.toDataURL('image/png');
+    const img = new Image();
+    img.onload = () => {
       const c = document.createElement('canvas');
-      c.width = el.offsetWidth * 2;
-      c.height = el.offsetHeight * 2;
+      c.width = img.width; c.height = img.height + 40;
       const ctx = c.getContext('2d');
-      ctx.scale(2, 2);
-      ctx.fillStyle = '#1a1a2e';
-      ctx.fillRect(0, 0, el.offsetWidth, el.offsetHeight);
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 20);
+      // Title at top
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(title, 12, 16);
+      // Footer
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
       ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(title + ' | ' + dateStr, el.offsetWidth / 2, el.offsetHeight / 2);
+      ctx.textAlign = 'right';
+      ctx.fillText(dateStr + ' · dash-fin.github.io', c.width - 12, c.height - 6);
       c.toBlob(async (blob) => {
         if (!blob) return;
-        const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
+        const fname = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
+        const file = new File([blob], fname, { type: 'image/png' });
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
           try { await navigator.share({ files: [file], title }); return; }
           catch(e) { if (e.name === 'AbortError') return; }
         }
         const a = document.createElement('a');
-        a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
-        a.href = URL.createObjectURL(blob);
-        a.click();
+        a.download = fname; a.href = URL.createObjectURL(blob);
+        a.click(); URL.revokeObjectURL(a.href);
       });
-    } catch(e) { console.log(e); }
-  }
+    };
+    img.src = dataUrl;
+  } catch(e) { console.log('share error:', e); }
 }
+
 
 // ── Init ──
 usLoadAll();
