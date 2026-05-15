@@ -566,6 +566,7 @@ window.usTab = (name, btn) => {
   if (panel) panel.classList.add('active');
   document.querySelectorAll('[id^="ustab-"]').forEach(t=>t.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  if (window.qaTrack) window.qaTrack('usa', name);
   if(name==='sectores') usRenderSectores();
   if(name==='opciones') usRenderOpciones();
   if(name==='shortint') siLoad();

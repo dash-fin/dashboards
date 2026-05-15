@@ -446,7 +446,8 @@ window.alTab = function(id, btn){
   document.querySelectorAll('[id^="alpanel-"]').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('[id^="alstab-"]').forEach(b => b.classList.remove('active'));
   document.getElementById('alpanel-'+id).classList.add('active');
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window.qaTrack) window.qaTrack('alertas', id);
   if(id === 'historial') alCargarHistorial();
   if(id === 'sltp') alRenderSltp();
 };

@@ -203,7 +203,8 @@ window.anTab=(name,btn)=>{
   document.querySelectorAll('[id^="anpanel-"]').forEach(p=>p.classList.remove('active'));
   document.getElementById('anpanel-'+name).classList.add('active');
   document.querySelectorAll('[id^="antab-"]').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window.qaTrack) window.qaTrack('analisis', name);
 };
 
 // ══════════════════════════════════════════════════

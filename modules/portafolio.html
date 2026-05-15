@@ -972,7 +972,8 @@ window.pfTab = (name, btn) => {
   document.querySelectorAll('[id^="pfpanel-"]').forEach(p => p.classList.remove('active'));
   document.getElementById('pfpanel-' + name).classList.add('active');
   document.querySelectorAll('[id^="pftab-"]').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window.qaTrack) window.qaTrack('portafolio', name);
   if(name === 'historial') pfLoadHistorial();
   if(name === 'resumen') {
     pfRenderBenchmark();

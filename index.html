@@ -112,9 +112,14 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .mtab{display:flex;align-items:center;gap:7px;padding:0 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;font-weight:500;flex-shrink:0}
 .mtab:hover{color:var(--text2)}
 .mtab.active{color:var(--green);border-bottom-color:var(--green)}
-.qa-row{display:flex;align-items:center;gap:6px;padding:10px 16px 6px;flex-wrap:wrap}
-.qa-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.3px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.qa-row{display:flex;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--border);min-height:36px}
+.qa-label{font-size:15px;opacity:.4}
+.qa-pills{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.qa-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.2px;cursor:pointer;transition:all .12s;white-space:nowrap}
 .qa-pill:hover{background:var(--bg4);color:var(--text);border-color:var(--text3)}
+.qa-pill .qa-mod{color:var(--text3)}
+.qa-pill .qa-tab{color:var(--text);font-weight:500}
+.qa-empty{color:var(--text4);font-size:10px;font-family:'IBM Plex Mono',monospace}
 .mtab.disabled{opacity:.35;cursor:default;pointer-events:none}
 .mtab-dot{width:5px;height:5px;border-radius:50%;background:var(--green);opacity:.7}
 .mtab-badge{font-size:7px;padding:1px 5px;border-radius:2px;background:var(--bg4);color:var(--text4);border:1px solid var(--border);letter-spacing:.5px}
@@ -494,8 +499,11 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
     </div>
   </div>
 
-  <!-- Quick access row -- top 3 tabs más usados (trackeado por clicks) -->
-  <div class="qa-row" id="qaRow"></div>
+  <!-- Quick access -- top 3 tabs más usados (trackeado por clicks) -->
+  <div class="qa-row">
+    <span class="qa-label">⚡</span>
+    <div class="qa-pills" id="qaPills"></div>
+  </div>
 
   <div class="content">
     <div id="moduleContainer" class="module-wrap"></div>
@@ -994,32 +1002,50 @@ function updateUserUI() {
 }
 
 // ── Auth-guarded module loader ──
-// ── Quick Access: trackeo de módulos más usados ──
+// ── Quick Access: trackeo de módulo+tab más usados ──
+const QA_LABELS = {
+  'portafolio:home':'Portafolio','portafolio:historial':'Historial','portafolio:compras':'Compras',
+  'usa:mercado':'Mercado','usa:sectores':'Sectores','usa:opciones':'Opciones','usa:shortint':'Short Data','usa:rrg':'RRG','usa:gex':'GEX','usa:topology':'Topology',
+  'alertas:mias':'Alertas','alertas:add':'+Alerta',
+  'analisis:analisis':'Análisis','analisis:heatmap':'Heatmap',
+  'opciones:opciones':'Opciones','opciones:flow':'Flow','opciones:earnings':'Earnings',
+  'cedears:cedears':'CEDEARs','cedears:arbitraje':'Arbitraje',
+  'bonos:bonos':'Bonos','bonos:flujos':'Flujos',
+  'vol:vol':'Volatilidad','vol:skew':'Skew',
+  'estrategias:estrategias':'Estrategias',
+  'stress_test_mock:stress_test_mock':'Stress Test'
+};
 const QA_ICONS = {
   home:'🏠', portafolio:'💼', usa:'🇺🇸', alertas:'🔔', analisis:'💡',
-  opciones:'📊', cedears:'🌐', bonos:'📐', shortinterest:'📉',
-  stress_test_mock:'🧪', estrategias:'🧩', vol:'📈'
+  opciones:'📊', cedears:'🌐', bonos:'📐', vol:'📈', estrategias:'🧩',
+  stress_test_mock:'🧪'
 };
-window.qaTrack = (name) => {
+window.qaTrack = (module, tab) => {
   try {
+    const key = module + ':' + (tab || module);
     const raw = localStorage.getItem('qa_clicks') || '{}';
     const clicks = JSON.parse(raw);
-    clicks[name] = (clicks[name] || 0) + 1;
+    clicks[key] = (clicks[key] || 0) + 1;
     localStorage.setItem('qa_clicks', JSON.stringify(clicks));
     window.qaRender();
   } catch(e) { /* ignore */ }
 };
 window.qaRender = () => {
   try {
-    const el = document.getElementById('qaRow');
+    const el = document.getElementById('qaPills');
     if (!el) return;
     const raw = localStorage.getItem('qa_clicks') || '{}';
     const clicks = JSON.parse(raw);
     const top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
-    if (top3.length === 0) { el.innerHTML = ''; return; }
-    el.innerHTML = top3.map(([name]) => {
-      const icon = QA_ICONS[name] || '📌';
-      return `<button class="qa-pill" onclick="loadModuleAuth('${name}',null)">${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}</button>`;
+    if (top3.length === 0) {
+      el.innerHTML = '<span class="qa-empty">Usá los módulos y aparecerán tus accesos rápidos</span>';
+      return;
+    }
+    el.innerHTML = top3.map(([key]) => {
+      const [mod, tab] = key.split(':');
+      const icon = QA_ICONS[mod] || '📌';
+      const label = QA_LABELS[key] || (tab.charAt(0).toUpperCase()+tab.slice(1));
+      return `<button class="qa-pill" onclick="loadModuleAuth('${mod}',null)">${icon} <span class="qa-tab">${label}</span></button>`;
     }).join('');
   } catch(e) { /* ignore */ }
 };
@@ -1223,7 +1249,7 @@ window.loadModule=async(name,btn)=>{
   try{
     const r=await fetch(`modules/${name}.html?v=${Date.now()}`);
     if(!r.ok)throw new Error('Módulo no encontrado');
-    window.qaTrack(name);
+    window.qaTrack(name, name); // track módulo home
     const html=await r.text();
     container.innerHTML=html;
     container.querySelectorAll('script').forEach(old=>{
