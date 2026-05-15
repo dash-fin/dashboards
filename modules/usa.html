@@ -271,6 +271,12 @@
     <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Short Interest</div><div class="kpi-val" id="si-kpi-si">—</div><div class="kpi-sub" id="si-kpi-si-dtc">—</div></div>
   </div>
 
+  <!-- Ticker badge visible -->
+  <div style="display:flex;align-items:center;gap:10px;margin:6px 0 10px">
+    <span id="si-ticker-badge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text)">🔍 SPY</span>
+    <span id="si-ticker-sub" style="font-size:10px;color:var(--text3)">—</span>
+  </div>
+
   <!-- Chart 1: precio + volumen (Chart.js style) -->
   <div class="card">
     <div class="card-head">
@@ -2407,6 +2413,8 @@ function siRender(symbol, data, siData) {
     document.getElementById('si-kpi-si-dtc').textContent = '—';
     document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos disponibles para ' + symbol + '</td></tr>';
     document.getElementById('si-last-update').style.display = 'none';
+    document.getElementById('si-ticker-badge').innerHTML = '🔍 ' + symbol;
+    document.getElementById('si-ticker-sub').textContent = 'Sin datos FINRA';
     return;
   }
 
@@ -2564,9 +2572,13 @@ function siRender(symbol, data, siData) {
       '</tr>';
   }).join('');
 
-  // Update timestamp
+  // Update ticker badge + timestamp
+  document.getElementById('si-ticker-badge').innerHTML = '🔍 ' + symbol;
+  const rangeStart = data[0] ? data[0].fecha.slice(5) : '—';
+  const rangeEnd = today.fecha || '—';
+  document.getElementById('si-ticker-sub').textContent = rangeStart + ' → ' + rangeEnd.slice(5) + ' | ' + data.length + ' días hábiles';
   document.getElementById('si-last-update').style.display = 'block';
-  document.getElementById('si-last-update').textContent = '📅 ' + (today.fecha || '—') + ' | ' + data.length + ' días';
+  document.getElementById('si-last-update').textContent = '📅 ' + rangeEnd + ' | ' + data.length + ' días';
 
   // Short Interest KPI
   if (siData && siData.length > 0) {
