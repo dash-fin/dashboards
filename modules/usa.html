@@ -271,15 +271,12 @@
     <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Short Interest</div><div class="kpi-val" id="si-kpi-si">—</div><div class="kpi-sub" id="si-kpi-si-dtc">—</div></div>
   </div>
 
-  <!-- Ticker header -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-bottom:10px">
-    <div style="display:flex;align-items:baseline;gap:10px">
-      <span id="si-ticker-badge" style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--yellow);letter-spacing:-0.5px">SPY</span>
-      <span id="si-price-badge" style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:var(--green);font-weight:500">$—</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <span id="si-change-badge" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;padding:3px 10px;border-radius:4px">—</span>
-    </div>
+  <!-- Ticker header (estilo Finviz: ticker + precio + cambio + nombre empresa) -->
+  <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-bottom:10px;flex-wrap:nowrap">
+    <span id="si-ticker-badge" style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--yellow);letter-spacing:-0.5px;white-space:nowrap">SPY</span>
+    <span id="si-price-badge" style="font-family:'IBM Plex Mono',monospace;font-size:17px;color:var(--text);font-weight:500;white-space:nowrap">$—</span>
+    <span id="si-change-badge" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap">—</span>
+    <span id="si-name-badge" style="font-size:11px;color:var(--text3);font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">—</span>
   </div>
 
   <!-- Chart 1: precio + volumen (Chart.js style) -->
@@ -2362,10 +2359,11 @@ window.siLoad = async (sym) => {
   siSetStatus('⏳ cargando short interest…');
   const siResp = await fetchJSON(BASE + '/finra-si', { ticker: symbol });
   const siData = (siResp && siResp.settlementDate) ? [siResp] : (Array.isArray(siResp) ? siResp : []);
+  const companyName = (siResp && siResp.issueName) || '';
   try {
     if (!svData || svData.length === 0) {
       siSetStatus('❌ Sin datos de short volume para ' + symbol + ' en FINRA', true);
-      siRender(symbol, null, null);
+      siRender(symbol, null, null, companyName);
       return;
     }
 
@@ -2392,17 +2390,17 @@ window.siLoad = async (sym) => {
 
     siSetStatus('✅ ' + symbol + ' · ' + merged.length + ' días · ' + (prices && prices.length ? '✓ precio' : 'sin precio') + ' · ' + (bmData && bmData.length ? '✓ benchmark' : 'sin benchmark'));
     setTimeout(() => siSetStatus(''), 5000);
-    siRender(symbol, merged, siData);
+    siRender(symbol, merged, siData, companyName);
   } catch(err) {
     siSetStatus('❌ Error al cargar ' + symbol + (err.message ? ' (' + err.message + ')' : ''), true);
-    siRender(symbol, null, null);
+    siRender(symbol, null, null, companyName);
   }
 };
 
 // ── Variables para los charts ───────────────────────────────
 let siChart1 = null, siChart2 = null;
 
-function siRender(symbol, data, siData) {
+function siRender(symbol, data, siData, companyName) {
   if (!data || data.length === 0) {
     ['si-kpi-price','si-kpi-sv','si-kpi-ma30','si-kpi-percentile','si-kpi-benchmark','si-kpi-si'].forEach(id =>
       document.getElementById(id).textContent = '—');
@@ -2414,6 +2412,7 @@ function siRender(symbol, data, siData) {
     document.getElementById('si-ticker-badge').textContent = symbol;
     document.getElementById('si-price-badge').textContent = '$—';
     const _chgEl = document.getElementById('si-change-badge'); if (_chgEl) { _chgEl.textContent = '—'; _chgEl.style.background = 'transparent'; }
+    document.getElementById('si-name-badge').textContent = companyName || '—';
     return;
   }
 
@@ -2585,6 +2584,7 @@ function siRender(symbol, data, siData) {
   // Update ticker badge
   document.getElementById('si-ticker-badge').textContent = symbol;
   document.getElementById('si-price-badge').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '$—';
+  document.getElementById('si-name-badge').textContent = companyName || '—';
   let _chgEl2 = document.getElementById('si-change-badge');
   if (kpi_chg != null && _chgEl2) { _chgEl2.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%'; _chgEl2.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)'; _chgEl2.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)'; }
   document.getElementById('si-last-update').style.display = 'block';
