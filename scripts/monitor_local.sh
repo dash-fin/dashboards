@@ -151,6 +151,63 @@ import sys, json; d = json.load(sys.stdin); r = d.get('results',[]); print(r[-1]
       sb_post_no_merge "dolar_historico" "{\"fecha\":\"$hoy\",\"tipo\":\"oficial\",\"close\":$bcra_val,\"fuente\":\"bcra\"}"
     fi
   fi
+
+  # ── Fallback general: dolarapi.com — cubre oficial, blue, MEP, CCL, mayorista ──
+  # Se ejecuta siempre que falte MEP o CCL (primarias) o para completar blue/ccb/mayorista
+  local dp_resp dp_oficial dp_blue dp_mep dp_ccl dp_mayor
+  dp_resp=$(curl -s "https://dolarapi.com/v1/dolares" -H "User-Agent: Mozilla/5.0" 2>/dev/null || echo "[]")
+  if [[ -n "$dp_resp" && "$dp_resp" != "[]" ]]; then
+    # Parsear cada tipo desde el JSON array
+    dp_oficial=$(echo "$dp_resp" | python3 -c "
+import sys, json; d=json.load(sys.stdin)
+r=[x for x in d if x.get('casa')=='oficial']
+print(r[0].get('venta',0) if r else 0)" 2>/dev/null || echo "0")
+    dp_blue=$(echo "$dp_resp" | python3 -c "
+import sys, json; d=json.load(sys.stdin)
+r=[x for x in d if x.get('casa')=='blue']
+print(r[0].get('venta',0) if r else 0)" 2>/dev/null || echo "0")
+    dp_mep=$(echo "$dp_resp" | python3 -c "
+import sys, json; d=json.load(sys.stdin)
+r=[x for x in d if x.get('casa')=='bolsa']
+print(r[0].get('venta',0) if r else 0)" 2>/dev/null || echo "0")
+    dp_ccl=$(echo "$dp_resp" | python3 -c "
+import sys, json; d=json.load(sys.stdin)
+r=[x for x in d if x.get('casa')=='contadoconliqui']
+print(r[0].get('venta',0) if r else 0)" 2>/dev/null || echo "0")
+    dp_mayor=$(echo "$dp_resp" | python3 -c "
+import sys, json; d=json.load(sys.stdin)
+r=[x for x in d if x.get('casa')=='mayorista']
+print(r[0].get('venta',0) if r else 0)" 2>/dev/null || echo "0")
+
+    if [[ "$dp_mep" != "0" ]]; then
+      log "DOLAR: dolarapi MEP=$dp_mep"
+      # Solo actualizar si no cargamos MEP antes (desde edge function)
+      if [[ -z "$mep" || "$mep" == "" || "$mep" == "0" ]]; then
+        mep=$dp_mep
+        sb_post "mep_historico" "{\"fecha\":\"$hoy\",\"mep\":$dp_mep}"
+      fi
+      sb_post_no_merge "dolar_historico" "{\"fecha\":\"$hoy\",\"tipo\":\"mep\",\"close\":$dp_mep,\"fuente\":\"dolarapi\"}"
+    fi
+    if [[ "$dp_ccl" != "0" ]]; then
+      log "DOLAR: dolarapi CCL=$dp_ccl"
+      if [[ -z "$ccl_val" || "$ccl_val" == "" || "$ccl_val" == "0" ]]; then
+        ccl_val=$dp_ccl
+      fi
+      sb_post_no_merge "dolar_historico" "{\"fecha\":\"$hoy\",\"tipo\":\"ccl\",\"close\":$dp_ccl,\"fuente\":\"dolarapi\"}"
+    fi
+    if [[ "$dp_oficial" != "0" ]]; then
+      log "DOLAR: dolarapi Oficial=$dp_oficial"
+      sb_post_no_merge "dolar_historico" "{\"fecha\":\"$hoy\",\"tipo\":\"oficial\",\"close\":$dp_oficial,\"fuente\":\"dolarapi\"}"
+    fi
+    if [[ "$dp_blue" != "0" ]]; then
+      log "DOLAR: dolarapi Blue=$dp_blue"
+      sb_post_no_merge "dolar_historico" "{\"fecha\":\"$hoy\",\"tipo\":\"blue\",\"close\":$dp_blue,\"fuente\":\"dolarapi\"}"
+    fi
+    if [[ "$dp_mayor" != "0" ]]; then
+      log "DOLAR: dolarapi Mayorista=$dp_mayor"
+      sb_post_no_merge "dolar_historico" "{\"fecha\":\"$hoy\",\"tipo\":\"mayorista\",\"close\":$dp_mayor,\"fuente\":\"dolarapi\"}"
+    fi
+  fi
 }
 
 # ── PnL Snapshot (portafolio + trades) ──
