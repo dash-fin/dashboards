@@ -1033,12 +1033,12 @@ window.qaTrack = (module, tab) => {
 window.qaRender = () => {
   try {
     const el = document.getElementById('qaPills');
-    if (!el) return;
-    const raw = localStorage.getItem('qa_clicks') || '{}';
-    const clicks = JSON.parse(raw);
+    if (!el) { console.log('qaPills not found'); return; }
+    let clicks = {};
+    try { const raw = localStorage.getItem('qa_clicks') || '{}'; clicks = JSON.parse(raw); } catch(e) {}
     const top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
     if (top3.length === 0) {
-      el.innerHTML = '<span class="qa-empty">Usá los módulos y aparecerán tus accesos rápidos</span>';
+      el.innerHTML = '<span class="qa-empty">⚡ Navegá los módulos y aparecerán tus accesos rápidos</span>';
       return;
     }
     el.innerHTML = top3.map(([key]) => {
@@ -1047,9 +1047,14 @@ window.qaRender = () => {
       const label = QA_LABELS[key] || (tab.charAt(0).toUpperCase()+tab.slice(1));
       return `<button class="qa-pill" onclick="loadModuleAuth('${mod}',null)">${icon} <span class="qa-tab">${label}</span></button>`;
     }).join('');
-  } catch(e) { /* ignore */ }
+  } catch(e) { console.log('qaRender err:', e); }
 };
-window.qaRender();
+// Render on load + delayed for DOM readiness
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', window.qaRender);
+} else {
+  window.qaRender();
+}
 
 window.loadModuleAuth = (name, btn) => {
   if (!currentUser) {

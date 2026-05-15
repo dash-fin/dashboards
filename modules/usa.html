@@ -2354,7 +2354,12 @@ window.siLoad = (sym) => {
     return [];
   }), 8000);
 
-  Promise.all([pricePromise, svPromise, bmPromise, siPromise]).then(([prices, svData, bmData, siData]) => {
+  // En caso de timeout, cada una resuelve null
+  Promise.allSettled([pricePromise, svPromise, bmPromise, siPromise]).then(results => {
+    const prices = results[0].status === 'fulfilled' ? results[0].value : null;
+    const svData = results[1].status === 'fulfilled' ? results[1].value : null;
+    const bmData = results[2].status === 'fulfilled' ? results[2].value : null;
+    const siData = results[3].status === 'fulfilled' ? results[3].value : null;
     if (!svData || svData.length === 0) {
       siSetStatus('❌ Sin datos de short volume para ' + symbol + ' en FINRA', true);
       siRender(symbol, null, null);
