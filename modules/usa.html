@@ -2338,13 +2338,13 @@ window.siLoad = (sym) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...SBH },
     body: JSON.stringify({ symbol, days: 45 }),
-  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 5000);
+  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 8000);
 
   const bmPromise = withTimeout(fetch(BASE + '/finra-short-volume', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...SBH },
     body: JSON.stringify({ symbol: 'SPY', days: 45 }),
-  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 5000);
+  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 8000);
 
   const siPromise = withTimeout(fetch(BASE + '/finra-si', {
     method: 'POST',
@@ -2354,7 +2354,7 @@ window.siLoad = (sym) => {
     if (d && d.settlementDate) return [d];
     if (Array.isArray(d)) return d;
     return [];
-  }), 5000);
+  }), 8000);
 
   Promise.all([pricePromise, svPromise, bmPromise, siPromise]).then(([prices, svData, bmData, siData]) => {
     if (!svData || svData.length === 0) {
@@ -2578,7 +2578,7 @@ function siRender(symbol, data, siData) {
     // Update SI KPI
     document.getElementById('si-kpi-si').textContent = fmtVol(last.currentShortPosition);
     document.getElementById('si-kpi-si').style.color = last.changePercent >= 5 ? 'var(--red)' : last.changePercent <= -5 ? 'var(--green)' : 'var(--text)';
-    document.getElementById('si-kpi-si-dtc').textContent = (last.daysToCover != null ? 'DTC ' + last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
+    document.getElementById('si-kpi-si-dtc').textContent = (last.settlementDate || '—') + ' | ' + (last.daysToCover != null ? 'DTC ' + last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
   } else {
     siRow.style.display = 'none';
     document.getElementById('si-kpi-si').textContent = '—';
@@ -2590,44 +2590,53 @@ function siRender(symbol, data, siData) {
 // ── Share chart helper (Chart.js canvas → PNG with title watermark) ──
 function shareSiChart(elId, title) {
   const cvs = document.getElementById(elId);
-  if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('No canvas:', elId); return; }
+  if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('shareSiChart: no canvas', elId); return; }
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
-  // Force chart re-render before capture
-  try {
-    const dataUrl = cvs.toDataURL('image/png');
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      c.width = img.width; c.height = img.height + 40;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(img, 0, 20);
-      // Title at top
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.font = 'bold 16px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText(title, 12, 16);
-      // Footer
-      ctx.fillStyle = 'rgba(255,255,255,0.2)';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'right';
-      ctx.fillText(dateStr + ' · dash-fin.github.io', c.width - 12, c.height - 6);
-      c.toBlob(async (blob) => {
-        if (!blob) return;
-        const fname = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
-        const file = new File([blob], fname, { type: 'image/png' });
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          try { await navigator.share({ files: [file], title }); return; }
-          catch(e) { if (e.name === 'AbortError') return; }
-        }
-        const a = document.createElement('a');
-        a.download = fname; a.href = URL.createObjectURL(blob);
-        a.click(); URL.revokeObjectURL(a.href);
-      });
-    };
-    img.src = dataUrl;
-  } catch(e) { console.log('share error:', e); }
+  // Try to get Chart.js instance and render
+  const chartInst = Chart.getChart(cvs);
+  if (chartInst) {
+    chartInst.render();
+  }
+  setTimeout(() => {
+    try {
+      const dataUrl = cvs.toDataURL('image/png');
+      if (!dataUrl || dataUrl === cvs.toDataURL()) { /* ok */ }
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = Math.max(img.width, 400);
+        c.height = img.height + 44;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 22);
+        // Header with title and source
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.font = 'bold 15px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(title, 12, 16);
+        // Footer source + date
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', c.width - 12, c.height - 8);
+        c.toBlob(async (blob) => {
+          if (!blob) return;
+          const fname = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
+          const file = new File([blob], fname, { type: 'image/png' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try { await navigator.share({ files: [file], title }); return; }
+            catch(e) { if (e.name === 'AbortError') return; }
+          }
+          const a = document.createElement('a');
+          a.download = fname; a.href = URL.createObjectURL(blob);
+          a.click(); URL.revokeObjectURL(a.href);
+        });
+      };
+      img.src = dataUrl;
+    } catch(e) { console.log('shareSiChart error:', e); }
+  }, 100);
 }
 
 
