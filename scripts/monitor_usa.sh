@@ -130,30 +130,45 @@ earnings_watch() {
 
 
 # ═══════════════════════════════════════════════════════════
-# Main
+# Main (loop infinito)
 # ═══════════════════════════════════════════════════════════
 
-log "=== MONITOR USA INICIO ==="
+log "=== MONITOR USA ARRANQUE (loop cada 5 min) ==="
 
-# Horario USA (lun-vie, 08:10-20:30 ART)
-hora=$(hour_art)
-dia=$(date +%u)
-if [[ "$dia" -gt 5 || "$hora" -lt 0810 || "$hora" -gt 2030 ]]; then
-  log "SKIP: Fuera de horario USA (hora=$hora, dia=$dia)"
-  exit 0
-fi
+CYCLE=0
+while true; do
+  CYCLE=$((CYCLE+1))
+  hora=$(hour_art)
+  dia=$(date +%u)
 
-# Watchdog
-watchdog_usa || log "WATCHDOG: Alerta — mercado_usa no actualizado"
+  # Fin de semana: dormir 10 min
+  if [[ "$dia" -gt 5 ]]; then
+    sleep 600
+    continue
+  fi
 
-# Health check edge functions (cada hora)
-if (( hora % 100 <= 15 )); then
-  health_check
-fi
+  # Fuera de horario: dormir 10 min
+  if [[ "$hora" -lt 0810 || "$hora" -gt 2030 ]]; then
+    log "Ciclo $CYCLE: fuera de horario USA (${hora}), durmiendo 10 min"
+    sleep 600
+    continue
+  fi
 
-# Earnings watch (solo a las 09:30, 12:00, 16:00 ART)
-if [[ "$hora" == "093"* || "$hora" == "120"* || "$hora" == "160"* ]]; then
-  earnings_watch
-fi
+  log "Ciclo $CYCLE: ${hora}h — ejecutando..."
 
-log "=== MONITOR USA FIN ==="
+  # Watchdog
+  watchdog_usa || log "WATCHDOG: Alerta — mercado_usa no actualizado"
+
+  # Health check edge functions (cada hora)
+  if (( 10#${hora} % 100 <= 15 )); then
+    health_check
+  fi
+
+  # Earnings watch (solo a las 09:30, 12:00, 16:00 ART)
+  if [[ "$hora" == "093"* || "$hora" == "120"* || "$hora" == "160"* ]]; then
+    earnings_watch
+  fi
+
+  log "Ciclo $CYCLE: durmiendo 5 min"
+  sleep 300
+done

@@ -300,30 +300,46 @@ send_resumen() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# Main
+# Main (loop infinito)
 # ═══════════════════════════════════════════════════════════
 
-log "=== MONITOR LOCAL INICIO $(date_art) $(hour_art) ==="
+log "=== MONITOR LOCAL ARRANQUE (loop cada 5 min) ==="
 
-_hora=$(hour_art)
-_dia=$(dow_art)
+CYCLE=0
+while true; do
+  CYCLE=$((CYCLE+1))
+  _hora=$(hour_art)
+  _dia=$(dow_art)
 
-# Fuera de horario o fin de semana
-[[ "$_dia" -gt 5 ]] && { log "SKIP: finde"; exit 0; }
-[[ "$_hora" -lt 1040 || "$_hora" -gt 1800 ]] && { log "SKIP: fuera de horario (${_hora})"; exit 0; }
-
-# Watchdog (no bloqueante)
-watchdog_ars || true
-
-# Dólar + PnL al cierre (17:01-17:59)
-if in_range 1701 1759; then
-  get_dolar
-  if in_range 1706 1759; then
-    pnl_snapshot
+  # Fin de semana: dormir 10 min y reintentar
+  if [[ "$_dia" -gt 5 ]]; then
+    sleep 600
+    continue
   fi
-  if in_range 1720 1730; then
-    send_resumen
-  fi
-fi
 
-log "=== MONITOR LOCAL FIN ==="
+  # Fuera de horario: dormir 10 min y reintentar
+  if [[ "$_hora" -lt 1040 || "$_hora" -gt 1800 ]]; then
+    log "Ciclo $CYCLE: fuera de horario (${_hora}), durmiendo 10 min"
+    sleep 600
+    continue
+  fi
+
+  log "Ciclo $CYCLE: ${_hora}h — ejecutando..."
+
+  # Watchdog (no bloqueante)
+  watchdog_ars || true
+
+  # Dólar + PnL al cierre (17:01-17:59)
+  if in_range 1701 1759; then
+    get_dolar
+    if in_range 1706 1759; then
+      pnl_snapshot
+    fi
+    if in_range 1720 1730; then
+      send_resumen
+    fi
+  fi
+
+  log "Ciclo $CYCLE: durmiendo 5 min"
+  sleep 300
+done
