@@ -1069,7 +1069,7 @@ window.qaRender = () => {
     el.innerHTML = top3.map(([key]) => {
       const [mod, tab] = key.split(':');
       const icon = QA_ICONS[mod] || '📌';
-      const label = QA_LABELS[key] || (tab.charAt(0).toUpperCase()+tab.slice(1));
+      const label = QA_LABELS[key] || (tab ? tab.charAt(0).toUpperCase()+tab.slice(1) : mod);
       const tabStr = tab || '';
       return `<button class="qa-pill" onclick="qaGo('${mod}','${tabStr}')">${icon} <span class="qa-tab">${label}</span></button>`;
     }).join('');
