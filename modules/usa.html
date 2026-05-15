@@ -212,12 +212,10 @@
         onkeydown="if(event.key==='Enter')siLoad()">
       <button onclick="siLoad()" class="btn btn-green" style="border-radius:0;font-size:9px;padding:5px 10px">CARGAR</button>
     </div>
-    <div class="nav-arrows" style="display:flex;gap:4px">
-      <button onclick="siPrev()" class="btn btn-outline" style="font-size:9px;padding:3px 6px" title="Anterior">◀</button>
-      <button onclick="siNext()" class="btn btn-outline" style="font-size:9px;padding:3px 6px" title="Siguiente">▶</button>
-    </div>
+    <span style="font-size:10px;color:var(--text3)">últimos <b>45 días</b> hábiles (~2 meses calendario)</span>
     <button onclick="siToggleGuide()" class="btn btn-outline" style="font-size:11px;padding:3px 8px" title="Guía de interpretación">📘</button>
     <div class="sub-tabs-meta" style="display:none" id="si-last-update">—</div>
+    <div id="si-status" style="font-size:10px;color:var(--text3)"></div>
   </div>
 
   <!-- Guide popup -->
@@ -271,19 +269,19 @@
   <!-- Chart 1: precio + volumen -->
   <div class="card">
     <div class="card-head">
-      <div class="card-title">Precio + Volumen Total + Short Volume</div>
-      <button class="btn-share" onclick="shareChart('si-chart1', 'Short Volume — ' + (document.getElementById('si-search').value || 'TICKER') + ' | Precio + Volumen')" title="Compartir">📤</button>
+      <div class="card-title">Precio + Short Volume</div>
+      <button class="btn-share" onclick="shareChartLw('si-chart1', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Precio + Short Vol')" title="Compartir">📤</button>
     </div>
-    <div class="card-body"><canvas id="si-chart1" height="110"></canvas></div>
+    <div class="card-body" id="si-chart1" style="height:200px"></div>
   </div>
 
   <!-- Chart 2: short % bars + MA30 -->
   <div class="card">
     <div class="card-head">
       <div class="card-title">Short Volume % (barras diarias + MA30)</div>
-      <button class="btn-share" onclick="shareChart('si-chart2', 'Short Volume — ' + (document.getElementById('si-search').value || 'TICKER') + ' | Short % + MA30')" title="Compartir">📤</button>
+      <button class="btn-share" onclick="shareChartLw('si-chart2', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Short % + MA30')" title="Compartir">📤</button>
     </div>
-    <div class="card-body"><canvas id="si-chart2" height="100"></canvas></div>
+    <div class="card-body" id="si-chart2" style="height:180px"></div>
   </div>
 
   <!-- Table -->
@@ -2281,71 +2279,73 @@ window.siToggleGuide = () => {
   g.style.display = g.style.display === 'none' ? 'block' : 'none';
 };
 
-function siShowSkeleton(on) {
-  // No skeleton needed anymore, data loads fast from cache
-}
-
 window.siHistory = [];
-window.siIndex = 0;
 
-window.siPrev = () => {
-  if (siIndex > 0) { siIndex--; siLoad(siHistory[siIndex]); }
-};
-window.siNext = () => {
-  if (siIndex < siHistory.length - 1) { siIndex++; siLoad(siHistory[siIndex]); }
-};
+function siSetStatus(msg, isError) {
+  const el = document.getElementById('si-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--red)' : 'var(--text3)';
+  if (!msg) el.textContent = '';
+}
 
 window.siLoad = (sym) => {
   const symbol = (sym || document.getElementById('si-ticker').value || 'SPY').toUpperCase().trim();
   if (!sym) document.getElementById('si-ticker').value = symbol;
 
-  // Add to history
-  if (symbol !== siHistory[siHistory.length - 1]) {
-    const idx = siHistory.indexOf(symbol);
-    if (idx >= 0) siHistory.splice(idx, 1);
-    siHistory.push(symbol);
-    siIndex = siHistory.length - 1;
-  }
+  siSetStatus('⏳ cargando ' + symbol + '…');
 
-  siShowSkeleton(true);
+  // Clear previous charts
+  const c1 = document.getElementById('si-chart1');
+  const c2 = document.getElementById('si-chart2');
+  if (c1) { c1.innerHTML = ''; }
+  if (c2) { c2.innerHTML = ''; }
 
   const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
   const BASE = 'https://endymbpdayeidromxayb.supabase.co/functions/v1';
 
-  // 1. Fetch prices from yahoo-prices
-  const pricePromise = fetch(BASE + '/yahoo-prices', {
+  // Timeout wrapper
+  const withTimeout = (promise, ms) =>
+    Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+    ]);
+
+  const pricePromise = withTimeout(fetch(BASE + '/yahoo-prices', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...SBH },
     body: JSON.stringify({ symbols: [symbol], mode: 'yahoo-history', range: '3mo', interval: '1d' }),
-  }).then(r => r.json()).then(d => d[symbol] || []).catch(() => []);
+  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d[symbol] || []), 8000);
 
-  // 2. Fetch short volume from finra-short-volume
-  const svPromise = fetch(BASE + '/finra-short-volume', {
+  const svPromise = withTimeout(fetch(BASE + '/finra-short-volume', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...SBH },
     body: JSON.stringify({ symbol, days: 45 }),
-  }).then(r => r.json()).then(d => d.data || []).catch(() => []);
+  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 5000);
 
-  // 3. Fetch benchmark (SPY) short volume
-  const bmPromise = fetch(BASE + '/finra-short-volume', {
+  const bmPromise = withTimeout(fetch(BASE + '/finra-short-volume', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...SBH },
     body: JSON.stringify({ symbol: 'SPY', days: 45 }),
-  }).then(r => r.json()).then(d => d.data || []).catch(() => []);
+  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 5000);
 
-  // 4. Fetch short interest (if available)
-  const siPromise = fetch(BASE + '/finra-si', {
+  const siPromise = withTimeout(fetch(BASE + '/finra-si', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...SBH },
     body: JSON.stringify({ ticker: symbol }),
-  }).then(r => r.json()).then(d => {
+  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => {
     if (d && d.settlementDate) return [d];
     if (Array.isArray(d)) return d;
     return [];
-  }).catch(() => []);
+  }), 5000);
 
   Promise.all([pricePromise, svPromise, bmPromise, siPromise]).then(([prices, svData, bmData, siData]) => {
-    // Build date lookup for prices
+    if (!svData || svData.length === 0) {
+      siSetStatus('❌ Sin datos de short volume para ' + symbol + ' en FINRA', true);
+      siRender(symbol, null, null);
+      return;
+    }
+
     const priceMap = {};
     if (prices && prices.length) {
       prices.forEach(p => {
@@ -2354,13 +2354,11 @@ window.siLoad = (sym) => {
       });
     }
 
-    // Build benchmark map
     const bmMap = {};
     if (bmData && bmData.length) {
       bmData.forEach(r => { if (r.fecha) bmMap[r.fecha] = r.short_pct; });
     }
 
-    // Merge data
     const merged = (svData || []).map(r => ({
       ...r,
       close: priceMap[r.fecha]?.close || null,
@@ -2368,22 +2366,30 @@ window.siLoad = (sym) => {
       benchmark_pct: bmMap[r.fecha] !== undefined ? Math.round(bmMap[r.fecha] * 100) / 100 : null,
     }));
 
+    siSetStatus('✅ ' + symbol + ' · ' + merged.length + ' días · ' + (prices && prices.length ? '✓ precio' : 'sin precio') + ' · ' + (bmData && bmData.length ? '✓ benchmark' : 'sin benchmark'));
+    setTimeout(() => siSetStatus(''), 5000);
     siRender(symbol, merged, siData);
-    siShowSkeleton(false);
-  }).catch(() => {
+  }).catch(err => {
+    siSetStatus('❌ Error al cargar ' + symbol + (err.message === 'timeout' ? ' (timeout)' : ''), true);
     siRender(symbol, null, null);
-    siShowSkeleton(false);
   });
 };
 
+// ── Variables para los charts Lightweight ────────────────────
+let siLwChart1 = null, siLwChart2 = null;
+
 function siRender(symbol, data, siData) {
   if (!data || data.length === 0) {
-    document.getElementById('si-kpi-price').textContent = '—';
-    document.getElementById('si-kpi-sv').textContent = '—';
-    document.getElementById('si-kpi-ma30').textContent = '—';
-    document.getElementById('si-kpi-percentile').textContent = '—';
-    document.getElementById('si-kpi-benchmark').textContent = '—';
+    ['si-kpi-price','si-kpi-sv','si-kpi-ma30','si-kpi-percentile','si-kpi-benchmark'].forEach(id =>
+      document.getElementById(id).textContent = '—');
+    document.getElementById('si-kpi-price-chg').textContent = '—';
+    document.getElementById('si-kpi-benchmark-label').textContent = '—';
     document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos disponibles para ' + symbol + '</td></tr>';
+    ['si-chart1','si-chart2'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text3);font-size:11px">Sin datos</div>';
+    });
+    document.getElementById('si-last-update').style.display = 'none';
     return;
   }
 
@@ -2396,8 +2402,6 @@ function siRender(symbol, data, siData) {
   const kpi_pctl = data[data.length - 1]?.percentile;
   const kpi_bm = data[data.length - 1]?.benchmark_pct;
 
-  // Format numbers
-  const fmt = (n, d = 2) => n != null ? n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
   const fmtVol = (n) => n != null ? (n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n)) : '—';
   const fmtPct = (n) => n != null ? n.toFixed(1) + '%' : '—';
 
@@ -2411,100 +2415,96 @@ function siRender(symbol, data, siData) {
   document.getElementById('si-kpi-percentile').textContent = kpi_pctl != null ? 'P' + kpi_pctl : '—';
   document.getElementById('si-kpi-percentile').style.color = kpi_pctl >= 90 ? 'var(--red)' : kpi_pctl >= 75 ? 'var(--amber)' : 'var(--text)';
   document.getElementById('si-kpi-benchmark').textContent = kpi_bm != null ? kpi_bm.toFixed(1) + '%' : '—';
-
   const diff = kpi_sv_pct != null && kpi_bm != null ? (kpi_sv_pct - kpi_bm).toFixed(1) + 'pp' : '—';
   document.getElementById('si-kpi-benchmark-label').textContent = symbol + ' vs SPY: ' + diff;
 
-  // Chart 1: Price + Volume
-  const canvas1 = document.getElementById('si-chart1');
-  const ctx1 = canvas1.getContext('2d');
-  const W = canvas1.parentElement.clientWidth || 600;
-  canvas1.width = W * 3; canvas1.height = 330;  /* 3x para buena calidad */
-  canvas1.style.width = W + "px"; canvas1.style.height = "110px";
-  ctx1.scale(3, 3);
+  // ── CHART 1: Precio + Volumen (LightweightCharts) ──────
+  const el1 = document.getElementById('si-chart1');
+  el1.innerHTML = '';  // Clear previous
+  const W = el1.parentElement.clientWidth || 600;
 
-  const chartData = data.slice(-30);
-  const maxPrice = Math.max(...chartData.filter(d => d.close != null).map(d => d.close), 1);
-  const minPrice = Math.min(...chartData.filter(d => d.close != null).map(d => d.close), 0);
-  const maxVol = Math.max(...chartData.map(d => d.total_vol), 1);
-  const pad = { t: 8, b: 18, l: 4, r: 4 };
-  const cw = W - pad.l - pad.r;
-  const ch = 110 - pad.t - pad.b;
+  if (typeof LightweightCharts !== 'undefined') {
+    if (siLwChart1) { try { siLwChart1.remove(); } catch(e) {} }
+    
+    siLwChart1 = LightweightCharts.createChart(el1, {
+      width: W, height: 200,
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#888' },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      timeScale: { timeVisible: true, borderColor: 'rgba(255,255,255,0.06)' },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
+      handleScroll: true, handleScale: true,
+    });
 
-  ctx1.clearRect(0, 0, W, 110);
-  ctx1.fillStyle = 'var(--text4, #666)';
-  ctx1.font = '7px IBM Plex Mono, monospace';
+    const chartData = data.slice(-45).filter(d => d.close != null);
+    const volData = data.slice(-45);
+    const priceSeries = siLwChart1.addLineSeries({
+      color: '#00e5a8', lineWidth: 2, lastValueVisible: true,
+      priceFormat: { type: 'price', minMove: 0.01, precision: 2 },
+    });
+    priceSeries.setData(chartData.map(d => ({ time: d.fecha, value: d.close })));
 
-  chartData.forEach((d, i) => {
-    const x = pad.l + (i / Math.max(chartData.length - 1, 1)) * cw;
-    const barH = (d.total_vol / maxVol) * ch * 0.6;
-    const barY = 110 - pad.b - barH;
+    // Histogram volumen
+    const volSeries = siLwChart1.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+    });
+    siLwChart1.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.85, bottom: 0 },
+    });
+    const maxV = Math.max(...volData.map(d => d.total_vol), 1);
+    volSeries.setData(volData.map(d => ({
+      time: d.fecha,
+      value: d.short_vol,
+      color: d.short_vol > 0 ? 'rgba(255,63,94,' + (0.3 + 0.4 * d.short_vol / Math.max(d.total_vol, 1)) + ')' : 'rgba(128,128,128,0.1)',
+    })));
 
-    // Total volume bar (light)
-    ctx1.fillStyle = 'rgba(128,128,128,0.15)';
-    ctx1.fillRect(x - 1, barY, 5, barH);
+    // ── CHART 2: Short % bars + MA30 ──────────────────────
+    const el2 = document.getElementById('si-chart2');
+    el2.innerHTML = '';
+    
+    if (siLwChart2) { try { siLwChart2.remove(); } catch(e) {} }
+    
+    siLwChart2 = LightweightCharts.createChart(el2, {
+      width: W, height: 180,
+      layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#888' },
+      grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      timeScale: { timeVisible: true, borderColor: 'rgba(255,255,255,0.06)' },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
+      handleScroll: true, handleScale: true,
+    });
 
-    // Short volume bar (red)
-    const svH = (d.short_vol / maxVol) * ch * 0.6;
-    const svY = 110 - pad.b - svH;
-    ctx1.fillStyle = 'rgba(255,63,94,0.35)';
-    ctx1.fillRect(x - 1, svY, 5, svH);
+    const shortData = data.slice(-45);
+    const pctSeries = siLwChart2.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: '',
+    });
+    pctSeries.setData(shortData.map(d => ({
+      time: d.fecha,
+      value: d.short_pct,
+      color: d.short_pct > 40 ? 'rgba(255,63,94,0.6)' : d.short_pct > 25 ? 'rgba(255,170,0,0.5)' : 'rgba(0,200,150,0.4)',
+    })));
 
-    // Price line
-    if (d.close != null && chartData[i - 1]?.close != null) {
-      const prevX = pad.l + ((i - 1) / Math.max(chartData.length - 1, 1)) * cw;
-      const y0 = pad.t + (1 - (chartData[i - 1].close - minPrice) / (maxPrice - minPrice)) * ch;
-      const y1 = pad.t + (1 - (d.close - minPrice) / (maxPrice - minPrice)) * ch;
-      ctx1.strokeStyle = 'var(--green, #0e5)';
-      ctx1.lineWidth = 1.2;
-      ctx1.beginPath(); ctx1.moveTo(prevX, y0); ctx1.lineTo(x, y1); ctx1.stroke();
-    }
-  });
+    // MA30 line
+    const maSeries = siLwChart2.addLineSeries({
+      color: '#ffeb3b', lineWidth: 1.5,
+      priceFormat: { type: 'price', minMove: 0.01, precision: 1 },
+    });
+    maSeries.setData(shortData.filter(d => d.ma30 != null).map(d => ({
+      time: d.fecha, value: d.ma30,
+    })));
 
-  // Chart 2: Short Volume %
-  const canvas2 = document.getElementById('si-chart2');
-  const ctx2 = canvas2.getContext('2d');
-  canvas2.width = W * 3; canvas2.height = 300;  /* 3x para buena calidad */
-  canvas2.style.width = W + "px"; canvas2.style.height = "100px";
-  ctx2.scale(3, 3);
-
-  const shortData = data.slice(-45);
-  const maxPct = Math.max(...shortData.map(d => d.short_pct), 1);
-  const cw2 = W - pad.l - pad.r;
-  const ch2 = 100 - pad.t - pad.b;
-
-  ctx2.clearRect(0, 0, W, 100);
-
-  // 40% line
-  ctx2.strokeStyle = 'rgba(255,63,94,0.3)';
-  ctx2.lineWidth = 0.5;
-  ctx2.setLineDash([2, 2]);
-  ctx2.beginPath();
-  const y40 = pad.t + (1 - 40 / Math.max(maxPct, 40)) * ch2;
-  ctx2.moveTo(pad.l, y40); ctx2.lineTo(W - pad.r, y40);
-  ctx2.stroke();
-  ctx2.fillStyle = 'rgba(255,63,94,0.5)';
-  ctx2.font = '6px IBM Plex Mono, monospace';
-  ctx2.fillText('40%', pad.l + 2, y40 - 2);
-  ctx2.setLineDash([]);
-
-  shortData.forEach((d, i) => {
-    const x = pad.l + (i / Math.max(shortData.length - 1, 1)) * cw2;
-    const barH = (d.short_pct / Math.max(maxPct, 40)) * ch2;
-    const barY = 100 - pad.b - barH;
-    ctx2.fillStyle = d.short_pct > 40 ? 'rgba(255,63,94,0.5)' : d.short_pct > 25 ? 'rgba(255,170,0,0.4)' : 'rgba(0,200,150,0.3)';
-    ctx2.fillRect(x - 1, barY, 4, barH);
-
-    // MA30
-    if (d.ma30 != null && i > 0 && shortData[i - 1]?.ma30 != null) {
-      const prevX = pad.l + ((i - 1) / Math.max(shortData.length - 1, 1)) * cw2;
-      const prevY = pad.t + (1 - shortData[i - 1].ma30 / Math.max(maxPct, 40)) * ch2;
-      const y1 = pad.t + (1 - d.ma30 / Math.max(maxPct, 40)) * ch2;
-      ctx2.strokeStyle = '#ffeb3b';
-      ctx2.lineWidth = 1.2;
-      ctx2.beginPath(); ctx2.moveTo(prevX, prevY); ctx2.lineTo(x, y1); ctx2.stroke();
-    }
-  });
+    // Resize handler
+    const resize = () => {
+      const w = el1.parentElement.clientWidth || 600;
+      if (siLwChart1) siLwChart1.applyOptions({ width: w });
+      if (siLwChart2) siLwChart2.applyOptions({ width: w });
+    };
+    window.addEventListener('resize', resize);
+  } else {
+    el1.innerHTML = '<div style="padding:20px;color:var(--text4);font-size:11px">Cargando librería de gráficos…</div>';
+  }
 
   // Table
   const tbody = document.getElementById('si-table-body');
@@ -2542,60 +2542,98 @@ function siRender(symbol, data, siData) {
   }
 }
 
-// ── Share chart helper ────────────────────────────────────────
-function shareChart(canvasId, title) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
+// ── Share chart helper (LightweightCharts via html2canvas) ──
+function shareChartLw(elId, title) {
+  const el = document.getElementById(elId);
+  if (!el) return;
   
-  // Capturar a alta resolución (3x)
-  const dpr = 3;
-  const W = canvas.width / 2;  // devuelve al ancho lógico original
-  const H = canvas.height / 2;
-  
-  // Crear canvas temporal high-res
-  const tmpCanvas = document.createElement('canvas');
-  tmpCanvas.width = W * dpr;
-  tmpCanvas.height = H * dpr;
-  const tmpCtx = tmpCanvas.getContext('2d');
-  
-  // Fondo
-  tmpCtx.fillStyle = '#1a1a2e';
-  tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-  
-  // Dibujar el canvas original escalado (dibuja en tmpCtx desde ctx1 que está a 2x)
-  tmpCtx.scale(dpr / 2, dpr / 2);
-  tmpCtx.drawImage(canvas, 0, 0);
-  tmpCtx.setTransform(1, 0, 0, 1, 0, 0);
-  
-  // Texto footer
+  // Try html2canvas or fallback to screenshot
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
-  tmpCtx.fillStyle = 'rgba(255,255,255,0.3)';
-  tmpCtx.font = Math.round(12 * dpr) + 'px Arial';
-  tmpCtx.textAlign = 'right';
-  tmpCtx.fillText(title + ' | ' + dateStr + ' | dash-fin.github.io', tmpCanvas.width - 10 * dpr, tmpCanvas.height - 8 * dpr);
   
-  tmpCanvas.toBlob(async function(blob) {
-    if (!blob) return;
-    const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
-    
-    // Web Share API
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: title });
-        return;
-      } catch (e) {
-        if (e.name === 'AbortError') return;
-      }
-    }
-    
-    // Fallback: download
-    const a = document.createElement('a');
-    a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
-    a.href = URL.createObjectURL(blob);
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }, 'image/png', 1.0);
+  // Use built-in LightweightCharts screenshot if available
+  const lw = elId === 'si-chart1' ? siLwChart1 : siLwChart2;
+  if (lw && lw.takeScreenshot) {
+    try {
+      const dataUrl = lw.takeScreenshot();
+      // Add title watermark
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height + 30;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.drawImage(img, 0, 15);
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText(title + ' | ' + dateStr + ' | dash-fin.github.io', c.width - 15, c.height - 8);
+        c.toBlob(async (blob) => {
+          if (!blob) return;
+          const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try { await navigator.share({ files: [file], title }); return; }
+            catch(e) { if (e.name === 'AbortError') return; }
+          }
+          const a = document.createElement('a');
+          a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
+          a.href = URL.createObjectURL(blob);
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+      };
+      img.src = dataUrl;
+      return;
+    } catch(e) {}
+  }
+  
+  // Fallback: capture the div via html2canvas if loaded
+  if (typeof html2canvas !== 'undefined') {
+    html2canvas(el, { backgroundColor: '#1a1a2e', scale: 2 }).then((canvas) => {
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], title }); return; }
+          catch(e) { if (e.name === 'AbortError') return; }
+        }
+        const a = document.createElement('a');
+        a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
+        a.href = URL.createObjectURL(blob);
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+    });
+  } else {
+    // Last resort: snapshot via canvas drawing
+    try {
+      html2canvas = undefined;
+      const c = document.createElement('canvas');
+      c.width = el.offsetWidth * 2;
+      c.height = el.offsetHeight * 2;
+      const ctx = c.getContext('2d');
+      ctx.scale(2, 2);
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, el.offsetWidth, el.offsetHeight);
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(title + ' | ' + dateStr, el.offsetWidth / 2, el.offsetHeight / 2);
+      c.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], title }); return; }
+          catch(e) { if (e.name === 'AbortError') return; }
+        }
+        const a = document.createElement('a');
+        a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
+        a.href = URL.createObjectURL(blob);
+        a.click();
+      });
+    } catch(e) {}
+  }
 }
 
 // ── Init ──
