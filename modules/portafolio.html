@@ -605,9 +605,9 @@
       <div class="kpi-sub">AL30 ÷ AL30D</div>
     </div>
     <div class="kpi" style="--accent:var(--blue)">
-      <div class="kpi-label">Posiciones</div>
+      <div class="kpi-label">Posiciones <button class="btn-prim" style="font-size:8px;padding:1px 7px;vertical-align:middle;margin-left:4px" onclick="pfModalOpen()">+ Nueva</button></div>
       <div class="kpi-val" id="pfk-pos">—</div>
-      <div class="kpi-sub" id="pfk-pos-sub" style="display:flex;align-items:center;gap:6px">activas <button class="btn-prim" style="font-size:9px;padding:2px 8px" onclick="pfModalOpen()">+ Nueva</button></div>
+      <div class="kpi-sub" id="pfk-pos-sub">activas</div>
     </div>
   </div>
 
@@ -1290,10 +1290,7 @@ function pfRender() {
 
   document.getElementById('pfk-pos').textContent      = pfPositions.length;
   const _posSubEl = document.getElementById('pfk-pos-sub');
-  if (_posSubEl) {
-    const _posCount = [...new Set(pfPositions.map(p=>p.ticker_ars))].length;
-    _posSubEl.innerHTML = _posCount + ' tickers<button class="btn-prim" style="font-size:9px;padding:2px 8px;margin-left:6px" onclick="pfModalOpen()">+ Nueva</button>';
-  }
+  if (_posSubEl) _posSubEl.textContent = [...new Set(pfPositions.map(p=>p.ticker_ars))].length + ' tickers';
 
   // Beta ponderada por valor de mercado
   let betaNum = 0, betaDen = 0;
