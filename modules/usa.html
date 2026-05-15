@@ -273,7 +273,7 @@
 
   <!-- Ticker badge visible -->
   <div style="display:flex;align-items:center;gap:6px;margin:6px 0 10px">
-    <span id="si-ticker-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--yellow)">🔍 SPY</span>
+    <span id="si-ticker-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--yellow)">SPY</span>
   </div>
 
   <!-- Chart 1: precio + volumen (Chart.js style) -->
@@ -486,7 +486,7 @@
       </select>
       <button id="rrg-scan-btn" onclick="rrgScanSP500()"
         style="padding:3px 10px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;transition:all .15s">
-        🔍 Scan S&amp;P 500
+        Scan S&amp;P 500
       </button>
       <!-- Add symbol (acciones tab only) -->
       <div id="rrg-add-wrap" style="display:none;position:relative">
@@ -1854,7 +1854,7 @@ window.rrgScanSP500 = async function(){
   } catch(e) {
     body.innerHTML = `<div style="text-align:center;padding:24px;color:var(--red);font-size:11px">Error: ${e.message}</div>`;
   } finally {
-    btn.textContent = '🔍 Scan S&P 500';
+    btn.textContent = 'Scan S&P 500';
     btn.disabled = false;
   }
 };
@@ -2412,7 +2412,7 @@ function siRender(symbol, data, siData) {
     document.getElementById('si-kpi-si-dtc').textContent = '—';
     document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos disponibles para ' + symbol + '</td></tr>';
     document.getElementById('si-last-update').style.display = 'none';
-    document.getElementById('si-ticker-badge').innerHTML = '🔍 ' + symbol;
+    document.getElementById('si-ticker-badge').innerHTML = symbol;
     return;
   }
 
@@ -2571,7 +2571,7 @@ function siRender(symbol, data, siData) {
   }).join('');
 
   // Update ticker badge
-  document.getElementById('si-ticker-badge').innerHTML = '🔍 ' + symbol;
+  document.getElementById('si-ticker-badge').innerHTML = symbol;
   document.getElementById('si-last-update').style.display = 'block';
   document.getElementById('si-last-update').textContent = '📅 ' + rangeEnd + ' | ' + data.length + ' días';
 
