@@ -1023,7 +1023,9 @@ const QA_ICONS = {
 };
 window.qaTrack = (module, tab) => {
   try {
-    const key = module + ':' + (tab || module);
+    // Solo trackear si hay sub-tab específico, ignorar módulos raíz
+    if (!tab || tab === module) { window.qaRender(); return; }
+    const key = module + ':' + tab;
     const storage = window._qa_storage || {};
     storage[key] = (storage[key] || 0) + 1;
     window._qa_storage = storage;
@@ -1066,6 +1068,9 @@ window.qaRender = () => {
       return;
     }
     if (row) row.classList.add('show');
+    // Filtrar módulos raíz (sin sub-tab), solo mostrar tabs específicos
+    top3 = top3.filter(([key]) => { const [m,t] = key.split(':'); return t && t !== m; });
+    if (top3.length === 0) { el.innerHTML = ''; if (row) row.classList.remove('show'); return; }
     el.innerHTML = top3.map(([key]) => {
       const [mod, tab] = key.split(':');
       const icon = QA_ICONS[mod] || '📌';
