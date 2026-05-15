@@ -494,14 +494,8 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
     </div>
   </div>
 
-  <!-- Quick access row -- tabs más usados -->
-  <div class="qa-row">
-    <button class="qa-pill" onclick="loadModuleAuth('portafolio',null)">💼 Portafolio</button>
-    <button class="qa-pill" onclick="loadModuleAuth('usa',null);setTimeout(()=>{let e=document.getElementById('ustab-sectores');if(e)e.click()},200)">📊 Sectores</button>
-    <button class="qa-pill" onclick="loadModuleAuth('usa',null);setTimeout(()=>{if(window.usTab)usTab('shortint')},200)">📉 Short Data</button>
-    <button class="qa-pill" onclick="loadModuleAuth('alertas',null)">🔔 Alertas</button>
-    <button class="qa-pill" onclick="loadModuleAuth('analisis',null)">💡 Análisis</button>
-  </div>
+  <!-- Quick access row -- top 3 tabs más usados (trackeado por clicks) -->
+  <div class="qa-row" id="qaRow"></div>
 
   <div class="content">
     <div id="moduleContainer" class="module-wrap"></div>
@@ -1000,6 +994,37 @@ function updateUserUI() {
 }
 
 // ── Auth-guarded module loader ──
+// ── Quick Access: trackeo de módulos más usados ──
+const QA_ICONS = {
+  home:'🏠', portafolio:'💼', usa:'🇺🇸', alertas:'🔔', analisis:'💡',
+  opciones:'📊', cedears:'🌐', bonos:'📐', shortinterest:'📉',
+  stress_test_mock:'🧪', estrategias:'🧩', vol:'📈'
+};
+window.qaTrack = (name) => {
+  try {
+    const raw = localStorage.getItem('qa_clicks') || '{}';
+    const clicks = JSON.parse(raw);
+    clicks[name] = (clicks[name] || 0) + 1;
+    localStorage.setItem('qa_clicks', JSON.stringify(clicks));
+    window.qaRender();
+  } catch(e) { /* ignore */ }
+};
+window.qaRender = () => {
+  try {
+    const el = document.getElementById('qaRow');
+    if (!el) return;
+    const raw = localStorage.getItem('qa_clicks') || '{}';
+    const clicks = JSON.parse(raw);
+    const top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
+    if (top3.length === 0) { el.innerHTML = ''; return; }
+    el.innerHTML = top3.map(([name]) => {
+      const icon = QA_ICONS[name] || '📌';
+      return `<button class="qa-pill" onclick="loadModuleAuth('${name}',null)">${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}</button>`;
+    }).join('');
+  } catch(e) { /* ignore */ }
+};
+window.qaRender();
+
 window.loadModuleAuth = (name, btn) => {
   if (!currentUser) {
     openAuth();
@@ -1198,6 +1223,7 @@ window.loadModule=async(name,btn)=>{
   try{
     const r=await fetch(`modules/${name}.html?v=${Date.now()}`);
     if(!r.ok)throw new Error('Módulo no encontrado');
+    window.qaTrack(name);
     const html=await r.text();
     container.innerHTML=html;
     container.querySelectorAll('script').forEach(old=>{
