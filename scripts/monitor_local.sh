@@ -105,7 +105,7 @@ get_dolar() {
     log "DOLAR: Blue=$blue"
   fi
 
-  # Guardar en mep_historico si tenemos al menos MEP
+  # Guardar en mep_historico (tabla usada por el portafolio)
   if [[ -n "$mep_oficial" ]]; then
     local payload
     payload=$(cat <<JSON
@@ -115,6 +115,22 @@ JSON
     sb_post "mep_historico" "$payload" > /dev/null
     log "DOLAR: Guardado en mep_historico"
   fi
+
+  # Guardar en dolar_historico (tabla usada por el chart del index)
+  local postH_dh=(-H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Content-Type: application/json" -H "Prefer: resolution=merge-duplicates")
+  if [[ -n "$mep_oficial" ]]; then
+    curl -s -X POST "${SB_URL}/rest/v1/dolar_historico" "${postH_dh[@]}" -d "{\"fecha\":\"$hoy\",\"tipo\":\"mep\",\"close\":$mep_oficial}" > /dev/null
+  fi
+  if [[ -n "$ccl" ]]; then
+    curl -s -X POST "${SB_URL}/rest/v1/dolar_historico" "${postH_dh[@]}" -d "{\"fecha\":\"$hoy\",\"tipo\":\"ccl\",\"close\":$ccl}" > /dev/null
+  fi
+  if [[ -n "$oficial" ]]; then
+    curl -s -X POST "${SB_URL}/rest/v1/dolar_historico" "${postH_dh[@]}" -d "{\"fecha\":\"$hoy\",\"tipo\":\"oficial\",\"close\":$oficial}" > /dev/null
+  fi
+  if [[ -n "$blue" ]]; then
+    curl -s -X POST "${SB_URL}/rest/v1/dolar_historico" "${postH_dh[@]}" -d "{\"fecha\":\"$hoy\",\"tipo\":\"blue\",\"close\":$blue}" > /dev/null
+  fi
+  log "DOLAR: Guardado en dolar_historico"
 }
 
 # ── PnL Snapshot ──
