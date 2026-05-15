@@ -553,6 +553,7 @@
   </div>
   <div class="sub-tabs-meta" style="display:flex;align-items:center;gap:8px">
     <span id="pfMeta" style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
+    <button class="btn-prim" id="pfNewPosBtn" style="font-size:8px;padding:1px 7px;display:none" onclick="pfModalOpen()">+ Nueva</button>
   </div>
 </div>
 
@@ -604,8 +605,8 @@
       <div class="kpi-val" id="pfk-mep">—</div>
       <div class="kpi-sub">AL30 ÷ AL30D</div>
     </div>
-    <div class="kpi" style="--accent:var(--blue)">
-      <div class="kpi-label">Posiciones <button class="btn-prim" style="font-size:8px;padding:1px 7px;vertical-align:middle;margin-left:4px" onclick="pfModalOpen()">+ Nueva</button></div>
+    <div class="kpi" style="--accent:var(--blue);display:none">
+      <div class="kpi-label">Posiciones</div>
       <div class="kpi-val" id="pfk-pos">—</div>
       <div class="kpi-sub" id="pfk-pos-sub">activas</div>
     </div>
@@ -975,6 +976,9 @@ window.pfTab = (name, btn) => {
   document.querySelectorAll('[id^="pftab-"]').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (window.qaTrack) window.qaTrack('portafolio', name);
+  // Mostrar/ocultar botón Nueva Posición según tab
+  const _npBtn = document.getElementById('pfNewPosBtn');
+  if (_npBtn) _npBtn.style.display = name === 'resumen' ? '' : 'none';
   if(name === 'historial') pfLoadHistorial();
   if(name === 'resumen') {
     pfRenderBenchmark();
@@ -1113,6 +1117,8 @@ window.pfLoadAll = async () => {
 
     document.getElementById('pfMeta').textContent =
       `${pfPositions.length} posiciones · ${new Date().toLocaleTimeString('es-AR')}`;
+    const _npBtn = document.getElementById('pfNewPosBtn');
+    if (_npBtn) _npBtn.style.display = '';
     pfRender();
     // Auto-refresh benchmark y calendario si está en resumen
     if(document.getElementById('pftab-resumen')?.classList.contains('active')) {
