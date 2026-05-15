@@ -2315,7 +2315,7 @@ function siSetStatus(msg, isError) {
   if (!msg) el.textContent = '';
 }
 
-window.siLoad = (sym) => {
+window.siLoad = async (sym) => {
   const symbol = (sym || document.getElementById('si-ticker').value || 'SPY').toUpperCase().trim();
   if (!sym) document.getElementById('si-ticker').value = symbol;
 
@@ -2337,46 +2337,39 @@ window.siLoad = (sym) => {
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
     ]);
 
-  const pricePromise = withTimeout(fetch(BASE + '/yahoo-prices', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...SBH },
-    body: JSON.stringify({ symbols: [symbol], mode: 'yahoo-history', range: '3mo', interval: '1d' }),
-  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d[symbol] || []), 8000);
+  // Serializar peticiones para no saturar Supabase (statement timeout en paralelo)
+  const fetchJSON = async (url, body, ms=8000) => {
+    try {
+      const ctrl = new AbortController();
+      const id = setTimeout(() => ctrl.abort(), ms);
+      const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json',...SBH}, body:JSON.stringify(body), signal:ctrl.signal });
+      clearTimeout(id);
+      if (!r.ok) return null;
+      return r.json();
+    } catch(e) {
+      if (e.name === 'AbortError') return null;
+      return null;
+    }
+  };
 
-  const svPromise = withTimeout(fetch(BASE + '/finra-short-volume', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...SBH },
-    body: JSON.stringify({ symbol, days: 45 }),
-  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 8000);
-
-  const bmPromise = withTimeout(fetch(BASE + '/finra-short-volume', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...SBH },
-    body: JSON.stringify({ symbol: 'SPY', days: 45 }),
-  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => d.data || []), 8000);
-
-  const siPromise = withTimeout(fetch(BASE + '/finra-si', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...SBH },
-    body: JSON.stringify({ ticker: symbol }),
-  }).then(r => r.ok ? r.json() : Promise.reject()).then(d => {
-    if (d && d.settlementDate) return [d];
-    if (Array.isArray(d)) return d;
-    return [];
-  }), 8000);
-
-  // En caso de timeout, cada una resuelve null
-  Promise.allSettled([pricePromise, svPromise, bmPromise, siPromise]).then(results => {
-    const prices = results[0].status === 'fulfilled' ? results[0].value : null;
-    const svData = results[1].status === 'fulfilled' ? results[1].value : null;
-    const bmData = results[2].status === 'fulfilled' ? results[2].value : null;
-    const siData = results[3].status === 'fulfilled' ? results[3].value : null;
+  const prices = await fetchJSON(BASE + '/yahoo-prices', { symbols:[symbol], mode:'yahoo-history', range:'3mo', interval:'1d' }).then(d => d ? d[symbol] || [] : []);
+  siSetStatus('⏳ cargando short volume…');
+  const svResp = await fetchJSON(BASE + '/finra-short-volume', { symbol, days: 45 });
+  const svData = svResp?.data || [];
+  siSetStatus('⏳ cargando benchmark…');
+  const bmResp = await fetchJSON(BASE + '/finra-short-volume', { symbol:'SPY', days: 45 });
+  const bmData = bmResp?.data || [];
+  siSetStatus('⏳ cargando short interest…');
+  const siResp = await fetchJSON(BASE + '/finra-si', { ticker: symbol });
+  const siData = (siResp && siResp.settlementDate) ? [siResp] : (Array.isArray(siResp) ? siResp : []);
+  try {
     if (!svData || svData.length === 0) {
       siSetStatus('❌ Sin datos de short volume para ' + symbol + ' en FINRA', true);
       siRender(symbol, null, null);
       return;
     }
 
+    // Merge prices + benchmark + short volume
     const priceMap = {};
     if (prices && prices.length) {
       prices.forEach(p => {
@@ -2400,13 +2393,13 @@ window.siLoad = (sym) => {
     siSetStatus('✅ ' + symbol + ' · ' + merged.length + ' días · ' + (prices && prices.length ? '✓ precio' : 'sin precio') + ' · ' + (bmData && bmData.length ? '✓ benchmark' : 'sin benchmark'));
     setTimeout(() => siSetStatus(''), 5000);
     siRender(symbol, merged, siData);
-  }).catch(err => {
-    siSetStatus('❌ Error al cargar ' + symbol + (err.message === 'timeout' ? ' (timeout)' : ''), true);
+  } catch(err) {
+    siSetStatus('❌ Error al cargar ' + symbol + (err.message ? ' (' + err.message + ')' : ''), true);
     siRender(symbol, null, null);
-  });
+  }
 };
 
-// ── Variables para los charts Lightweight ────────────────────
+// ── Variables para los charts ───────────────────────────────
 let siChart1 = null, siChart2 = null;
 
 function siRender(symbol, data, siData) {
