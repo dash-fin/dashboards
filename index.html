@@ -434,13 +434,6 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 .sp-fair{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
 .sp-expensive{background:var(--redDim);color:var(--red);border:1px solid rgba(255,63,94,.25)}
 .sp-verybig{background:rgba(255,63,94,.15);color:var(--red);border:1px solid rgba(255,63,94,.4);font-weight:600}
-
-/* Quick access row */
-.qa-row{display:flex;align-items:center;gap:6px;padding:6px 16px;border-bottom:1px solid var(--border);background:var(--bg2);overflow-x:auto}
-.qa-row::-webkit-scrollbar{height:0}
-.qa-btn{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.5px;transition:all .15s;flex-shrink:0;white-space:nowrap}
-.qa-btn:hover{border-color:var(--text2);background:var(--bg4);color:var(--text)}
-.qa-icon{font-size:12px;line-height:1}
 </style>
 </head>
 <body>
@@ -490,19 +483,12 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
     <div class="module-tabs">
       <button class="mtab active" id="mtab-home"      onclick="loadModule('home',this)">🏠 Inicio</button>
       <button class="mtab"        id="mtab-opciones"  onclick="loadModuleAuth('opciones',this)">📊 Opciones</button>
+      <button class="mtab"        id="mtab-shortinterest" onclick="loadModuleAuth('shortinterest',this)">📉 Short Int.</button>
       <button class="mtab"        id="mtab-cedears"   onclick="loadModuleAuth('cedears',this)">🌐 CEDEARs</button>
       <button class="mtab"        id="mtab-alertas"   onclick="loadModuleAuth('alertas',this)">🔔 Alertas</button>
       <button class="mtab"        id="mtab-usa"       onclick="loadModuleAuth('usa',this)">🇺🇸 USA</button>
       <button class="mtab"        id="mtab-bonos"     onclick="loadModuleAuth('bonos',this)">📐 Renta Fija</button>
       <button class="mtab"        id="mtab-portafolio" onclick="loadModuleAuth('portafolio',this)">💼 Portafolio</button>
-    </div>
-    <!-- Quick access row -->
-    <div class="qa-row">
-      <button class="qa-btn" onclick="loadModuleAuth('portafolio',document.getElementById('mtab-portafolio'))"><span class="qa-icon">📊</span> Portafolio</button>
-      <button class="qa-btn" onclick="loadModuleAuth('usa',document.getElementById('mtab-usa'))"><span class="qa-icon">📈</span> Mercado USA</button>
-      <button class="qa-btn" onclick="loadModuleAuth('alertas',document.getElementById('mtab-alertas'))"><span class="qa-icon">🔔</span> Alertas</button>
-      <button class="qa-btn" onclick="loadModule('analisis',document.querySelector('.mtab.active'))"><span class="qa-icon">⚡</span> Análisis</button>
-      <button class="qa-btn" onclick="loadModuleAuth('opciones',document.getElementById('mtab-opciones'))"><span class="qa-icon">📉</span> Opciones</button>
     </div>
   </div>
 

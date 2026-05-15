@@ -38,6 +38,7 @@
     <button class="stab active" id="ustab-mercado"  onclick="usTab('mercado',this)">Mercado</button>
     <button class="stab"        id="ustab-sectores" onclick="usTab('sectores',this)">Sectores</button>
     <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
+    <button class="stab"        id="ustab-shortint" onclick="usTab('shortint',this)">Short Data</button>
     <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
     <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
     <button class="stab"        id="ustab-topology" onclick="usTab('topology',this)">Market Topology</button>
@@ -280,7 +281,7 @@
       <div class="legend-item"><span class="legend-dot" style="background:var(--yellow)"></span> Precio</div>
       <div class="legend-item"><span class="legend-dot" style="background:var(--blue)"></span> Volumen Total</div>
       <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span> Short Volume</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#ff79c6"></span> Short % (eje der)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--red);opacity:.4"></span> Short % (eje der)</div>
     </div>
     <div class="card-body" style="height:360px"><canvas id="si-chart1"></canvas></div>
     <div class="chart-meta">Fuente: Yahoo Finance (precio) / FINRA Reg SHO (short vol)</div>
@@ -566,6 +567,7 @@ window.usTab = (name, btn) => {
   btn.classList.add('active');
   if(name==='sectores') usRenderSectores();
   if(name==='opciones') usRenderOpciones();
+  if(name==='shortint') siLoad();
   if(name==='rrg')      { if(!rrgLoaded) rrgLoad(); else { rrgRender(); usDrawRotationClock(); } }
   if(name==='topology') usRenderTopology();
 };
@@ -2452,7 +2454,7 @@ function siRender(symbol, data, siData) {
         { type: 'line', label: 'Short Vol', data: volSv,
           borderColor: 'rgba(255,64,96,0.45)', borderWidth: 1, pointRadius: 0, tension: .3, order: 1, yAxisID: 'y1' },
         { type: 'line', label: 'Short %', data: shortPct,
-          borderColor: '#ff79c6', borderWidth: 1.5,
+          borderColor: 'rgba(255,64,96,0.25)', borderWidth: 1,
           borderDash: [3, 3], pointRadius: 0, tension: .3, order: 1, yAxisID: 'y2' },
       ]
     },
@@ -2564,8 +2566,7 @@ function siRender(symbol, data, siData) {
     const last = siData[siData.length - 1];
     document.getElementById('si-kpi-si').textContent = fmtVol(last.currentShortPosition);
     document.getElementById('si-kpi-si').style.color = last.changePercent >= 5 ? 'var(--red)' : last.changePercent <= -5 ? 'var(--green)' : 'var(--text)';
-    const fmtDate = (s) => { if (!s) return '—'; const p = s.split('-'); return p.length === 3 ? p[2].slice(0,2) + '/' + p[1] + '/' + p[0].slice(2,4) : s; };
-    document.getElementById('si-kpi-si-dtc').textContent = (last.settlementDate ? 'settl. ' + fmtDate(last.settlementDate) : '—') + ' | DTC ' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
+    document.getElementById('si-kpi-si-dtc').textContent = (last.settlementDate ? 'settl. ' + last.settlementDate : '—') + ' | DTC ' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
   } else {
     document.getElementById('si-kpi-si').textContent = '—';
     document.getElementById('si-kpi-si-dtc').textContent = '—';
@@ -2576,90 +2577,48 @@ function siRender(symbol, data, siData) {
 // ── Share chart helper — captura canvas + overlay de nombre ──
 function shareSiChart(elId, title) {
   const cvs = document.getElementById(elId);
-  if (!cvs) { console.log('share: no canvas', elId); return; }
+  if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('share: no canvas', elId); return; }
   const ticker = (document.getElementById('si-ticker').value || 'SPY').toUpperCase();
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+  // Extraer nombre del gráfico del título tras el pipe
   const chartName = title ? title.split('|').pop().trim() : 'Short Data';
-  const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
-
-  const doDownload = (blob) => {
-    if (!blob) { console.log('share: blob empty'); return; }
-    const file = new File([blob], fname, { type: 'image/png' });
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: ticker + ' ' + chartName }).catch(e => { if (e.name !== 'AbortError') console.log(e); });
-      return;
-    }
-    const a = document.createElement('a');
-    a.download = fname; a.href = URL.createObjectURL(blob);
-    a.click(); URL.revokeObjectURL(a.href);
-  };
-
-  // Attempt 1: html2canvas (screenshot with overlay)
-  if (typeof html2canvas !== 'undefined') {
-    const card = cvs.closest('.card') || cvs.parentElement;
-    html2canvas(card, { backgroundColor: '#0d1117', scale: 2, useCORS: true, logging: false })
-      .then(canvas => {
-        // Add header/footer
-        const w = canvas.width, h = canvas.height;
-        const out = document.createElement('canvas');
-        out.width = w; out.height = h + 60 * (canvas.height / canvas.offsetHeight);
-        const ctx = out.getContext('2d');
-        ctx.fillStyle = '#0d1117';
-        ctx.fillRect(0, 0, out.width, out.height);
-        ctx.fillStyle = '#f0f4ff';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(ticker + ' — ' + chartName, 14, 22);
-        const srcH = h;
-        ctx.drawImage(canvas, 0, 34);
-        ctx.fillStyle = 'rgba(240,244,255,0.3)';
-        ctx.font = '11px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText('FINRA Reg SHO \u00B7 ' + dateStr + ' \u00B7 dash-fin.github.io', out.width - 14, out.height - 8);
-        out.toBlob(doDownload);
-      })
-      .catch(() => { fallbackGetImageData(); });
-    return;
-  }
-
-  // Attempt 2: draw from original canvas toDataURL onto new canvas with overlay
-  const fallbackGetImageData = () => {
-    try {
-      const w = cvs.offsetWidth || cvs.width, h = cvs.offsetHeight || cvs.height;
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const out = document.createElement('canvas');
-          out.width = w; out.height = h + 50;
-          const ctx = out.getContext('2d');
-          ctx.fillStyle = '#0d1117';
-          ctx.fillRect(0, 0, out.width, out.height);
-          ctx.fillStyle = '#f0f4ff';
-          ctx.font = 'bold 15px Arial';
-          ctx.textAlign = 'left';
-          ctx.fillText(ticker + ' — ' + chartName, 12, 18);
-          ctx.drawImage(img, 0, 26, w, h);
-          ctx.fillStyle = 'rgba(240,244,255,0.2)';
-          ctx.font = '11px Arial';
-          ctx.textAlign = 'right';
-          ctx.fillText('FINRA Reg SHO \u00B7 ' + dateStr + ' \u00B7 dash-fin.github.io', out.width - 12, out.height - 6);
-          out.toBlob(doDownload);
-        } catch(e2) { console.log('share fallback2 err:', e2); downloadRaw(); }
-      };
-      img.onerror = () => downloadRaw();
-      img.src = cvs.toDataURL('image/png');
-    } catch(e1) { console.log('share fallback1 err:', e1); downloadRaw(); }
-  };
-
-  // Attempt 3: just download the raw canvas
-  const downloadRaw = () => {
-    try {
-      cvs.toBlob(doDownload);
-    } catch(e) { console.log('share raw err:', e); }
-  };
-
-  fallbackGetImageData();
+  try {
+    // Crear un canvas con el overlay incluido (para evitar CORS restriction)
+    const w = cvs.width, h = cvs.height;
+    // Canvas final (chart + header + footer)
+    const out = document.createElement('canvas');
+    out.width = w; out.height = h + 48;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, out.width, out.height);
+    // Ticker + chart name at top
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(ticker + ' — ' + chartName, 12, 18);
+    // Copy chart pixel data directly into final canvas
+    const srcCtx = cvs.getContext('2d');
+    const imgData = srcCtx.getImageData(0, 0, w, h);
+    ctx.putImageData(imgData, 0, 24);
+    // Footer
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', out.width - 12, out.height - 6);
+    out.toBlob(async (blob) => {
+      if (!blob) { console.log('share: blob empty'); return; }
+      const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
+      const file = new File([blob], fname, { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: ticker + ' ' + chartName }); return; }
+        catch(e) { if (e.name === 'AbortError') return; }
+      }
+      const a = document.createElement('a');
+      a.download = fname; a.href = URL.createObjectURL(blob);
+      a.click(); URL.revokeObjectURL(a.href);
+    });
+  } catch(e) { console.log('share error:', e); }
 }
 
 
