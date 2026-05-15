@@ -638,7 +638,81 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
     </div>
     <div class="rule-card">
       <div class="rule-title" style="color:#00d8e8">📁 Estructura del proyecto</div>
-      <div class="rule-body"><code>index.html</code> — shell único carga módulos dinámicamente<br><code>modules/*.html</code> — 8 módulos con HTML + JS inline<br><code>scripts/*.py</code> — actualización de datos<br>Sin carpeta <code>src/</code>, sin <code>node_modules</code></div>
+      <div class="rule-body"><code>index.html</code> — shell único carga módulos dinámicamente<br><code>modules/*.html</code> — 8 módulos con HTML + JS inline<br><code>scripts/*.sh</code> — monitoreo WSL<br><code>scripts/*.py</code> — actualización de datos<br>Sin carpeta <code>src/</code>, sin <code>node_modules</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MONITOREO AUTOMATIZADO ── -->
+<div class="flows-section" style="margin-top:28px">
+  <div class="flows-title">🕒 Monitoreo automatizado (WSL crontab)</div>
+  <div class="rules-grid">
+    <div class="rule-card">
+      <div class="rule-title" style="color:#ff4455">📋 Migración: Windows → WSL (Mayo 2026)</div>
+      <div class="rule-body">
+        <strong>Antes:</strong> Windows Task Scheduler → <code>monitor_dashboard.ps1</code> (monitor + USA en un script).
+        <br><br>
+        <strong>Ahora:</strong> WSL crontab en host <strong>Roma</strong> → scripts separados + Python.
+        <br><br>
+        <strong>Para desactivar el monitoreo en Windows:</strong>
+        <pre style="background:rgba(0,0,0,.3);padding:6px 10px;border-radius:4px;font-size:10px;margin:6px 0 0 0">Unregister-ScheduledTask -TaskName "monitor_dashboard" -Confirm:\$false</pre>
+      </div>
+    </div>
+    <div class="rule-card" style="border-left-color:#00d084">
+      <div class="rule-title" style="color:#00d084">🇦🇷 monitor_local.sh</div>
+      <div class="rule-body">
+        Mercado argentino — cada 5 min (lun-vie, 10:40-18:00 ART):
+        <ul style="margin:6px 0 0 14px;font-size:10.5px;color:#a0bcd8;line-height:1.7">
+          <li><strong>Watchdog</strong>: verifica que la tabla <code>mercado</code> tenga precios frescos (&lt;7 min)</li>
+          <li><strong>Dólar (17:01-17:59)</strong>: MEP vía AL30/AL30D, oficial vía ArgentinaDatos, CCL vía AL30/AL30C. Guarda en <code>mep_historico</code></li>
+          <li><strong>PnL (17:06-17:59)</strong>: snapshot de valor portafolio + PnL vs día anterior, usando precios de cierre. Guarda en <code>pnl_diario</code></li>
+        </ul>
+      </div>
+    </div>
+    <div class="rule-card" style="border-left-color:#48aaff">
+      <div class="rule-title" style="color:#48aaff">🇺🇸 monitor_usa.sh</div>
+      <div class="rule-body">
+        Mercado USA — cada 5 min (lun-vie, 08:10-20:30 ART):
+        <ul style="margin:6px 0 0 14px;font-size:10.5px;color:#a0bcd8;line-height:1.7">
+          <li><strong>Watchdog</strong>: verifica que la tabla <code>mercado_usa</code> tenga precios frescos (&lt;7 min)</li>
+          <li><strong>Health check</strong>: edge function <code>yahoo-prices</code> responde? Alerta Telegram si caída</li>
+          <li><strong>Earnings watch</strong>: consulta ADRs del portafolio, chequea próximos earnings, alerta una vez por ticker+fecha</li>
+        </ul>
+      </div>
+    </div>
+    <div class="rule-card" style="border-left-color:#f0b020">
+      <div class="rule-title" style="color:#f0b020">📦 Scripts auxiliares</div>
+      <div class="rule-body">
+        <ul style="margin:0 0 0 14px;font-size:10.5px;color:#a0bcd8;line-height:1.7">
+          <li><code>scripts/backfill_calendario.sh</code> — rellena días faltantes en <code>pnl_diario</code> con posiciones activas + MEP histórico</li>
+          <li><code>scripts/backfill_mep.sh</code> — backfill MEP histórico usando AL30D/AL30H de Yahoo Finance</li>
+          <li><code>scripts/load_short_volume.py</code> — carga diaria short volume FINRA a <code>cache_finra_short_volume</code></li>
+        </ul>
+      </div>
+    </div>
+    <div class="rule-card" style="border-left-color:#b090ff">
+      <div class="rule-title" style="color:#b090ff">🔧 Crontab (WSL Roma)</div>
+      <div class="rule-body">
+        <pre style="background:rgba(0,0,0,.4);padding:8px 12px;border-radius:6px;font-size:10px;color:#b8d0ec;line-height:1.6;font-family:'Courier New',monospace;overflow-x:auto"># ===== DASHBOARD MONITOR (WSL ROMA) =====
+# Lunes a viernes · Variables de entorno requeridas:
+#   SUPABASE_SR_KEY  — service role key de Supabase
+#   TG_TOKEN         — token del bot de Telegram
+
+# Cada 5 min — Mercado ARS (10:40-18:00 ART)
+*/5 * * * 1-5 <!--SR_KEY-->="<tu-key>" <!--TG_TOKEN-->="<tu-token>" \
+  /mnt/c/dashboard/Github/scripts/monitor_local.sh \
+  &gt;&gt; /mnt/c/dashboard/Github/scripts/monitor_local.log 2&gt;&amp;1
+
+# Cada 5 min — Mercado USA (08:10-20:30 ART)
+*/5 * * * 1-5 <!--SR_KEY-->="<tu-key>" <!--TG_TOKEN-->="<tu-token>" \
+  /mnt/c/dashboard/Github/scripts/monitor_usa.sh \
+  &gt;&gt; /mnt/c/dashboard/Github/scripts/monitor_usa.log 2&gt;&amp;1
+
+# Diario 17:15 — Short Volume FINRA
+15 17 * * 1-5 <!--SR_KEY-->="<tu-key>" \
+  /usr/bin/python3 /mnt/c/dashboard/Github/scripts/load_short_volume.py \
+  &gt;&gt; /mnt/c/dashboard/Github/scripts/finra_short_volume.log 2&gt;&amp;1</pre>
+      </div>
     </div>
   </div>
 </div>

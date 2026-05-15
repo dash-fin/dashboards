@@ -2,7 +2,7 @@
 # ═══════════════════════════════════════════════════════════
 # Monitor Local — Mercado Argentino (WSL)
 # ═══════════════════════════════════════════════════════════
-# Corner cada 5 min via crontab (lun-vie, 10:40-18:00 ART)
+# Corre cada 5 min via crontab (lun-vie, 10:40-18:00 ART)
 #
 # Funciones:
 #   - Watchdog: verifica que tabla mercado tenga precios frescos
@@ -35,7 +35,7 @@ SB_POST_HEADERS=(-H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY" -H "Con
 log() { echo "[$(TZ=America/Argentina/Buenos_Aires date '+%Y-%m-%d %H:%M:%S')] $*"; }
 now_art() { TZ=America/Argentina/Buenos_Aires date +%s; }
 hour_art() { TZ=America/Argentina/Buenos_Aires date +%H%M; }
-tg_send() { curl -s -X POST "https://api.tenogram.org/bot${TG_TOKEN}/sendMessage" -d "chat_id=${TG_CHAT_ID}&text=${1}&parse_mode=HTML" -o /dev/null 2>/dev/null || true; }
+tg_send() { curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" -d "chat_id=${TG_CHAT_ID}&text=${1}&parse_mode=HTML" -o /dev/null 2>/dev/null || true; }
 sb_get()  { curl -s -G "${SB_URL}/rest/v1/$1" "${SB_HEADERS[@]}" --data-urlencode "$2" 2>/dev/null; }
 sb_post() { curl -s -X POST "${SB_URL}/rest/v1/$1" "${SB_POST_HEADERS[@]}" -d "$2" 2>/dev/null; }
 
