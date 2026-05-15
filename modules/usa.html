@@ -38,7 +38,6 @@
     <button class="stab active" id="ustab-mercado"  onclick="usTab('mercado',this)">Mercado</button>
     <button class="stab"        id="ustab-sectores" onclick="usTab('sectores',this)">Sectores</button>
     <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
-    <button class="stab"        id="ustab-shortint" onclick="usTab('shortint',this)">Short Data</button>
     <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
     <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
     <button class="stab"        id="ustab-topology" onclick="usTab('topology',this)">Market Topology</button>
@@ -2454,7 +2453,7 @@ function siRender(symbol, data, siData) {
         { type: 'line', label: 'Short Vol', data: volSv,
           borderColor: 'rgba(255,64,96,0.45)', borderWidth: 1, pointRadius: 0, tension: .3, order: 1, yAxisID: 'y1' },
         { type: 'line', label: 'Short %', data: shortPct,
-          borderColor: 'rgba(255,64,96,0.25)', borderWidth: 1,
+          borderColor: '#ff79c6', borderWidth: 1.5,
           borderDash: [3, 3], pointRadius: 0, tension: .3, order: 1, yAxisID: 'y2' },
       ]
     },
@@ -2566,7 +2565,8 @@ function siRender(symbol, data, siData) {
     const last = siData[siData.length - 1];
     document.getElementById('si-kpi-si').textContent = fmtVol(last.currentShortPosition);
     document.getElementById('si-kpi-si').style.color = last.changePercent >= 5 ? 'var(--red)' : last.changePercent <= -5 ? 'var(--green)' : 'var(--text)';
-    document.getElementById('si-kpi-si-dtc').textContent = (last.settlementDate ? 'settl. ' + last.settlementDate : '—') + ' | DTC ' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
+    const siDate = last.settlementDate ? last.settlementDate.split('-').slice(1,3).concat(last.settlementDate.slice(2,4)).join('/') : '—';
+    document.getElementById('si-kpi-si-dtc').textContent = siDate + ' | DTC ' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
   } else {
     document.getElementById('si-kpi-si').textContent = '—';
     document.getElementById('si-kpi-si-dtc').textContent = '—';
@@ -2577,47 +2577,53 @@ function siRender(symbol, data, siData) {
 // ── Share chart helper — captura canvas + overlay de nombre ──
 function shareSiChart(elId, title) {
   const cvs = document.getElementById(elId);
-  if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('share: no canvas', elId); return; }
+  if (!cvs) { console.log('share: no canvas', elId); return; }
   const ticker = (document.getElementById('si-ticker').value || 'SPY').toUpperCase();
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
-  // Extraer nombre del gráfico del título tras el pipe
   const chartName = title ? title.split('|').pop().trim() : 'Short Data';
+  // Blob de descarga unificado
+  const doDownload = (blob) => {
+    const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
+    const file = new File([blob], fname, { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: ticker + ' ' + chartName }).catch(e => {
+        if (e.name !== 'AbortError') {
+          const a = document.createElement('a'); a.download = fname; a.href = URL.createObjectURL(blob);
+          a.click(); URL.revokeObjectURL(a.href);
+        }
+      });
+      return;
+    }
+    const a = document.createElement('a'); a.download = fname; a.href = URL.createObjectURL(blob);
+    a.click(); URL.revokeObjectURL(a.href);
+  };
+  // Attempt 1: try html2canvas on the card container
+  if (typeof html2canvas !== 'undefined') {
+    const card = cvs.closest('.card-body,.card');
+    if (card) {
+      html2canvas(card, { backgroundColor: '#1a1a2e', scale: 2, useCORS: true })
+        .then(c => c.toBlob(b => { if (b) doDownload(b); }));
+      return;
+    }
+  }
+  // Attempt 2: toDataURL → drawImage con overlay
   try {
-    // Crear un canvas con el overlay incluido (para evitar CORS restriction)
-    const w = cvs.width, h = cvs.height;
-    // Canvas final (chart + header + footer)
-    const out = document.createElement('canvas');
-    out.width = w; out.height = h + 48;
-    const ctx = out.getContext('2d');
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, out.width, out.height);
-    // Ticker + chart name at top
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 15px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(ticker + ' — ' + chartName, 12, 18);
-    // Copy chart pixel data directly into final canvas
-    const srcCtx = cvs.getContext('2d');
-    const imgData = srcCtx.getImageData(0, 0, w, h);
-    ctx.putImageData(imgData, 0, 24);
-    // Footer
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.font = '11px Arial';
-    ctx.textAlign = 'right';
-    ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', out.width - 12, out.height - 6);
-    out.toBlob(async (blob) => {
-      if (!blob) { console.log('share: blob empty'); return; }
-      const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
-      const file = new File([blob], fname, { type: 'image/png' });
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: ticker + ' ' + chartName }); return; }
-        catch(e) { if (e.name === 'AbortError') return; }
-      }
-      const a = document.createElement('a');
-      a.download = fname; a.href = URL.createObjectURL(blob);
-      a.click(); URL.revokeObjectURL(a.href);
-    });
+    const dataUrl = cvs.toDataURL('image/png');
+    const img = new Image();
+    img.onload = () => {
+      const out = document.createElement('canvas');
+      out.width = img.width; out.height = img.height + 48;
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, out.width, out.height);
+      ctx.drawImage(img, 0, 24);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Arial'; ctx.textAlign = 'left';
+      ctx.fillText(ticker + ' — ' + chartName, 12, 18);
+      ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
+      ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', out.width - 12, out.height - 6);
+      out.toBlob(b => { if (b) doDownload(b); });
+    };
+    img.src = dataUrl;
   } catch(e) { console.log('share error:', e); }
 }
 

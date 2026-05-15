@@ -112,6 +112,9 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .mtab{display:flex;align-items:center;gap:7px;padding:0 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;font-weight:500;flex-shrink:0}
 .mtab:hover{color:var(--text2)}
 .mtab.active{color:var(--green);border-bottom-color:var(--green)}
+.qa-row{display:flex;align-items:center;gap:6px;padding:10px 16px 6px;flex-wrap:wrap}
+.qa-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.3px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.qa-pill:hover{background:var(--bg4);color:var(--text);border-color:var(--text3)}
 .mtab.disabled{opacity:.35;cursor:default;pointer-events:none}
 .mtab-dot{width:5px;height:5px;border-radius:50%;background:var(--green);opacity:.7}
 .mtab-badge{font-size:7px;padding:1px 5px;border-radius:2px;background:var(--bg4);color:var(--text4);border:1px solid var(--border);letter-spacing:.5px}
@@ -483,13 +486,21 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
     <div class="module-tabs">
       <button class="mtab active" id="mtab-home"      onclick="loadModule('home',this)">🏠 Inicio</button>
       <button class="mtab"        id="mtab-opciones"  onclick="loadModuleAuth('opciones',this)">📊 Opciones</button>
-      <button class="mtab"        id="mtab-shortinterest" onclick="loadModuleAuth('shortinterest',this)">📉 Short Int.</button>
       <button class="mtab"        id="mtab-cedears"   onclick="loadModuleAuth('cedears',this)">🌐 CEDEARs</button>
       <button class="mtab"        id="mtab-alertas"   onclick="loadModuleAuth('alertas',this)">🔔 Alertas</button>
       <button class="mtab"        id="mtab-usa"       onclick="loadModuleAuth('usa',this)">🇺🇸 USA</button>
       <button class="mtab"        id="mtab-bonos"     onclick="loadModuleAuth('bonos',this)">📐 Renta Fija</button>
       <button class="mtab"        id="mtab-portafolio" onclick="loadModuleAuth('portafolio',this)">💼 Portafolio</button>
     </div>
+  </div>
+
+  <!-- Quick access row -- tabs más usados -->
+  <div class="qa-row">
+    <button class="qa-pill" onclick="loadModuleAuth('portafolio',null)">💼 Portafolio</button>
+    <button class="qa-pill" onclick="loadModuleAuth('usa',null);setTimeout(()=>{let e=document.getElementById('ustab-sectores');if(e)e.click()},200)">📊 Sectores</button>
+    <button class="qa-pill" onclick="loadModuleAuth('usa',null);setTimeout(()=>{if(window.usTab)usTab('shortint')},200)">📉 Short Data</button>
+    <button class="qa-pill" onclick="loadModuleAuth('alertas',null)">🔔 Alertas</button>
+    <button class="qa-pill" onclick="loadModuleAuth('analisis',null)">💡 Análisis</button>
   </div>
 
   <div class="content">
