@@ -275,7 +275,7 @@
   <div class="card">
     <div class="card-head">
       <div class="card-title">Gráfico: Precio + Volumen Total + Short Volume</div>
-      <button class="btn-share" onclick="shareSiChart('si-chart1', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Precio + Short Vol')" title="Compartir">📤</button>
+      <button class="btn-share" onclick="window.shareSiChart('si-chart1', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Precio + Short Vol')" title="Compartir">📤</button>
     </div>
     <div class="legend">
       <div class="legend-item"><span class="legend-dot" style="background:var(--yellow)"></span> Precio</div>
@@ -291,7 +291,7 @@
   <div class="card">
     <div class="card-head">
       <div class="card-title">Gráfico: Short Volume % del Total Diario</div>
-      <button class="btn-share" onclick="shareSiChart('si-chart2', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Short % + MA30')" title="Compartir">📤</button>
+      <button class="btn-share" onclick="window.shareSiChart('si-chart2', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Short % + MA30')" title="Compartir">📤</button>
     </div>
     <div class="legend">
       <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span> Short %</div>
@@ -562,9 +562,10 @@ let usPCSortDir = -1;
 // ── Tabs ──
 window.usTab = (name, btn) => {
   document.querySelectorAll('[id^="uspanel-"]').forEach(p=>p.classList.remove('active'));
-  document.getElementById('uspanel-'+name).classList.add('active');
+  const panel = document.getElementById('uspanel-'+name);
+  if (panel) panel.classList.add('active');
   document.querySelectorAll('[id^="ustab-"]').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   if(name==='sectores') usRenderSectores();
   if(name==='opciones') usRenderOpciones();
   if(name==='shortint') siLoad();
@@ -2576,7 +2577,7 @@ function siRender(symbol, data, siData) {
 
 
 // ── Share chart helper — captura canvas + overlay de nombre ──
-function shareSiChart(elId, title) {
+window.shareSiChart = function shareSiChart(elId, title) {
   const cvs = document.getElementById(elId);
   if (!cvs) { console.log('share: no canvas', elId); return; }
   const ticker = (document.getElementById('si-ticker').value || 'SPY').toUpperCase();
