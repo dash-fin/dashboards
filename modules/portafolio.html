@@ -553,7 +553,7 @@
   </div>
   <div class="sub-tabs-meta" style="display:flex;align-items:center;gap:8px">
     <span id="pfMeta" style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
-    <button class="btn-prim" id="pfNewPosBtn" style="font-size:8px;padding:1px 7px;display:none" onclick="pfModalOpen()">+ Nueva</button>
+    <button class="btn-prim" id="pfNewPosBtn" style="font-size:8px;padding:1px 7px" onclick="pfModalOpen()">+ Nueva</button>
   </div>
 </div>
 
@@ -976,9 +976,6 @@ window.pfTab = (name, btn) => {
   document.querySelectorAll('[id^="pftab-"]').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   if (window.qaTrack) window.qaTrack('portafolio', name);
-  // Mostrar/ocultar botón Nueva Posición según tab
-  const _npBtn = document.getElementById('pfNewPosBtn');
-  if (_npBtn) _npBtn.style.display = name === 'resumen' ? '' : 'none';
   if(name === 'historial') pfLoadHistorial();
   if(name === 'resumen') {
     pfRenderBenchmark();
@@ -1117,8 +1114,6 @@ window.pfLoadAll = async () => {
 
     document.getElementById('pfMeta').textContent =
       `${pfPositions.length} posiciones · ${new Date().toLocaleTimeString('es-AR')}`;
-    const _npBtn = document.getElementById('pfNewPosBtn');
-    if (_npBtn) _npBtn.style.display = '';
     pfRender();
     // Auto-refresh benchmark y calendario si está en resumen
     if(document.getElementById('pftab-resumen')?.classList.contains('active')) {
@@ -3310,7 +3305,11 @@ async function pfRenderResumenCalendar() {
       const key = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       const row = byDate[key];
       if (!row || row.pnl_usd == null) {
-        return `<div style="height:40px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${d}</div>`;
+        // Días sin datos: mostrar '—' en días hábiles (distingue fines de semana de días perdidos)
+        const _cellDow = new Date(y, m, d).getDay();
+        const _isWeekday = _cellDow >= 1 && _cellDow <= 5;
+        const _label = _isWeekday ? `${d}<span style="display:block;font-size:7px;opacity:0.5;font-style:italic;line-height:1">—</span>` : `${d}`;
+        return `<div style="height:40px;display:flex;align-items:center;justify-content:center;font-size:8px;color:var(--text4)">${_label}</div>`;
       }
       const pnl = row.pnl_usd;
       const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
