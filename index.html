@@ -1030,6 +1030,21 @@ window.qaTrack = (module, tab) => {
     window.qaRender();
   } catch(e) { /* ignore */ }
 };
+// Navegar a módulo + sub-tab desde quick access
+window.qaGo = (mod, tab) => {
+  loadModuleAuth(mod, null);
+  // Después de cargar, activar el sub-tab
+  const check = setInterval(() => {
+    const fn = window[mod + 'Tab'];
+    if (typeof fn === 'function') {
+      clearInterval(check);
+      fn(tab);
+    }
+  }, 100);
+  // Safety: clear after 5s
+  setTimeout(() => clearInterval(check), 5000);
+};
+
 window.qaRender = () => {
   try {
     const el = document.getElementById('qaPills');
@@ -1045,7 +1060,8 @@ window.qaRender = () => {
       const [mod, tab] = key.split(':');
       const icon = QA_ICONS[mod] || '📌';
       const label = QA_LABELS[key] || (tab.charAt(0).toUpperCase()+tab.slice(1));
-      return `<button class="qa-pill" onclick="loadModuleAuth('${mod}',null)">${icon} <span class="qa-tab">${label}</span></button>`;
+      const tabStr = tab || '';
+      return `<button class="qa-pill" onclick="qaGo('${mod}','${tabStr}')">${icon} <span class="qa-tab">${label}</span></button>`;
     }).join('');
   } catch(e) { console.log('qaRender err:', e); }
 };
