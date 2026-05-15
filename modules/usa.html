@@ -271,9 +271,15 @@
     <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Short Interest</div><div class="kpi-val" id="si-kpi-si">—</div><div class="kpi-sub" id="si-kpi-si-dtc">—</div></div>
   </div>
 
-  <!-- Ticker badge visible -->
-  <div style="display:flex;align-items:center;gap:6px;margin:6px 0 10px">
-    <span id="si-ticker-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--yellow)">SPY</span>
+  <!-- Ticker header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:10px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="si-ticker-badge" style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--yellow)">SPY</span>
+      <span id="si-price-badge" style="font-size:12px;color:var(--green);font-weight:500">$—</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="si-change-badge" style="font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px">—</span>
+    </div>
   </div>
 
   <!-- Chart 1: precio + volumen (Chart.js style) -->
@@ -2412,7 +2418,9 @@ function siRender(symbol, data, siData) {
     document.getElementById('si-kpi-si-dtc').textContent = '—';
     document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos disponibles para ' + symbol + '</td></tr>';
     document.getElementById('si-last-update').style.display = 'none';
-    document.getElementById('si-ticker-badge').innerHTML = symbol;
+    document.getElementById('si-ticker-badge').textContent = symbol;
+    document.getElementById('si-price-badge').textContent = '$—';
+    const chgEl = document.getElementById('si-change-badge'); chgEl.textContent = '—'; chgEl.style.background = 'transparent';
     return;
   }
 
@@ -2431,6 +2439,16 @@ function siRender(symbol, data, siData) {
   // KPIs
   document.getElementById('si-kpi-price').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '—';
   document.getElementById('si-kpi-price-chg').textContent = kpi_chg != null ? (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%' : '—';
+  // Ticker header
+  document.getElementById('si-price-badge').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '$—';
+  const chgEl = document.getElementById('si-change-badge');
+  if (kpi_chg != null) {
+    chgEl.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%';
+    chgEl.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)';
+    chgEl.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
+  } else {
+    chgEl.textContent = '—'; chgEl.style.background = 'transparent';
+  }
   document.getElementById('si-kpi-price-chg').style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('si-kpi-sv').textContent = fmtVol(kpi_sv);
   document.getElementById('si-kpi-sv-pct').textContent = fmtPct(kpi_sv_pct);
@@ -2571,7 +2589,10 @@ function siRender(symbol, data, siData) {
   }).join('');
 
   // Update ticker badge
-  document.getElementById('si-ticker-badge').innerHTML = symbol;
+  document.getElementById('si-ticker-badge').textContent = symbol;
+  document.getElementById('si-price-badge').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '$—';
+  const chgEl = document.getElementById('si-change-badge');
+  if (kpi_chg != null) { chgEl.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%'; chgEl.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)'; chgEl.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)'; }
   document.getElementById('si-last-update').style.display = 'block';
   document.getElementById('si-last-update').textContent = '📅 ' + rangeEnd + ' | ' + data.length + ' días';
 
