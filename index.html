@@ -112,7 +112,8 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .mtab{display:flex;align-items:center;gap:7px;padding:0 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;font-weight:500;flex-shrink:0}
 .mtab:hover{color:var(--text2)}
 .mtab.active{color:var(--green);border-bottom-color:var(--green)}
-.qa-row{display:flex;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--border);min-height:36px}
+.qa-row{display:flex;align-items:center;gap:8px;padding:4px 16px;border-bottom:1px solid var(--border);max-height:0;overflow:hidden;transition:max-height .2s,padding .2s;padding-top:0;padding-bottom:0}
+.qa-row.show{max-height:60px;padding-top:4px;padding-bottom:4px}
 .qa-label{font-size:15px;opacity:.4}
 .qa-pills{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
 .qa-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.2px;cursor:pointer;transition:all .12s;white-space:nowrap}
@@ -1056,12 +1057,15 @@ window.qaRender = () => {
   try {
     const el = document.getElementById('qaPills');
     if (!el) { console.log('qaPills not found'); return; }
+    const row = el.closest('.qa-row');
     const clicks = window._qa_storage || {};
     const top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
     if (top3.length === 0) {
-      el.innerHTML = '<span class="qa-empty">⚡ Navegá los módulos y aparecerán tus accesos rápidos</span>';
+      el.innerHTML = '';
+      if (row) row.classList.remove('show');
       return;
     }
+    if (row) row.classList.add('show');
     el.innerHTML = top3.map(([key]) => {
       const [mod, tab] = key.split(':');
       const icon = QA_ICONS[mod] || '📌';
@@ -1071,12 +1075,23 @@ window.qaRender = () => {
     }).join('');
   } catch(e) { console.log('qaRender err:', e); }
 };
-// Render on load + delayed for DOM readiness
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', window.qaRender);
-} else {
-  window.qaRender();
-}
+// Render on load + asegurar data de localStorage
+(function(){
+  try {
+    const saved = localStorage.getItem('qa_clicks');
+    if (saved) window._qa_storage = JSON.parse(saved);
+  } catch(e) {}
+  const fn = () => {
+    window.qaRender();
+    // Show immediately if there's data
+    const row = document.querySelector('.qa-row');
+    const clicks = window._qa_storage || {};
+    if (row && Object.keys(clicks).length > 0) row.classList.add('show');
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fn);
+  } else { fn(); }
+})();
 
 window.loadModuleAuth = (name, btn) => {
   if (!currentUser) {
