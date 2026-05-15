@@ -3256,7 +3256,7 @@ async function pfRenderResumenCalendar() {
     });
   }
 
-  // Inyectar hoy con datos live SIEMPRE (fuera del cache) para reflejar pfOpsDailyUSD actualizado
+  // Inyectar hoy con datos live + guardar snapshot si falta en la BD
   {
     const _calToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
     const _todayMKey = _calToday.substring(0, 7);
@@ -3268,9 +3268,25 @@ async function pfRenderResumenCalendar() {
           const { year: y, month: m } = months[idx];
           const mKey = `${y}-${String(m+1).padStart(2,'0')}`;
           if (mKey !== _todayMKey) return md;
-          const filteredRows = md.rows.filter(r => r.fecha !== _calToday); // quitar versión anterior si existe
+          const filteredRows = md.rows.filter(r => r.fecha !== _calToday);
           return { ...md, rows: [...filteredRows, { fecha: _calToday, pnl_usd: _liveUsd, pnl_pct: _livePct, valor_usd: pfBaseAct, _live: true }] };
         });
+        // Guardar snapshot en BD si no existe (para que persista al día siguiente)
+        const _email = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
+        if (_email && !allRows?.some(r => r.fecha === _calToday)) {
+          const body = JSON.stringify({
+            user_email: decodeURIComponent(_email),
+            fecha: _calToday,
+            valor_usd: pfBaseAct,
+            pnl_usd: _liveUsd,
+            pnl_pct: _livePct
+          });
+          fetch(`${CFG.SB_URL}/rest/v1/pnl_diario`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Prefer': 'resolution=merge-duplicates' },
+            body
+          }).catch(e => {}); // silencioso, no rompe el render
+        }
       }
     }
   }
