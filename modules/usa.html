@@ -272,9 +272,8 @@
   </div>
 
   <!-- Ticker badge visible -->
-  <div style="display:flex;align-items:center;gap:10px;margin:6px 0 10px">
-    <span id="si-ticker-badge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 14px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text)">🔍 SPY</span>
-    <span id="si-ticker-sub" style="font-size:10px;color:var(--text3)">—</span>
+  <div style="display:flex;align-items:center;gap:6px;margin:6px 0 10px">
+    <span id="si-ticker-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--yellow)">🔍 SPY</span>
   </div>
 
   <!-- Chart 1: precio + volumen (Chart.js style) -->
@@ -2414,7 +2413,6 @@ function siRender(symbol, data, siData) {
     document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos disponibles para ' + symbol + '</td></tr>';
     document.getElementById('si-last-update').style.display = 'none';
     document.getElementById('si-ticker-badge').innerHTML = '🔍 ' + symbol;
-    document.getElementById('si-ticker-sub').textContent = 'Sin datos FINRA';
     return;
   }
 
@@ -2572,11 +2570,8 @@ function siRender(symbol, data, siData) {
       '</tr>';
   }).join('');
 
-  // Update ticker badge + timestamp
+  // Update ticker badge
   document.getElementById('si-ticker-badge').innerHTML = '🔍 ' + symbol;
-  const rangeStart = data[0] ? data[0].fecha.slice(5) : '—';
-  const rangeEnd = today.fecha || '—';
-  document.getElementById('si-ticker-sub').textContent = rangeStart + ' → ' + rangeEnd.slice(5) + ' | ' + data.length + ' días hábiles';
   document.getElementById('si-last-update').style.display = 'block';
   document.getElementById('si-last-update').textContent = '📅 ' + rangeEnd + ' | ' + data.length + ' días';
 
