@@ -2445,9 +2445,9 @@ function siRender(symbol, data, siData) {
   if (kpi_chg != null && _chgEl) {
     _chgEl.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%';
     _chgEl.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)';
-    chgEl.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
-  } else {
-    chgEl.textContent = '—'; chgEl.style.background = 'transparent';
+    _chgEl.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
+  } else if (_chgEl) {
+    _chgEl.textContent = '—'; _chgEl.style.background = 'transparent';
   }
   document.getElementById('si-kpi-price-chg').style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('si-kpi-sv').textContent = fmtVol(kpi_sv);
