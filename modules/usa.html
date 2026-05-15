@@ -2594,7 +2594,7 @@ function siRender(symbol, data, siData) {
   const chgEl = document.getElementById('si-change-badge');
   if (kpi_chg != null) { chgEl.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%'; chgEl.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)'; chgEl.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)'; }
   document.getElementById('si-last-update').style.display = 'block';
-  document.getElementById('si-last-update').textContent = '📅 ' + rangeEnd + ' | ' + data.length + ' días';
+  document.getElementById('si-last-update').textContent = '📅 ' + (today.fecha || '—') + ' | ' + data.length + ' días';
 
   // Short Interest KPI
   if (siData && siData.length > 0) {
