@@ -274,7 +274,7 @@
   <!-- Ticker header (estilo Finviz: ticker + precio + cambio + nombre empresa) -->
   <!-- Ticker header: ticker amarillo grande + precio verde + variación + nombre -->
   <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-bottom:10px;flex-wrap:nowrap">
-    <span id="si-ticker-badge" style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--amber);letter-spacing:-0.5px;white-space:nowrap">SPY</span>
+    <span id="si-ticker-badge" style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;color:var(--amber);letter-spacing:-0.5px;white-space:nowrap">SPY</span>
     <span id="si-price-badge" style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:var(--green);font-weight:500;white-space:nowrap">$—</span>
     <span id="si-change-badge" style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap">—</span>
     <span id="si-name-badge" style="font-size:11px;color:var(--text3);font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">—</span>
@@ -2613,49 +2613,30 @@ window.shareSiChart = function shareSiChart(elId, title) {
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
   const chartName = title ? title.split('|').pop().trim() : 'Short Data';
-  // Blob de descarga unificado
-  const doDownload = (blob) => {
-    const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
-    const file = new File([blob], fname, { type: 'image/png' });
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: ticker + ' ' + chartName }).catch(e => {
-        if (e.name !== 'AbortError') {
-          const a = document.createElement('a'); a.download = fname; a.href = URL.createObjectURL(blob);
-          a.click(); URL.revokeObjectURL(a.href);
-        }
+  const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
+  
+  try {
+    const dataUrl = cvs.toDataURL('image/png');
+    
+    // Móvil: intentar navigator.share
+    if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+      fetch(dataUrl).then(r => r.blob()).then(blob => {
+        const file = new File([blob], fname, { type: 'image/png' });
+        navigator.share({ files: [file], title: ticker + ' ' + chartName }).catch(() => {
+          // fallback: descarga directa
+          const a = document.createElement('a'); a.download = fname; a.href = dataUrl;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        });
       });
       return;
     }
-    const a = document.createElement('a'); a.download = fname; a.href = URL.createObjectURL(blob);
-    a.click(); URL.revokeObjectURL(a.href);
-  };
-  // Attempt 1: try html2canvas on the card container
-  if (typeof html2canvas !== 'undefined') {
-    const card = cvs.closest('.card-body,.card');
-    if (card) {
-      html2canvas(card, { backgroundColor: '#1a1a2e', scale: 2, useCORS: true })
-        .then(c => c.toBlob(b => { if (b) doDownload(b); }));
-      return;
-    }
+    
+    // PC: descarga directa forzada
+    const a = document.createElement('a'); a.download = fname; a.href = dataUrl;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  } catch(e) {
+    console.log('share error:', e);
   }
-  // Attempt 2: toDataURL → drawImage con overlay
-  try {
-    const dataUrl = cvs.toDataURL('image/png');
-    const img = new Image();
-    img.onload = () => {
-      const out = document.createElement('canvas');
-      out.width = img.width; out.height = img.height + 48;
-      const ctx = out.getContext('2d');
-      ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, out.width, out.height);
-      ctx.drawImage(img, 0, 24);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 15px Arial'; ctx.textAlign = 'left';
-      ctx.fillText(ticker + ' — ' + chartName, 12, 18);
-      ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '11px Arial'; ctx.textAlign = 'right';
-      ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', out.width - 12, out.height - 6);
-      out.toBlob(b => { if (b) doDownload(b); });
-    };
-    img.src = dataUrl;
-  } catch(e) { console.log('share error:', e); }
 }
 
 
