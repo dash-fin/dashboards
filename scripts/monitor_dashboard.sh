@@ -18,7 +18,7 @@
 set -euo pipefail
 
 # ── Config ────────────────────────────────────────────────
-TG_TOKEN="8576934070:AAFrb--ocLPcFZh-mOzFDTc5ujYnouA3H3U"
+TG_TOKEN="${TG_TOKEN:?}"
 TG_CHAT_ID="6209263987"
 SB_URL="https://endymbpdayeidromxayb.supabase.co"
 SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk"
