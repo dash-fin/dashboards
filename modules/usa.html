@@ -227,7 +227,7 @@
     <div style="font-weight:600;color:var(--text);margin-bottom:8px;font-size:13px">📘 Guía Short Data</div>
 
     <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📊 Short Volume % (diario)</div>
-    <p><b>¿Qué es?</b> Porcentaje del volumen total del día que se operó como venta en corto. Fuente: FINRA CNMS (consolidado NMS).</p>
+    <p><b>¿Qué es?</b> Porcentaje del volumen total del día que se operó como venta en corto.</p>
     <p><b>Cómo leerlo:</b><br>
     &gt;40% → presión corta muy alta, posible squeeze setup<br>
     25-40% → presión corta elevada, monitorear<br>
@@ -246,7 +246,7 @@
     Percentil &lt;25 → bajo para este ticker</p>
 
     <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📉 Short Interest (SI, bi-mensual)</div>
-    <p><b>¿Qué es?</b> Posiciones cortas totales acumuladas reportadas cada 2 semanas. Fuente: FINRA.</p>
+    <p><b>¿Qué es?</b> Posiciones cortas totales acumuladas reportadas cada 2 semanas.</p>
     <p><b>Cómo leerlo:</b><br>
     SI subiendo + Short Volume diario bajo → nuevos cortos lentamente = bajista<br>
     SI bajando + Short Volume diario alto → cobertura activa (buy to cover) = potencial alcista<br>
@@ -258,7 +258,6 @@
     <div style="font-weight:500;color:var(--text);margin:8px 0 3px">🏷️ Benchmark Sectorial</div>
     <p>Compara el Short % del ticker contra el del benchmark (SPY). Si el ticker está muy por encima del benchmark, está siendo más corto que el mercado general.</p>
 
-    <p style="margin-top:6px;color:var(--text3);font-size:10px">Datos reales FINRA Reg SHO (CNMS). Cobertura: NYSE, Nasdaq, ARCA, BATS, OTCBB. Rezago T+1.</p>
   </div>
 
   <!-- KPIs -->
@@ -293,7 +292,7 @@
       <div class="legend-item"><span class="legend-dot" style="background:var(--red);opacity:.4"></span> Short % (eje der)</div>
     </div>
     <div class="card-body" style="height:360px"><canvas id="si-chart1"></canvas></div>
-    <div class="chart-meta">Fuente: Yahoo Finance (precio) / FINRA Reg SHO (short vol)</div>
+    <div class="chart-meta">Short Volume vs Precio · Diario</div>
   </div>
 
   <!-- Chart 2: short % bars + MA30 (Chart.js style) -->
