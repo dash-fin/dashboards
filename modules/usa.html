@@ -321,11 +321,7 @@
     </div>
   </div>
 
-  <!-- Extra info row -->
-  <div id="si-si-row" style="display:none;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--text2)">
-    <div style="font-weight:500;color:var(--text);margin-bottom:6px">📉 Short Interest (FINRA — bi-mensual)</div>
-    <div id="si-si-content">—</div>
-  </div>
+
 
 </div>
 
@@ -2565,68 +2561,59 @@ function siRender(symbol, data, siData) {
   document.getElementById('si-last-update').style.display = 'block';
   document.getElementById('si-last-update').textContent = '📅 ' + (today.fecha || '—') + ' | ' + data.length + ' días';
 
-  // Short Interest row
-  const siRow = document.getElementById('si-si-row');
-  const siContent = document.getElementById('si-si-content');
+  // Short Interest KPI
   if (siData && siData.length > 0) {
     const last = siData[siData.length - 1];
-    siRow.style.display = 'block';
-    siContent.innerHTML = 'Settlement: <b>' + (last.settlementDate || '—') + '</b> | ' +
-      'Posición corta: <b>' + fmtVol(last.currentShortPosition) + '</b> | ' +
-      'Cambio: <b style="color:' + (last.changePercent >= 0 ? 'var(--red)' : 'var(--green)') + '">' + (last.changePercent != null ? (last.changePercent >= 0 ? '+' : '') + last.changePercent.toFixed(2) + '%' : '—') + '</b> | ' +
-      'Days to Cover: <b>' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + '</b>';
-    // Update SI KPI
     document.getElementById('si-kpi-si').textContent = fmtVol(last.currentShortPosition);
     document.getElementById('si-kpi-si').style.color = last.changePercent >= 5 ? 'var(--red)' : last.changePercent <= -5 ? 'var(--green)' : 'var(--text)';
     document.getElementById('si-kpi-si-dtc').textContent = (last.settlementDate || '—') + ' | ' + (last.daysToCover != null ? 'DTC ' + last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
   } else {
-    siRow.style.display = 'none';
     document.getElementById('si-kpi-si').textContent = '—';
     document.getElementById('si-kpi-si-dtc').textContent = '—';
   }
 }
 
 
-// ── Share chart helper (Chart.js canvas → PNG with title watermark) ──
+// ── Share chart helper — captura canvas + nombre en un solo PNG ──
 function shareSiChart(elId, title) {
   const cvs = document.getElementById(elId);
   if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('shareSiChart: no canvas', elId); return; }
+  const ticker = (document.getElementById('si-ticker').value || 'SPY').toUpperCase();
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
-  // Try to get Chart.js instance and render
+  // Force Chart.js to flush
   const chartInst = Chart.getChart(cvs);
-  if (chartInst) {
-    chartInst.render();
-  }
+  if (chartInst) chartInst.render();
   setTimeout(() => {
     try {
       const dataUrl = cvs.toDataURL('image/png');
-      if (!dataUrl || dataUrl === cvs.toDataURL()) { /* ok */ }
+      if (!dataUrl || dataUrl === 'data:,') { console.log('empty canvas'); return; }
       const img = new Image();
       img.onload = () => {
         const c = document.createElement('canvas');
         c.width = Math.max(img.width, 400);
-        c.height = img.height + 44;
+        c.height = img.height + 50;
         const ctx = c.getContext('2d');
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, c.width, c.height);
-        ctx.drawImage(img, 0, 22);
-        // Header with title and source
-        ctx.fillStyle = 'rgba(255,255,255,0.9)';
-        ctx.font = 'bold 15px Arial';
+        // Draw chart
+        ctx.drawImage(img, 0, 25);
+        // Header
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'left';
-        ctx.fillText(title, 12, 16);
-        // Footer source + date
-        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillText(ticker + ' — ' + title.split(' — ').pop() || title, 12, 17);
+        // Footer
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
         ctx.font = '11px Arial';
         ctx.textAlign = 'right';
         ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', c.width - 12, c.height - 8);
         c.toBlob(async (blob) => {
           if (!blob) return;
-          const fname = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
+          const fname = ticker + '_' + title.replace(/[^a-zA-Z0-9]/g, '_').slice(0,30) + '.png';
           const file = new File([blob], fname, { type: 'image/png' });
           if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try { await navigator.share({ files: [file], title }); return; }
+            try { await navigator.share({ files: [file], title: ticker + ' ' + title }); return; }
             catch(e) { if (e.name === 'AbortError') return; }
           }
           const a = document.createElement('a');
@@ -2636,7 +2623,7 @@ function shareSiChart(elId, title) {
       };
       img.src = dataUrl;
     } catch(e) { console.log('shareSiChart error:', e); }
-  }, 100);
+  }, 150);
 }
 
 
