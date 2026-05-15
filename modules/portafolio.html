@@ -1214,9 +1214,20 @@ function pfPatchOpsKpis() {
   const gainDetail = document.getElementById('pfk-gain-detail');
   if(gainDetail) {
     const lines = [];
-    if(pfBaseGan !== 0)    lines.push(`Acc/Bonos ${fmtS(pfBaseGan)}`);
-    if(opsUsd !== 0)       lines.push(`Opciones ${fmtS(opsUsd)}`);
-    if(pfGanRealizada !== 0) lines.push(`Realizada ${fmtS(pfGanRealizada)}`);
+    const totalPos = (pfBaseGan || 0) + (opsUsd || 0) + (pfGanRealizada || 0);
+    if(pfBaseGan !== 0)       lines.push(`Acc/Bonos ${fmtS(pfBaseGan)}`);
+    if(opsUsd !== 0)          lines.push(`Opciones ${fmtS(opsUsd)}`);
+    if(pfGanRealizada !== 0)  lines.push(`Realizada ${fmtS(pfGanRealizada)}`);
+    lines.push(`<b>Total ${fmtS(totalPos)}</b>`);
+    // PnL diario acumulado (suma de pnl_usd del calendario, como control)
+    if (window.__pfPnlDiarioAcum != null) {
+      const diff = totalPos - window.__pfPnlDiarioAcum;
+      const clr = diff >= -0.01 && diff <= 0.01 ? 'var(--text4)' : (diff > 0 ? 'var(--green)' : 'var(--red)');
+      lines.push(`<span style="color:var(--text5);font-size:8px">vs. acum PnL diario: ${fmtS(window.__pfPnlDiarioAcum)}</span>`);
+      if (Math.abs(diff) > 0.5) {
+        lines.push(`<span style="color:${clr};font-size:8px">  brecha: ${fmtS(diff)}</span>`);
+      }
+    }
     gainDetail.innerHTML = lines.join('<br>');
   }
 
@@ -3385,8 +3396,10 @@ window.pfRenderBenchmark = __pfRB;
   if (!pnlRows) {
     // ⚠ FIX (mayo-2026): ídem al calendario — usar _pfEmail como fallback para no depender de auth async.
     const _email = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
-    pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct`) || [];
+    pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct,pnl_usd`) || [];
     pfPnlCache = pnlRows; // cachear SIN hoy para que cada render re-inyecte el dato live actualizado
+    // Calcular suma acumulada de pnl_usd (para control vs ganancia real)
+    window.__pfPnlDiarioAcum = pnlRows.reduce((s, r) => s + (Number(r.pnl_usd)||0), 0);
   }
   // Inyectar hoy con pnl_pct live si el snapshot aún no fue guardado
   const _benchToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
