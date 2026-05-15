@@ -2511,7 +2511,7 @@ function siRender(symbol, data, siData) {
         { type: 'bar', label: 'Short %', data: pctData,
           backgroundColor: colors45, borderColor: borders45, borderWidth: .5, order: 2 },
         { type: 'line', label: 'Short %', data: pctData,
-          borderColor: 'rgba(255,64,96,0.4)', borderWidth: 1, pointRadius: 0, tension: .3, order: 1 },
+          borderColor: '#ff79c6', borderWidth: 1.5, pointRadius: 0, tension: .3, order: 1 },
         { label: 'MA 30d', data: ma30,
           borderColor: '#4a5568', borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: .3, order: 3 },
       ]
@@ -2566,7 +2566,7 @@ function siRender(symbol, data, siData) {
     const last = siData[siData.length - 1];
     document.getElementById('si-kpi-si').textContent = fmtVol(last.currentShortPosition);
     document.getElementById('si-kpi-si').style.color = last.changePercent >= 5 ? 'var(--red)' : last.changePercent <= -5 ? 'var(--green)' : 'var(--text)';
-    document.getElementById('si-kpi-si-dtc').textContent = (last.settlementDate || '—') + ' | ' + (last.daysToCover != null ? 'DTC ' + last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
+    document.getElementById('si-kpi-si-dtc').textContent = (last.settlementDate ? 'settl. ' + last.settlementDate : '—') + ' | DTC ' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
   } else {
     document.getElementById('si-kpi-si').textContent = '—';
     document.getElementById('si-kpi-si-dtc').textContent = '—';
@@ -2574,57 +2574,53 @@ function siRender(symbol, data, siData) {
 }
 
 
-// ── Share chart helper — captura canvas + nombre en un solo PNG ──
+// ── Share chart helper — captura canvas + overlay de nombre ──
 function shareSiChart(elId, title) {
   const cvs = document.getElementById(elId);
-  if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('shareSiChart: no canvas', elId); return; }
+  if (!cvs || !(cvs instanceof HTMLCanvasElement)) { console.log('share: no canvas', elId); return; }
   const ticker = (document.getElementById('si-ticker').value || 'SPY').toUpperCase();
   const now = new Date();
   const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
-  // Force Chart.js to flush
-  const chartInst = Chart.getChart(cvs);
-  if (chartInst) chartInst.render();
-  setTimeout(() => {
-    try {
-      const dataUrl = cvs.toDataURL('image/png');
-      if (!dataUrl || dataUrl === 'data:,') { console.log('empty canvas'); return; }
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement('canvas');
-        c.width = Math.max(img.width, 400);
-        c.height = img.height + 50;
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#1a1a2e';
-        ctx.fillRect(0, 0, c.width, c.height);
-        // Draw chart
-        ctx.drawImage(img, 0, 25);
-        // Header
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(ticker + ' — ' + title.split(' — ').pop() || title, 12, 17);
-        // Footer
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        ctx.font = '11px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', c.width - 12, c.height - 8);
-        c.toBlob(async (blob) => {
-          if (!blob) return;
-          const fname = ticker + '_' + title.replace(/[^a-zA-Z0-9]/g, '_').slice(0,30) + '.png';
-          const file = new File([blob], fname, { type: 'image/png' });
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try { await navigator.share({ files: [file], title: ticker + ' ' + title }); return; }
-            catch(e) { if (e.name === 'AbortError') return; }
-          }
-          const a = document.createElement('a');
-          a.download = fname; a.href = URL.createObjectURL(blob);
-          a.click(); URL.revokeObjectURL(a.href);
-        });
-      };
-      img.src = dataUrl;
-    } catch(e) { console.log('shareSiChart error:', e); }
-  }, 150);
+  // Extraer nombre del gráfico del título tras el pipe
+  const chartName = title ? title.split('|').pop().trim() : 'Short Data';
+  try {
+    // Crear un canvas con el overlay incluido (para evitar CORS restriction)
+    const w = cvs.width, h = cvs.height;
+    // Canvas final (chart + header + footer)
+    const out = document.createElement('canvas');
+    out.width = w; out.height = h + 48;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, out.width, out.height);
+    // Ticker + chart name at top
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(ticker + ' — ' + chartName, 12, 18);
+    // Copy chart pixel data directly into final canvas
+    const srcCtx = cvs.getContext('2d');
+    const imgData = srcCtx.getImageData(0, 0, w, h);
+    ctx.putImageData(imgData, 0, 24);
+    // Footer
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText('FINRA Reg SHO · ' + dateStr + ' · dash-fin.github.io', out.width - 12, out.height - 6);
+    out.toBlob(async (blob) => {
+      if (!blob) { console.log('share: blob empty'); return; }
+      const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
+      const file = new File([blob], fname, { type: 'image/png' });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: ticker + ' ' + chartName }); return; }
+        catch(e) { if (e.name === 'AbortError') return; }
+      }
+      const a = document.createElement('a');
+      a.download = fname; a.href = URL.createObjectURL(blob);
+      a.click(); URL.revokeObjectURL(a.href);
+    });
+  } catch(e) { console.log('share error:', e); }
 }
+
 
 
 // ── Init ──
