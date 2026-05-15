@@ -1061,7 +1061,7 @@ window.qaRender = () => {
     if (!el) { console.log('qaPills not found'); return; }
     const row = el.closest('.qa-row');
     const clicks = window._qa_storage || {};
-    const top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
+    let top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
     if (top3.length === 0) {
       el.innerHTML = '';
       if (row) row.classList.remove('show');
@@ -1069,7 +1069,7 @@ window.qaRender = () => {
     }
     if (row) row.classList.add('show');
     // Filtrar módulos raíz (sin sub-tab), solo mostrar tabs específicos
-    top3 = top3.filter(([key]) => { const [m,t] = key.split(':'); return t && t !== m; });
+    top3 = top3.filter(([key]) => { const [m,t] = key.split(':'); return t && t !== m; }).slice(0,3);
     if (top3.length === 0) { el.innerHTML = ''; if (row) row.classList.remove('show'); return; }
     el.innerHTML = top3.map(([key]) => {
       const [mod, tab] = key.split(':');
