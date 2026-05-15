@@ -1288,8 +1288,11 @@ function pfRender() {
   pfRenderDailyKpi(pfBaseDailyUSD, totAct);
 
   document.getElementById('pfk-pos').textContent      = pfPositions.length;
-  document.getElementById('pfk-pos-sub').textContent  =
-    [...new Set(pfPositions.map(p=>p.ticker_ars))].length+' tickers';
+  const _posSubEl = document.getElementById('pfk-pos-sub');
+  if (_posSubEl) {
+    const _posCount = [...new Set(pfPositions.map(p=>p.ticker_ars))].length;
+    _posSubEl.innerHTML = _posCount + ' tickers<button class="btn-prim" style="font-size:9px;padding:2px 8px;margin-left:6px" onclick="pfModalOpen()">+ Nueva</button>';
+  }
 
   // Beta ponderada por valor de mercado
   let betaNum = 0, betaDen = 0;
