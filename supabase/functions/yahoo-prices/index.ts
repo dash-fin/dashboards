@@ -161,9 +161,114 @@ serve(async (req) => {
       });
     }
 
-    // ── Modo 5: FINRA Short Volume ─────────────────────────
-    // POST { mode: "finra-short-volume", symbols: ["GGAL","AAPL","ASTS"] }
+    // ── Modo 5: Short Volume via Nasdaq Data Link ────────────
+    // POST { mode: "short-volume", symbols: ["GGAL","AAPL","ASTS"] }
+    // Usa dataset NSS (Nasdaq Short Sale), cubre NYSE/Nasdaq/ARCA
+    // Fallback a FINRA OTC si Nasdaq no tiene datos
     // Devuelve { "GGAL": [{ fecha, total_vol, short_vol, short_pct }], ... }
+    if (mode === "short-volume") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+
+      const NASDAQ_API_KEY = Deno.env.get("NASDAQ_API_KEY") || "TxAfzSQx9Fp81ysgex92";
+
+      const result: Record<string, Array<{fecha: string; total_vol: number; short_vol: number; short_pct: number}>> = {};
+
+      await Promise.all(symbols.map(async (sym) => {
+        try {
+          // Intentar Nasdaq Data Link primero (NYSE/Nasdaq/ARCA/ETS/ADRs)
+          const url = `https://data.nasdaq.com/api/v3/datasets/NSS/${sym}.json?api_key=${NASDAQ_API_KEY}&rows=500&order=desc`;
+          const ndlResp = await fetch(url, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "Accept": "application/json",
+              "Referer": "https://data.nasdaq.com/",
+            },
+          });
+
+          if (ndlResp.ok) {
+            const ndlData = await ndlResp.json();
+            const dataset = ndlData?.dataset;
+            if (dataset?.data?.length) {
+              // Columnas típicas de NSS: Date, Short Volume, Total Volume, Market
+              const colIdx: Record<string, number> = {};
+              const cols = dataset.column_names || [];
+              cols.forEach((c: string, i: number) => { colIdx[c.toLowerCase()] = i; });
+
+              const rows = dataset.data
+                .filter((row: any[]) => {
+                  const tvIdx = colIdx["total volume"] ?? colIdx["totalvolume"] ?? -1;
+                  const tv = Number(row[tvIdx] || 0);
+                  return tv > 0;
+                })
+                .map((row: any[]) => {
+                  const dtIdx = colIdx["date"] ?? 0;
+                  const tvIdx = colIdx["total volume"] ?? colIdx["totalvolume"] ?? -1;
+                  const svIdx = colIdx["short volume"] ?? colIdx["shortvolume"] ?? -1;
+                  const tv = Number(row[tvIdx] || 0);
+                  const sv = Number(row[svIdx] || 0);
+                  return {
+                    fecha: (row[dtIdx] || "").toString().split("T")[0],
+                    total_vol: Math.round(tv),
+                    short_vol: Math.round(sv),
+                    short_pct: tv > 0 ? Math.round(sv / tv * 1000) / 10 : 0,
+                  };
+                });
+
+              result[sym] = rows;
+              return;
+            }
+          }
+        } catch {
+          // Nasdaq falló, probar FINRA OTC
+        }
+
+        // Fallback: FINRA OTC
+        try {
+          const resp = await fetch("https://api.finra.org/data/group/OTCMARKET/name/REGSHODAILY?$top=500&$orderby=tradeReportDate%20desc");
+          if (resp.ok) {
+            const csvText = await resp.text();
+            const lines = csvText.trim().split("\n");
+            if (lines.length >= 2) {
+              const csvHeaders = lines[0].split(",");
+              const symIdx = csvHeaders.indexOf("securitiesInformationProcessorSymbolIdentifier");
+              const tvIdx = csvHeaders.indexOf("totalParQuantity");
+              const svIdx = csvHeaders.indexOf("shortParQuantity");
+              const dtIdx = csvHeaders.indexOf("tradeReportDate");
+
+              const rows: Array<{fecha: string; total_vol: number; short_vol: number; short_pct: number}> = [];
+              for (let i = 1; i < lines.length && rows.length < 500; i++) {
+                const vals = lines[i].split(",");
+                const symbol = (vals[symIdx] || "").trim();
+                if (symbol !== sym) continue;
+                const tv = Number(vals[tvIdx] || 0);
+                const sv = Number(vals[svIdx] || 0);
+                if (tv <= 0) continue;
+                rows.push({
+                  fecha: (vals[dtIdx] || "").trim(),
+                  total_vol: Math.round(tv),
+                  short_vol: Math.round(sv),
+                  short_pct: Math.round(sv / tv * 1000) / 10,
+                });
+              }
+              if (rows.length) {
+                result[sym] = rows;
+                return;
+              }
+            }
+          }
+        } catch {
+          // FINRA también falló
+        }
+
+        result[sym] = [];
+      }));
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Legacy Modo 5: FINRA Short Volume (deprecated, rename kept for compat) ─
     if (mode === "finra-short-volume") {
       if (!symbols?.length) throw new Error("symbols requerido");
 

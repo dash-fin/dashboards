@@ -140,7 +140,8 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
     <div class="stat-pill"><strong>1</strong> Edge Function</div>
     <div class="stat-pill"><strong>2</strong> canales de alerta</div>
     <div class="stat-pill"><strong>4</strong> temas de color</div>
-    <div class="stat-pill"><strong>2</strong> fuentes externas de datos</div>
+      <div class="stat-pill"><strong>3</strong> fuentes externas de datos</div>
+    <div class="stat-pill"><strong>7</strong> módulos planificados</div>
   </div>
 </div>
 
@@ -211,6 +212,11 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         <div class="mod-icon">🎯</div>
         <div class="mod-name">Opciones / Estrat.</div>
         <div class="mod-sub">Opciones IAMC (PDF via Claude AI) · Estrategias de cobertura</div>
+      </div>
+      <div class="mod-card" style="border-color:rgba(255,102,128,.3)">
+        <div class="mod-icon">📉</div>
+        <div class="mod-name" style="color:#ff6680">Short Interest</div>
+        <div class="mod-sub">Posiciones cortas FINRA · Days to Cover · Evolución histórica x ticker</div>
       </div>
     </div>
 
@@ -288,6 +294,26 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         Cierres históricos locales ARS<br>
         Input: symbols + dates array<br>
         Output: <code style="background:rgba(0,0,0,.3);color:#b8d0ec">{'{'} "AL30": {'{'} "fecha": precio {'}'} {'}'}</code>
+      </div>
+    </div>
+
+    <div class="src-box finra">
+      <div class="sec-row" style="margin-bottom:6px">
+        <div class="sec-icon" style="font-size:22px">📉</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#ff6680">FINRA — Short Interest</div>
+          <div style="font-size:10px;color:#7a9ec0">Posiciones cortas bi-mensuales</div>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip ch-red">CDN directo (sin key)</span>
+        <span class="chip ch-red">Pipe-delimited CSV</span>
+        <span class="chip ch-red">Actualización c/14 días</span>
+      </div>
+      <div style="font-size:10px;color:#4a6e90;margin-top:10px;line-height:1.6">
+        <code style="background:rgba(0,0,0,.3)">shrt{YYYYMMDD}.csv</code> via FINRA CDN<br>
+        Campos: short pos, avg vol, days to cover<br>
+        Edge function: cachear + servir al frontend
       </div>
     </div>
 
@@ -563,6 +589,15 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
       <div class="flow-step"><div class="flow-dot">2</div>Envía PDF a Claude API (Anthropic) para parseo inteligente</div>
       <div class="flow-step"><div class="flow-dot">3</div>Claude extrae: ticker, strike, vencimiento, prima, tipo</div>
       <div class="flow-step"><div class="flow-dot">4</div>Upsert en Supabase → disponible en módulo Opciones</div>
+    </div>
+
+    <div class="flow-card" style="border-left-color:#ff6680">
+      <div class="flow-title" style="color:#ff6680">📉 Short Interest (FINRA)</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Edge function descarga <code>shrt{YYYYMMDD}.csv</code> del CDN de FINRA</div>
+      <div class="flow-step"><div class="flow-dot">2</div>Filtra tickers del portafolio por <code>symbolCode</code></div>
+      <div class="flow-step"><div class="flow-dot">3</div>Devuelve short pos, days to cover, change % al frontend</div>
+      <div class="flow-step"><div class="flow-dot">4</div>Módulo Short Interest: tabla + gráfico de evolución histórica</div>
+      <div class="flow-step"><div class="flow-dot">5</div>Cache: archivo solo cambia cada 14 días → reducir requests</div>
     </div>
 
     <div class="flow-card cyan">

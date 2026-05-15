@@ -29,7 +29,7 @@
     <button class="stab active" id="ustab-mercado"  onclick="usTab('mercado',this)">Mercado</button>
     <button class="stab"        id="ustab-sectores" onclick="usTab('sectores',this)">Sectores</button>
     <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
-    <button class="stab"        id="ustab-shortint" onclick="usTab('shortint',this)">Short Interest</button>
+    <button class="stab"        id="ustab-shortint" onclick="usTab('shortint',this)">Short Data</button>
     <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
     <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
     <button class="stab"        id="ustab-topology" onclick="usTab('topology',this)">Market Topology</button>
@@ -199,7 +199,7 @@
 <!-- ══ SHORT INTEREST ══ -->
 <div class="sub-panel" id="uspanel-shortint">
 
-  <!-- Top bar: ticker input + load button + guide -->
+  <!-- Top bar -->
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <div style="display:flex;gap:0;border:1px solid var(--border2);border-radius:6px;overflow:hidden">
       <input id="si-ticker" type="text" value="SPY" placeholder="Ticker…" autocomplete="off" autocapitalize="characters" spellcheck="false"
@@ -207,41 +207,76 @@
         onkeydown="if(event.key==='Enter')siLoad()">
       <button onclick="siLoad()" class="btn btn-green" style="border-radius:0;font-size:9px;padding:5px 10px">CARGAR</button>
     </div>
-    <button onclick="siToggleGuide()" class="btn btn-outline" style="font-size:11px;padding:3px 8px" title="Guía">📘</button>
+    <div class="nav-arrows" style="display:flex;gap:4px">
+      <button onclick="siPrev()" class="btn btn-outline" style="font-size:9px;padding:3px 6px" title="Anterior">◀</button>
+      <button onclick="siNext()" class="btn btn-outline" style="font-size:9px;padding:3px 6px" title="Siguiente">▶</button>
+    </div>
+    <button onclick="siToggleGuide()" class="btn btn-outline" style="font-size:11px;padding:3px 8px" title="Guía de interpretación">📘</button>
     <div class="sub-tabs-meta" style="display:none" id="si-last-update">—</div>
   </div>
 
   <!-- Guide popup -->
   <div id="si-guide" style="display:none;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:11px;color:var(--text2);line-height:1.7">
-    <div style="font-weight:600;color:var(--text);margin-bottom:6px">📘 Short Interest — guía rápida</div>
-    <p><b>Short Volume</b> = volumen de operaciones iniciadas como ventas en corto ese día, reportado por FINRA (Regulation SHO).</p>
-    <p><b>Short %</b> = Short Volume ÷ Volumen Total del ticker. Mide qué proporción del volumen diario corresponde a cortos.</p>
-    <p><b>MA30 Short %</b> = promedio móvil de 30 días del Short %. Una lectura persistentemente alta (&gt;40-50%) sugiere alta actividad bajista.</p>
-    <p style="margin-top:4px;color:var(--text3)">Datos: FINRA OTC Short Sale Volume via<wbr> Reg SHO Daily File. Se actualiza con rezago T+1.</p>
+    <div style="font-weight:600;color:var(--text);margin-bottom:8px;font-size:13px">📘 Guía Short Data</div>
+
+    <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📊 Short Volume % (diario)</div>
+    <p><b>¿Qué es?</b> Porcentaje del volumen total del día que se operó como venta en corto. Fuente: FINRA CNMS (consolidado NMS).</p>
+    <p><b>Cómo leerlo:</b><br>
+    &gt;40% → presión corta muy alta, posible squeeze setup<br>
+    25-40% → presión corta elevada, monitorear<br>
+    15-25% → rango normal<br>
+    &lt;15% → baja actividad de cortos</p>
+    <p><b>Tendencias:</b><br>
+    Sube sostenido → aumentando presión bajista<br>
+    Baja sostenido → disminuyendo presión bajista</p>
+
+    <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📈 Percentil Histórico</div>
+    <p><b>¿Qué es?</b> Te dice cómo se compara el Short % de hoy vs el resto de su propio histórico.</p>
+    <p><b>Cómo leerlo:</b><br>
+    Percentil 90+ → nivel extremo, solo visto el 10% del tiempo<br>
+    Percentil 75-90 → alto para este ticker<br>
+    Percentil 25-75 → rango normal para este ticker<br>
+    Percentil &lt;25 → bajo para este ticker</p>
+
+    <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📉 Short Interest (SI, bi-mensual)</div>
+    <p><b>¿Qué es?</b> Posiciones cortas totales acumuladas reportadas cada 2 semanas. Fuente: FINRA.</p>
+    <p><b>Cómo leerlo:</b><br>
+    SI subiendo + Short Volume diario bajo → nuevos cortos lentamente = bajista<br>
+    SI bajando + Short Volume diario alto → cobertura activa (buy to cover) = potencial alcista<br>
+    SI + Short Volume ambos altos → mucha actividad especulativa, alta volatilidad esperada</p>
+
+    <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📐 Días para Cubrir (Days to Cover)</div>
+    <p>Cuantos días de volumen promedio tomaría cerrar todas las posiciones cortas. &gt;10 días = squeeze potencial si hay catalyst.</p>
+
+    <div style="font-weight:500;color:var(--text);margin:8px 0 3px">🏷️ Benchmark Sectorial</div>
+    <p>Compara el Short % del ticker contra el del benchmark (SPY). Si el ticker está muy por encima del benchmark, está siendo más corto que el mercado general.</p>
+
+    <p style="margin-top:6px;color:var(--text3);font-size:10px">Datos reales FINRA Reg SHO (CNMS). Cobertura: NYSE, Nasdaq, ARCA, BATS, OTCBB. Rezago T+1.</p>
   </div>
 
   <!-- KPIs -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px" id="si-kpi-row">
-    <div class="kpi skeleton" style="--accent:var(--blue)"><div class="kpi-label">Precio</div><div class="kpi-val" id="si-kpi-price">—</div><div class="kpi-sub" id="si-kpi-price-chg">—</div></div>
-    <div class="kpi skeleton" style="--accent:var(--red)"><div class="kpi-label">Short Vol Hoy</div><div class="kpi-val" id="si-kpi-sv">—</div><div class="kpi-sub" id="si-kpi-sv-pct">—</div></div>
-    <div class="kpi skeleton" style="--accent:var(--amber)"><div class="kpi-label">Short % Prom 30d</div><div class="kpi-val" id="si-kpi-ma30">—</div><div class="kpi-sub">media móvil</div></div>
-    <div class="kpi skeleton" style="--accent:var(--purple)"><div class="kpi-label">Datos</div><div class="kpi-val" id="si-kpi-count">—</div><div class="kpi-sub">días disponibles</div></div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px" id="si-kpi-row">
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Precio</div><div class="kpi-val" id="si-kpi-price">—</div><div class="kpi-sub" id="si-kpi-price-chg">—</div></div>
+    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Short Vol Hoy</div><div class="kpi-val" id="si-kpi-sv">—</div><div class="kpi-sub" id="si-kpi-sv-pct">—</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Short % Prom 30d</div><div class="kpi-val" id="si-kpi-ma30">—</div><div class="kpi-sub">media móvil</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Percentil Hist.</div><div class="kpi-val" id="si-kpi-percentile">—</div><div class="kpi-sub">vs histórico</div></div>
+    <div class="kpi" style="--accent:var(--orange)"><div class="kpi-label">Benchmark SPY</div><div class="kpi-val" id="si-kpi-benchmark">—</div><div class="kpi-sub" id="si-kpi-benchmark-label">short % SPY</div></div>
   </div>
 
   <!-- Chart 1: precio + volumen -->
-  <div class="card skeleton">
+  <div class="card">
     <div class="card-head"><div class="card-title">Precio + Volumen Total + Short Volume</div></div>
     <div class="card-body"><canvas id="si-chart1" height="110"></canvas></div>
   </div>
 
   <!-- Chart 2: short % bars + MA30 -->
-  <div class="card skeleton">
+  <div class="card">
     <div class="card-head"><div class="card-title">Short Volume % (barras diarias + MA30)</div></div>
     <div class="card-body"><canvas id="si-chart2" height="100"></canvas></div>
   </div>
 
   <!-- Table -->
-  <div class="card skeleton">
+  <div class="card">
     <div class="card-head"><div class="card-title">Últimos 20 días</div></div>
     <div class="table-wrap" style="max-height:400px">
       <table>
@@ -251,11 +286,19 @@
           <th style="text-align:right">Vol. Total</th>
           <th style="text-align:right">Short Vol</th>
           <th style="text-align:right">Short %</th>
-          <th style="text-align:right">MA30 Short %</th>
+          <th style="text-align:right">MA30</th>
+          <th style="text-align:right">Pctl</th>
+          <th style="text-align:right">Benchmark</th>
         </tr></thead>
         <tbody id="si-table-body"></tbody>
       </table>
     </div>
+  </div>
+
+  <!-- Extra info row -->
+  <div id="si-si-row" style="display:none;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--text2)">
+    <div style="font-weight:500;color:var(--text);margin-bottom:6px">📉 Short Interest (FINRA — bi-mensual)</div>
+    <div id="si-si-content">—</div>
   </div>
 
 </div>
@@ -2222,336 +2265,269 @@ function _topoSetupTip() {
 // Short Interest
 // ══════════════════════════════════════════════════════════════
 
-let siChart1 = null, siChart2 = null;
-
 window.siToggleGuide = () => {
   const g = document.getElementById('si-guide');
   g.style.display = g.style.display === 'none' ? 'block' : 'none';
 };
 
 function siShowSkeleton(on) {
-  document.querySelectorAll('#uspanel-shortint .skeleton').forEach(el => {
-    el.style.opacity = on ? '0.35' : '1';
-  });
+  // No skeleton needed anymore, data loads fast from cache
 }
 
-window.siLoad = () => {
-  const symbol = document.getElementById('si-ticker').value.toUpperCase().trim();
-  if (!symbol) return;
+window.siHistory = [];
+window.siIndex = 0;
+
+window.siPrev = () => {
+  if (siIndex > 0) { siIndex--; siLoad(siHistory[siIndex]); }
+};
+window.siNext = () => {
+  if (siIndex < siHistory.length - 1) { siIndex++; siLoad(siHistory[siIndex]); }
+};
+
+window.siLoad = (sym) => {
+  const symbol = (sym || document.getElementById('si-ticker').value || 'SPY').toUpperCase().trim();
+  if (!sym) document.getElementById('si-ticker').value = symbol;
+
+  // Add to history
+  if (symbol !== siHistory[siHistory.length - 1]) {
+    const idx = siHistory.indexOf(symbol);
+    if (idx >= 0) siHistory.splice(idx, 1);
+    siHistory.push(symbol);
+    siIndex = siHistory.length - 1;
+  }
+
   siShowSkeleton(true);
 
-  Promise.all([
-    // Yahoo historical prices
-    fetch(window._yhFnUrl || (() => {
-      const base = CFG.SB_URL.replace('/rest/v1','').replace(/\/$/,'');
-      window._yhFnUrl = base + '/functions/v1/yahoo-prices';
-      return window._yhFnUrl;
-    })(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY },
-      body: JSON.stringify({ mode: 'yahoo-history', symbols: [symbol] }),
-    }).then(r => r.json()),
-    // FINRA short volume
-    fetch(window._yhFnUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY },
-      body: JSON.stringify({ mode: 'finra-short-volume', symbols: [symbol] }),
-    }).then(r => r.json()),
-  ]).then(([priceData, shortData]) => {
-    siRender(symbol, priceData?.[symbol], shortData?.[symbol]);
-  }).catch(e => {
-    console.error('SI error:', e);
-    // Fallback sintético
-    siRender(symbol, null, null);
-  }).finally(() => {
-    siShowSkeleton(false);
-  });
-}
+  const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
+  const BASE = 'https://endymbpdayeidromxayb.supabase.co/functions/v1';
 
-function siRender(symbol, yahooRows, finraRows) {
-  const hasData = (Array.isArray(yahooRows) && yahooRows.length > 0) ||
-                  (Array.isArray(finraRows) && finraRows.length > 0);
+  // 1. Fetch prices from yahoo-prices
+  const pricePromise = fetch(BASE + '/yahoo-prices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...SBH },
+    body: JSON.stringify({ symbols: [symbol], mode: 'yahoo-history', range: '3mo', interval: '1d' }),
+  }).then(r => r.json()).then(d => d[symbol] || []).catch(() => []);
 
-  if (!hasData) {
-    // Fallback sintético
-    const synth = [];
-    const today = new Date();
-    for (let i = 60; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      if (d.getDay() === 0 || d.getDay() === 6) continue;
-      const basePrice = 450 + Math.sin(i * 0.3) * 20 + Math.cos(i * 0.7) * 5;
-      synth.push({
-        fecha: d.toISOString().split('T')[0],
-        close: Math.round(basePrice * 100) / 100,
-        total_vol: Math.round(40000000 + Math.random() * 30000000),
-        short_vol: Math.round(15000000 + Math.random() * 15000000),
-        short_pct: Math.round((30 + Math.sin(i * 0.5) * 10 + Math.random() * 5) * 10) / 10,
+  // 2. Fetch short volume from finra-short-volume
+  const svPromise = fetch(BASE + '/finra-short-volume', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...SBH },
+    body: JSON.stringify({ symbol, days: 45 }),
+  }).then(r => r.json()).then(d => d.data || []).catch(() => []);
+
+  // 3. Fetch benchmark (SPY) short volume
+  const bmPromise = fetch(BASE + '/finra-short-volume', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...SBH },
+    body: JSON.stringify({ symbol: 'SPY', days: 45 }),
+  }).then(r => r.json()).then(d => d.data || []).catch(() => []);
+
+  // 4. Fetch short interest (if available)
+  const siPromise = fetch(BASE + '/finra-si', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...SBH },
+    body: JSON.stringify({ ticker: symbol }),
+  }).then(r => r.json()).then(d => {
+    if (d && d.settlementDate) return [d];
+    if (Array.isArray(d)) return d;
+    return [];
+  }).catch(() => []);
+
+  Promise.all([pricePromise, svPromise, bmPromise, siPromise]).then(([prices, svData, bmData, siData]) => {
+    // Build date lookup for prices
+    const priceMap = {};
+    if (prices && prices.length) {
+      prices.forEach(p => {
+        const d = (p.fecha || p.date || '').slice(0, 10);
+        if (d && p.close != null) priceMap[d] = { close: p.close, change: p.change_pct || 0 };
       });
     }
-    finraRows = synth;
-    if (!yahooRows || !yahooRows.length) {
-      yahooRows = synth.map(r => ({ fecha: r.fecha, close: r.close }));
+
+    // Build benchmark map
+    const bmMap = {};
+    if (bmData && bmData.length) {
+      bmData.forEach(r => { if (r.fecha) bmMap[r.fecha] = r.short_pct; });
     }
-  }
 
-  // Merge data
-  const priceMap = {};
-  if (Array.isArray(yahooRows)) {
-    yahooRows.forEach(r => {
-      const d = r.fecha;
-      if (!priceMap[d] || priceMap[d] === null) priceMap[d] = r.close;
-    });
-  }
+    // Merge data
+    const merged = (svData || []).map(r => ({
+      ...r,
+      close: priceMap[r.fecha]?.close || null,
+      change: priceMap[r.fecha]?.change || null,
+      benchmark_pct: bmMap[r.fecha] !== undefined ? Math.round(bmMap[r.fecha] * 100) / 100 : null,
+    }));
 
-  let merged = (Array.isArray(finraRows) ? finraRows : []).map(r => ({
-    fecha: r.fecha,
-    close: priceMap[r.fecha] ?? null,
-    total_vol: r.total_vol ?? 0,
-    short_vol: r.short_vol ?? 0,
-    short_pct: r.short_pct ?? 0,
-  })).sort((a, b) => a.fecha.localeCompare(b.fecha));
+    siRender(symbol, merged, siData);
+    siShowSkeleton(false);
+  }).catch(() => {
+    siRender(symbol, null, null);
+    siShowSkeleton(false);
+  });
+};
 
-  // Also merge any yahoo-only dates
-  if (Array.isArray(yahooRows)) {
-    const mergedDates = new Set(merged.map(r => r.fecha));
-    yahooRows.filter(r => !mergedDates.has(r.fecha)).forEach(r => {
-      merged.push({ fecha: r.fecha, close: r.close, total_vol: 0, short_vol: 0, short_pct: 0 });
-    });
-    merged.sort((a, b) => a.fecha.localeCompare(b.fecha));
-  }
-
-  if (!merged.length) {
-    document.getElementById('si-kpi-price').textContent = 'Sin datos';
+function siRender(symbol, data, siData) {
+  if (!data || data.length === 0) {
+    document.getElementById('si-kpi-price').textContent = '—';
+    document.getElementById('si-kpi-sv').textContent = '—';
+    document.getElementById('si-kpi-ma30').textContent = '—';
+    document.getElementById('si-kpi-percentile').textContent = '—';
+    document.getElementById('si-kpi-benchmark').textContent = '—';
+    document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos disponibles para ' + symbol + '</td></tr>';
     return;
   }
 
-  // Compute MA30
-  const shortPcts = merged.map(r => r.short_pct);
-  const ma30 = shortPcts.map((_, i) => {
-    if (i < 29) return null;
-    let sum = 0;
-    for (let j = i - 29; j <= i; j++) sum += shortPcts[j];
-    return Math.round(sum / 30 * 10) / 10;
-  });
+  const today = data[data.length - 1];
+  const kpi_sv = today.short_vol;
+  const kpi_sv_pct = today.short_pct;
+  const kpi_close = today.close;
+  const kpi_chg = today.change;
+  const kpi_ma30 = data[data.length - 1]?.ma30;
+  const kpi_pctl = data[data.length - 1]?.percentile;
+  const kpi_bm = data[data.length - 1]?.benchmark_pct;
 
-  // Last entry for KPIs
-  const last = merged[merged.length - 1];
-  const lastMA30 = ma30[ma30.length - 1];
+  // Format numbers
+  const fmt = (n, d = 2) => n != null ? n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
+  const fmtVol = (n) => n != null ? (n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n)) : '—';
+  const fmtPct = (n) => n != null ? n.toFixed(1) + '%' : '—';
 
   // KPIs
-  const price = last.close;
-  document.getElementById('si-kpi-price').textContent = price != null ? '$' + Number(price).toFixed(2) : '—';
-  const pc = last.short_pct;
-  document.getElementById('si-kpi-sv').textContent = window.fmtM ? window.fmtM(last.short_vol) : (last.short_vol || 0).toLocaleString();
-  document.getElementById('si-kpi-sv-pct').textContent = pc != null ? pc + '%' : '—';
-  document.getElementById('si-kpi-ma30').textContent = lastMA30 != null ? lastMA30 + '%' : '—';
-  document.getElementById('si-kpi-count').textContent = merged.length;
+  document.getElementById('si-kpi-price').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '—';
+  document.getElementById('si-kpi-price-chg').textContent = kpi_chg != null ? (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%' : '—';
+  document.getElementById('si-kpi-price-chg').style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('si-kpi-sv').textContent = fmtVol(kpi_sv);
+  document.getElementById('si-kpi-sv-pct').textContent = fmtPct(kpi_sv_pct);
+  document.getElementById('si-kpi-ma30').textContent = kpi_ma30 != null ? kpi_ma30.toFixed(1) + '%' : '—';
+  document.getElementById('si-kpi-percentile').textContent = kpi_pctl != null ? 'P' + kpi_pctl : '—';
+  document.getElementById('si-kpi-percentile').style.color = kpi_pctl >= 90 ? 'var(--red)' : kpi_pctl >= 75 ? 'var(--amber)' : 'var(--text)';
+  document.getElementById('si-kpi-benchmark').textContent = kpi_bm != null ? kpi_bm.toFixed(1) + '%' : '—';
 
-  const lastPrice = merged[merged.length - 1]?.close;
-  const firstPrice = merged[0]?.close;
-  if (lastPrice != null && firstPrice != null && firstPrice > 0) {
-    const chg = (lastPrice - firstPrice) / firstPrice * 100;
-    const el = document.getElementById('si-kpi-price-chg');
-    el.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% desde inicio';
-    el.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
-  }
+  const diff = kpi_sv_pct != null && kpi_bm != null ? (kpi_sv_pct - kpi_bm).toFixed(1) + 'pp' : '—';
+  document.getElementById('si-kpi-benchmark-label').textContent = symbol + ' vs SPY: ' + diff;
 
-  // Display window: last ~60 days
-  const window = Math.min(merged.length, 60);
-  const data = merged.slice(-window);
-  const ma30window = ma30.slice(-window);
-  const labels = data.map(r => r.fecha.slice(5));
+  // Chart 1: Price + Volume
+  const canvas1 = document.getElementById('si-chart1');
+  const ctx1 = canvas1.getContext('2d');
+  const W = canvas1.parentElement.clientWidth || 600;
+  canvas1.width = W * 2; canvas1.height = 220;
+  canvas1.style.width = W + 'px'; canvas1.style.height = '110px';
+  ctx1.scale(2, 2);
 
-  // Destroy old charts
-  if (siChart1) { siChart1.destroy(); siChart1 = null; }
-  if (siChart2) { siChart2.destroy(); siChart2 = null; }
+  const chartData = data.slice(-30);
+  const maxPrice = Math.max(...chartData.filter(d => d.close != null).map(d => d.close), 1);
+  const minPrice = Math.min(...chartData.filter(d => d.close != null).map(d => d.close), 0);
+  const maxVol = Math.max(...chartData.map(d => d.total_vol), 1);
+  const pad = { t: 8, b: 18, l: 4, r: 4 };
+  const cw = W - pad.l - pad.r;
+  const ch = 110 - pad.t - pad.b;
 
-  // Chart 1: price + volume bars (total + short)
-  const ctx1 = document.getElementById('si-chart1');
-  if (ctx1) {
-    siChart1 = new Chart(ctx1, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Vol. Total',
-            data: data.map(r => r.total_vol),
-            backgroundColor: 'rgba(68,136,255,0.2)',
-            borderColor: 'rgba(68,136,255,0.5)',
-            borderWidth: 1,
-            borderRadius: 1,
-            order: 2,
-          },
-          {
-            label: 'Short Vol',
-            data: data.map(r => r.short_vol),
-            backgroundColor: 'rgba(255,64,96,0.3)',
-            borderColor: 'rgba(255,64,96,0.6)',
-            borderWidth: 1,
-            borderRadius: 1,
-            order: 2,
-          },
-          {
-            label: 'Precio',
-            data: data.map(r => r.close),
-            type: 'line',
-            borderColor: '#10e898',
-            backgroundColor: 'rgba(16,232,152,0.05)',
-            borderWidth: 2,
-            pointRadius: 0,
-            fill: true,
-            tension: 0.2,
-            yAxisID: 'y1',
-            order: 1,
-          },
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { intersect: false, mode: 'index' },
-        plugins: {
-          legend: {
-            labels: { color: '#8892aa', font: { size: 9, family: 'IBM Plex Mono' }, boxWidth: 10, padding: 8 },
-          },
-          tooltip: {
-            backgroundColor: '#0d1117',
-            titleFont: { size: 10, family: 'IBM Plex Mono' },
-            bodyFont: { size: 10, family: 'IBM Plex Mono' },
-            borderColor: 'rgba(255,255,255,.1)',
-            borderWidth: 1,
-            padding: 8,
-            callbacks: {
-              label: ctx => {
-                const v = ctx.parsed.y;
-                if (ctx.dataset.label === 'Precio') return '$' + v.toFixed(2);
-                return window.fmtM ? window.fmtM(v) : v.toLocaleString();
-              }
-            }
-          },
-        },
-        scales: {
-          x: {
-            ticks: { color: '#4a5568', font: { size: 8, family: 'IBM Plex Mono' }, maxTicksLimit: 12, maxRotation: 0 },
-            grid: { color: 'rgba(255,255,255,.03)' },
-          },
-          y: {
-            position: 'left',
-            ticks: { color: '#4a5568', font: { size: 8, family: 'IBM Plex Mono' }, callback: v => window.fmtM ? window.fmtM(v) : v },
-            grid: { color: 'rgba(255,255,255,.04)' },
-          },
-          y1: {
-            position: 'right',
-            ticks: { color: '#4a5568', font: { size: 8, family: 'IBM Plex Mono' }, callback: v => '$' + v.toFixed(0) },
-            grid: { display: false },
-          },
-        },
-      },
-    });
-  }
+  ctx1.clearRect(0, 0, W, 110);
+  ctx1.fillStyle = 'var(--text4, #666)';
+  ctx1.font = '7px IBM Plex Mono, monospace';
 
-  // Chart 2: short % bars + MA30 line
-  const ctx2 = document.getElementById('si-chart2');
-  if (ctx2) {
-    siChart2 = new Chart(ctx2, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Short %',
-            data: data.map(r => r.short_pct),
-            backgroundColor: data.map(r => {
-              const p = r.short_pct;
-              if (p >= 40) return 'rgba(255,64,96,0.6)';
-              if (p >= 25) return 'rgba(245,166,35,0.5)';
-              return 'rgba(16,232,152,0.4)';
-            }),
-            borderColor: data.map(r => {
-              const p = r.short_pct;
-              if (p >= 40) return 'rgba(255,64,96,0.8)';
-              if (p >= 25) return 'rgba(245,166,35,0.7)';
-              return 'rgba(16,232,152,0.6)';
-            }),
-            borderWidth: 1,
-            borderRadius: 1,
-            order: 2,
-          },
-          {
-            label: 'MA30 Short %',
-            data: ma30window,
-            type: 'line',
-            borderColor: '#4488ff',
-            backgroundColor: 'rgba(68,136,255,0.1)',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.3,
-            fill: true,
-            order: 1,
-          },
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { intersect: false, mode: 'index' },
-        plugins: {
-          legend: {
-            labels: { color: '#8892aa', font: { size: 9, family: 'IBM Plex Mono' }, boxWidth: 10, padding: 8 },
-          },
-          tooltip: {
-            backgroundColor: '#0d1117',
-            titleFont: { size: 10, family: 'IBM Plex Mono' },
-            bodyFont: { size: 10, family: 'IBM Plex Mono' },
-            borderColor: 'rgba(255,255,255,.1)',
-            borderWidth: 1,
-            padding: 8,
-            callbacks: {
-              label: ctx => ctx.parsed.y != null ? ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' : ''
-            }
-          },
-        },
-        scales: {
-          x: {
-            ticks: { color: '#4a5568', font: { size: 8, family: 'IBM Plex Mono' }, maxTicksLimit: 12, maxRotation: 0 },
-            grid: { color: 'rgba(255,255,255,.03)' },
-          },
-          y: {
-            beginAtZero: true,
-            ticks: { color: '#4a5568', font: { size: 8, family: 'IBM Plex Mono' }, callback: v => v + '%' },
-            grid: { color: 'rgba(255,255,255,.04)' },
-          },
-        },
-      },
-    });
-  }
+  chartData.forEach((d, i) => {
+    const x = pad.l + (i / Math.max(chartData.length - 1, 1)) * cw;
+    const barH = (d.total_vol / maxVol) * ch * 0.6;
+    const barY = 110 - pad.b - barH;
 
-  // Table: last 20 days
+    // Total volume bar (light)
+    ctx1.fillStyle = 'rgba(128,128,128,0.15)';
+    ctx1.fillRect(x - 1, barY, 5, barH);
+
+    // Short volume bar (red)
+    const svH = (d.short_vol / maxVol) * ch * 0.6;
+    const svY = 110 - pad.b - svH;
+    ctx1.fillStyle = 'rgba(255,63,94,0.35)';
+    ctx1.fillRect(x - 1, svY, 5, svH);
+
+    // Price line
+    if (d.close != null && chartData[i - 1]?.close != null) {
+      const prevX = pad.l + ((i - 1) / Math.max(chartData.length - 1, 1)) * cw;
+      const y0 = pad.t + (1 - (chartData[i - 1].close - minPrice) / (maxPrice - minPrice)) * ch;
+      const y1 = pad.t + (1 - (d.close - minPrice) / (maxPrice - minPrice)) * ch;
+      ctx1.strokeStyle = 'var(--green, #0e5)';
+      ctx1.lineWidth = 1.2;
+      ctx1.beginPath(); ctx1.moveTo(prevX, y0); ctx1.lineTo(x, y1); ctx1.stroke();
+    }
+  });
+
+  // Chart 2: Short Volume %
+  const canvas2 = document.getElementById('si-chart2');
+  const ctx2 = canvas2.getContext('2d');
+  canvas2.width = W * 2; canvas2.height = 200;
+  canvas2.style.width = W + 'px'; canvas2.style.height = '100px';
+  ctx2.scale(2, 2);
+
+  const shortData = data.slice(-45);
+  const maxPct = Math.max(...shortData.map(d => d.short_pct), 1);
+  const cw2 = W - pad.l - pad.r;
+  const ch2 = 100 - pad.t - pad.b;
+
+  ctx2.clearRect(0, 0, W, 100);
+
+  // 40% line
+  ctx2.strokeStyle = 'rgba(255,63,94,0.3)';
+  ctx2.lineWidth = 0.5;
+  ctx2.setLineDash([2, 2]);
+  ctx2.beginPath();
+  const y40 = pad.t + (1 - 40 / Math.max(maxPct, 40)) * ch2;
+  ctx2.moveTo(pad.l, y40); ctx2.lineTo(W - pad.r, y40);
+  ctx2.stroke();
+  ctx2.fillStyle = 'rgba(255,63,94,0.5)';
+  ctx2.font = '6px IBM Plex Mono, monospace';
+  ctx2.fillText('40%', pad.l + 2, y40 - 2);
+  ctx2.setLineDash([]);
+
+  shortData.forEach((d, i) => {
+    const x = pad.l + (i / Math.max(shortData.length - 1, 1)) * cw2;
+    const barH = (d.short_pct / Math.max(maxPct, 40)) * ch2;
+    const barY = 100 - pad.b - barH;
+    ctx2.fillStyle = d.short_pct > 40 ? 'rgba(255,63,94,0.5)' : d.short_pct > 25 ? 'rgba(255,170,0,0.4)' : 'rgba(0,200,150,0.3)';
+    ctx2.fillRect(x - 1, barY, 4, barH);
+
+    // MA30
+    if (d.ma30 != null && i > 0 && shortData[i - 1]?.ma30 != null) {
+      const prevX = pad.l + ((i - 1) / Math.max(shortData.length - 1, 1)) * cw2;
+      const prevY = pad.t + (1 - shortData[i - 1].ma30 / Math.max(maxPct, 40)) * ch2;
+      const y1 = pad.t + (1 - d.ma30 / Math.max(maxPct, 40)) * ch2;
+      ctx2.strokeStyle = '#ffeb3b';
+      ctx2.lineWidth = 1.2;
+      ctx2.beginPath(); ctx2.moveTo(prevX, prevY); ctx2.lineTo(x, y1); ctx2.stroke();
+    }
+  });
+
+  // Table
   const tbody = document.getElementById('si-table-body');
-  if (tbody) {
-    const rows = merged.slice(-20).reverse(); // most recent first
-    tbody.innerHTML = rows.map(r => {
-      const pcColor = r.short_pct >= 40 ? 'var(--red)' : r.short_pct >= 25 ? 'var(--amber)' : 'var(--green)';
-      const priceStr = r.close != null ? '$' + Number(r.close).toFixed(2) : '—';
-      return `<tr>
-        <td style="padding:6px 10px;font-family:monospace;font-size:10px">${r.fecha}</td>
-        <td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:10px">${priceStr}</td>
-        <td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:10px">${window.fmtM ? window.fmtM(r.total_vol) : (r.total_vol || 0).toLocaleString()}</td>
-        <td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:10px;color:var(--red)">${window.fmtM ? window.fmtM(r.short_vol) : (r.short_vol || 0).toLocaleString()}</td>
-        <td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:10px;color:${pcColor};font-weight:600">${r.short_pct.toFixed(1)}%</td>
-        <td style="padding:6px 10px;text-align:right;font-family:monospace;font-size:10px;color:var(--text3)">${ma30[merged.indexOf(r)] != null ? ma30[merged.indexOf(r)].toFixed(1) + '%' : '—'}</td>
-      </tr>`;
-    }).join('');
-  }
+  const last20 = data.slice(-20).reverse();
+  tbody.innerHTML = last20.map(d => {
+    const diffBm = d.short_pct != null && d.benchmark_pct != null ? (d.short_pct - d.benchmark_pct).toFixed(1) + 'pp' : '—';
+    return '<tr>' +
+      '<td class="tl">' + d.fecha.slice(5) + '</td>' +
+      '<td style="text-align:right">' + (d.close != null ? '$' + d.close.toFixed(2) : '—') + '</td>' +
+      '<td style="text-align:right">' + fmtVol(d.total_vol) + '</td>' +
+      '<td style="text-align:right">' + fmtVol(d.short_vol) + '</td>' +
+      '<td style="text-align:right;color:' + (d.short_pct > 40 ? 'var(--red)' : d.short_pct > 25 ? 'var(--amber)' : 'var(--green)') + '">' + d.short_pct.toFixed(1) + '%</td>' +
+      '<td style="text-align:right">' + (d.ma30 != null ? d.ma30.toFixed(1) + '%' : '—') + '</td>' +
+      '<td style="text-align:right;color:' + (d.percentile >= 90 ? 'var(--red)' : d.percentile >= 75 ? 'var(--amber)' : 'var(--text)') + '">' + (d.percentile != null ? 'P' + d.percentile : '—') + '</td>' +
+      '<td style="text-align:right;color:' + (d.benchmark_pct != null ? (d.short_pct > d.benchmark_pct + 10 ? 'var(--red)' : d.short_pct < d.benchmark_pct - 10 ? 'var(--green)' : 'var(--text2)') : '') + '">' + diffBm + '</td>' +
+      '</tr>';
+  }).join('');
 
-  // Update meta
-  const meta = document.getElementById('si-last-update');
-  if (meta) {
-    meta.style.display = 'inline';
-    const lastDate = merged[merged.length - 1]?.fecha;
-    meta.textContent = lastDate ? 'actualizado: ' + lastDate : '—';
+  // Update timestamp
+  document.getElementById('si-last-update').style.display = 'block';
+  document.getElementById('si-last-update').textContent = '📅 ' + (today.fecha || '—') + ' | ' + data.length + ' días';
+
+  // Short Interest row
+  const siRow = document.getElementById('si-si-row');
+  const siContent = document.getElementById('si-si-content');
+  if (siData && siData.length > 0) {
+    const last = siData[siData.length - 1];
+    siRow.style.display = 'block';
+    siContent.innerHTML = 'Settlement: <b>' + (last.settlementDate || '—') + '</b> | ' +
+      'Posición corta: <b>' + fmtVol(last.currentShortPosition) + '</b> | ' +
+      'Cambio: <b style="color:' + (last.changePercent >= 0 ? 'var(--red)' : 'var(--green)') + '">' + (last.changePercent != null ? (last.changePercent >= 0 ? '+' : '') + last.changePercent.toFixed(2) + '%' : '—') + '</b> | ' +
+      'Days to Cover: <b>' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + '</b>';
+  } else {
+    siRow.style.display = 'none';
   }
 }
 
