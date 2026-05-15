@@ -3657,6 +3657,34 @@ async function pfBackfillPnL(opts = {}) {
     console.log('[backfill] mep fechas:', (mepRows||[]).length);
     const mepByDate = {}; (mepRows||[]).forEach(r=>{ mepByDate[r.fecha]=Number(r.mep); });
 
+    // ⚠ FIX (2026-05-15): fallback a Rava para MEP de días faltantes
+    // Cuando mep_historico no tiene datos de un día (ej: monitor caído), intentamos
+    // calcular MEP desde los precios crudos de AL30/AL30D en Rava.
+    upd('MEP faltante: consultando Rava…');
+    try {
+      const mepRaw = await fetch(`${SB_URL}/functions/v1/yahoo-prices`, {
+        method:'POST', headers:edgeH,
+        body:JSON.stringify({mode:'rava-series',symbols:['AL30','AL30D']})
+      });
+      if(mepRaw.ok) {
+        const mepData = await mepRaw.json();
+        const al30 = mepData.AL30 || [];
+        const al30d = mepData.AL30D || [];
+        const al30ByDate={}, al30dByDate={};
+        al30.forEach(r=>{ if(r.fecha>=minDate&&r.cierre>0) al30ByDate[r.fecha]=r.cierre; });
+        al30d.forEach(r=>{ if(r.fecha>=minDate&&r.cierre>0) al30dByDate[r.fecha]=r.cierre; });
+        const allDates = [...new Set([...Object.keys(al30ByDate),...Object.keys(al30dByDate)])].sort();
+        let fallbackCount = 0;
+        for(const d of allDates){
+          if(!mepByDate[d] && al30ByDate[d] && al30dByDate[d]){
+            const rawMep = Math.round(al30ByDate[d]/al30dByDate[d]*100)/100;
+            if(rawMep>0){ mepByDate[d]=rawMep; fallbackCount++; }
+          }
+        }
+        if(fallbackCount>0) upd(`MEP: ${fallbackCount} días calculados desde Rava`);
+      }
+    } catch(e){ console.warn('[backfill] MEP Rava fallback error:', e); }
+
     const closestBefore = (map, date) => {
       const keys = Object.keys(map).filter(d=>d<=date).sort();
       return keys.length ? map[keys[keys.length-1]] : null;

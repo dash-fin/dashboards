@@ -136,9 +136,7 @@ earnings_watch() {
 log "=== MONITOR USA INICIO ==="
 
 # Horario USA (lun-vie, 08:10-20:30 ART)
-local hora
 hora=$(hour_art)
-local dia
 dia=$(date +%u)
 if [[ "$dia" -gt 5 || "$hora" -lt 0810 || "$hora" -gt 2030 ]]; then
   log "SKIP: Fuera de horario USA (hora=$hora, dia=$dia)"
