@@ -22,6 +22,11 @@
 .pc-bull{color:var(--green)}.pc-bear{color:var(--red)}.pc-neutral{color:var(--text2)}
 
 .rrg-legend-item{opacity:0;transform:translateY(4px);transition:opacity .2s ease,transform .2s ease}
+
+/* Botón compartir */
+.btn-share{background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;border-radius:4px;color:var(--text3);transition:all .15s;flex-shrink:0}
+.btn-share:hover{background:var(--bg-hover,rgba(255,255,255,.08));color:var(--text)}
+.card-head{gap:6px}
 </style>
 
 <div class="sub-tabs-row">
@@ -265,13 +270,19 @@
 
   <!-- Chart 1: precio + volumen -->
   <div class="card">
-    <div class="card-head"><div class="card-title">Precio + Volumen Total + Short Volume</div></div>
+    <div class="card-head">
+      <div class="card-title">Precio + Volumen Total + Short Volume</div>
+      <button class="btn-share" onclick="shareChart('si-chart1', 'Short Volume — ' + (document.getElementById('si-search').value || 'TICKER') + ' | Precio + Volumen')" title="Compartir">📤</button>
+    </div>
     <div class="card-body"><canvas id="si-chart1" height="110"></canvas></div>
   </div>
 
   <!-- Chart 2: short % bars + MA30 -->
   <div class="card">
-    <div class="card-head"><div class="card-title">Short Volume % (barras diarias + MA30)</div></div>
+    <div class="card-head">
+      <div class="card-title">Short Volume % (barras diarias + MA30)</div>
+      <button class="btn-share" onclick="shareChart('si-chart2', 'Short Volume — ' + (document.getElementById('si-search').value || 'TICKER') + ' | Short % + MA30')" title="Compartir">📤</button>
+    </div>
     <div class="card-body"><canvas id="si-chart2" height="100"></canvas></div>
   </div>
 
@@ -2408,9 +2419,9 @@ function siRender(symbol, data, siData) {
   const canvas1 = document.getElementById('si-chart1');
   const ctx1 = canvas1.getContext('2d');
   const W = canvas1.parentElement.clientWidth || 600;
-  canvas1.width = W * 2; canvas1.height = 220;
-  canvas1.style.width = W + 'px'; canvas1.style.height = '110px';
-  ctx1.scale(2, 2);
+  canvas1.width = W * 3; canvas1.height = 330;  /* 3x para buena calidad */
+  canvas1.style.width = W + "px"; canvas1.style.height = "110px";
+  ctx1.scale(3, 3);
 
   const chartData = data.slice(-30);
   const maxPrice = Math.max(...chartData.filter(d => d.close != null).map(d => d.close), 1);
@@ -2453,9 +2464,9 @@ function siRender(symbol, data, siData) {
   // Chart 2: Short Volume %
   const canvas2 = document.getElementById('si-chart2');
   const ctx2 = canvas2.getContext('2d');
-  canvas2.width = W * 2; canvas2.height = 200;
-  canvas2.style.width = W + 'px'; canvas2.style.height = '100px';
-  ctx2.scale(2, 2);
+  canvas2.width = W * 3; canvas2.height = 300;  /* 3x para buena calidad */
+  canvas2.style.width = W + "px"; canvas2.style.height = "100px";
+  ctx2.scale(3, 3);
 
   const shortData = data.slice(-45);
   const maxPct = Math.max(...shortData.map(d => d.short_pct), 1);
@@ -2529,6 +2540,62 @@ function siRender(symbol, data, siData) {
   } else {
     siRow.style.display = 'none';
   }
+}
+
+// ── Share chart helper ────────────────────────────────────────
+function shareChart(canvasId, title) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  
+  // Capturar a alta resolución (3x)
+  const dpr = 3;
+  const W = canvas.width / 2;  // devuelve al ancho lógico original
+  const H = canvas.height / 2;
+  
+  // Crear canvas temporal high-res
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = W * dpr;
+  tmpCanvas.height = H * dpr;
+  const tmpCtx = tmpCanvas.getContext('2d');
+  
+  // Fondo
+  tmpCtx.fillStyle = '#1a1a2e';
+  tmpCtx.fillRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+  
+  // Dibujar el canvas original escalado (dibuja en tmpCtx desde ctx1 que está a 2x)
+  tmpCtx.scale(dpr / 2, dpr / 2);
+  tmpCtx.drawImage(canvas, 0, 0);
+  tmpCtx.setTransform(1, 0, 0, 1, 0, 0);
+  
+  // Texto footer
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+  tmpCtx.fillStyle = 'rgba(255,255,255,0.3)';
+  tmpCtx.font = Math.round(12 * dpr) + 'px Arial';
+  tmpCtx.textAlign = 'right';
+  tmpCtx.fillText(title + ' | ' + dateStr + ' | dash-fin.github.io', tmpCanvas.width - 10 * dpr, tmpCanvas.height - 8 * dpr);
+  
+  tmpCanvas.toBlob(async function(blob) {
+    if (!blob) return;
+    const file = new File([blob], (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png', { type: 'image/png' });
+    
+    // Web Share API
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: title });
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    
+    // Fallback: download
+    const a = document.createElement('a');
+    a.download = (title || 'chart').replace(/[^a-zA-Z0-9]/g, '_') + '.png';
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, 'image/png', 1.0);
 }
 
 // ── Init ──
