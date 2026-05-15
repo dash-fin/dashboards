@@ -1023,12 +1023,15 @@ const QA_ICONS = {
 window.qaTrack = (module, tab) => {
   try {
     const key = module + ':' + (tab || module);
-    const raw = localStorage.getItem('qa_clicks') || '{}';
-    const clicks = JSON.parse(raw);
+    // Try localStorage first, fallback to window.name (persists per tab session)
+    let clicks = {};
+    try { clicks = JSON.parse(localStorage.getItem('qa_clicks') || '{}'); }
+    catch(e) { try { clicks = JSON.parse(window.name.match(/qa=(\{[^}]+\})/)?.[1] || '{}'); } catch(e2) {} }
     clicks[key] = (clicks[key] || 0) + 1;
-    localStorage.setItem('qa_clicks', JSON.stringify(clicks));
+    try { localStorage.setItem('qa_clicks', JSON.stringify(clicks)); }
+    catch(e) { window.name = 'qa=' + JSON.stringify(clicks); }
     window.qaRender();
-  } catch(e) { /* ignore */ }
+  } catch(e) { console.log('qaTrack err:', e); }
 };
 // Navegar a módulo + sub-tab desde quick access
 window.qaGo = (mod, tab) => {
@@ -1050,7 +1053,8 @@ window.qaRender = () => {
     const el = document.getElementById('qaPills');
     if (!el) { console.log('qaPills not found'); return; }
     let clicks = {};
-    try { const raw = localStorage.getItem('qa_clicks') || '{}'; clicks = JSON.parse(raw); } catch(e) {}
+    try { clicks = JSON.parse(localStorage.getItem('qa_clicks') || '{}'); }
+    catch(e) { try { clicks = JSON.parse(window.name.match(/qa=(\{[^}]+\})/)?.[1] || '{}'); } catch(e2) {} }
     const top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
     if (top3.length === 0) {
       el.innerHTML = '<span class="qa-empty">⚡ Navegá los módulos y aparecerán tus accesos rápidos</span>';
