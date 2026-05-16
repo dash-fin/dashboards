@@ -55,6 +55,13 @@
 .macro-charts-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:900px){.macro-charts-2col{grid-template-columns:1fr}}
 .macro-loading{display:flex;align-items:center;justify-content:center;height:180px;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
+.sm-section{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.sm-section-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.sm-section-title{font-size:12px;font-weight:600;color:var(--text)}
+.sm-section-sub{font-size:9px;color:var(--text3)}
+.sm-info-box{padding:10px 14px;font-size:10px;color:var(--text3);line-height:1.6;background:rgba(68,136,255,.04)}
+.sm-info-box b{color:var(--blue)}
+.sm-error{padding:16px;text-align:center;font-size:11px;color:var(--red)}
 </style>
 
 <div class="sub-tabs-row">
@@ -67,6 +74,7 @@
     <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
     <button class="stab"        id="ustab-topology" onclick="usTab('topology',this)">Market Topology</button>
     <button class="stab"        id="ustab-macro"    onclick="usTab('macro',this)">Macro</button>
+    <button class="stab"        id="ustab-smartmoney" onclick="usTab('smartmoney',this);if(!window._smLoaded)window.loadSmartMoney()">Smart Money</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -595,6 +603,37 @@
   </div>
 </div><!-- /uspanel-macro -->
 
+<!-- ══ SMART MONEY ══ -->
+<div class="sub-panel" id="uspanel-smartmoney" style="padding-top:0">
+  <div id="sm-loading" class="us-loading" style="padding:40px;text-align:center;color:var(--text3)">Cargando Smart Money...</div>
+  <div id="sm-content" style="display:none">
+    <!-- VWAP Sessions -->
+    <div class="sm-section" id="sm-vwap-section">
+      <div class="sm-section-header">
+        <span class="sm-section-title">🕐 VWAP</span>
+        <select id="sm-vwap-ticker" onchange="window._drawVwap(this.value)" style="font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 6px"></select>
+      </div>
+      <div style="padding:10px 14px"><canvas id="sm-vwap-chart" style="width:100%;max-height:240px"></canvas></div>
+      <div id="sm-vwap-info" class="sm-info-box"></div>
+    </div>
+    <!-- Correlation Matrix -->
+    <div class="sm-section" id="sm-correlation-section">
+      <div class="sm-section-header">
+        <span class="sm-section-title">🔗 Correlación</span>
+        <span class="sm-section-sub">30d · Pearson</span>
+      </div>
+      <div id="sm-correlation-grid" style="padding:10px 14px;overflow-x:auto"></div>
+    </div>
+    <!-- Momentum Scoring -->
+    <div class="sm-section" id="sm-momentum-section">
+      <div class="sm-section-header">
+        <span class="sm-section-title">⚡ Momentum</span>
+      </div>
+      <div id="sm-momentum-table" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
 
@@ -622,7 +661,8 @@ window.usTab = (name, btn) => {
   if(name==='shortint') siLoad();
   if(name==='rrg')      { if(!rrgLoaded) rrgLoad(); else { rrgRender(); usDrawRotationClock(); } }
   if(name==='topology') usRenderTopology();
-  if(name==='macro')    { if(!window._macroLoaded) window.loadMacro(); }
+  if(name==='macro')      { if(!window._macroLoaded) window.loadMacro(); }
+  if(name==='smartmoney') { if(!window._smLoaded) window.loadSmartMoney(); }
 };
 
 // ── Load ──
@@ -2615,6 +2655,200 @@ document.addEventListener('click', function(e) {
     popup.classList.add('show');
   }
 });
+
+// ── Smart Money ───────────────────────────────────────────
+const SM_ALPACA_KEY = 'PKLC7X7QQIUG5ZBS2CYSODUMNN';
+const SM_ALPACA_SECRET = 'Ehw9HLhbE47AgPXfCFPGoeJWJ9BmCoCUR11dfQ33GW55';
+
+window.loadSmartMoney = async () => {
+  const loading = document.getElementById('sm-loading');
+  const content = document.getElementById('sm-content');
+  if (!loading || !content) return;
+  loading.style.display = 'flex';
+  content.style.display = 'none';
+  try {
+    const top = (window.usAllData||[]).slice(0,12).map(r=>r.symbol);
+    const base = ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT'];
+    const all = [...new Set([...top,...base])].slice(0,20);
+    const [vwapR,corrR,momR] = await Promise.allSettled([
+      window._smFetchVwap(all.slice(0,5)),
+      window._smCalcCorr(all.slice(0,11)),
+      window._smCalcMomentum()
+    ]);
+    if(vwapR.status==='fulfilled') window._smRenderVwap(vwapR.value);
+    if(corrR.status==='fulfilled') window._smRenderCorr(corrR.value);
+    if(momR.status==='fulfilled') window._smRenderMomentum(momR.value);
+    window._smLoaded = true;
+    loading.style.display = 'none';
+    content.style.display = 'block';
+  } catch(e) {
+    loading.innerHTML = '<div style="padding:20px;text-align:center;color:var(--red)">Error: '+e.message+'</div>';
+  }
+};
+
+window._smFetchVwap = async (tickers) => {
+  const today = new Date().toISOString().split('T')[0];
+  const r = await Promise.allSettled(tickers.slice(0,5).map(async sym => {
+    try {
+      const res = await fetch('https://data.alpaca.markets/v2/stocks/'+sym+'/bars?timeframe=1Hour&start='+today+'T09:30:00Z&limit=8&adjustment=raw', {
+        headers: {'APCA-API-KEY-ID':SM_ALPACA_KEY,'APCA-API-SECRET-KEY':SM_ALPACA_SECRET}
+      });
+      if(!res.ok) return null;
+      const d = await res.json();
+      return {symbol:sym, bars:(d.bars||[]).map(b=>({time:b.t,open:b.o,high:b.h,low:b.l,close:b.c,volume:b.v,vwap:(b.h+b.l+b.c)/3}))};
+    } catch(e) { return null; }
+  }));
+  return r.filter(x=>x.status==='fulfilled'&&x.value).map(x=>x.value);
+};
+
+window._smRenderVwap = (data) => {
+  const container = document.getElementById('sm-vwap-chart');
+  const sel = document.getElementById('sm-vwap-ticker');
+  const info = document.getElementById('sm-vwap-info');
+  if(!container||!sel) return;
+  if(!data||!data.length) { info.textContent = 'Sin datos de VWAP hoy'; return; }
+  sel.innerHTML = data.map((d,i)=>'<option value="'+i+'">'+d.symbol+'</option>').join('');
+  window._smVwapData = data;
+  sel.onchange = function() { window._drawVwap(parseInt(this.value)); };
+  window._drawVwap(0);
+  info.innerHTML = '<b>💡 VWAP</b> = (High+Low+Close)/3. Precio sobre VWAP = sesgo alcista. Debajo = bajista. <b>Barras verdes:</b> close > VWAP. <b>Rojas:</b> close < VWAP.';
+};
+
+window._drawVwap = (idx) => {
+  const data = window._smVwapData;
+  if(!data||!data[idx]) return;
+  const d = data[idx];
+  if(!d.bars||!d.bars.length) return;
+  const canvas = document.getElementById('sm-vwap-chart');
+  if(window._smVwapChart) window._smVwapChart.destroy();
+  const ctx = canvas.getContext('2d');
+  const labels = d.bars.map(b=>{const t=new Date(b.time); return String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0');});
+  const vwaps = d.bars.map(b=>b.vwap);
+  const closes = d.bars.map(b=>b.close);
+  const colors = d.bars.map(b=>b.close>=b.vwap ? '#3fb950' : '#f85149');
+  window._smVwapChart = new Chart(ctx, {
+    type:'bar',
+    data:{labels, datasets:[
+      {label:d.symbol+' Precio', data:closes, backgroundColor:colors, borderColor:colors, borderWidth:1, yAxisID:'y'},
+      {label:'VWAP', data:vwaps, type:'line', borderColor:'#58a6ff', backgroundColor:'transparent', borderWidth:2, pointRadius:3, pointBackgroundColor:'#58a6ff', yAxisID:'y', tension:0.3}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#8b949e',font:{size:10}}}}, scales:{x:{ticks:{color:'#6e7681',font:{size:9}}, grid:{color:'rgba(48,54,61,0.3)'}}, y:{position:'right', ticks:{color:'#6e7681',font:{size:9}}, grid:{color:'rgba(48,54,61,0.3)'}}}}
+  });
+};
+
+window._smCalcCorr = async (tickers) => {
+  const url = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/cache_precios_usa?symbol=in.('+tickers.join(',')+')&select=date,close,symbol&order=date.asc&limit=2000';
+  const res = await fetch(url, {headers:{'apikey':SB_KEY}});
+  const data = await res.json();
+  const series = {};
+  data.forEach(r=>{if(!series[r.symbol]) series[r.symbol]=[]; series[r.symbol].push({date:r.date,close:r.close});});
+  const syms = Object.keys(series).filter(k=>series[k].length>=5).sort();
+  function _smPearson(a,b) {
+    const n = Math.min(a.length,b.length), aa=a.slice(-n), bb=b.slice(-n);
+    const ma=aa.reduce((s,v)=>s+v,0)/n, mb=bb.reduce((s,v)=>s+v,0)/n;
+    let num=0, da=0, db=0;
+    for(let i=0;i<n;i++){const dx=aa[i]-ma, dy=bb[i]-mb; num+=dx*dy; da+=dx*dx; db+=dy*dy;}
+    return da&&db ? num/Math.sqrt(da*db) : 0;
+  }
+  const m = {};
+  for(let i=0;i<syms.length;i++) for(let j=i;j<syms.length;j++){
+    const c = _smPearson(series[syms[i]].map(d=>d.close), series[syms[j]].map(d=>d.close));
+    m[syms[i]+'|'+syms[j]]=c; m[syms[j]+'|'+syms[i]]=c;
+  }
+  return {matrix:m, symbols:syms};
+};
+
+window._smRenderCorr = (r) => {
+  const el = document.getElementById('sm-correlation-grid');
+  if(!el||!r||!r.symbols||r.symbols.length<2){el.innerHTML='<div class="sm-error">Pocos datos para correlaci\u00f3n</div>'; return;}
+  const s = r.symbols.slice(0,11);
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:9px"><tr><td style="padding:2px 4px;color:var(--text3);font-size:8px"></td>';
+  s.forEach(sym => html += '<td style="padding:2px 4px;text-align:center;font-weight:600;color:var(--blue);font-size:8px">'+sym+'</td>');
+  html += '</tr>';
+  s.forEach(sym => {
+    html += '<tr><td style="padding:2px 4px;font-weight:600;color:var(--text2);font-size:8px">'+sym+'</td>';
+    s.forEach(sym2 => {
+      const v = r.matrix[sym+'|'+sym2];
+      let bg = 'var(--bg)', txt = 'var(--text3)';
+      if(v!=null){
+        const av = Math.abs(v);
+        if(v<0){bg='#3a1a1a'; txt='#f85149';}
+        else if(av>=0.7){bg='#1a3a28'; txt='#3fb950';}
+        else if(av>=0.3){bg='#3a2a1a'; txt='#d29922';}
+        else {bg='#1a1a1a'; txt='#8b949e';}
+      }
+      if(sym===sym2){bg='#1a3a28'; txt='#3fb950';}
+      html += '<td style="padding:2px 4px;text-align:center;background:'+bg+';color:'+txt+';font-weight:600">'+(v!=null?v.toFixed(2):'\u2014')+'</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  el.innerHTML = html;
+};
+
+window._smCalcMomentum = async () => {
+  const data = window.usAllData||[];
+  if(!data.length) return [];
+  const syms = data.map(r=>r.symbol);
+  const res = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/cache_precios_usa?symbol=in.('+syms.join(',')+')&select=symbol,close,date&order=date.desc&limit=15000', {
+    headers:{'apikey':SB_KEY}
+  });
+  const prices = await res.json();
+  const pm = {};
+  prices.forEach(p=>{if(!pm[p.symbol])pm[p.symbol]=[]; pm[p.symbol].push(p);});
+  return data.map(r => {
+    const rsi = r.rsi_14;
+    const volRel = r.volume_rel;
+    let smaBias = 0;
+    if(r.above_sma50!==null) smaBias = r.above_sma50?100:0;
+    else if(r.sma_50&&r.last) smaBias = r.last>r.sma_50?100:0;
+    const ps = pm[r.symbol];
+    let roc = 0;
+    if(ps&&ps.length>=14){
+      const cur = ps[0].close, past = ps[Math.min(13,ps.length-1)].close;
+      roc = past?((cur/past)-1)*100:0;
+    }
+    const rsiScore = rsi!=null?Math.max(0,Math.min(100,(rsi-30)/40*100)):50;
+    const rocScore = roc!=null?Math.max(0,Math.min(100,(roc+5)/10*100)):50;
+    const volScore = volRel!=null?Math.max(0,Math.min(100,volRel*50)):50;
+    const score = Math.round((rsiScore+rocScore+smaBias+volScore)/4);
+    return {...r, roc, score};
+  }).sort((a,b)=>b.score-a.score);
+};
+
+window._smRenderMomentum = (data) => {
+  const el = document.getElementById('sm-momentum-table');
+  if(!el||!data||!data.length){el.innerHTML='<div class="sm-error">Sin datos de momentum</div>'; return;}
+  const top = data.slice(0,100);
+  const f = v => v!=null?Number(v).toFixed(1):'\u2014';
+  const signal = s => s>65?'\ud83d\udfe2 Fuerte':s>35?'\ud83d\udfe1 Moderado':s>20?'\u26aa Neutral':'\ud83d\udd34 D\u00e9bil';
+  const barColor = s => s>65?'var(--green)':s>35?'var(--amber)':s>20?'var(--text3)':'var(--red)';
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:10px"><thead><tr>';
+  html += '<th style="padding:6px 6px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">#</th>';
+  html += '<th style="padding:6px 6px;text-align:left;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">Ticker</th>';
+  html += '<th style="padding:6px 6px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">Score</th>';
+  html += '<th style="padding:6px 6px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">RSI</th>';
+  html += '<th style="padding:6px 6px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">ROC</th>';
+  html += '<th style="padding:6px 6px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">SMA50</th>';
+  html += '<th style="padding:6px 6px;text-align:center;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">Vol</th>';
+  html += '<th style="padding:6px 6px;text-align:left;color:var(--text3);border-bottom:1px solid var(--border);font-size:8px">Se\u00f1al</th>';
+  html += '</tr></thead><tbody>';
+  top.forEach((r,i) => {
+    const smaTxt = r.above_sma50?'\u2705 Arriba':r.above_sma50===false?'\ud83d\udd3b Abajo':'\u2014';
+    html += '<tr>'
+      +'<td style="padding:4px 6px;text-align:center;color:var(--text3)">'+(i+1)+'</td>'
+      +'<td style="padding:4px 6px;font-weight:600;color:var(--blue)">'+r.symbol+'</td>'
+      +'<td style="padding:4px 6px;text-align:center"><span style="display:inline-block;width:'+r.score+'%;height:4px;background:'+barColor(r.score)+';border-radius:3px;vertical-align:middle"></span><span style="margin-left:4px;font-weight:600;color:'+barColor(r.score)+'">'+r.score+'</span></td>'
+      +'<td style="padding:4px 6px;text-align:center;color:'+(r.rsi_14>70?'var(--red)':r.rsi_14>40?'var(--text)':'var(--text3)')+'">'+f(r.rsi_14)+'</td>'
+      +'<td style="padding:4px 6px;text-align:center;color:'+(r.roc>5?'var(--green)':r.roc<-5?'var(--red)':'var(--text3)')+'">'+f(r.roc)+'%</td>'
+      +'<td style="padding:4px 6px;text-align:center;font-size:9px">'+smaTxt+'</td>'
+      +'<td style="padding:4px 6px;text-align:center;color:'+(r.volume_rel>2?'var(--green)':r.volume_rel<0.5?'var(--red)':'var(--text3)')+'">'+f(r.volume_rel)+'x</td>'
+      +'<td style="padding:4px 6px;font-size:9px">'+signal(r.score)+'</td>'
+      +'</tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+};
 
 })();
 </script>
