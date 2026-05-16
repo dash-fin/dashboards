@@ -1318,7 +1318,7 @@ async function renderHome(){
       <div class="kpi" id="h-kpi-qqq"><div class="kpi-glow" style="background:var(--blueG)"></div><div class="kpi-label">QQQ</div><div class="kpi-val">—</div><div class="kpi-sub"> </div></div>
       <div class="kpi" id="h-kpi-vix"><div class="kpi-glow" style="background:linear-gradient(135deg,var(--cyan),var(--blue))"></div><div class="kpi-label">VIX / VIXY</div><div class="kpi-val" style="color:var(--cyan)">—</div><div class="kpi-sub"> </div></div>
       <div class="kpi" id="h-kpi-fg"><div class="kpi-glow" style="background:var(--amberG)"></div><div class="kpi-label">Fear &amp; Greed</div><div class="kpi-val" style="color:var(--amber)">—</div><div class="kpi-sub"> </div></div>
-      <div class="kpi" id="h-kpi-merval"><div class="kpi-glow" style="background:var(--greenG)"></div><div class="kpi-label">Merval USD <span style="font-size:8px;opacity:.5">ARS/CCL</span></div><div class="kpi-val">—</div><div class="kpi-sub"> </div></div>
+      <div class="kpi" id="h-kpi-riesgopais"><div class="kpi-glow" style="background:linear-gradient(135deg,var(--amber),var(--red))"></div><div class="kpi-label">Riesgo País <span style="font-size:8px;opacity:.5">EMBI+ ARG</span></div><div class="kpi-val" style="color:var(--amber)">—</div><div class="kpi-sub"> </div></div>
       <div class="kpi" id="h-kpi-mep"><div class="kpi-glow" style="background:linear-gradient(135deg,var(--green),var(--cyan))"></div><div class="kpi-label">MEP / CCL <span style="font-size:8px;opacity:.5">spread</span></div><div class="kpi-val" style="color:var(--green)">—</div><div class="kpi-sub"> </div></div>
     </div>
   </div>
@@ -1571,17 +1571,26 @@ async function loadHomeKPIs(){
     }
   }catch(e){}
 
-  // Merval USD = MERVAL / CCL
-  const al30=a['AL30'],al30c=a['AL30C'],al30d=a['AL30D'],merval=a['MERVAL'];
+  // Riesgo País Argentina — desde FRED (edge function)
+  try{
+    const rpResp=await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/fetch-fred',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'refresh'}),signal:AbortSignal.timeout(8000)});
+    if(rpResp.ok){
+      const rpData=await rpResp.json();
+      const rp=rpData?.BAMLEMARPITRIV;
+      if(rp&&rp.latest_value!=null){
+        const v=Math.round(rp.latest_value);
+        const col=v>1000?'var(--red)':v>500?'var(--amber)':'var(--text)';
+        setKPI('h-kpi-riesgopais','linear-gradient(135deg,var(--amber),var(--red))','Riesgo País <span style="font-size:8px;opacity:.5">EMBI+ ARG</span>',v+'<span> pts</span>','',''+col,'💡 '+rp.latest_date||'','');
+      }else{
+        setKPI('h-kpi-riesgopais','linear-gradient(135deg,var(--amber),var(--red))','Riesgo País <span style="font-size:8px;opacity:.5">EMBI+ ARG</span>','—','','',,'');
+      }
+    }
+  }catch(e){console.log('Riesgo País error:',e)}
+
+  // MEP / CCL
+  const al30=a['AL30'],al30c=a['AL30C'],al30d=a['AL30D'];
   const ccl=al30&&al30c&&Number(al30c.last)>0?Number(al30.last)/Number(al30c.last):null;
   const mep=al30&&al30d&&Number(al30d.last)>0?Number(al30.last)/Number(al30d.last):null;
-  if(merval){
-    const chg=Number(merval.change||0);
-    const mUSD=ccl?Number(merval.last)/ccl:null;
-    const valStr=mUSD?fmtAR(mUSD,0)+'<span> pts</span>':fmtAR(Number(merval.last),0)+'<span> ARS</span>';
-    const lbl=mUSD?'Merval <span style="font-size:8px;opacity:.5">USD</span>':'Merval <span style="font-size:8px;opacity:.5">ARS</span>';
-    setKPI('h-kpi-merval',chg>=0?'var(--greenG)':'var(--redG)',lbl,valStr,chg>=0?'up':'dn','',`${chg>=0?'+':''}${chg.toFixed(2)}% hoy`,chg>=0?'up':'dn');
-  }
   if(mep&&ccl){
     const spread=((ccl-mep)/mep)*100;
     setKPI('h-kpi-mep','linear-gradient(135deg,var(--green),var(--cyan))','MEP / CCL <span style="font-size:8px;opacity:.5">spread</span>','$'+fmtAR(mep,0),'','var(--green)','Spread: <span class="amb">+'+spread.toFixed(2)+'%</span>','');
