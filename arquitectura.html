@@ -687,6 +687,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
           <li><code>scripts/backfill_calendario.sh</code> — rellena días faltantes en <code>pnl_diario</code> con posiciones activas + MEP histórico</li>
           <li><code>scripts/backfill_mep.sh</code> — backfill MEP histórico usando AL30D/AL30H de Yahoo Finance</li>
           <li><code>scripts/load_short_volume.py</code> — carga diaria short volume FINRA a <code>cache_finra_short_volume</code></li>
+          <li><strong>Backfill automático de dólar</strong> — <code>monitor_local.sh</code> al cierre (17:01-17:30) verifica si el <strong>día anterior</strong> tiene datos de MEP y oficial. Si falta alguno, ejecuta <code>get_dolar</code> con la fecha del día anterior usando <code>date_art</code> override. Fuentes: dolarapi.com (fallback principal), edge function yahoo-prices (AL30/AL30D), ArgentinaDatos (oficial), BCRA (fallback oficial).</li>
         </ul>
       </div>
     </div>
