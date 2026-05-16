@@ -1582,7 +1582,7 @@ async function loadHomeKPIs(){
         const col=v>1000?'var(--red)':v>500?'var(--amber)':'var(--text)';
         setKPI('h-kpi-riesgopais','linear-gradient(135deg,var(--amber),var(--red))','Riesgo País <span style="font-size:8px;opacity:.5">EMBI+ ARG</span>',v+'<span> pts</span>','',''+col,'💡 '+rp.latest_date||'','');
       }else{
-        setKPI('h-kpi-riesgopais','linear-gradient(135deg,var(--amber),var(--red))','Riesgo País <span style="font-size:8px;opacity:.5">EMBI+ ARG</span>','—','','',,'');
+        setKPI('h-kpi-riesgopais','linear-gradient(135deg,var(--amber),var(--red))','Riesgo País <span style="font-size:8px;opacity:.5">EMBI+ ARG</span>','—','','',' ','');
       }
     }
   }catch(e){console.log('Riesgo País error:',e)}
