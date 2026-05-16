@@ -43,7 +43,9 @@
 .macro-kpi-unit{font-size:11px;font-weight:400;opacity:.6;margin-left:2px}
 .macro-kpi-sub{font-size:10px;color:var(--text3);margin-top:5px;font-family:'IBM Plex Mono',monospace}
 .macro-kpi-date{font-size:8px;color:var(--text4);margin-top:3px;font-family:'IBM Plex Mono',monospace}
-.macro-tip-icon{position:absolute;top:10px;right:10px;font-size:11px;opacity:.4}
+.macro-tip-icon{position:absolute;top:10px;right:10px;font-size:11px;opacity:.4;cursor:pointer;z-index:2}
+.macro-tip-popup{display:none;position:absolute;top:2px;right:22px;width:220px;background:#0d111a;border:1px solid var(--border2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--text2);line-height:1.6;z-index:10;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.macro-tip-popup.show{display:block}
 .macro-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
 .macro-chart-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .macro-chart-title{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px;font-weight:500}
@@ -492,29 +494,33 @@
 <!-- ══ MACRO ══ -->
 <div class="sub-panel" id="uspanel-macro">
   <div class="macro-kpi-row">
-    <div class="macro-kpi" style="--mk-accent:var(--blue)" title="💡 Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. Tasas bajas = estímulo económico. Tasas altas = enfriamiento de la economía y presión sobre valuaciones de acciones.">
+    <div class="macro-kpi" style="--mk-accent:var(--blue)" data-tip="💡 Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. Tasas bajas = estímulo económico. Tasas altas = enfriamiento de la economía y presión sobre valuaciones de acciones.">
       <span class="macro-tip-icon">💡</span>
+      <div class="macro-tip-popup"></div>
       <div class="macro-kpi-label">Fed Funds Rate</div>
       <div class="macro-kpi-val" id="mkpi-dff">—<span class="macro-kpi-unit">%</span></div>
       <div class="macro-kpi-sub" id="mkpi-dff-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-dff-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--cyan)" title="💡 Rendimiento del bono del Tesoro USA a 10 años. Es la tasa libre de riesgo de referencia global. Cuando sube, los activos de riesgo se vuelven menos atractivos relativamente.">
+    <div class="macro-kpi" style="--mk-accent:var(--cyan)" data-tip="💡 Rendimiento del bono del Tesoro USA a 10 años. Es la tasa libre de riesgo de referencia global. Cuando sube, los activos de riesgo se vuelven menos atractivos relativamente.">
       <span class="macro-tip-icon">💡</span>
+      <div class="macro-tip-popup"></div>
       <div class="macro-kpi-label">Treasury 10Y</div>
       <div class="macro-kpi-val" id="mkpi-dgs10">—<span class="macro-kpi-unit">%</span></div>
       <div class="macro-kpi-sub" id="mkpi-dgs10-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-dgs10-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--amber)" title="💡 Spread 10Y-2Y: diferencial entre el bono a 10 años y el de 2 años. Spread negativo (curva invertida) = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión en USA.">
+    <div class="macro-kpi" style="--mk-accent:var(--amber)" data-tip="💡 Spread 10Y-2Y: diferencial entre el bono a 10 años y el de 2 años. Spread negativo (curva invertida) = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión en USA.">
       <span class="macro-tip-icon">💡</span>
+      <div class="macro-tip-popup"></div>
       <div class="macro-kpi-label">Spread 10Y-2Y</div>
       <div class="macro-kpi-val" id="mkpi-spread">—<span class="macro-kpi-unit">pp</span></div>
       <div class="macro-kpi-sub" id="mkpi-spread-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-spread-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--red)" title="💡 Breakeven inflation a 10 años: refleja las EXPECTATIVAS del mercado sobre la inflación promedio en los próximos 10 años. Cuando sube, el mercado anticipa más inflación futura.">
+    <div class="macro-kpi" style="--mk-accent:var(--red)" data-tip="💡 Breakeven inflation a 10 años: refleja las EXPECTATIVAS del mercado sobre la inflación promedio en los próximos 10 años. Cuando sube, el mercado anticipa más inflación futura.">
       <span class="macro-tip-icon">💡</span>
+      <div class="macro-tip-popup"></div>
       <div class="macro-kpi-label">Inflación esperada 10Y</div>
       <div class="macro-kpi-val" id="mkpi-t10yie">—<span class="macro-kpi-unit">%</span></div>
       <div class="macro-kpi-sub" id="mkpi-t10yie-sub">—</div>
@@ -523,22 +529,25 @@
   </div>
 
   <div class="macro-kpi-row">
-    <div class="macro-kpi" style="--mk-accent:var(--red)" title="💡 CPI: mide la inflación REALIZADA en USA. La Fed usa este dato para decidir si sube o baja tasas.">
+    <div class="macro-kpi" style="--mk-accent:var(--red)" data-tip="💡 CPI: mide la inflación REALIZADA en USA. La Fed usa este dato para decidir si sube o baja tasas.">
       <span class="macro-tip-icon">💡</span>
+      <div class="macro-tip-popup"></div>
       <div class="macro-kpi-label">CPI USA (índice)</div>
       <div class="macro-kpi-val" id="mkpi-cpi">—</div>
       <div class="macro-kpi-sub" id="mkpi-cpi-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-cpi-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--green)" title="💡 Tasa de desempleo USA. Dato clave para la Fed (mandato dual: inflación + empleo). Desempleo subiendo = señal de enfriamiento económico.">
+    <div class="macro-kpi" style="--mk-accent:var(--green)" data-tip="💡 Tasa de desempleo USA. Dato clave para la Fed (mandato dual: inflación + empleo). Desempleo subiendo = señal de enfriamiento económico.">
       <span class="macro-tip-icon">💡</span>
+      <div class="macro-tip-popup"></div>
       <div class="macro-kpi-label">Desempleo USA</div>
       <div class="macro-kpi-val" id="mkpi-unrate">—<span class="macro-kpi-unit">%</span></div>
       <div class="macro-kpi-sub" id="mkpi-unrate-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-unrate-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--purple)" title="💡 University of Michigan Consumer Sentiment: mide la confianza del consumidor americano. El consumo representa ~70% del PBI de USA.">
+    <div class="macro-kpi" style="--mk-accent:var(--purple)" data-tip="💡 University of Michigan Consumer Sentiment: mide la confianza del consumidor americano. El consumo representa ~70% del PBI de USA.">
       <span class="macro-tip-icon">💡</span>
+      <div class="macro-tip-popup"></div>
       <div class="macro-kpi-label">Confianza consumidor</div>
       <div class="macro-kpi-val" id="mkpi-umcsent">—</div>
       <div class="macro-kpi-sub" id="mkpi-umcsent-sub">—</div>
@@ -2584,6 +2593,28 @@ function siRender(symbol, data, siData, companyName) {
 window.usLoadAll();
 window.moduleTimers = window.moduleTimers || {};
 window.moduleTimers.usa = setInterval(window.usLoadAll, 60000);
+
+// ── Macro tooltips (funciona en mobile) ──
+document.addEventListener('click', function(e) {
+  const tip = e.target.closest('.macro-tip-icon');
+  if (!tip) {
+    // cerrar popups al tocar afuera
+    document.querySelectorAll('.macro-tip-popup.show').forEach(p => p.classList.remove('show'));
+    return;
+  }
+  const kpi = tip.closest('.macro-kpi');
+  const popup = kpi?.querySelector('.macro-tip-popup');
+  if (!popup) return;
+  e.stopPropagation();
+  // cerrar otros
+  document.querySelectorAll('.macro-tip-popup.show').forEach(p => { if (p !== popup) p.classList.remove('show'); });
+  if (popup.classList.contains('show')) {
+    popup.classList.remove('show');
+  } else {
+    popup.textContent = kpi.getAttribute('data-tip')?.replace('💡 ','💡 ') || '';
+    popup.classList.add('show');
+  }
+});
 
 })();
 </script>
