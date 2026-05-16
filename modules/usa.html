@@ -2738,7 +2738,7 @@ window._drawVwap = (idx) => {
 
 window._smCalcCorr = async (tickers) => {
   const url = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/cache_precios_usa?symbol=in.('+tickers.join(',')+')&select=date,close,symbol&order=date.asc&limit=2000';
-  const res = await fetch(url, {headers:{'apikey':SB_KEY}});
+  const res = await fetch(url, {headers:{'apikey':CFG.SB_KEY}});
   const data = await res.json();
   const series = {};
   data.forEach(r=>{if(!series[r.symbol]) series[r.symbol]=[]; series[r.symbol].push({date:r.date,close:r.close});});
@@ -2791,7 +2791,7 @@ window._smCalcMomentum = async () => {
   if(!data.length) return [];
   const syms = data.map(r=>r.symbol);
   const res = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/cache_precios_usa?symbol=in.('+syms.join(',')+')&select=symbol,close,date&order=date.desc&limit=15000', {
-    headers:{'apikey':SB_KEY}
+    headers:{'apikey':CFG.SB_KEY}
   });
   const prices = await res.json();
   const pm = {};
