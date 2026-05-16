@@ -2668,8 +2668,11 @@ window.loadSmartMoney = async () => {
   content.style.display = 'none';
   try {
     // Tickers del portafolio USA (ticker_adr + ticker_usd sin D)
-    const pf = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/portafolio?select=ticker_adr,ticker_usd&limit=200', {headers:{'apikey':CFG.SB_KEY}});
+    const userEmail = window.currentUser?.email || '';
+    const pfUrl = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/portafolio?select=ticker_adr,ticker_usd&activo=eq.true&limit=200' + (userEmail ? '&user_email=eq.'+encodeURIComponent(userEmail) : '');
+    const pf = await fetch(pfUrl, {headers:{'apikey':CFG.SB_KEY}});
     const pfData = pf.ok ? await pf.json() : [];
+    console.log('[sm] Portfolio fetch:', {url: pfUrl, count: pfData.length, email: userEmail});
     const pfTickers = [...new Set(pfData.flatMap(r=>[r.ticker_adr, r.ticker_usd?.replace(/D$/,'')]).filter(Boolean))].slice(0,15);
     
     const top = (window.usAllData||[]).slice(0,8).map(r=>r.symbol);
@@ -2750,12 +2753,20 @@ window._drawVwap = (idx) => {
 };
 
 window._smCalcCorr = async (tickers) => {
+  const t0 = performance.now();
+  console.log('[corr] Fetching historico_precios for', tickers.length, 'tickers:', tickers.join(','));
   const url = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?symbol=in.('+tickers.join(',')+')&select=fecha,close,symbol&order=fecha.asc&limit=2000';
   const res = await fetch(url, {headers:{'apikey':CFG.SB_KEY}});
   const data = await res.json();
+  const t1 = performance.now();
+  console.log('[corr] historico_precios returned', data.length, 'rows in', Math.round(t1-t0), 'ms, http', res.status);
+  if(!data.length) { console.warn('[corr] historico_precios returned 0 rows — no se puede calcular correlación'); return null; }
   const series = {};
   data.forEach(r=>{if(!series[r.symbol]) series[r.symbol]=[]; series[r.symbol].push({date:r.fecha,close:r.close});});
   const syms = Object.keys(series).filter(k=>series[k].length>=5).sort();
+  const missingSyms = tickers.filter(t=>!syms.includes(t));
+  if(missingSyms.length) console.warn('[corr] Tickers sin suficientes datos (<5 puntos) en historico_precios:', missingSyms.join(','));
+  if(syms.length < 2) { console.warn('[corr] Solo', syms.length, 'tickers con datos — se necesitan al menos 2'); return null; }
   function _smPearson(a,b) {
     const n = Math.min(a.length,b.length), aa=a.slice(-n), bb=b.slice(-n);
     const ma=aa.reduce((s,v)=>s+v,0)/n, mb=bb.reduce((s,v)=>s+v,0)/n;
@@ -2796,19 +2807,62 @@ window._smRenderCorr = (r) => {
     html += '</tr>';
   });
   html += '</table>';
+  
+  // Análisis automático de correlación
+  const pairs = [];
+  const syms2 = r.symbols.slice(0,11);
+  for(let i=0;i<syms2.length;i++) for(let j=i+1;j<syms2.length;j++) {
+    const v = r.matrix[syms2[i]+'|'+syms2[j]];
+    if(v!=null) pairs.push({a:syms2[i],b:syms2[j],v});
+  }
+  pairs.sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+  const top3 = pairs.slice(0,3);
+  const lowCorr = pairs.filter(p=>Math.abs(p.v)<0.3).slice(0,2);
+  let analysis = '<div style="margin-top:10px;padding:8px 10px;background:var(--bg3);border-radius:5px;font-size:9px;line-height:1.6;font-family:\'IBM Plex Mono\',monospace">';
+  analysis += '<div style="color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📊 Análisis</div>';
+  top3.forEach(p => {
+    const pct = (p.v*100).toFixed(0);
+    const msg = p.v > 0.85
+      ? p.a+'-'+p.b+' correlación '+p.v.toFixed(2)+' — tenés '+pct+'% de apuesta al mismo driver'
+      : p.a+'-'+p.b+' correlación '+p.v.toFixed(2)+' ('+pct+'%)';
+    analysis += '<div style="color:'+(p.v>0.85?'var(--amber)':'var(--text2)')+'">▸ '+msg+'</div>';
+  });
+  if(lowCorr.length) {
+    lowCorr.forEach(p => {
+      analysis += '<div style="color:var(--green);margin-top:4px">▸ '+p.a+'-'+p.b+' correlación '+p.v.toFixed(2)+' — cobertura real entre activos</div>';
+    });
+  }
+  // Warning si muchos pares >0.85
+  const highCount = pairs.filter(p=>p.v>0.85).length;
+  if(highCount >= 3) {
+    analysis += '<div style="color:var(--red);margin-top:6px;border-top:1px solid var(--border2);padding-top:6px">⚠️ '+highCount+' pares con correlación >0.85 — portafolio poco diversificado</div>';
+  } else if(pairs.length>0 && pairs.every(p=>Math.abs(p.v)<0.3)) {
+    analysis += '<div style="color:var(--text3);margin-top:4px">✅ Todos los pares tienen baja correlación — portafolio bien diversificado</div>';
+  }
+  analysis += '</div>';
+  html += analysis;
   el.innerHTML = html;
 };
 
 window._smCalcMomentum = async () => {
   const data = window.usAllData||[];
-  if(!data.length) return [];
+  console.log('[momentum] usAllData length:', data.length);
+  if(!data.length) { console.warn('[momentum] No data in usAllData'); return []; }
   const syms = data.map(r=>r.symbol);
+  console.log('[momentum] Fetching historico_precios for', syms.length, 'symbols');
+  const t0 = performance.now();
   const res = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?symbol=in.('+syms.join(',')+')&select=symbol,close,fecha&order=fecha.desc&limit=15000', {
     headers:{'apikey':CFG.SB_KEY}
   });
   const prices = await res.json();
+  const t1 = performance.now();
+  console.log('[momentum] historico_precios returned', prices.length, 'rows in', Math.round(t1-t0), 'ms, http', res.status);
+  if(!prices.length) { console.warn('[momentum] historico_precios returned 0 rows — posible error de fetch o filtro'); return []; }
   const pm = {};
   prices.forEach(p=>{if(!pm[p.symbol])pm[p.symbol]=[]; pm[p.symbol].push(p);});
+  const missingSyms = syms.filter(s=>!pm[s]||!pm[s].length);
+  if(missingSyms.length) console.warn('[momentum] Tickers sin datos en historico_precios:', missingSyms.slice(0,20).join(','));
+  console.log('[momentum] Unique symbols in historico_precios:', Object.keys(pm).length);
   return data.map(r => {
     const rsi = r.rsi_14;
     const volRel = r.volume_rel;
