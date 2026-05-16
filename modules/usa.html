@@ -1,6 +1,6 @@
 <!-- ══════════════════════════════════════════════════
      MÓDULO: USA — Mercado americano via Alpaca
-     Solapas: Mercado | Sectores | Opciones (señales P/C)
+     Solapas: Mercado | Sectores | Opciones (señales P/C) | Macro
 ══════════════════════════════════════════════════ -->
 
 <style>
@@ -32,24 +32,27 @@
 .btn-share:hover{background:var(--bg-hover,rgba(255,255,255,.08));color:var(--text)}
 .card-head{gap:6px}
 
-/* ── Macro tab ── */
+/* Macro tab */
 .macro-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 @media(max-width:900px){.macro-kpi-row{grid-template-columns:repeat(2,1fr)}}
-.macro-kpi{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;position:relative;overflow:hidden;cursor:help;transition:border-color .15s}
+.macro-kpi{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;cursor:help;transition:border-color .2s}
 .macro-kpi:hover{border-color:var(--border3)}
-.macro-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--mk-accent,var(--blue));opacity:.8}
-.macro-kpi-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
-.macro-kpi-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:500;color:var(--mk-accent,var(--blue))}
-.macro-kpi-sub{font-size:9px;color:var(--text3);margin-top:4px;font-family:'IBM Plex Mono',monospace}
-.macro-kpi-tip{font-size:9px;color:var(--text4);margin-top:6px;line-height:1.5;border-top:1px solid var(--border);padding-top:5px;display:none}
-.macro-kpi:hover .macro-kpi-tip{display:block}
-.macro-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
-.macro-chart-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.macro-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--mk-accent,var(--blue))}
+.macro-kpi-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+.macro-kpi-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--mk-accent,var(--blue));line-height:1}
+.macro-kpi-unit{font-size:11px;font-weight:400;opacity:.6;margin-left:2px}
+.macro-kpi-sub{font-size:10px;color:var(--text3);margin-top:5px;font-family:'IBM Plex Mono',monospace}
+.macro-kpi-date{font-size:8px;color:var(--text4);margin-top:3px;font-family:'IBM Plex Mono',monospace}
+.macro-tip-icon{position:absolute;top:10px;right:10px;font-size:11px;opacity:.4}
+.macro-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px}
+.macro-chart-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .macro-chart-title{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px;font-weight:500}
 .macro-chart-body{padding:14px;position:relative}
-.macro-tip{background:rgba(77,166,255,.06);border:1px solid rgba(77,166,255,.15);border-radius:6px;padding:8px 12px;font-size:10px;color:var(--text3);line-height:1.6;margin:0 14px 12px}
-.macro-tip .tip-icon{color:var(--blue);margin-right:4px}
-.macro-recession{fill:rgba(255,63,94,.08);stroke:none}
+.macro-tip-box{margin:0 14px 12px;padding:8px 12px;background:rgba(68,136,255,.06);border:1px solid rgba(68,136,255,.15);border-radius:6px;font-size:10px;color:var(--text3);line-height:1.6}
+.macro-tip-box b{color:var(--blue)}
+.macro-charts-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.macro-charts-2col{grid-template-columns:1fr}}
+.macro-loading{display:flex;align-items:center;justify-content:center;height:180px;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
 </style>
 
 <div class="sub-tabs-row">
@@ -290,8 +293,7 @@
     <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Short Interest</div><div class="kpi-val" id="si-kpi-si">—</div><div class="kpi-sub" id="si-kpi-si-dtc">—</div></div>
   </div>
 
-  <!-- Ticker header (estilo Finviz: ticker + precio + cambio + nombre empresa) -->
-  <!-- Ticker header: ticker amarillo grande + precio verde + variación + nombre -->
+  <!-- Ticker header -->
   <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-bottom:10px;flex-wrap:nowrap">
     <span id="si-ticker-badge" style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;color:var(--amber);letter-spacing:-0.5px;white-space:nowrap">SPY</span>
     <span id="si-price-badge" style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:var(--green);font-weight:500;white-space:nowrap">$—</span>
@@ -299,7 +301,7 @@
     <span id="si-name-badge" style="font-size:11px;color:var(--text3);font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">—</span>
   </div>
 
-  <!-- Chart 1: precio + volumen (Chart.js style) -->
+  <!-- Chart 1: precio + volumen -->
   <div class="card">
     <div class="card-head">
       <div class="card-title">Gráfico: Precio + Volumen Total + Short Volume</div>
@@ -315,7 +317,7 @@
     <div class="chart-meta">Short Volume vs Precio · Diario</div>
   </div>
 
-  <!-- Chart 2: short % bars + MA30 (Chart.js style) -->
+  <!-- Chart 2: short % bars + MA30 -->
   <div class="card">
     <div class="card-head">
       <div class="card-title">Gráfico: Short Volume % del Total Diario</div>
@@ -348,9 +350,6 @@
       </table>
     </div>
   </div>
-
-
-
 </div>
 
 
@@ -577,153 +576,162 @@
 <div class="sub-panel" id="uspanel-macro">
 
   <!-- KPI row -->
-  <div class="macro-kpi-row">
+  <div class="macro-kpi-row" id="macro-kpi-row">
     <div class="macro-kpi" style="--mk-accent:var(--blue)"
-      title="Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. Bajas = estímulo. Subas = enfriamiento.">
-      <div class="macro-kpi-label">💡 Fed Funds Rate</div>
-      <div class="macro-kpi-val" id="mkpi-dff">—</div>
-      <div class="macro-kpi-sub" id="mkpi-dff-sub">Tasa efectiva de la Fed</div>
-      <div class="macro-kpi-tip">Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. <b>Bajas = estímulo. Subas = enfriamiento.</b></div>
+      title="💡 Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. Tasas bajas = estímulo económico. Tasas altas = enfriamiento de la economía y presión sobre valuaciones de acciones.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">Fed Funds Rate</div>
+      <div class="macro-kpi-val" id="mkpi-dff">—<span class="macro-kpi-unit">%</span></div>
+      <div class="macro-kpi-sub" id="mkpi-dff-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-dff-date">—</div>
     </div>
     <div class="macro-kpi" style="--mk-accent:var(--cyan)"
-      title="Rendimiento del bono del Tesoro USA a 10 años. Es la tasa libre de riesgo de referencia global. Sube cuando el mercado espera más inflación o crecimiento. Baja en flight-to-safety.">
-      <div class="macro-kpi-label">💡 Treasury 10Y</div>
-      <div class="macro-kpi-val" id="mkpi-dgs10">—</div>
-      <div class="macro-kpi-sub" id="mkpi-dgs10-sub">Rendimiento bono 10 años</div>
-      <div class="macro-kpi-tip">Tasa libre de riesgo de referencia global. Sube cuando el mercado espera más inflación o crecimiento. Baja en <i>flight-to-safety</i>. Impacta valuación de acciones (DCF).</div>
+      title="💡 Rendimiento del bono del Tesoro USA a 10 años. Es la tasa libre de riesgo de referencia global. Cuando sube, los activos de riesgo (acciones, bonos emergentes) se vuelven menos atractivos relativamente. Impacta el costo de hipotecas y crédito corporativo.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">Treasury 10Y</div>
+      <div class="macro-kpi-val" id="mkpi-dgs10">—<span class="macro-kpi-unit">%</span></div>
+      <div class="macro-kpi-sub" id="mkpi-dgs10-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-dgs10-date">—</div>
     </div>
     <div class="macro-kpi" style="--mk-accent:var(--amber)"
-      title="Spread 10Y-2Y: positivo = curva normal. Negativo (invertida) = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión.">
-      <div class="macro-kpi-label">💡 Spread 10Y-2Y</div>
-      <div class="macro-kpi-val" id="mkpi-spread">—</div>
-      <div class="macro-kpi-sub" id="mkpi-spread-sub">Curva de rendimiento</div>
-      <div class="macro-kpi-tip"><b>Positivo</b> = curva normal. <b>Negativo (invertida)</b> = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión.</div>
+      title="💡 Spread 10Y-2Y: diferencial entre el bono a 10 años y el de 2 años. Spread positivo = curva normal (economía sana). Spread negativo (curva invertida) = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión en USA.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">Spread 10Y-2Y</div>
+      <div class="macro-kpi-val" id="mkpi-spread">—<span class="macro-kpi-unit">pp</span></div>
+      <div class="macro-kpi-sub" id="mkpi-spread-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-spread-date">—</div>
     </div>
     <div class="macro-kpi" style="--mk-accent:var(--red)"
-      title="Breakeven inflation = diferencia entre bono nominal y TIPS. El mercado apuesta a esta inflación promedio en los próximos 10 años. Por encima del 2.5% = expectativas desancladas.">
-      <div class="macro-kpi-label">💡 Inflación esperada 10Y</div>
-      <div class="macro-kpi-val" id="mkpi-t10yie">—</div>
-      <div class="macro-kpi-sub" id="mkpi-t10yie-sub">Breakeven inflation</div>
-      <div class="macro-kpi-tip">Breakeven inflation = diferencia entre bono nominal y TIPS. El mercado apuesta a esta inflación promedio en los próximos 10 años. <b>&gt;2.5% = expectativas desancladas.</b></div>
+      title="💡 Breakeven inflation a 10 años: diferencia entre el bono nominal y el TIPS (bono indexado a inflación). Refleja las EXPECTATIVAS del mercado sobre la inflación promedio en los próximos 10 años. Cuando sube, el mercado anticipa más inflación futura.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">Inflación esperada 10Y</div>
+      <div class="macro-kpi-val" id="mkpi-t10yie">—<span class="macro-kpi-unit">%</span></div>
+      <div class="macro-kpi-sub" id="mkpi-t10yie-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-t10yie-date">—</div>
     </div>
   </div>
 
-  <!-- Segunda fila KPIs -->
-  <div class="macro-kpi-row" style="margin-bottom:20px">
-    <div class="macro-kpi" style="--mk-accent:var(--green)"
-      title="Consumer Price Index: mide la inflación realizada en USA. La Fed tiene como objetivo 2% anual. Por encima de ese nivel, la Fed sube tasas para enfriar la economía.">
-      <div class="macro-kpi-label">💡 CPI USA (YoY)</div>
+  <!-- Fila 2 KPIs: CPI, Desempleo, Confianza, Riesgo País -->
+  <div class="macro-kpi-row" id="macro-kpi-row2">
+    <div class="macro-kpi" style="--mk-accent:var(--red)"
+      title="💡 CPI (Consumer Price Index): mide la inflación REALIZADA en USA. Es un dato rezagado (se publica mensualmente). La Fed usa este dato para decidir si sube o baja tasas. CPI alto = presión para subir tasas.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">CPI USA (índice)</div>
       <div class="macro-kpi-val" id="mkpi-cpi">—</div>
-      <div class="macro-kpi-sub" id="mkpi-cpi-sub">Inflación realizada</div>
-      <div class="macro-kpi-tip">Mide la inflación realizada en USA. La Fed tiene como objetivo <b>2% anual</b>. Por encima de ese nivel, la Fed sube tasas para enfriar la economía.</div>
+      <div class="macro-kpi-sub" id="mkpi-cpi-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-cpi-date">—</div>
+    </div>
+    <div class="macro-kpi" style="--mk-accent:var(--green)"
+      title="💡 Tasa de desempleo USA. Dato clave para la Fed (mandato dual: inflación + empleo). Desempleo bajo = economía fuerte pero posible presión inflacionaria. Desempleo subiendo = señal de enfriamiento económico, posible recesión.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">Desempleo USA</div>
+      <div class="macro-kpi-val" id="mkpi-unrate">—<span class="macro-kpi-unit">%</span></div>
+      <div class="macro-kpi-sub" id="mkpi-unrate-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-unrate-date">—</div>
     </div>
     <div class="macro-kpi" style="--mk-accent:var(--purple)"
-      title="Tasa de desempleo USA. Por debajo del 4% = mercado laboral ajustado, presión salarial al alza. Por encima del 5% = enfriamiento económico. La Fed monitorea este dato junto al CPI.">
-      <div class="macro-kpi-label">💡 Desempleo USA</div>
-      <div class="macro-kpi-val" id="mkpi-unrate">—</div>
-      <div class="macro-kpi-sub" id="mkpi-unrate-sub">Tasa de desempleo</div>
-      <div class="macro-kpi-tip">Por debajo del 4% = mercado laboral ajustado, presión salarial al alza. Por encima del 5% = enfriamiento económico. La Fed monitorea este dato junto al CPI.</div>
-    </div>
-    <div class="macro-kpi" style="--mk-accent:var(--orange,#fb923c)"
-      title="University of Michigan Consumer Sentiment. Por encima de 80 = consumidor optimista, gasto fuerte. Por debajo de 60 = pesimismo, riesgo de recesión por caída del consumo.">
-      <div class="macro-kpi-label">💡 Confianza consumidor</div>
+      title="💡 University of Michigan Consumer Sentiment: mide la confianza del consumidor americano. El consumo representa ~70% del PBI de USA. Confianza baja = menor gasto, menor crecimiento. Indicador adelantado de la actividad económica.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">Confianza consumidor</div>
       <div class="macro-kpi-val" id="mkpi-umcsent">—</div>
-      <div class="macro-kpi-sub" id="mkpi-umcsent-sub">U. Michigan Sentiment</div>
-      <div class="macro-kpi-tip">Por encima de 80 = consumidor optimista, gasto fuerte. Por debajo de 60 = pesimismo, riesgo de recesión por caída del consumo.</div>
+      <div class="macro-kpi-sub" id="mkpi-umcsent-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-umcsent-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--red)"
-      title="EMBI+ Argentina: spread de los bonos soberanos argentinos sobre los bonos del Tesoro USA. Mide el riesgo percibido de default. Por encima de 1000 puntos = riesgo muy alto.">
-      <div class="macro-kpi-label">💡 Riesgo País ARG</div>
-      <div class="macro-kpi-val" id="mkpi-embi">—</div>
-      <div class="macro-kpi-sub" id="mkpi-embi-sub">EMBI+ Argentina</div>
-      <div class="macro-kpi-tip">Spread de bonos soberanos ARG sobre Tesoro USA. Mide riesgo percibido de default. <b>&gt;1000 puntos = riesgo muy alto.</b> Baja sostenida = mejora de confianza.</div>
+    <div class="macro-kpi" style="--mk-accent:var(--amber)"
+      title="💡 EMBI+ Argentina (Riesgo País): spread entre los bonos soberanos argentinos y los bonos del Tesoro USA. Mide el riesgo percibido de invertir en Argentina. Valores altos = mayor riesgo de default percibido. Por debajo de 500 puntos = acceso a mercados internacionales.">
+      <span class="macro-tip-icon">💡</span>
+      <div class="macro-kpi-label">Riesgo País ARG</div>
+      <div class="macro-kpi-val" id="mkpi-rp">—<span class="macro-kpi-unit">pts</span></div>
+      <div class="macro-kpi-sub" id="mkpi-rp-sub">—</div>
+      <div class="macro-kpi-date" id="mkpi-rp-date">—</div>
     </div>
   </div>
 
-  <!-- Gráfico 1: Fed Funds Rate histórica -->
-  <div class="macro-chart-card">
-    <div class="macro-chart-head">
-      <div class="macro-chart-title">📈 Tasa Fed Funds — Histórico</div>
-      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · DFF</span>
-    </div>
-    <div class="macro-tip">
-      <span class="tip-icon">💡</span>
-      La Fed sube tasas para enfriar la economía (combatir inflación) y las baja para estimular el crecimiento. Los ciclos de suba suelen preceder correcciones en acciones de crecimiento. Las zonas grises representan recesiones oficiales (NBER).
-    </div>
-    <div class="macro-chart-body" style="height:260px">
-      <canvas id="macro-chart-dff"></canvas>
-    </div>
-    <div class="chart-meta">Fed Funds Effective Rate (DFF) · Diario · FRED St. Louis Fed</div>
+  <!-- Loading state -->
+  <div id="macro-loading" class="macro-loading">
+    <div class="spinner"></div>
+    Cargando datos macroeconómicos de FRED…
   </div>
 
-  <!-- Gráfico 2: Treasury 10Y vs 2Y + Spread -->
-  <div class="macro-chart-card">
-    <div class="macro-chart-head">
-      <div class="macro-chart-title">📈 Curva de Rendimiento — 10Y vs 2Y + Spread</div>
-      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · DGS10 / DGS2</span>
-    </div>
-    <div class="macro-tip">
-      <span class="tip-icon">💡</span>
-      Cuando el rendimiento del bono a 2 años supera al de 10 años, la curva se <b>invierte</b> (spread negativo). Esta señal precedió a todas las recesiones desde 1950 con un adelanto de 6 a 18 meses. El spread se muestra como área sombreada en el eje derecho.
-    </div>
-    <div class="macro-chart-body" style="height:260px">
-      <canvas id="macro-chart-yield"></canvas>
-    </div>
-    <div class="chart-meta">DGS10 vs DGS2 · Spread = 10Y − 2Y · FRED St. Louis Fed</div>
-  </div>
+  <!-- Charts (hidden until data loads) -->
+  <div id="macro-charts" style="display:none">
 
-  <!-- Gráfico 3: CPI vs Breakeven inflation -->
-  <div class="macro-chart-card">
-    <div class="macro-chart-head">
-      <div class="macro-chart-title">📈 Inflación: CPI Realizado vs Expectativas (Breakeven 10Y)</div>
-      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · CPIAUCSL / T10YIE</span>
+    <!-- Chart 1: Fed Funds Rate histórica con recesiones -->
+    <div class="macro-chart-card">
+      <div class="macro-chart-head">
+        <span class="macro-chart-title">Tasa Fed Funds — Histórico</span>
+        <button onclick="captureElement(document.getElementById('macro-chart1-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
+      </div>
+      <div class="macro-tip-box">
+        <b>📊 Cómo leer este gráfico:</b> Las zonas grises son períodos de recesión según el NBER. La Fed sube tasas para enfriar la economía (combatir inflación) y las baja para estimular el crecimiento. Los picos de tasa suelen preceder recesiones.
+      </div>
+      <div id="macro-chart1-wrap" class="macro-chart-body" style="height:280px">
+        <canvas id="macro-chart-dff"></canvas>
+      </div>
     </div>
-    <div class="macro-tip">
-      <span class="tip-icon">💡</span>
-      El <b>CPI</b> refleja la inflación REAL pasada (dato mensual). El <b>Breakeven</b> refleja las EXPECTATIVAS de inflación futura del mercado. Cuando el breakeven supera al CPI → el mercado espera inflación al alza. Cuando el CPI supera al breakeven → la inflación sorprendió al alza.
-    </div>
-    <div class="macro-chart-body" style="height:260px">
-      <canvas id="macro-chart-inflation"></canvas>
-    </div>
-    <div class="chart-meta">CPI YoY % vs Breakeven Inflation 10Y · FRED St. Louis Fed</div>
-  </div>
 
-  <!-- Gráfico 4: Desempleo vs Confianza consumidor -->
-  <div class="macro-chart-card">
-    <div class="macro-chart-head">
-      <div class="macro-chart-title">📈 Desempleo USA vs Confianza del Consumidor</div>
-      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · UNRATE / UMCSENT</span>
+    <!-- Chart 2: Treasury 10Y vs 2Y + Spread -->
+    <div class="macro-chart-card">
+      <div class="macro-chart-head">
+        <span class="macro-chart-title">Curva de Rendimiento — Treasury 10Y vs 2Y + Spread</span>
+        <button onclick="captureElement(document.getElementById('macro-chart2-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
+      </div>
+      <div class="macro-tip-box">
+        <b>📊 Inversión de curva:</b> Cuando el spread 10Y-2Y cae por debajo de 0 (línea roja punteada), la curva está invertida. Históricamente, esto precedió a cada recesión en USA desde 1950 con un rezago de 6 a 18 meses. El spread positivo indica condiciones financieras normales.
+      </div>
+      <div id="macro-chart2-wrap" class="macro-chart-body" style="height:280px">
+        <canvas id="macro-chart-yield"></canvas>
+      </div>
     </div>
-    <div class="macro-tip">
-      <span class="tip-icon">💡</span>
-      El <b>desempleo</b> y la <b>confianza del consumidor</b> suelen moverse en direcciones opuestas. Cuando el desempleo sube, la confianza cae y el consumo se contrae. El consumo representa ~70% del PBI de USA, por lo que esta combinación es un indicador adelantado de recesión.
-    </div>
-    <div class="macro-chart-body" style="height:260px">
-      <canvas id="macro-chart-labor"></canvas>
-    </div>
-    <div class="chart-meta">UNRATE (%) vs UMCSENT (índice) · FRED St. Louis Fed</div>
-  </div>
 
-  <!-- Riesgo País Argentina -->
-  <div class="macro-chart-card">
-    <div class="macro-chart-head">
-      <div class="macro-chart-title">📈 Riesgo País Argentina — EMBI+</div>
-      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · BAMLEMARPITRIV</span>
-    </div>
-    <div class="macro-tip">
-      <span class="tip-icon">💡</span>
-      El <b>EMBI+ Argentina</b> mide el spread (diferencial) de los bonos soberanos argentinos sobre los bonos del Tesoro USA. Un nivel por encima de 1000 puntos básicos indica riesgo muy alto de default. La tendencia bajista sostenida es señal de mejora en la percepción de riesgo del país.
-    </div>
-    <div class="macro-chart-body" style="height:220px">
-      <canvas id="macro-chart-embi"></canvas>
-    </div>
-    <div class="chart-meta">EMBI+ Argentina (puntos básicos) · FRED St. Louis Fed</div>
-  </div>
+    <!-- Charts 3 y 4 en 2 columnas -->
+    <div class="macro-charts-2col">
 
-  <div style="font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;text-align:center;padding:8px 0">
-    Datos provistos por FRED® (Federal Reserve Bank of St. Louis) · Actualización automática lun-vie 18:00 ARG
-  </div>
-</div>
+      <!-- Chart 3: CPI vs Breakeven -->
+      <div class="macro-chart-card">
+        <div class="macro-chart-head">
+          <span class="macro-chart-title">Inflación: CPI Anualizado vs Breakeven 10Y</span>
+        </div>
+        <div class="macro-tip-box">
+          <b>📊 CPI vs Expectativas:</b> El CPI refleja inflación REAL pasada. El Breakeven 10Y refleja EXPECTATIVAS futuras del mercado. Cuando Breakeven &gt; CPI → el mercado anticipa inflación al alza. Cuando CPI &gt; Breakeven → la inflación sorprendió al alza.
+        </div>
+        <div class="macro-chart-body" style="height:220px">
+          <canvas id="macro-chart-cpi"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: Desempleo vs Confianza consumidor -->
+      <div class="macro-chart-card">
+        <div class="macro-chart-head">
+          <span class="macro-chart-title">Desempleo USA vs Confianza del Consumidor</span>
+        </div>
+        <div class="macro-tip-box">
+          <b>📊 Mercado laboral:</b> Desempleo bajo + confianza alta = economía fuerte. Cuando el desempleo sube y la confianza cae simultáneamente, suele señalar inicio de recesión. La confianza del consumidor es un indicador adelantado del gasto.
+        </div>
+        <div class="macro-chart-body" style="height:220px">
+          <canvas id="macro-chart-labor"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Riesgo País Argentina -->
+    <div class="macro-chart-card">
+      <div class="macro-chart-head">
+        <span class="macro-chart-title">Riesgo País Argentina — EMBI+</span>
+        <button onclick="captureElement(document.getElementById('macro-chart5-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
+      </div>
+      <div class="macro-tip-box">
+        <b>📊 EMBI+ Argentina:</b> Spread en puntos básicos sobre los Treasuries USA. Por debajo de 500 pts → acceso a mercados internacionales de deuda. Por debajo de 300 pts → grado de inversión especulativo. Valores actuales reflejan la percepción de riesgo soberano del mercado.
+      </div>
+      <div id="macro-chart5-wrap" class="macro-chart-body" style="height:240px">
+        <canvas id="macro-chart-rp"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /macro-charts -->
+
+</div><!-- /uspanel-macro -->
 
 <script>
 (function(){
@@ -752,7 +760,7 @@ window.usTab = (name, btn) => {
   if(name==='shortint') siLoad();
   if(name==='rrg')      { if(!rrgLoaded) rrgLoad(); else { rrgRender(); usDrawRotationClock(); } }
   if(name==='topology') usRenderTopology();
-  if(name==='macro')    window.loadMacro();
+  if(name==='macro')    { if(!window._macroLoaded) window.loadMacro(); }
 };
 
 // ── Load ──
@@ -905,7 +913,7 @@ window.usSort = (col) => {
   usApplyScreener();
 };
 
-// ── Sector keyword map ETF name → sub-sector keywords in mercado_usa ──
+// ── Sector keyword map ──
 const US_SECTOR_KW = {
   'Technology':             ['Software','Semiconductor','Technology','IT ','Electronic Equipment','Data Processing','Computer'],
   'Financials':             ['Bank','Insurance','Financial','Asset Manag','Investment Banking','Mortgage','Brokerage','Capital Markets'],
@@ -979,7 +987,6 @@ function usRenderSectores(){
     </div>`;
   }).join('');
 
-  // Best/worst
   const best  = sorted.slice(0,5);
   const worst = sorted.slice(-5).reverse();
   ['usSectorBest','usSectorWorst'].forEach((id,idx)=>{
@@ -1035,7 +1042,6 @@ function usRenderOpciones(){
     }).join('');
   }
 
-  // Tabla detalle
   const sorted = [...usSignals].sort((a,b)=>{
     const av=a[usPCSortCol]??-Infinity, bv=b[usPCSortCol]??-Infinity;
     return usPCSortDir*((av>bv)?1:-1);
@@ -1061,6 +1067,631 @@ function usRenderOpciones(){
         </tr>`;
       }).join('');
 }
+
+
+// ══════════════════════════════════════════════════════════════
+// MACRO TAB
+// ══════════════════════════════════════════════════════════════
+
+window._macroLoaded = false;
+window._macroCharts = {};
+
+window.loadMacro = async function() {
+  if (window._macroLoaded) return;
+  window._macroLoaded = true;
+
+  const loadingEl = document.getElementById('macro-loading');
+  const chartsEl  = document.getElementById('macro-charts');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (chartsEl)  chartsEl.style.display  = 'none';
+
+  try {
+    // Fetch all series from cache_fred
+    const seriesIds = ['DFF','DGS10','DGS2','T10YIE','CPIAUCSL','UNRATE','UMCSENT','BAMLEMARPITRIV','SPREAD_10Y2Y','RECESSION_DATES'];
+    const rows = await sb('cache_fred', `series_id=in.(${seriesIds.map(s=>'"'+s+'"').join(',')})&select=series_id,data,metadata,last_updated`);
+
+    if (!rows || !rows.length) {
+      if (loadingEl) loadingEl.innerHTML = '<div style="color:var(--amber);font-family:monospace;font-size:11px">⚠ Sin datos FRED. Ejecutá la edge function fetch-fred primero.</div>';
+      return;
+    }
+
+    // Build map
+    const fredMap = {};
+    rows.forEach(r => { fredMap[r.series_id] = r; });
+
+    // Helper: get latest non-null value
+    const getLatest = (id) => {
+      const row = fredMap[id];
+      if (!row) return null;
+      return row.metadata?.latest_value ?? null;
+    };
+    const getLatestDate = (id) => {
+      const row = fredMap[id];
+      if (!row) return null;
+      return row.metadata?.latest_date ?? null;
+    };
+    const getData = (id) => {
+      const row = fredMap[id];
+      if (!row || !row.data) return [];
+      return row.data.filter(d => d.value != null);
+    };
+
+    // ── KPI row 1 ──
+    const setMKpi = (suffix, val, unit, sub, date, accentColor) => {
+      const valEl  = document.getElementById('mkpi-'+suffix);
+      const subEl  = document.getElementById('mkpi-'+suffix+'-sub');
+      const dateEl = document.getElementById('mkpi-'+suffix+'-date');
+      if (valEl) {
+        valEl.innerHTML = val != null
+          ? Number(val).toFixed(2) + `<span class="macro-kpi-unit">${unit}</span>`
+          : `—<span class="macro-kpi-unit">${unit}</span>`;
+        if (accentColor) valEl.style.color = accentColor;
+      }
+      if (subEl && sub) subEl.textContent = sub;
+      if (dateEl && date) dateEl.textContent = 'Dato: ' + date;
+    };
+
+    const dff    = getLatest('DFF');
+    const dgs10  = getLatest('DGS10');
+    const dgs2   = getLatest('DGS2');
+    const t10yie = getLatest('T10YIE');
+    const spread = getLatest('SPREAD_10Y2Y');
+    const cpi    = getLatest('CPIAUCSL');
+    const unrate = getLatest('UNRATE');
+    const umcsent= getLatest('UMCSENT');
+    const rp     = getLatest('BAMLEMARPITRIV');
+
+    setMKpi('dff',    dff,    '%',   dff != null ? (dff >= 5 ? 'Restrictiva' : dff >= 3 ? 'Neutral' : 'Expansiva') : '—', getLatestDate('DFF'),    null);
+    setMKpi('dgs10',  dgs10,  '%',   dgs10 != null ? 'Tasa libre de riesgo 10Y' : '—', getLatestDate('DGS10'),  null);
+    setMKpi('t10yie', t10yie, '%',   t10yie != null ? 'Expectativa inflación 10Y' : '—', getLatestDate('T10YIE'), null);
+
+    // Spread con color dinámico
+    const spreadEl = document.getElementById('mkpi-spread');
+    if (spreadEl && spread != null) {
+      spreadEl.innerHTML = Number(spread).toFixed(2) + '<span class="macro-kpi-unit">pp</span>';
+      spreadEl.style.color = spread < 0 ? 'var(--red)' : spread < 0.5 ? 'var(--amber)' : 'var(--green)';
+    }
+    const spreadSubEl = document.getElementById('mkpi-spread-sub');
+    if (spreadSubEl) spreadSubEl.textContent = spread != null ? (spread < 0 ? '⚠ Curva invertida' : spread < 0.5 ? 'Curva plana' : 'Curva normal') : '—';
+    const spreadDateEl = document.getElementById('mkpi-spread-date');
+    if (spreadDateEl) spreadDateEl.textContent = 'Dato: ' + (getLatestDate('SPREAD_10Y2Y') || '—');
+
+    // KPI row 2
+    const cpiEl = document.getElementById('mkpi-cpi');
+    if (cpiEl) cpiEl.innerHTML = cpi != null ? Number(cpi).toFixed(1) : '—';
+    const cpiSubEl = document.getElementById('mkpi-cpi-sub');
+    if (cpiSubEl) cpiSubEl.textContent = 'Índice base 1982-84=100';
+    const cpiDateEl = document.getElementById('mkpi-cpi-date');
+    if (cpiDateEl) cpiDateEl.textContent = 'Dato: ' + (getLatestDate('CPIAUCSL') || '—');
+
+    const unrateEl = document.getElementById('mkpi-unrate');
+    if (unrateEl) {
+      unrateEl.innerHTML = unrate != null ? Number(unrate).toFixed(1) + '<span class="macro-kpi-unit">%</span>' : '—<span class="macro-kpi-unit">%</span>';
+      if (unrate != null) unrateEl.style.color = unrate > 5 ? 'var(--red)' : unrate > 4 ? 'var(--amber)' : 'var(--green)';
+    }
+    const unrateSubEl = document.getElementById('mkpi-unrate-sub');
+    if (unrateSubEl) unrateSubEl.textContent = unrate != null ? (unrate > 5 ? 'Elevado' : unrate > 4 ? 'Moderado' : 'Bajo') : '—';
+    const unrateDateEl = document.getElementById('mkpi-unrate-date');
+    if (unrateDateEl) unrateDateEl.textContent = 'Dato: ' + (getLatestDate('UNRATE') || '—');
+
+    const umcsentEl = document.getElementById('mkpi-umcsent');
+    if (umcsentEl) {
+      umcsentEl.innerHTML = umcsent != null ? Number(umcsent).toFixed(1) : '—';
+      if (umcsent != null) umcsentEl.style.color = umcsent > 80 ? 'var(--green)' : umcsent > 60 ? 'var(--amber)' : 'var(--red)';
+    }
+    const umcsentSubEl = document.getElementById('mkpi-umcsent-sub');
+    if (umcsentSubEl) umcsentSubEl.textContent = umcsent != null ? (umcsent > 80 ? 'Alta confianza' : umcsent > 60 ? 'Moderada' : 'Baja confianza') : '—';
+    const umcsentDateEl = document.getElementById('mkpi-umcsent-date');
+    if (umcsentDateEl) umcsentDateEl.textContent = 'Dato: ' + (getLatestDate('UMCSENT') || '—');
+
+    const rpEl = document.getElementById('mkpi-rp');
+    if (rpEl) {
+      rpEl.innerHTML = rp != null ? Math.round(rp) + '<span class="macro-kpi-unit">pts</span>' : '—<span class="macro-kpi-unit">pts</span>';
+      if (rp != null) rpEl.style.color = rp > 1000 ? 'var(--red)' : rp > 500 ? 'var(--amber)' : 'var(--green)';
+    }
+    const rpSubEl = document.getElementById('mkpi-rp-sub');
+    if (rpSubEl) rpSubEl.textContent = rp != null ? (rp > 1000 ? 'Riesgo muy alto' : rp > 500 ? 'Riesgo elevado' : 'Acceso a mercados') : '—';
+    const rpDateEl = document.getElementById('mkpi-rp-date');
+    if (rpDateEl) rpDateEl.textContent = 'Dato: ' + (getLatestDate('BAMLEMARPITRIV') || '—');
+
+    // ── Recession shading helper ──
+    const recessions = fredMap['RECESSION_DATES']?.data || [];
+
+    function addRecessionShading(chart, labels, recessions) {
+      // Returns annotation config for chartjs-plugin-annotation if available
+      // Otherwise we draw manually via a custom plugin
+      return {
+        id: 'recessionShading',
+        beforeDraw(ch) {
+          const { ctx, chartArea, scales } = ch;
+          if (!chartArea || !scales.x) return;
+          ctx.save();
+          recessions.forEach(rec => {
+            const startDate = rec.start;
+            const endDate   = rec.end;
+            // Find label indices
+            const si = labels.findIndex(l => l >= startDate);
+            const ei = labels.findIndex(l => l > endDate);
+            if (si < 0) return;
+            const x1 = scales.x.getPixelForValue(si < 0 ? 0 : si);
+            const x2 = scales.x.getPixelForValue(ei < 0 ? labels.length - 1 : ei);
+            ctx.fillStyle = 'rgba(180,180,180,0.12)';
+            ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
+          });
+          ctx.restore();
+        }
+      };
+    }
+
+    // ── Chart 1: Fed Funds Rate ──
+    const dffData = getData('DFF');
+    if (dffData.length) {
+      // Downsample to ~200 points for performance
+      const step = Math.max(1, Math.floor(dffData.length / 200));
+      const sampled = dffData.filter((_, i) => i % step === 0 || i === dffData.length - 1);
+      const labels1 = sampled.map(d => d.date);
+      const vals1   = sampled.map(d => d.value);
+
+      const recPlugin1 = addRecessionShading(null, labels1, recessions);
+
+      if (window._macroCharts.dff) window._macroCharts.dff.destroy();
+      window._macroCharts.dff = new Chart(document.getElementById('macro-chart-dff'), {
+        type: 'line',
+        data: {
+          labels: labels1,
+          datasets: [{
+            label: 'Fed Funds Rate',
+            data: vals1,
+            borderColor: '#4488ff',
+            backgroundColor: 'rgba(68,136,255,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.2,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+            tooltip: {
+              backgroundColor: '#111722',
+              titleFont: { family: 'IBM Plex Mono', size: 10 },
+              bodyFont: { family: 'IBM Plex Mono', size: 11 },
+              callbacks: {
+                label: ctx => 'Fed Funds: ' + ctx.parsed.y.toFixed(2) + '%',
+                title: ctxArr => {
+                  const date = ctxArr[0]?.label || '';
+                  const val  = ctxArr[0]?.parsed?.y;
+                  if (!val) return date;
+                  const note = val >= 5 ? ' — Política restrictiva' : val <= 1 ? ' — Política expansiva' : '';
+                  return date + note;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 },
+              grid: { color: 'rgba(255,255,255,0.03)' }
+            },
+            y: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' },
+              grid: { color: 'rgba(255,255,255,0.04)' }
+            }
+          }
+        },
+        plugins: [recPlugin1]
+      });
+    }
+
+    // ── Chart 2: Treasury 10Y vs 2Y + Spread ──
+    const dgs10Data  = getData('DGS10');
+    const dgs2Data   = getData('DGS2');
+    const spreadData = getData('SPREAD_10Y2Y');
+
+    if (dgs10Data.length && dgs2Data.length) {
+      // Align on common dates
+      const dateSet = new Set(dgs10Data.map(d => d.date));
+      const dgs2Map = {};
+      dgs2Data.forEach(d => { dgs2Map[d.date] = d.value; });
+      const spreadMap = {};
+      spreadData.forEach(d => { spreadMap[d.date] = d.value; });
+
+      const aligned = dgs10Data.filter(d => dgs2Map[d.date] != null);
+      const step2 = Math.max(1, Math.floor(aligned.length / 200));
+      const sampled2 = aligned.filter((_, i) => i % step2 === 0 || i === aligned.length - 1);
+
+      const labels2  = sampled2.map(d => d.date);
+      const vals10   = sampled2.map(d => d.value);
+      const vals2    = sampled2.map(d => dgs2Map[d.date]);
+      const valsSprd = sampled2.map(d => spreadMap[d.date] ?? null);
+
+      const recPlugin2 = addRecessionShading(null, labels2, recessions);
+
+      if (window._macroCharts.yield) window._macroCharts.yield.destroy();
+      window._macroCharts.yield = new Chart(document.getElementById('macro-chart-yield'), {
+        type: 'line',
+        data: {
+          labels: labels2,
+          datasets: [
+            {
+              label: 'Treasury 10Y',
+              data: vals10,
+              borderColor: '#00ccff',
+              backgroundColor: 'rgba(0,204,255,0.06)',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.2,
+              fill: false,
+              yAxisID: 'y',
+            },
+            {
+              label: 'Treasury 2Y',
+              data: vals2,
+              borderColor: '#9966ff',
+              backgroundColor: 'rgba(153,102,255,0.06)',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.2,
+              fill: false,
+              yAxisID: 'y',
+            },
+            {
+              label: 'Spread 10Y-2Y',
+              data: valsSprd,
+              borderColor: '#f5a623',
+              backgroundColor: valsSprd.map(v => v != null && v < 0 ? 'rgba(255,64,96,0.15)' : 'rgba(245,166,35,0.10)'),
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.2,
+              fill: true,
+              yAxisID: 'y2',
+              borderDash: [4, 3],
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+            tooltip: {
+              backgroundColor: '#111722',
+              titleFont: { family: 'IBM Plex Mono', size: 10 },
+              bodyFont: { family: 'IBM Plex Mono', size: 11 },
+              callbacks: {
+                afterBody: (ctxArr) => {
+                  const spreadVal = ctxArr.find(c => c.dataset.label === 'Spread 10Y-2Y')?.parsed?.y;
+                  if (spreadVal != null && spreadVal < 0) return ['⚠ Curva invertida — señal de recesión'];
+                  return [];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 },
+              grid: { color: 'rgba(255,255,255,0.03)' }
+            },
+            y: {
+              position: 'left',
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' },
+              grid: { color: 'rgba(255,255,255,0.04)' }
+            },
+            y2: {
+              position: 'right',
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v.toFixed(1) + 'pp' },
+              grid: { drawOnChartArea: false }
+            }
+          }
+        },
+        plugins: [recPlugin2, {
+          id: 'zeroLine',
+          afterDraw(ch) {
+            const { ctx, chartArea, scales } = ch;
+            if (!scales.y2) return;
+            const y0 = scales.y2.getPixelForValue(0);
+            if (y0 < chartArea.top || y0 > chartArea.bottom) return;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255,64,96,0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 3]);
+            ctx.beginPath();
+            ctx.moveTo(chartArea.left, y0);
+            ctx.lineTo(chartArea.right, y0);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }]
+      });
+    }
+
+    // ── Chart 3: CPI anualizado vs Breakeven ──
+    const cpiData    = getData('CPIAUCSL');
+    const t10yieData = getData('T10YIE');
+
+    if (cpiData.length) {
+      // Calcular variación anual del CPI
+      const cpiYoY = [];
+      for (let i = 12; i < cpiData.length; i++) {
+        const prev = cpiData[i - 12]?.value;
+        const curr = cpiData[i]?.value;
+        if (prev && curr) {
+          cpiYoY.push({ date: cpiData[i].date, value: ((curr - prev) / prev) * 100 });
+        }
+      }
+
+      // Align breakeven to CPI dates
+      const bkMap = {};
+      t10yieData.forEach(d => { bkMap[d.date] = d.value; });
+
+      const step3 = Math.max(1, Math.floor(cpiYoY.length / 150));
+      const sampled3 = cpiYoY.filter((_, i) => i % step3 === 0 || i === cpiYoY.length - 1);
+      const labels3  = sampled3.map(d => d.date);
+      const valsCpi  = sampled3.map(d => d.value);
+
+      // Breakeven: find closest date
+      const bkVals = labels3.map(date => {
+        if (bkMap[date] != null) return bkMap[date];
+        // Find nearest
+        const nearest = t10yieData.reduce((best, d) => {
+          return Math.abs(d.date.localeCompare(date)) < Math.abs(best.date.localeCompare(date)) ? d : best;
+        }, t10yieData[0]);
+        return nearest?.value ?? null;
+      });
+
+      if (window._macroCharts.cpi) window._macroCharts.cpi.destroy();
+      window._macroCharts.cpi = new Chart(document.getElementById('macro-chart-cpi'), {
+        type: 'line',
+        data: {
+          labels: labels3,
+          datasets: [
+            {
+              label: 'CPI Anualizado',
+              data: valsCpi,
+              borderColor: '#ff4060',
+              backgroundColor: 'rgba(255,64,96,0.08)',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.3,
+              fill: true,
+            },
+            {
+              label: 'Breakeven 10Y',
+              data: bkVals,
+              borderColor: '#f5a623',
+              backgroundColor: 'rgba(245,166,35,0.06)',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.3,
+              fill: false,
+              borderDash: [5, 3],
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+            tooltip: {
+              backgroundColor: '#111722',
+              titleFont: { family: 'IBM Plex Mono', size: 10 },
+              bodyFont: { family: 'IBM Plex Mono', size: 11 },
+              callbacks: {
+                label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%'
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 8, maxRotation: 0 },
+              grid: { color: 'rgba(255,255,255,0.03)' }
+            },
+            y: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v.toFixed(1) + '%' },
+              grid: { color: 'rgba(255,255,255,0.04)' }
+            }
+          }
+        }
+      });
+    }
+
+    // ── Chart 4: Desempleo vs Confianza consumidor ──
+    const unrateData  = getData('UNRATE');
+    const umcsentData = getData('UMCSENT');
+
+    if (unrateData.length && umcsentData.length) {
+      const umcMap = {};
+      umcsentData.forEach(d => { umcMap[d.date] = d.value; });
+
+      const step4 = Math.max(1, Math.floor(unrateData.length / 150));
+      const sampled4 = unrateData.filter((_, i) => i % step4 === 0 || i === unrateData.length - 1);
+      const labels4  = sampled4.map(d => d.date);
+      const valsUn   = sampled4.map(d => d.value);
+      const valsUmc  = labels4.map(date => {
+        if (umcMap[date] != null) return umcMap[date];
+        const nearest = umcsentData.reduce((best, d) =>
+          Math.abs(d.date.localeCompare(date)) < Math.abs(best.date.localeCompare(date)) ? d : best,
+          umcsentData[0]);
+        return nearest?.value ?? null;
+      });
+
+      if (window._macroCharts.labor) window._macroCharts.labor.destroy();
+      window._macroCharts.labor = new Chart(document.getElementById('macro-chart-labor'), {
+        type: 'line',
+        data: {
+          labels: labels4,
+          datasets: [
+            {
+              label: 'Desempleo',
+              data: valsUn,
+              borderColor: '#ff4060',
+              backgroundColor: 'rgba(255,64,96,0.08)',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.3,
+              fill: true,
+              yAxisID: 'y',
+            },
+            {
+              label: 'Confianza consumidor',
+              data: valsUmc,
+              borderColor: '#9966ff',
+              backgroundColor: 'rgba(153,102,255,0.06)',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.3,
+              fill: false,
+              yAxisID: 'y2',
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+            tooltip: {
+              backgroundColor: '#111722',
+              titleFont: { family: 'IBM Plex Mono', size: 10 },
+              bodyFont: { family: 'IBM Plex Mono', size: 11 },
+              callbacks: {
+                label: ctx => {
+                  if (ctx.dataset.label === 'Desempleo') return 'Desempleo: ' + ctx.parsed.y.toFixed(1) + '%';
+                  return 'Confianza: ' + ctx.parsed.y.toFixed(1);
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 8, maxRotation: 0 },
+              grid: { color: 'rgba(255,255,255,0.03)' }
+            },
+            y: {
+              position: 'left',
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' },
+              grid: { color: 'rgba(255,255,255,0.04)' }
+            },
+            y2: {
+              position: 'right',
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 } },
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+    }
+
+    // ── Chart 5: Riesgo País Argentina ──
+    const rpData = getData('BAMLEMARPITRIV');
+    if (rpData.length) {
+      const step5 = Math.max(1, Math.floor(rpData.length / 200));
+      const sampled5 = rpData.filter((_, i) => i % step5 === 0 || i === rpData.length - 1);
+      const labels5  = sampled5.map(d => d.date);
+      const valsRp   = sampled5.map(d => d.value);
+
+      if (window._macroCharts.rp) window._macroCharts.rp.destroy();
+      window._macroCharts.rp = new Chart(document.getElementById('macro-chart-rp'), {
+        type: 'line',
+        data: {
+          labels: labels5,
+          datasets: [{
+            label: 'Riesgo País ARG (EMBI+)',
+            data: valsRp,
+            borderColor: '#f5a623',
+            backgroundColor: 'rgba(245,166,35,0.08)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.2,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+            tooltip: {
+              backgroundColor: '#111722',
+              titleFont: { family: 'IBM Plex Mono', size: 10 },
+              bodyFont: { family: 'IBM Plex Mono', size: 11 },
+              callbacks: {
+                label: ctx => 'EMBI+: ' + Math.round(ctx.parsed.y) + ' pts',
+                afterBody: (ctxArr) => {
+                  const v = ctxArr[0]?.parsed?.y;
+                  if (v == null) return [];
+                  if (v > 1000) return ['⚠ Riesgo muy alto — sin acceso a mercados'];
+                  if (v > 500)  return ['⚠ Riesgo elevado'];
+                  return ['✅ Acceso a mercados internacionales'];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 },
+              grid: { color: 'rgba(255,255,255,0.03)' }
+            },
+            y: {
+              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => Math.round(v) + ' pts' },
+              grid: { color: 'rgba(255,255,255,0.04)' }
+            }
+          }
+        },
+        plugins: [{
+          id: 'rpLevels',
+          afterDraw(ch) {
+            const { ctx, chartArea, scales } = ch;
+            if (!scales.y) return;
+            ctx.save();
+            [
+              { val: 500, color: 'rgba(0,229,168,0.4)', label: '500 — acceso mercados' },
+              { val: 1000, color: 'rgba(255,64,96,0.4)', label: '1000 — riesgo muy alto' },
+            ].forEach(lv => {
+              const y = scales.y.getPixelForValue(lv.val);
+              if (y < chartArea.top || y > chartArea.bottom) return;
+              ctx.setLineDash([5, 4]);
+              ctx.strokeStyle = lv.color;
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.moveTo(chartArea.left, y);
+              ctx.lineTo(chartArea.right, y);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.fillStyle = lv.color;
+              ctx.font = "8px 'IBM Plex Mono', monospace";
+              ctx.textAlign = 'right';
+              ctx.fillText(lv.label, chartArea.right - 4, y - 3);
+            });
+            ctx.restore();
+          }
+        }]
+      });
+    }
+
+    // Show charts
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (chartsEl)  chartsEl.style.display  = '';
+
+  } catch(e) {
+    console.error('[loadMacro]', e);
+    if (loadingEl) loadingEl.innerHTML = `<div style="color:var(--red);font-family:monospace;font-size:11px">Error: ${e.message}</div>`;
+  }
+};
 
 
 // ── GEX SPY ──────────────────────────────────────────────────────
@@ -1091,7 +1722,6 @@ window.loadGEX = async function loadGEX() {
 
     window.gexSpot = Number(d.spot) || 550;
 
-    // Filtrar opciones con OI y gamma reales, cerca del spot
     const validRows = d.options.filter(o =>
       Number(o.gamma) > 0 &&
       Number(o.open_interest) > 0 &&
@@ -1131,15 +1761,12 @@ window.renderGEX = async function renderGEX() {
   const rows = window.gexSelectedExp === 'all' ? window.gexAllData : gexAllData.filter(r => r.expiration === gexSelectedExp);
   if (!rows.length) return;
 
-  // Spot viene de CBOE directamente
   const spot = window.gexSpot;
 
-  // Calcular GEX por strike
   const strikeMap = {};
   rows.forEach(r => {
     const strike = Number(r.strike);
     const gamma  = Number(r.gamma || 0);
-    // OI real de CBOE
     const oi     = Number(r.open_interest || 0);
     const gex    = gamma * oi * 100 * spot * spot / 100;
     if (!strikeMap[strike]) strikeMap[strike] = {call_gex:0,put_gex:0,call_oi:0,put_oi:0,strike};
@@ -1164,7 +1791,6 @@ window.renderGEX = async function renderGEX() {
   const callWall = nearStrikes.filter(s=>s.strike>spot).sort((a,b)=>b.call_gex-a.call_gex)[0] || wall;
   const putWall  = nearStrikes.filter(s=>s.strike<spot).sort((a,b)=>a.put_gex-b.put_gex)[0]  || wall;
 
-  // Calcular Gamma Flip — strike donde el GEX acumulado cambia de signo
   const sortedByStrike = [...nearStrikes].sort((a,b) => b.strike - a.strike);
   let cumGex = 0;
   let gammaFlip = null;
@@ -1176,7 +1802,7 @@ window.renderGEX = async function renderGEX() {
       break;
     }
   }
-  if (!gammaFlip) gammaFlip = wall.strike; // fallback
+  if (!gammaFlip) gammaFlip = wall.strike;
 
   const fmtG = v => { const m=v/1e6; return (m>=0?'+':'')+m.toFixed(0)+'M'; };
 
@@ -1196,28 +1822,23 @@ window.renderGEX = async function renderGEX() {
     ? '<strong style="color:var(--green)">LONG GAMMA</strong> — Dealers con gamma positivo neto (' + pct + '% dominancia calls). El precio tiende a gravitar hacia el Gamma Wall en $' + wall.strike + '. Volatilidad comprimida, favorable para venta de opciones.'
     : '<strong style="color:var(--red)">SHORT GAMMA</strong> — Dealers con gamma negativo neto (' + pct + '% dominancia puts). Los movimientos se amplifican en ambas direcciones. Gamma Wall en $' + wall.strike + ' como referencia clave.';
 
-  // Grafico Chart.js — GEX por strike (valores reales en M)
   const canvasEl = document.getElementById('gexChart');
   if (typeof Chart !== 'undefined' && canvasEl) {
     const ctx = canvasEl.getContext('2d');
     if (window._gexChart) window._gexChart.destroy();
 
-    // GEX acumulado (de menor a mayor strike)
     const cumArr = [];
     let cumSum = 0;
     for (const s of nearStrikes) { cumSum += s.call_gex + s.put_gex; cumArr.push(cumSum); }
 
-    // Índices de flip, spot y wall
     const flipIdx = nearStrikes.findIndex(s => s.strike >= gammaFlip);
     const spotIdx = nearStrikes.reduce((bi, s, i) =>
       Math.abs(s.strike - spot) < Math.abs(nearStrikes[bi].strike - spot) ? i : bi, 0);
     const wallIdx = nearStrikes.findIndex(s => s.strike === wall.strike);
 
-    // Colores: más intenso donde domina el gamma (rojo = zona short, verde = zona long)
     const callBg = nearStrikes.map((_,i) => i >= Math.max(0,flipIdx) ? 'rgba(0,229,168,0.80)' : 'rgba(0,229,168,0.35)');
     const putBg  = nearStrikes.map((_,i) => i >= Math.max(0,flipIdx) ? 'rgba(255,63,94,0.35)'  : 'rgba(255,63,94,0.80)');
 
-    // Plugin canvas inline para zonas de fondo + líneas verticales spot/flip
     const bgPlugin = {
       id: 'gexBg',
       beforeDraw(chart) {
@@ -1240,7 +1861,6 @@ window.renderGEX = async function renderGEX() {
           c.save();
           c.textAlign = 'center';
           c.font = '9px IBM Plex Mono';
-          // ★ Wall (amber)
           if (wallIdx >= 0) {
             const xw = scales.x.getPixelForValue(wallIdx);
             c.setLineDash([6,2]); c.strokeStyle = '#f0a500'; c.lineWidth = 2;
@@ -1248,7 +1868,6 @@ window.renderGEX = async function renderGEX() {
             c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(xw - 34, chartArea.top, 68, 14);
             c.fillStyle = '#f0a500'; c.fillText('★ Wall $' + wall.strike, xw, chartArea.top + 10);
           }
-          // ⟳ Flip (cyan)
           if (flipIdx >= 0) {
             const xf = scales.x.getPixelForValue(flipIdx);
             c.setLineDash([4,3]); c.strokeStyle = '#00b4d8'; c.lineWidth = 1.5;
@@ -1256,7 +1875,6 @@ window.renderGEX = async function renderGEX() {
             c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(xf - 34, chartArea.top + 16, 68, 14);
             c.fillStyle = '#00b4d8'; c.fillText('⟳ Flip $' + gammaFlip.toFixed(0), xf, chartArea.top + 26);
           }
-          // ● Spot (green)
           const xs = scales.x.getPixelForValue(spotIdx);
           c.setLineDash([2,2]); c.strokeStyle = '#00e5a8'; c.lineWidth = 1.5;
           c.beginPath(); c.moveTo(xs, chartArea.top); c.lineTo(xs, chartArea.bottom); c.stroke();
@@ -1305,7 +1923,6 @@ window.renderGEX = async function renderGEX() {
     });
   }
 
-  // Tabla top strikes
   const top = nearStrikes.map(s=>({...s,net:s.call_gex+s.put_gex}))
     .sort((a,b)=>Math.abs(b.net)-Math.abs(a.net)).slice(0,15);
   document.getElementById('gex-table-body').innerHTML = top.map(s => {
@@ -1325,12 +1942,10 @@ window.renderGEX = async function renderGEX() {
   renderGEXHorizontal(nearStrikes, wall, callWall, putWall, gammaFlip, spot);
 }
 
-// ── GEX horizontal (niveles gex) — Call/Put por strike con niveles ──
 function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) {
   const canvas = document.getElementById('gexPriceChart');
   if (!canvas || typeof Chart === 'undefined') return;
 
-  // Índices de los niveles en el array de strikes (para las líneas horizontales)
   const wallIdx  = strikes.findIndex(s => s.strike === wall.strike);
   const cwIdx    = strikes.findIndex(s => s.strike === callWall.strike);
   const pwIdx    = strikes.findIndex(s => s.strike === putWall.strike);
@@ -1338,7 +1953,6 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
   const spotIdx  = strikes.reduce((bi,s,i) =>
     Math.abs(s.strike-spot) < Math.abs(strikes[bi].strike-spot) ? i : bi, 0);
 
-  // Niveles a mostrar como líneas horizontales sobre las barras
   const lvls = [
     {idx: cwIdx,   color: '#f0a500', label: '★ Call Wall $'+callWall.strike.toFixed(0)},
     {idx: pwIdx,   color: '#ff3f5e', label: '▼ Put Wall  $'+putWall.strike.toFixed(0)},
@@ -1347,7 +1961,6 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
     {idx: wallIdx, color: '#b39dff', label: '◆ G.Magnet  $'+wall.strike.toFixed(0)},
   ];
 
-  // Plugin canvas: líneas horizontales con etiquetas en el borde derecho
   const hPlugin = {
     id: 'hLevels',
     afterDraw(chart) {
@@ -1372,7 +1985,6 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
     }
   };
 
-  // TradingView SPY (izquierda)
   if (!window._tvSPYGexLoaded) {
     window._tvSPYGexLoaded = true;
     function _createTVSPY() {
@@ -1453,8 +2065,8 @@ function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) 
 // ── RRG ──────────────────────────────────────────────────────
 let rrgLoaded  = false;
 let rrgTab     = 'sectores';
-let rrgMode    = 'weekly'; // 'weekly' | 'daily'
-let rrgFilter  = 'all';   // 'all' | 'leading' | 'improving' | 'weakening' | 'lagging'
+let rrgMode    = 'weekly';
+let rrgFilter  = 'all';
 let rrgData    = {sectores:[], acciones:[], sectores_d:[], acciones_d:[]};
 let rrgRange   = {min:95, max:106};
 
@@ -1536,7 +2148,6 @@ async function rrgLoad() {
   try {
     const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
-    // Fetch each symbol separately in parallel — Supabase caps at 1000 rows/request
     const results = await Promise.all(
       allSyms.map(sym =>
         fetch(`${base}?select=symbol,fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=500`, {headers:SBH})
@@ -1547,7 +2158,6 @@ async function rrgLoad() {
 
     if (!rows?.length) { document.getElementById('rrg-meta').textContent='Sin datos en historico_precios.'; return; }
 
-    // Agrupar por símbolo
     const bySymbol = {};
     rows.forEach(r => {
       if (!bySymbol[r.symbol]) bySymbol[r.symbol]=[];
@@ -1565,7 +2175,6 @@ async function rrgLoad() {
     rrgData.sectores = buildTab(RRG_SECTORS);
     rrgData.acciones = buildTab(RRG_ACCIONES);
 
-    // Daily mode
     const spyDayMap = rrgDailyMap(bySymbol['SPY']||[]);
     const buildTabDaily = syms => syms.map((s,i) => {
       const pts = bySymbol[s] ? rrgCalcSymbolDaily(rrgDailyMap(bySymbol[s]), spyDayMap) : null;
@@ -1622,7 +2231,6 @@ function rrgRender() {
   const W=cssW,H=cssH,pw=W-RRG_PAD.left-RRG_PAD.right,ph=H-RRG_PAD.top-RRG_PAD.bottom;
   ctx.clearRect(0,0,W,H);
   const rrgKey = rrgMode === 'daily' ? rrgTab+'_d' : rrgTab;
-  // Rango por tab: desviación máx × 1.25, mínimo ±2, cap ±4.5
   { const pts=rrgData[rrgKey].flatMap(({p})=>p);
     const dev=pts.reduce((mx,[r,m])=>Math.max(mx,Math.abs(r-100),Math.abs(m-100)),2);
     const sp=Math.min(dev*1.25, 4.5);
@@ -1630,13 +2238,11 @@ function rrgRender() {
 
   const [cx,cy]=rrgXY(RRG_CENTER,RRG_CENTER,W,H);
 
-  // Quadrant fills
   ctx.fillStyle='rgba(0,229,168,.08)';  ctx.fillRect(cx,RRG_PAD.top,W-RRG_PAD.right-cx,cy-RRG_PAD.top);
   ctx.fillStyle='rgba(56,200,255,.08)'; ctx.fillRect(RRG_PAD.left,RRG_PAD.top,cx-RRG_PAD.left,cy-RRG_PAD.top);
   ctx.fillStyle='rgba(255,63,94,.08)';  ctx.fillRect(RRG_PAD.left,cy,cx-RRG_PAD.left,H-RRG_PAD.bottom-cy);
   ctx.fillStyle='rgba(255,200,74,.08)'; ctx.fillRect(cx,cy,W-RRG_PAD.right-cx,H-RRG_PAD.bottom-cy);
 
-  // Grid
   ctx.strokeStyle='rgba(255,255,255,.03)'; ctx.lineWidth=1;
   for(let i=0;i<=10;i++){
     const x=RRG_PAD.left+pw/10*i,y=RRG_PAD.top+ph/10*i;
@@ -1644,17 +2250,14 @@ function rrgRender() {
     ctx.beginPath();ctx.moveTo(RRG_PAD.left,y);ctx.lineTo(W-RRG_PAD.right,y);ctx.stroke();
   }
 
-  // Center axes
   ctx.setLineDash([6,5]); ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(cx,RRG_PAD.top);ctx.lineTo(cx,H-RRG_PAD.bottom);ctx.stroke();
   ctx.beginPath();ctx.moveTo(RRG_PAD.left,cy);ctx.lineTo(W-RRG_PAD.right,cy);ctx.stroke();
   ctx.setLineDash([]);
 
-  // Border
   ctx.strokeStyle='#1e2a38'; ctx.lineWidth=1;
   ctx.strokeRect(RRG_PAD.left,RRG_PAD.top,pw,ph);
 
-  // Quadrant labels
   const qfs=Math.max(9,Math.round(pw/28));
   ctx.font=`700 ${qfs}px 'IBM Plex Mono',monospace`; ctx.textAlign='center';
   const qp=16;
@@ -1664,7 +2267,6 @@ function rrgRender() {
    ['WEAKENING',cx+(W-RRG_PAD.right-cx)/2,H-RRG_PAD.bottom-qp,'rgba(255,200,74,.15)'],
   ].forEach(([t,x,y,c])=>{ctx.fillStyle=c;ctx.fillText(t,x,y);});
 
-  // Ticks
   ctx.fillStyle='#3d5166'; ctx.font=`400 8px 'IBM Plex Mono',monospace`;
   const TICKS=5,TSTEP=(rrgRange.max-rrgRange.min)/TICKS;
   for(let i=0;i<=TICKS;i++){
@@ -1679,7 +2281,6 @@ function rrgRender() {
   ctx.save(); ctx.translate(13,RRG_PAD.top+ph/2); ctx.rotate(-Math.PI/2);
   ctx.fillText('RS-Momentum →',0,0); ctx.restore();
 
-  // Symbols filtrados por cuadrante
   const rrgVisible = rrgData[rrgKey].filter(({p})=>{
     if(rrgFilter==='all') return true;
     if(!p.length) return false;
@@ -1719,7 +2320,6 @@ function rrgBuildLegend() {
   el.innerHTML='';
   const rrgKey = rrgMode === 'daily' ? rrgTab+'_d' : rrgTab;
   const allEntries = rrgData[rrgKey].filter(({p})=>p.length);
-  // Ordenar: Improving primero, luego Leading, Weakening, Lagging
   const qOrder = {Improving:0,Leading:1,Weakening:2,Lagging:3};
   allEntries.sort((a,b)=>{
     const qa=rrgQ(a.p[a.p.length-1][0],a.p[a.p.length-1][1]);
@@ -1788,8 +2388,7 @@ window.rrgSwitchTab = function(tab,btn){
   rrgRender(); rrgBuildLegend();
 };
 
-// ── Add symbol manually ────────────────────────────────────────
-let rrgAddCache = null; // cached S&P 500 symbol list
+let rrgAddCache = null;
 
 async function rrgGetSymbolList() {
   if (rrgAddCache) return rrgAddCache;
@@ -1834,7 +2433,6 @@ window.rrgAddSymbol = async function() {
   if (!sym) return;
   rrgAddHideAc();
 
-  // Check already in list
   if (rrgData.acciones.some(d=>d.s===sym)) {
     inp.style.borderColor='var(--amber)'; setTimeout(()=>inp.style.borderColor='',1200);
     return;
@@ -1910,7 +2508,7 @@ window.rrgSwitchFilter = function(sel){
 };
 
 window.rrgScanSP500 = async function(){
-  const filterVal = rrgFilter === 'all' ? 'improving' : rrgFilter; // default to improving if no filter set
+  const filterVal = rrgFilter === 'all' ? 'improving' : rrgFilter;
   const panel = document.getElementById('rrg-scan-panel');
   const body  = document.getElementById('rrg-scan-body');
   const meta  = document.getElementById('rrg-scan-meta');
@@ -1929,7 +2527,6 @@ window.rrgScanSP500 = async function(){
     const SBH  = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
 
-    // 1. Get all distinct symbols (reuse cache from autocomplete if available)
     let allSyms = rrgAddCache ? [...rrgAddCache] : [];
     if (!allSyms.length) {
       const symResp = await fetch(`${base}?select=symbol&fecha=eq.2024-01-02&order=symbol.asc&limit=600`, {headers:SBH});
@@ -1946,18 +2543,15 @@ window.rrgScanSP500 = async function(){
 
     meta.textContent = `${allSyms.length} símbolos · cargando histórico…`;
 
-    // 2. We need SPY data — reuse already-loaded data or fetch fresh
     const since = new Date(); since.setDate(since.getDate()-420);
     const sinceStr = since.toISOString().slice(0,10);
 
-    // Fetch SPY first
     const spyResp = await fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=500`, {headers:SBH});
     const spyRows = spyResp.ok ? await spyResp.json() : [];
     const spySeries = spyRows.map(r=>({date:r.fecha,close:r.close}));
     const spyMap = rrgWeeklyMap(spySeries);
     if (spyMap.size < 30) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Insuficientes datos SPY</div>'; return; }
 
-    // 3. Fetch all symbols in batches of 40
     const BATCH = 40;
     const results = [];
     for (let i = 0; i < allSyms.length; i += BATCH) {
@@ -1973,7 +2567,6 @@ window.rrgScanSP500 = async function(){
       results.push(...fetches);
     }
 
-    // 4. Calculate RRG for each symbol and classify
     const scanResults = [];
     for (const {sym, rows} of results) {
       if (!rows.length) continue;
@@ -1983,14 +2576,12 @@ window.rrgScanSP500 = async function(){
       if (!pts || pts.length < 2) continue;
       const last = pts[pts.length-1];
       const {name, color} = rrgQ(last[0], last[1]);
-      // momentum direction
       const prev = pts[pts.length-2];
       const dR = last[0]-prev[0];
       const dM = last[1]-prev[1];
       scanResults.push({sym, name, color, ratio:last[0], mom:last[1], dR, dM});
     }
 
-    // 5. Filter by selected quadrant (or show all sorted by quadrant)
     const qOrder = {Improving:0,Leading:1,Weakening:2,Lagging:3};
     const filtered = filterVal === 'all'
       ? scanResults
@@ -1999,7 +2590,6 @@ window.rrgScanSP500 = async function(){
     filtered.sort((a,b) => {
       const qd = (qOrder[a.name]??4)-(qOrder[b.name]??4);
       if (qd!==0) return qd;
-      // within same quadrant, sort by RS-Ratio desc
       return b.ratio - a.ratio;
     });
 
@@ -2041,7 +2631,6 @@ window.addEventListener('resize',()=>{
   if(document.getElementById('uspanel-rrg')?.classList.contains('active')) usDrawRotationClock();
 });
 
-// Close autocomplete on outside click
 document.addEventListener('click', e => {
   const wrap = document.getElementById('rrg-add-wrap');
   if (wrap && !wrap.contains(e.target)) rrgAddHideAc();
@@ -2065,7 +2654,6 @@ function usRenderTopology() {
   const withChg = usAllData.filter(r => r.change_pct != null);
   const total   = withChg.length;
 
-  // SPY KPI — buscar en usAllData o usSectors
   const spy = usAllData.find(r => r.symbol === 'SPY') || usSectors.find(r => r.symbol === 'SPY');
   const spyEl = document.getElementById('tkpi-spy');
   const spyChgEl = document.getElementById('tkpi-spy-chg');
@@ -2078,7 +2666,6 @@ function usRenderTopology() {
     }
   }
 
-  // VXX KPI (el script usa VXX/UVXY, no VIXY)
   const vxx = usAllData.find(r => r.symbol === 'VXX') || usAllData.find(r => r.symbol === 'UVXY');
   const vixyEl    = document.getElementById('tkpi-vixy');
   const vixyChgEl = document.getElementById('tkpi-vixy-chg');
@@ -2091,14 +2678,12 @@ function usRenderTopology() {
     }
   }
 
-  // Amplitud: % advancing — disponible para todos los símbolos (no depende de indicadores)
   const ups = withChg.filter(r => r.change_pct > 0).length;
   const dns = withChg.filter(r => r.change_pct < 0).length;
   const pctUps = total > 0 ? Math.round(ups / total * 100) : 0;
   const ampEl = document.getElementById('tkpi-amp');
   if (ampEl) ampEl.textContent = pctUps + '%';
 
-  // Up / Down KPIs
   const upEl  = document.getElementById('tkpi-up');
   const dnEl  = document.getElementById('tkpi-dn');
   const upSub = document.getElementById('tkpi-up-sub');
@@ -2108,8 +2693,6 @@ function usRenderTopology() {
   if (upSub) upSub.textContent = `de ${total} activos`;
   if (dnSub) dnSub.textContent = `de ${total} activos`;
 
-  // SMA/RSI — el script solo calcula indicadores para ~50 símbolos por ciclo.
-  // Calcular client-side desde last/sma_XX cuando above_smaXX es null.
   const withSma200 = usAllData.filter(r => r.above_sma200 != null || (r.last != null && r.sma_200 != null));
   const withSma50  = usAllData.filter(r => r.above_sma50  != null || (r.last != null && r.sma_50  != null));
   const withRsiAll = usAllData.filter(r => r.rsi_14 != null);
@@ -2122,20 +2705,17 @@ function usRenderTopology() {
   const rsiOS = withRsiAll.filter(r => Number(r.rsi_14) <= 30).length;
   const pctRsi70 = nRsi >= 20 ? Math.round(rsiOB / nRsi * 100) : null;
 
-  // RSI KPIs
   const rsi70El = document.getElementById('tkpi-rsi70');
   const rsi30El = document.getElementById('tkpi-rsi30');
   if (rsi70El) rsi70El.textContent = nRsi >= 20 ? rsiOB : '—';
   if (rsi30El) rsi30El.textContent = nRsi >= 20 ? `RSI < 30: ${rsiOS}` : 'Sin datos RSI';
 
-  // Breadth gauge principal — % advancing (cubre todos los símbolos)
   const fillEl = document.getElementById('topo-breadth-fill');
   const valEl  = document.getElementById('topo-breadth-val');
   const bColor = pctUps >= 60 ? 'var(--green)' : pctUps >= 40 ? 'var(--amber)' : 'var(--red)';
   if (fillEl) { fillEl.style.width = pctUps + '%'; fillEl.style.background = bColor; }
   if (valEl)  { valEl.textContent = pctUps + '%'; valEl.style.color = bColor; }
 
-  // Sub-stats de breadth (muestra muestra disponible entre paréntesis)
   const b50  = document.getElementById('topo-b-sma50');
   const b200 = document.getElementById('topo-b-sma200');
   const br70 = document.getElementById('topo-b-rsi70');
@@ -2149,7 +2729,6 @@ function usRenderTopology() {
   if (br70) br70.innerHTML = fmtB(pctRsi70, 'var(--red)', nRsi);
   if (br30) br30.innerHTML = fmtB(nRsi >= 20 ? Math.round(rsiOS/nRsi*100) : null, 'var(--blue)', nRsi);
 
-  // Regime card — basado en advancing ratio (datos completos)
   const regEl = document.getElementById('topo-regime');
   if (regEl) {
     let label, desc, col, bg, border;
@@ -2201,13 +2780,11 @@ function usDrawTopoScatter() {
   const cx = pad.left + pw / 2;
   const cy = pad.top  + ph / 2;
 
-  // Center axes
   ctx.strokeStyle = 'rgba(50,61,80,.8)';
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(cx, pad.top); ctx.lineTo(cx, H - pad.bottom); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(pad.left, cy); ctx.lineTo(W - pad.right, cy); ctx.stroke();
 
-  // Quadrant labels
   ctx.font = "8px 'IBM Plex Mono', monospace";
   ctx.fillStyle = 'rgba(110,136,168,.35)';
   ctx.textAlign = 'center';
@@ -2216,18 +2793,15 @@ function usDrawTopoScatter() {
   ctx.fillText('ALCISTA / ALTA VOL',   cx + pw * .27, H - pad.bottom - 8);
   ctx.fillText('BAJISTA / ALTA VOL',   cx - pw * .27, H - pad.bottom - 8);
 
-  // Axis labels
   ctx.fillStyle = 'rgba(110,136,168,.6)';
   ctx.fillText('← Variación % (momentum) →', cx, H - pad.bottom + 22);
   ctx.save(); ctx.translate(14, cy); ctx.rotate(-Math.PI / 2);
   ctx.fillText('← Volumen Relativo →', 0, 0); ctx.restore();
 
-  // Data: exclude index/vol ETFs
   const ETF_SKIP = new Set(['SPY','QQQ','IWM','DIA','VIXY','VXX','UVXY','GLD','SLV','TLT','BND','TQQQ','SQQQ','USO']);
   const stocks = usAllData.filter(r => r.change_pct != null && r.volume != null && !ETF_SKIP.has(r.symbol));
   if (!stocks.length) return;
 
-  // volume_rel: usar el campo si existe, sino calcular desde mediana de volumen
   const vols = stocks.map(r => Number(r.volume)).filter(Boolean).sort((a,b) => a-b);
   const medVol = vols[Math.floor(vols.length / 2)] || 1;
   const getVolRel = r => r.volume_rel != null ? Number(r.volume_rel) : Number(r.volume) / medVol;
@@ -2251,7 +2825,7 @@ function usDrawTopoScatter() {
     const chg = Number(s.change_pct);
     const vol = getVolRel(s);
     const x = cx + (chg / maxChg) * (pw / 2);
-    const y = pad.top + (vol / maxVol) * ph; // high vol = bottom
+    const y = pad.top + (vol / maxVol) * ph;
     const r = 3.5;
 
     ctx.beginPath();
@@ -2307,7 +2881,7 @@ function usDrawRotationClock() {
   const canvas = document.getElementById('rotationClock');
   if (!canvas) return;
   const W = canvas.offsetWidth;
-  if (!W) { setTimeout(usDrawRotationClock, 150); return; } // esperar layout
+  if (!W) { setTimeout(usDrawRotationClock, 150); return; }
   const dpr = window.devicePixelRatio || 1;
   const cssH = +canvas.getAttribute('height') || 420;
   canvas.width  = Math.round(W * dpr);
@@ -2322,7 +2896,6 @@ function usDrawRotationClock() {
   const cx = W / 2, cy = H / 2;
   const outerR = Math.min(W, H) / 2 - 50;
 
-  // Concentric grid circles
   [.33, .66, 1].forEach(f => {
     ctx.beginPath();
     ctx.arc(cx, cy, outerR * f, 0, Math.PI * 2);
@@ -2331,14 +2904,12 @@ function usDrawRotationClock() {
     ctx.stroke();
   });
 
-  // Quadrant dividers
   ctx.strokeStyle = 'rgba(40,48,63,.8)';
   ctx.setLineDash([4, 4]);
   ctx.beginPath(); ctx.moveTo(cx - outerR - 15, cy); ctx.lineTo(cx + outerR + 15, cy); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, cy - outerR - 15); ctx.lineTo(cx, cy + outerR + 15); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Quadrant labels
   const qLabs = [
     {angle: 45,  label: 'LEADING',   color: 'rgba(0,229,168,.8)'},
     {angle: 135, label: 'WEAKENING', color: 'rgba(240,165,0,.8)'},
@@ -2356,7 +2927,6 @@ function usDrawRotationClock() {
     ctx.fillText(q.label, lx, ly);
   });
 
-  // Center label
   ctx.font = "500 9px 'IBM Plex Mono', monospace";
   ctx.fillStyle = 'rgba(110,136,168,.5)';
   ctx.textAlign = 'center';
@@ -2373,8 +2943,6 @@ function usDrawRotationClock() {
     return;
   }
 
-  // Posicionamiento polar: ángulo desde atan2 (preserva cuadrante real del RRG),
-  // radio amplificado con mínimo del 38% de outerR para garantizar visibilidad.
   const allPts = sectors.map(d => d.p[d.p.length - 1]);
   const maxDev = Math.max(...allPts.map(p => Math.hypot(p[0] - 100, p[1] - 100)), 0.1);
 
@@ -2386,15 +2954,12 @@ function usDrawRotationClock() {
     const col    = colMap[qname] || 'rgba(110,136,168,1)';
     const colDim = col.replace(',1)', ',.12)');
 
-    // Ángulo natural: rsRatio en X, rsMom en Y (invertir Y para canvas)
     const angle = Math.atan2(-(last[1] - 100), last[0] - 100);
     const dev   = Math.hypot(last[0] - 100, last[1] - 100);
-    // Radio: entre 38% y 88% de outerR según intensidad relativa
     const plotR = outerR * (0.38 + (dev / maxDev) * 0.50);
     const x = cx + Math.cos(angle) * plotR;
     const y = cy + Math.sin(angle) * plotR;
 
-    // Trailing tail usando misma lógica polar
     if (p.length >= 2) {
       const tail = p.slice(-Math.min(5, p.length));
       for (let i = 0; i < tail.length - 1; i++) {
@@ -2414,13 +2979,11 @@ function usDrawRotationClock() {
       }
     }
 
-    // Dot
     ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2);
     ctx.fillStyle = colDim; ctx.fill();
     ctx.strokeStyle = col.replace(',1)', ',.65)');
     ctx.lineWidth = 1.5; ctx.stroke();
 
-    // Label
     ctx.font = "600 9px 'IBM Plex Mono', monospace";
     ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
@@ -2491,7 +3054,6 @@ window.siLoad = async (sym) => {
 
   siSetStatus('⏳ cargando ' + symbol + '…');
 
-  // Clear previous charts
   const c1 = document.getElementById('si-chart1');
   const c2 = document.getElementById('si-chart2');
   if (c1) { c1.innerHTML = ''; }
@@ -2500,14 +3062,6 @@ window.siLoad = async (sym) => {
   const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
   const BASE = 'https://endymbpdayeidromxayb.supabase.co/functions/v1';
 
-  // Timeout wrapper
-  const withTimeout = (promise, ms) =>
-    Promise.race([
-      promise,
-      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
-    ]);
-
-  // Serializar peticiones para no saturar Supabase (statement timeout en paralelo)
   const fetchJSON = async (url, body, ms=8000) => {
     try {
       const ctrl = new AbortController();
@@ -2540,7 +3094,6 @@ window.siLoad = async (sym) => {
       return;
     }
 
-    // Merge prices + benchmark + short volume
     const priceMap = {};
     if (prices && prices.length) {
       prices.forEach(p => {
@@ -2570,7 +3123,6 @@ window.siLoad = async (sym) => {
   }
 };
 
-// ── Variables para los charts ───────────────────────────────
 let siChart1 = null, siChart2 = null;
 
 function siRender(symbol, data, siData, companyName) {
@@ -2602,10 +3154,8 @@ function siRender(symbol, data, siData, companyName) {
   const fmtVol = (n) => n != null ? (n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n)) : '—';
   const fmtPct = (n) => n != null ? n.toFixed(1) + '%' : '—';
 
-  // KPIs
   document.getElementById('si-kpi-price').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '—';
   document.getElementById('si-kpi-price-chg').textContent = kpi_chg != null ? (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%' : '—';
-  // Ticker header
   document.getElementById('si-price-badge').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '$—';
   let _chgEl = document.getElementById('si-change-badge');
   if (kpi_chg != null && _chgEl) {
@@ -2625,476 +3175,12 @@ function siRender(symbol, data, siData, companyName) {
   const diff = kpi_sv_pct != null && kpi_bm != null ? (kpi_sv_pct - kpi_bm).toFixed(1) + 'pp' : '—';
   document.getElementById('si-kpi-benchmark-label').textContent = symbol + ' vs SPY: ' + diff;
 
-  // ── CHART 1: Precio + Volumen (Chart.js) ─────────────────
   const st = Math.max(1, (data.length / 60) | 0);
   const labels = data.slice(-45).map((r, i) => i % st === 0 || i === 44 ? r.fecha.slice(5) : '');
   const prices = data.slice(-45).filter(d => d.close != null).map(d => d.close);
   const volTv = data.slice(-45).map(d => d.total_vol / 1e3);
   const volSv = data.slice(-45).map(d => d.short_vol / 1e3);
   const shortPct = data.slice(-45).map(d => d.short_pct);
-  
+
   if (siChart1) { siChart1.destroy(); siChart1 = null; }
-  siChart1 = new Chart(document.getElementById('si-chart1'), {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { type: 'line', label: 'Precio', data: prices,
-          borderColor: '#f0b400', backgroundColor: 'rgba(240,180,0,0.05)',
-          borderWidth: 2, pointRadius: 0, tension: .2, fill: true, order: 1, yAxisID: 'y' },
-        { type: 'bar', label: 'Vol Total', data: volTv,
-          backgroundColor: 'rgba(72,170,255,0.15)', order: 2, yAxisID: 'y1' },
-        { type: 'line', label: 'Vol Total', data: volTv,
-          borderColor: 'rgba(72,170,255,0.35)', borderWidth: 1, pointRadius: 0, tension: .3, order: 1, yAxisID: 'y1' },
-        { type: 'bar', label: 'Short Vol', data: volSv,
-          backgroundColor: 'rgba(255,64,96,0.35)', order: 2, yAxisID: 'y1' },
-        { type: 'line', label: 'Short Vol', data: volSv,
-          borderColor: 'rgba(255,64,96,0.45)', borderWidth: 1, pointRadius: 0, tension: .3, order: 1, yAxisID: 'y1' },
-        { type: 'line', label: 'Short %', data: shortPct,
-          borderColor: '#ff79c6', borderWidth: 1.5,
-          borderDash: [3, 3], pointRadius: 0, tension: .3, order: 1, yAxisID: 'y2' },
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: 'rgba(8,11,18,0.95)', padding: 8,
-          titleFont: { size: 11 }, bodyFont: { size: 12 },
-          callbacks: {
-            label: function(ctx) {
-              if (ctx.dataset.label === 'Precio') return '$' + ctx.parsed.y.toFixed(2);
-              if (ctx.dataset.label === 'Short %') return ctx.parsed.y.toFixed(1) + '%';
-              return (ctx.parsed.y * 1e3).toLocaleString() + ' acciones';
-            }
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#4a5568', font: { size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.02)' } },
-        y: { position: 'left', title: { display: true, text: 'Precio (USD)', color: '#4a5568', font: { size: 9 } },
-          ticks: { color: '#4a5568', font: { size: 10 }, callback: function(v) { return '$' + v.toFixed(0); } },
-          grid: { color: 'rgba(255,255,255,0.04)' } },
-        y1: { position: 'right', title: { display: true, text: 'Volumen (miles)', color: '#4a5568', font: { size: 9 } },
-          ticks: { color: '#4a5568', font: { size: 10 }, callback: function(v) { return (v/1e3).toFixed(0) + 'M'; } },
-          grid: { display: false } },
-        y2: { position: 'right', display: true, title: { display: true, text: 'Short %', color: '#4a5568', font: { size: 9 } },
-          ticks: { color: '#4a5568', font: { size: 9 }, callback: function(v) { return v + '%'; } },
-          grid: { display: false } },
-      }
-    }
-  });
-
-  // ── CHART 2: Short % bars + MA30 (Chart.js) ────────────
-  const pctData = data.slice(-45).map(d => d.short_pct);
-  const ma30 = [];
-  for (let i = 0; i < pctData.length; i++) {
-    if (i < 29) { ma30.push(null); continue; }
-    let s = 0;
-    for (let j = i - 29; j <= i; j++) s += pctData[j];
-    ma30.push(Math.round(s / 30 * 10) / 10);
-  }
-  const colors45 = pctData.map(v => v >= 45 ? 'rgba(255,64,96,0.55)' : v >= 35 ? 'rgba(240,180,0,0.45)' : 'rgba(16,232,152,0.35)');
-  const borders45 = pctData.map(v => v >= 45 ? '#ff4060' : v >= 35 ? '#f0b400' : '#10e898');
-
-  if (siChart2) { siChart2.destroy(); siChart2 = null; }
-  siChart2 = new Chart(document.getElementById('si-chart2'), {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { type: 'bar', label: 'Short %', data: pctData,
-          backgroundColor: colors45, borderColor: borders45, borderWidth: .5, order: 2 },
-        { type: 'line', label: 'Short %', data: pctData,
-          borderColor: '#ff79c6', borderWidth: 1.5, pointRadius: 0, tension: .3, order: 1 },
-        { label: 'MA 30d', data: ma30,
-          borderColor: '#4a5568', borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: .3, order: 3 },
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: 'rgba(8,11,18,0.95)', padding: 8, titleFont: { size: 11 }, bodyFont: { size: 12 },
-          callbacks: {
-            label: function(ctx) {
-              if (ctx.parsed.y == null) return '';
-              return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%';
-            }
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#4a5568', font: { size: 9 }, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.02)' } },
-        y: { min: 0, max: 70, title: { display: true, text: 'Short Vol %', color: '#4a5568', font: { size: 9 } },
-          ticks: { color: '#4a5568', font: { size: 10 }, callback: function(v) { return v + '%'; } },
-          grid: { color: 'rgba(255,255,255,0.04)' } },
-      }
-    }
-  });
-
-  // ── Table ────────────────────────────────────────────────
-  const tbody = document.getElementById('si-table-body');
-  const last20 = data.slice(-20).reverse();
-  tbody.innerHTML = last20.map(d => {
-    const diffBm = d.short_pct != null && d.benchmark_pct != null ? (d.short_pct - d.benchmark_pct).toFixed(1) + 'pp' : '—';
-    return '<tr>' +
-      '<td class="tl">' + d.fecha.slice(5) + '</td>' +
-      '<td style="text-align:right">' + (d.close != null ? '$' + d.close.toFixed(2) : '—') + '</td>' +
-      '<td style="text-align:right">' + fmtVol(d.total_vol) + '</td>' +
-      '<td style="text-align:right">' + fmtVol(d.short_vol) + '</td>' +
-      '<td style="text-align:right;color:' + (d.short_pct > 40 ? 'var(--red)' : d.short_pct > 25 ? 'var(--amber)' : 'var(--green)') + '">' + d.short_pct.toFixed(1) + '%</td>' +
-      '<td style="text-align:right">' + (d.ma30 != null ? d.ma30.toFixed(1) + '%' : '—') + '</td>' +
-      '<td style="text-align:right;color:' + (d.percentile >= 90 ? 'var(--red)' : d.percentile >= 75 ? 'var(--amber)' : 'var(--text)') + '">' + (d.percentile != null ? 'P' + d.percentile : '—') + '</td>' +
-      '<td style="text-align:right;color:' + (d.benchmark_pct != null ? (d.short_pct > d.benchmark_pct + 10 ? 'var(--red)' : d.short_pct < d.benchmark_pct - 10 ? 'var(--green)' : 'var(--text2)') : '') + '">' + diffBm + '</td>' +
-      '</tr>';
-  }).join('');
-
-  // Update ticker badge
-  document.getElementById('si-ticker-badge').textContent = symbol;
-  document.getElementById('si-price-badge').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '$—';
-  document.getElementById('si-name-badge').textContent = companyName || '—';
-  let _chgEl2 = document.getElementById('si-change-badge');
-  if (kpi_chg != null && _chgEl2) { _chgEl2.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%'; _chgEl2.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)'; _chgEl2.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)'; }
-  document.getElementById('si-last-update').style.display = 'block';
-  document.getElementById('si-last-update').textContent = '📅 ' + (today.fecha || '—') + ' | ' + data.length + ' días';
-
-  // Short Interest KPI
-  if (siData && siData.length > 0) {
-    const last = siData[siData.length - 1];
-    document.getElementById('si-kpi-si').textContent = fmtVol(last.currentShortPosition);
-    document.getElementById('si-kpi-si').style.color = last.changePercent >= 5 ? 'var(--red)' : last.changePercent <= -5 ? 'var(--green)' : 'var(--text)';
-    const siDate = last.settlementDate ? last.settlementDate.split('-').slice(1,3).concat(last.settlementDate.slice(2,4)).join('/') : '—';
-    document.getElementById('si-kpi-si-dtc').textContent = siDate + ' | DTC ' + (last.daysToCover != null ? last.daysToCover.toFixed(1) : '—') + ' | ' + (last.changePercent >= 0 ? '+' : '') + (last.changePercent != null ? last.changePercent.toFixed(1) + '%' : '—');
-  } else {
-    document.getElementById('si-kpi-si').textContent = '—';
-    document.getElementById('si-kpi-si-dtc').textContent = '—';
-  }
-}
-
-
-// ── Share chart helper — captura canvas + overlay de nombre ──
-window.shareSiChart = function shareSiChart(elId, title) {
-  const cvs = document.getElementById(elId);
-  if (!cvs) { console.log('share: no canvas', elId); return; }
-  const ticker = (document.getElementById('si-ticker').value || 'SPY').toUpperCase();
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
-  const chartName = title ? title.split('|').pop().trim() : 'Short Data';
-  const fname = ticker + '_' + chartName.replace(/[^a-zA-Z0-9]/g, '_').slice(0,24) + '.png';
-  
-  try {
-    const dataUrl = cvs.toDataURL('image/png');
-    
-    // Móvil: intentar navigator.share
-    if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-      fetch(dataUrl).then(r => r.blob()).then(blob => {
-        const file = new File([blob], fname, { type: 'image/png' });
-        navigator.share({ files: [file], title: ticker + ' ' + chartName }).catch(() => {
-          // fallback: descarga directa
-          const a = document.createElement('a'); a.download = fname; a.href = dataUrl;
-          document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        });
-      });
-      return;
-    }
-    
-    // PC: descarga directa forzada
-    const a = document.createElement('a'); a.download = fname; a.href = dataUrl;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  } catch(e) {
-    console.log('share error:', e);
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// MACRO TAB — FRED data
-// ══════════════════════════════════════════════════════════════
-
-// Chart instances for macro tab
-let _macroCharts = {};
-let _macroLoaded = false;
-
-// NBER recession periods (approximate, for shading)
-const NBER_RECESSIONS = [
-  ['1980-01-01','1980-07-01'],
-  ['1981-07-01','1982-11-01'],
-  ['1990-07-01','1991-03-01'],
-  ['2001-03-01','2001-11-01'],
-  ['2007-12-01','2009-06-01'],
-  ['2020-02-01','2020-04-01'],
-];
-
-function macroRecessionPlugin(recessions) {
-  return {
-    id: 'recessions',
-    beforeDraw(chart) {
-      const { ctx, chartArea, scales } = chart;
-      if (!chartArea || !scales.x) return;
-      ctx.save();
-      ctx.fillStyle = 'rgba(255,63,94,0.07)';
-      for (const [start, end] of recessions) {
-        const startTs = new Date(start).getTime();
-        const endTs   = new Date(end).getTime();
-        // Find pixel positions
-        const xMin = scales.x.min;
-        const xMax = scales.x.max;
-        if (endTs < xMin || startTs > xMax) continue;
-        const x1 = scales.x.getPixelForValue(Math.max(startTs, xMin));
-        const x2 = scales.x.getPixelForValue(Math.min(endTs, xMax));
-        ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
-      }
-      ctx.restore();
-    }
-  };
-}
-
-function macroChartDefaults() {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: false,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { labels: { color: '#9dafc5', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 12, padding: 10 } },
-      tooltip: {
-        backgroundColor: 'rgba(8,11,18,0.95)',
-        titleFont: { family: 'IBM Plex Mono', size: 10 },
-        bodyFont: { family: 'IBM Plex Mono', size: 11 },
-        borderColor: 'rgba(255,255,255,0.08)',
-        borderWidth: 1,
-        padding: 9,
-      }
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: { unit: 'month', tooltipFormat: 'MMM yyyy', displayFormats: { month: 'MMM yy', year: 'yyyy' } },
-        ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 12 },
-        grid: { color: 'rgba(255,255,255,0.03)' }
-      },
-      y: {
-        ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 } },
-        grid: { color: 'rgba(255,255,255,0.04)' }
-      }
-    }
-  };
-}
-
-function macroDestroyAll() {
-  Object.values(_macroCharts).forEach(c => { try { c.destroy(); } catch(_) {} });
-  _macroCharts = {};
-}
-
-function macroSetKPI(id, value, sub, color) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.textContent = value != null ? value : '—';
-  if (color) el.style.color = color;
-  const subEl = document.getElementById(id + '-sub');
-  if (subEl && sub) subEl.textContent = sub;
-}
-
-function macroDataToChartPoints(data) {
-  // data: [{date, value}]
-  return (data || []).map(d => ({ x: new Date(d.date).getTime(), y: d.value }));
-}
-
-// Calculate CPI YoY from index values
-function cpiToYoY(data) {
-  if (!data || data.length < 13) return [];
-  const result = [];
-  for (let i = 12; i < data.length; i++) {
-    const curr = data[i].value;
-    const prev = data[i - 12].value;
-    if (prev > 0) {
-      result.push({ x: new Date(data[i].date).getTime(), y: parseFloat(((curr - prev) / prev * 100).toFixed(2)) });
-    }
-  }
-  return result;
-}
-
-window.loadMacro = async function loadMacro() {
-  if (_macroLoaded) return; // already loaded, don't re-fetch
-  _macroLoaded = true;
-
-  // Show loading state
-  ['mkpi-dff','mkpi-dgs10','mkpi-spread','mkpi-t10yie','mkpi-cpi','mkpi-unrate','mkpi-umcsent','mkpi-embi'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.textContent = '…'; el.style.color = 'var(--text3)'; }
-  });
-
-  try {
-    // Fetch all series from cache_fred
-    const seriesIds = ['DFF','DGS10','DGS2','T10YIE','CPIAUCSL','UNRATE','UMCSENT','BAMLEMARPITRIV','SPREAD_10Y2Y'];
-    const SBH = { apikey: CFG.SB_KEY, 'Authorization': 'Bearer ' + CFG.SB_KEY };
-    const rows = await Promise.all(
-      seriesIds.map(id =>
-        fetch(`https://endymbpdayeidromxayb.supabase.co/rest/v1/cache_fred?series_id=eq.${id}&select=series_id,data,metadata`, { headers: SBH })
-          .then(r => r.ok ? r.json() : [])
-          .then(arr => arr[0] || null)
-      )
-    );
-
-    const byId = {};
-    rows.forEach(r => { if (r) byId[r.series_id] = r; });
-
-    // Helper: get last non-null value
-    const lastVal = (id) => {
-      const d = byId[id]?.data;
-      if (!d || !d.length) return null;
-      return d[d.length - 1].value;
-    };
-
-    // ── KPIs ──
-    const dff    = lastVal('DFF');
-    const dgs10  = lastVal('DGS10');
-    const dgs2   = lastVal('DGS2');
-    const t10yie = lastVal('T10YIE');
-    const spread = lastVal('SPREAD_10Y2Y') ?? (dgs10 != null && dgs2 != null ? dgs10 - dgs2 : null);
-    const unrate = lastVal('UNRATE');
-    const umcsent= lastVal('UMCSENT');
-    const embi   = lastVal('BAMLEMARPITRIV');
-
-    // CPI YoY from index
-    const cpiData = byId['CPIAUCSL']?.data || [];
-    const cpiYoY  = cpiToYoY(cpiData);
-    const cpiLast = cpiYoY.length ? cpiYoY[cpiYoY.length - 1].y : null;
-
-    macroSetKPI('mkpi-dff',    dff    != null ? dff.toFixed(2) + '%'    : '—', 'Tasa efectiva Fed', dff != null ? (dff > 4 ? 'var(--red)' : dff > 2 ? 'var(--amber)' : 'var(--green)') : null);
-    macroSetKPI('mkpi-dgs10',  dgs10  != null ? dgs10.toFixed(2) + '%'  : '—', 'Rendimiento 10Y',   dgs10 != null ? (dgs10 > 4.5 ? 'var(--red)' : 'var(--cyan)') : null);
-    macroSetKPI('mkpi-spread', spread != null ? (spread >= 0 ? '+' : '') + spread.toFixed(2) + '%' : '—',
-      spread != null ? (spread < 0 ? '⚠ Curva invertida' : 'Curva normal') : 'Spread 10Y-2Y',
-      spread != null ? (spread < 0 ? 'var(--red)' : spread < 0.5 ? 'var(--amber)' : 'var(--green)') : null);
-    macroSetKPI('mkpi-t10yie', t10yie != null ? t10yie.toFixed(2) + '%' : '—', 'Breakeven 10Y',     t10yie != null ? (t10yie > 2.5 ? 'var(--red)' : 'var(--text)') : null);
-    macroSetKPI('mkpi-cpi',    cpiLast!= null ? cpiLast.toFixed(1) + '%': '—', 'Variación anual',   cpiLast != null ? (cpiLast > 4 ? 'var(--red)' : cpiLast > 2 ? 'var(--amber)' : 'var(--green)') : null);
-    macroSetKPI('mkpi-unrate', unrate != null ? unrate.toFixed(1) + '%'  : '—', 'Tasa desempleo',    unrate != null ? (unrate > 5 ? 'var(--red)' : unrate > 4 ? 'var(--amber)' : 'var(--green)') : null);
-    macroSetKPI('mkpi-umcsent',umcsent!= null ? umcsent.toFixed(0)       : '—', 'U. Michigan',       umcsent != null ? (umcsent < 60 ? 'var(--red)' : umcsent < 80 ? 'var(--amber)' : 'var(--green)') : null);
-    macroSetKPI('mkpi-embi',   embi   != null ? embi.toFixed(0) + ' bps' : '—', 'EMBI+ Argentina',   embi != null ? (embi > 1000 ? 'var(--red)' : embi > 600 ? 'var(--amber)' : 'var(--green)') : null);
-
-    // ── Chart 1: Fed Funds Rate ──
-    {
-      const canvas = document.getElementById('macro-chart-dff');
-      if (canvas && byId['DFF']?.data?.length) {
-        if (_macroCharts['dff']) _macroCharts['dff'].destroy();
-        const pts = macroDataToChartPoints(byId['DFF'].data);
-        const recPlugin = macroRecessionPlugin(NBER_RECESSIONS);
-        const opts = macroChartDefaults();
-        opts.plugins.tooltip.callbacks = { label: ctx => 'Fed Funds: ' + ctx.parsed.y.toFixed(2) + '%' };
-        opts.scales.y.ticks.callback = v => v + '%';
-        opts.scales.y.title = { display: true, text: 'Tasa (%)', color: '#4a5568', font: { size: 9 } };
-        _macroCharts['dff'] = new Chart(canvas, {
-          type: 'line',
-          data: {
-            datasets: [{
-              label: 'Fed Funds Rate',
-              data: pts,
-              borderColor: '#4da6ff',
-              backgroundColor: 'rgba(77,166,255,0.08)',
-              borderWidth: 2,
-              pointRadius: 0,
-              fill: true,
-              tension: 0.1,
-            }]
-          },
-          options: opts,
-          plugins: [recPlugin]
-        });
-      }
-    }
-
-    // ── Chart 2: Treasury 10Y vs 2Y + Spread ──
-    {
-      const canvas = document.getElementById('macro-chart-yield');
-      if (canvas && byId['DGS10']?.data?.length && byId['DGS2']?.data?.length) {
-        if (_macroCharts['yield']) _macroCharts['yield'].destroy();
-        const pts10 = macroDataToChartPoints(byId['DGS10'].data);
-        const pts2  = macroDataToChartPoints(byId['DGS2'].data);
-        const ptsSpread = macroDataToChartPoints(byId['SPREAD_10Y2Y']?.data || []);
-        const opts = macroChartDefaults();
-        opts.scales.y.ticks.callback = v => v + '%';
-        opts.scales.y.title = { display: true, text: 'Rendimiento (%)', color: '#4a5568', font: { size: 9 } };
-        opts.scales.y2 = {
-          position: 'right',
-          ticks: { color: '#4a5568', font: { size: 9 }, callback: v => v.toFixed(1) + '%' },
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: 'Spread (%)', color: '#4a5568', font: { size: 9 } }
-        };
-        opts.plugins.tooltip.callbacks = {
-          label: ctx => {
-            if (ctx.dataset.label === 'Spread 10Y-2Y') return 'Spread: ' + ctx.parsed.y.toFixed(2) + '%';
-            return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%';
-          }
-        };
-        const recPlugin = macroRecessionPlugin(NBER_RECESSIONS);
-        _macroCharts['yield'] = new Chart(canvas, {
-          type: 'line',
-          data: {
-            datasets: [
-              {
-                label: 'Treasury 10Y',
-                data: pts10,
-                borderColor: '#00e5a8',
-                backgroundColor: 'rgba(0,229,168,0.05)',
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: false,
-                tension: 0.1,
-                yAxisID: 'y',
-              },
-              {
-                label: 'Treasury 2Y',
-                data: pts2,
-                borderColor: '#ff3f5e',
-                backgroundColor: 'rgba(255,63,94,0.05)',
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: false,
-                tension: 0.1,
-                yAxisID: 'y',
-              },
-              {
-                label: 'Spread 10Y-2Y',
-                data: ptsSpread,
-                borderColor: '#f0a500',
-                backgroundColor: ctx => {
-                  const v = ctx.parsed?.y;
-                  return v < 0 ? 'rgba(255,63,94,0.15)' : 'rgba(240,165,0,0.10)';
-                },
-                borderWidth: 1.5,
-                pointRadius: 0,
-                fill: { target: { value: 0 }, above: 'rgba(240,165,0,0.08)', below: 'rgba(255,63,94,0.15)' },
-                tension: 0.1,
-                yAxisID: 'y2',
-                borderDash: [4, 3],
-              }
-            ]
-          },
-          options: opts,
-          plugins: [recPlugin]
-        });
-      }
-    }
-
-    // ── Chart 3: CPI YoY vs Breakeven ──
-    {
-      const canvas = document.getElementById('macro-chart-inflation');
-      if (canvas && cpiYoY.length && byId['T10YIE']?.data?.length) {
-        if (_macroCharts['inflation']) _macroCharts['inflation'].destroy();
-        const ptsBreakeven = macroDataToChartPoints(byId['T10YIE'].data);
-        const opts = macroChartDefaults();
-        opts.scales.y.ticks.callback = v => v.toFixed(1) + '%';
-        opts.scales.y.title = { display: true, text: 'Inflación (%)', color: '#4a5568', font: { size: 9 } };
-        opts.plugins.tooltip.callbacks = {
-          label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%'
-        };
-        // Reference line at 2%
-        const refPlugin = {
-          id: 'refLine2pct',
-          afterDraw(chart) {
-            const { ctx: c, chartArea, scales } = chart;
-            if (!chartArea || !scales.y)
+  siChart1 = new Chart(document.getElementById('si-chart1
