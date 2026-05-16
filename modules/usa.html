@@ -2667,15 +2667,22 @@ window.loadSmartMoney = async () => {
   loading.style.display = 'flex';
   content.style.display = 'none';
   try {
-    const top = (window.usAllData||[]).slice(0,12).map(r=>r.symbol);
+    // Tickers del portafolio USA (ticker_adr + ticker_usd sin D)
+    const pf = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/portafolio?select=ticker_adr,ticker_usd&limit=200', {headers:{'apikey':CFG.SB_KEY}});
+    const pfData = pf.ok ? await pf.json() : [];
+    const pfTickers = [...new Set(pfData.flatMap(r=>[r.ticker_adr, r.ticker_usd?.replace(/D$/,'')]).filter(Boolean))].slice(0,15);
+    
+    const top = (window.usAllData||[]).slice(0,8).map(r=>r.symbol);
     const base = ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT'];
-    const all = [...new Set([...top,...base])].slice(0,20);
+    const all = [...new Set([...pfTickers, ...top, ...base])].slice(0,20);
+    
     const [vwapR,corrR,momR] = await Promise.allSettled([
-      window._smFetchVwap(all.slice(0,5)),
+      window._smFetchVwap(['SPY','QQQ','AAPL']),
       window._smCalcCorr(all.slice(0,11)),
       window._smCalcMomentum()
     ]);
     if(vwapR.status==='fulfilled') window._smRenderVwap(vwapR.value);
+    else { const el=document.getElementById('sm-vwap-info'); if(el) el.textContent = 'VWAP: '+vwapR.reason?.message||'error'; }
     if(corrR.status==='fulfilled') window._smRenderCorr(corrR.value);
     if(momR.status==='fulfilled') window._smRenderMomentum(momR.value);
     window._smLoaded = true;
@@ -2687,7 +2694,13 @@ window.loadSmartMoney = async () => {
 };
 
 window._smFetchVwap = async (tickers) => {
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const dow = now.getUTCDay();
+  // si sábado(6) o domingo(0), usar último viernes
+  let today;
+  if(dow===0) today = new Date(now.getTime()-2*864e5).toISOString().split('T')[0];
+  else if(dow===6) today = new Date(now.getTime()-1*864e5).toISOString().split('T')[0];
+  else today = now.toISOString().split('T')[0];
   const r = await Promise.allSettled(tickers.slice(0,5).map(async sym => {
     try {
       const res = await fetch('https://data.alpaca.markets/v2/stocks/'+sym+'/bars?timeframe=1Hour&start='+today+'T09:30:00Z&limit=8&adjustment=raw', {
