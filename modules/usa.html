@@ -624,6 +624,13 @@
       </div>
       <div id="sm-correlation-grid" style="padding:10px 14px;overflow-x:auto"></div>
     </div>
+    <!-- Recommendation -->
+    <div class="sm-section" id="sm-recommendation-section">
+      <div class="sm-section-header">
+        <span class="sm-section-title">💡 Recomendación</span>
+      </div>
+      <div id="sm-recommendation-box" style="padding:10px 14px"></div>
+    </div>
     <!-- Momentum Scoring -->
     <div class="sm-section" id="sm-momentum-section">
       <div class="sm-section-header">
@@ -2673,11 +2680,16 @@ window.loadSmartMoney = async () => {
     const pf = await fetch(pfUrl, {headers:{'apikey':CFG.SB_KEY}});
     const pfData = pf.ok ? await pf.json() : [];
     console.log('[sm] Portfolio fetch:', {url: pfUrl, count: pfData.length, email: userEmail});
-    const pfTickers = [...new Set(pfData.flatMap(r=>[r.ticker_adr, r.ticker_usd?.replace(/D$/,'')]).filter(Boolean))].slice(0,15);
+    // ticker_adr = ADR/USA (ej. PG, GGAL), ticker_usd = ARS (ej. PGD, GGALD) → sacar D
+    const pfTickersUSA = [...new Set(pfData.flatMap(r=>[r.ticker_adr, r.ticker_usd?.replace(/D$/,'')]).filter(Boolean))].slice(0,15);
     
     const top = (window.usAllData||[]).slice(0,8).map(r=>r.symbol);
-    const base = ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT'];
-    const all = [...new Set([...pfTickers, ...top, ...base])].slice(0,20);
+    // Base por defecto: SPY (mercado), QQQ (tech), GLD (oro), TLT (bonos largos), SHY (bonos cortos), XLU (utilities), XLP (defensivo), EEM (emergentes)
+    const base = ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT','SHY','XLU','XLP','EEM','XLK','XLV','XLE'];
+    const all = [...new Set([...pfTickersUSA, ...top, ...base])].slice(0,20);
+    
+    // Guardar tickers del portafolio para usarlos en análisis
+    window._smPfTickersUSA = pfTickersUSA;
     
     const [vwapR,corrR,momR] = await Promise.allSettled([
       window._smFetchVwap(['SPY','QQQ','AAPL']),
@@ -2686,7 +2698,10 @@ window.loadSmartMoney = async () => {
     ]);
     if(vwapR.status==='fulfilled') window._smRenderVwap(vwapR.value);
     else { const el=document.getElementById('sm-vwap-info'); if(el) el.textContent = 'VWAP: '+vwapR.reason?.message||'error'; }
-    if(corrR.status==='fulfilled') window._smRenderCorr(corrR.value);
+    if(corrR.status==='fulfilled') {
+      window._smRenderCorr(corrR.value);
+      window._smRenderRecommendation(corrR.value);
+    }
     if(momR.status==='fulfilled') window._smRenderMomentum(momR.value);
     window._smLoaded = true;
     loading.style.display = 'none';
@@ -2697,24 +2712,55 @@ window.loadSmartMoney = async () => {
 };
 
 window._smFetchVwap = async (tickers) => {
+  // Calcular último día hábil correctamente
   const now = new Date();
   const dow = now.getUTCDay();
-  // si sábado(6) o domingo(0), usar último viernes
-  let today;
-  if(dow===0) today = new Date(now.getTime()-2*864e5).toISOString().split('T')[0];
-  else if(dow===6) today = new Date(now.getTime()-1*864e5).toISOString().split('T')[0];
-  else today = now.toISOString().split('T')[0];
+  let daysBack = 0;
+  if(dow === 0) daysBack = 2;     // domingo → viernes
+  else if(dow === 6) daysBack = 1; // sábado → viernes
+  else if(dow === 1) daysBack = 3; // lunes → viernes (si no pasó el finde, agarra el viernes igual tiene datos)
+  const targetDay = new Date(now.getTime() - daysBack*864e5);
+  // Si es lunes, probar viernes primero; si no tiene datos probar lunes
+  const tryDays = [0];
+  if(dow === 1) tryDays.push(2); // lunes: probar viernes primero, si no lunes mismo
+  // Generar fechas a probar
+  const getDateStr = (d) => {
+    const y = d.getUTCFullYear(), m = String(d.getUTCMonth()+1).padStart(2,'0'), day = String(d.getUTCDate()).padStart(2,'0');
+    return y+'-'+m+'-'+day;
+  };
+  
+  async function tryFetch(sym, dateStr) {
+    const res = await fetch('https://data.alpaca.markets/v2/stocks/'+sym+'/bars?timeframe=1Hour&start='+dateStr+'T13:30:00Z&limit=8&adjustment=raw', {
+      headers: {'APCA-API-KEY-ID':SM_ALPACA_KEY,'APCA-API-SECRET-KEY':SM_ALPACA_SECRET}
+    });
+    if(!res.ok) return null;
+    const d = await res.json();
+    if(!d.bars||!d.bars.length) return null;
+    return {symbol:sym, bars:(d.bars||[]).map(b=>({time:b.t,open:b.o,high:b.h,low:b.l,close:b.c,volume:b.v,vwap:(b.h+b.l+b.c)/3}))};
+  }
+  
   const r = await Promise.allSettled(tickers.slice(0,5).map(async sym => {
-    try {
-      const res = await fetch('https://data.alpaca.markets/v2/stocks/'+sym+'/bars?timeframe=1Hour&start='+today+'T09:30:00Z&limit=8&adjustment=raw', {
-        headers: {'APCA-API-KEY-ID':SM_ALPACA_KEY,'APCA-API-SECRET-KEY':SM_ALPACA_SECRET}
-      });
-      if(!res.ok) return null;
-      const d = await res.json();
-      return {symbol:sym, bars:(d.bars||[]).map(b=>({time:b.t,open:b.o,high:b.h,low:b.l,close:b.c,volume:b.v,vwap:(b.h+b.l+b.c)/3}))};
-    } catch(e) { return null; }
+    let result = null;
+    for(const offset of tryDays) {
+      const d = new Date(targetDay.getTime() - offset*864e5);
+      // Skip weekends
+      const dd = d.getUTCDay();
+      if(dd === 0 || dd === 6) continue;
+      result = await tryFetch(sym, getDateStr(d));
+      if(result) break;
+    }
+    if(!result) {
+      // Fallback: probar el jueves si nada funciona
+      const thu = new Date(targetDay.getTime() - (dow === 1 ? 4 : 1)*864e5);
+      if(thu.getUTCDay() !== 0 && thu.getUTCDay() !== 6) {
+        result = await tryFetch(sym, getDateStr(thu));
+      }
+    }
+    return result;
   }));
-  return r.filter(x=>x.status==='fulfilled'&&x.value).map(x=>x.value);
+  const results = r.filter(x=>x.status==='fulfilled'&&x.value).map(x=>x.value);
+  console.log('[vwap] Fetched', results.length, 'tickers with data');
+  return results;
 };
 
 window._smRenderVwap = (data) => {
@@ -2722,12 +2768,19 @@ window._smRenderVwap = (data) => {
   const sel = document.getElementById('sm-vwap-ticker');
   const info = document.getElementById('sm-vwap-info');
   if(!container||!sel) return;
-  if(!data||!data.length) { info.textContent = 'Sin datos de VWAP hoy'; return; }
+  if(!data||!data.length) { info.textContent = 'Sin datos de VWAP — puede ser fin de semana o feriado. Probá en horario de mercado (lunes a viernes 9:30-16:00 ET).'; return; }
+  // Verificar si los datos tienen variación
+  const hasVariation = data.some(d => d.bars && d.bars.length > 1 && d.bars.some((b,i)=>i>0&&b.close!==d.bars[0].close));
+  if(!hasVariation) {
+    info.innerHTML = '<b>⚠️ Datos sin variación</b> — puede ser que Alpaca devuelva datos de un día sin actividad (finde/feriado) o con un snapshot plano. Probá en horario de mercado.';
+    // Igual renderizamos lo que hay
+  } else {
+    info.innerHTML = '<b>💡 VWAP</b> = (High+Low+Close)/3. Precio sobre VWAP = sesgo alcista. Debajo = bajista. <b>Barras verdes:</b> close > VWAP. <b>Rojas:</b> close < VWAP.';
+  }
   sel.innerHTML = data.map((d,i)=>'<option value="'+i+'">'+d.symbol+'</option>').join('');
   window._smVwapData = data;
   sel.onchange = function() { window._drawVwap(parseInt(this.value)); };
   window._drawVwap(0);
-  info.innerHTML = '<b>💡 VWAP</b> = (High+Low+Close)/3. Precio sobre VWAP = sesgo alcista. Debajo = bajista. <b>Barras verdes:</b> close > VWAP. <b>Rojas:</b> close < VWAP.';
 };
 
 window._drawVwap = (idx) => {
@@ -2755,7 +2808,9 @@ window._drawVwap = (idx) => {
 window._smCalcCorr = async (tickers) => {
   const t0 = performance.now();
   console.log('[corr] Fetching historico_precios for', tickers.length, 'tickers:', tickers.join(','));
-  const url = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?symbol=in.('+tickers.join(',')+')&select=fecha,close,symbol&order=fecha.asc&limit=2000';
+  // Usar comillas dobles escapadas para el filtro in.
+  const qs = tickers.map(t=>'"'+t+'"').join(',');
+  const url = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?symbol=in.('+qs+')&select=fecha,close,symbol&order=fecha.asc&limit=10000';
   const res = await fetch(url, {headers:{'apikey':CFG.SB_KEY}});
   const data = await res.json();
   const t1 = performance.now();
@@ -2844,20 +2899,100 @@ window._smRenderCorr = (r) => {
   el.innerHTML = html;
 };
 
+window._smRenderRecommendation = (corrResult) => {
+  const el = document.getElementById('sm-recommendation-box');
+  if(!el) return;
+  
+  const pfTickers = window._smPfTickersUSA||[];
+  const allData = window.usAllData||[];
+  
+  // Activos hedge conocidos por sector
+  const HEDGE_MAP = {
+    'GLD': {name:'Oro', reason:'Baja correlación con equities — cobertura clásica contra inflación y crisis'},
+    'TLT': {name:'Bonos Largos USA', reason:'Inversamente correlacionado con tasas — cobertura cuando caen las tech'},
+    'SHY': {name:'Bonos Cortos USA', reason:'Menor volatilidad que TLT — cobertura conservadora'},
+    'XLU': {name:'Utilities', reason:'Sector defensivo — demanda estable independientemente del ciclo económico'},
+    'XLP': {name:'Consumer Staples', reason:'Consumo básico defensivo — baja correlación con tecnológicas'},
+    'XLV': {name:'Salud', reason:'Sector defensivo — demanda inelástica, funciona en recesiones'},
+    'EEM': {name:'Emergentes', reason:'Diversificación geográfica — baja correlación con USA'},
+    'TLTW': {name:'Treasury Ladder', reason:'Bonos ladder — ingreso fijo con baja volatilidad'},
+    'USO': {name:'Petróleo', reason:'Commodity — hedge contra inflación energética'},
+  };
+  
+  // Analizar qué sectores están sobre-representados en el portafolio
+  const pfTickerSet = new Set(pfTickers);
+  const pfWithSector = allData.filter(r => pfTickerSet.has(r.symbol));
+  const sectorCount = {};
+  pfWithSector.forEach(r => {
+    if(r.sector) sectorCount[r.sector] = (sectorCount[r.sector]||0) + 1;
+  });
+  const topSectors = Object.entries(sectorCount).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  
+  // Encontrar qué activos hedge tienen baja correlación con el portafolio
+  const matrix = corrResult?.matrix||{};
+  const lowCorrHedges = Object.keys(HEDGE_MAP).filter(h => {
+    // Ver correlación promedio contra tickers del portafolio
+    const corrs = pfTickers.map(t => matrix[t+'|'+h]).filter(v => v != null);
+    return corrs.length > 0 && corrs.reduce((s,v)=>s+Math.abs(v),0)/corrs.length < 0.6;
+  });
+  
+  // Buscar el activo con menor correlación promedio contra el portafolio
+  const hedgeScores = Object.keys(HEDGE_MAP).map(h => {
+    const corrs = pfTickers.map(t => matrix[t+'|'+h]).filter(v => v != null);
+    const avgCorr = corrs.length ? corrs.reduce((s,v)=>s+v,0)/corrs.length : null;
+    return {...HEDGE_MAP[h], symbol:h, avgCorr};
+  }).filter(h => h.avgCorr != null).sort((a,b) => Math.abs(a.avgCorr) - Math.abs(b.avgCorr));
+  
+  let html = '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;line-height:1.7">';
+  
+  if(topSectors.length) {
+    html += '<div style="color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">📊 Distribución por sector</div>';
+    topSectors.forEach(([sector,count]) => {
+      html += '<div style="color:var(--text2);margin-bottom:2px">▸ '+sector+': '+count+' activo'+(count>1?'s':'')+'</div>';
+    });
+    html += '</div>';
+  }
+  
+  if(hedgeScores.length) {
+    html += '<div style="margin-top:10px;color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🛡️ Recomendaciones de cobertura</div>';
+    const top3 = hedgeScores.slice(0,3);
+    top3.forEach((h,i) => {
+      const badge = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      html += '<div style="background:var(--bg3);border-radius:5px;padding:8px 10px;margin-bottom:6px">';
+      html += '<div><b>'+badge+' '+h.symbol+'</b> <span style="color:var(--text3)">— '+h.name+'</span></div>';
+      html += '<div style="color:'+(Math.abs(h.avgCorr)<0.3?'var(--green)':'var(--amber)')+';margin-top:3px">Correlación promedio: '+h.avgCorr.toFixed(2)+'</div>';
+      html += '<div style="color:var(--text3);margin-top:2px">'+h.reason+'</div>';
+      html += '</div>';
+    });
+  } else if(pfTickers.length) {
+    html += '<div style="color:var(--text3);margin-top:8px">No hay suficientes datos de correlación para generar recomendaciones. Probá recargar la página.</div>';
+  } else {
+    html += '<div style="color:var(--text3);margin-top:8px">No se detectaron posiciones en tu portafolio. Agregá activos para recibir recomendaciones de cobertura.</div>';
+  }
+  
+  html += '</div>';
+  el.innerHTML = html;
+};
+
 window._smCalcMomentum = async () => {
-  const data = window.usAllData||[];
-  console.log('[momentum] usAllData length:', data.length);
-  if(!data.length) { console.warn('[momentum] No data in usAllData'); return []; }
+  // Usar tickers del portafolio + top del mercado en vez de todos los 600 de usAllData
+  const pfTickers = window._smPfTickersUSA||[];
+  const pfAll = window.usAllData||[];
+  const topMkt = pfAll.filter(r=>pfTickers.includes(r.symbol)||['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT'].includes(r.symbol));
+  const data = pfAll.length ? pfAll.filter(r => pfTickers.includes(r.symbol) || ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT','SHY','XLU','XLP','EEM'].includes(r.symbol)) : [];
+  console.log('[momentum] Filtered to', data.length, 'tickers (portfolio + benchmarks)');
+  if(!data.length) { console.warn('[momentum] No matching tickers found'); return []; }
   const syms = data.map(r=>r.symbol);
-  console.log('[momentum] Fetching historico_precios for', syms.length, 'symbols');
+  console.log('[momentum] Fetching historico_precios for', syms.length, 'symbols:', syms.join(','));
   const t0 = performance.now();
-  const res = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?symbol=in.('+syms.join(',')+')&select=symbol,close,fecha&order=fecha.desc&limit=15000', {
+  const qs = syms.map(t=>'"'+t+'"').join(',');
+  const res = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios?symbol=in.('+qs+')&select=symbol,close,fecha&order=fecha.desc&limit=10000', {
     headers:{'apikey':CFG.SB_KEY}
   });
   const prices = await res.json();
   const t1 = performance.now();
   console.log('[momentum] historico_precios returned', prices.length, 'rows in', Math.round(t1-t0), 'ms, http', res.status);
-  if(!prices.length) { console.warn('[momentum] historico_precios returned 0 rows — posible error de fetch o filtro'); return []; }
+  if(!prices.length) { console.warn('[momentum] historico_precios returned 0 rows'); return []; }
   const pm = {};
   prices.forEach(p=>{if(!pm[p.symbol])pm[p.symbol]=[]; pm[p.symbol].push(p);});
   const missingSyms = syms.filter(s=>!pm[s]||!pm[s].length);
