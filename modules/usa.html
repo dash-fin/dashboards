@@ -544,13 +544,6 @@
       <div class="macro-kpi-sub" id="mkpi-umcsent-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-umcsent-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--amber)" title="💡 EMBI+ Argentina (Riesgo País): spread entre los bonos soberanos argentinos y los bonos del Tesoro USA. Por debajo de 500 puntos = acceso a mercados internacionales.">
-      <span class="macro-tip-icon">💡</span>
-      <div class="macro-kpi-label">Riesgo País ARG</div>
-      <div class="macro-kpi-val" id="mkpi-rp">—<span class="macro-kpi-unit">pts</span></div>
-      <div class="macro-kpi-sub" id="mkpi-rp-sub">—</div>
-      <div class="macro-kpi-date" id="mkpi-rp-date">—</div>
-    </div>
   </div>
 
   <div id="macro-loading" class="macro-loading">
@@ -590,14 +583,6 @@
       </div>
     </div>
 
-    <div class="macro-chart-card">
-      <div class="macro-chart-head">
-        <span class="macro-chart-title">Riesgo País Argentina — EMBI+</span>
-        <button onclick="captureElement(document.getElementById('macro-chart5-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
-      </div>
-      <div class="macro-tip-box"><b>📊 EMBI+ Argentina:</b> Spread en puntos básicos sobre los Treasuries USA. Por debajo de 500 pts → acceso a mercados internacionales de deuda.</div>
-      <div id="macro-chart5-wrap" class="macro-chart-body" style="height:240px"><canvas id="macro-chart-rp"></canvas></div>
-    </div>
   </div>
 </div><!-- /uspanel-macro -->
 
@@ -944,7 +929,7 @@ window.loadMacro = async function() {
   if (chartsEl)  chartsEl.style.display  = 'none';
 
   try {
-    const seriesIds = ['DFF','DGS10','DGS2','T10YIE','CPIAUCSL','UNRATE','UMCSENT','BAMLEMARPITRIV','SPREAD_10Y2Y','RECESSION_DATES'];
+    const seriesIds = ['DFF','DGS10','DGS2','T10YIE','CPIAUCSL','UNRATE','UMCSENT','SPREAD_10Y2Y','RECESSION_DATES']; 
     const rows = await sb('cache_fred', `series_id=in.(${seriesIds.map(s=>'"'+s+'"').join(',')})&select=series_id,data,metadata,last_updated`);
 
     if (!rows || !rows.length) {
@@ -985,7 +970,7 @@ window.loadMacro = async function() {
     const cpi    = getLatest('CPIAUCSL');
     const unrate = getLatest('UNRATE');
     const umcsent= getLatest('UMCSENT');
-    const rp     = getLatest('BAMLEMARPITRIV');
+    // rp eliminado: EMBI+ Argentina descontinuada en FRED
 
     setMKpi('dff',    dff,    '%', dff != null ? (dff >= 5 ? 'Restrictiva' : dff >= 3 ? 'Neutral' : 'Expansiva') : '—', getLatestDate('DFF'), null);
     setMKpi('dgs10',  dgs10,  '%', dgs10 != null ? 'Tasa libre de riesgo 10Y' : '—', getLatestDate('DGS10'), null);
@@ -1028,15 +1013,6 @@ window.loadMacro = async function() {
     const umcsentDateEl = document.getElementById('mkpi-umcsent-date');
     if (umcsentDateEl) umcsentDateEl.textContent = 'Dato: ' + (getLatestDate('UMCSENT') || '—');
 
-    const rpEl = document.getElementById('mkpi-rp');
-    if (rpEl) {
-      rpEl.innerHTML = rp != null ? Math.round(rp) + '<span class="macro-kpi-unit">pts</span>' : '—<span class="macro-kpi-unit">pts</span>';
-      if (rp != null) rpEl.style.color = rp > 1000 ? 'var(--red)' : rp > 500 ? 'var(--amber)' : 'var(--green)';
-    }
-    const rpSubEl = document.getElementById('mkpi-rp-sub');
-    if (rpSubEl) rpSubEl.textContent = rp != null ? (rp > 1000 ? 'Riesgo muy alto' : rp > 500 ? 'Riesgo elevado' : 'Acceso a mercados') : '—';
-    const rpDateEl = document.getElementById('mkpi-rp-date');
-    if (rpDateEl) rpDateEl.textContent = 'Dato: ' + (getLatestDate('BAMLEMARPITRIV') || '—');
 
     const recessions = fredMap['RECESSION_DATES']?.data || [];
 
@@ -1261,45 +1237,6 @@ window.loadMacro = async function() {
       });
     }
 
-    // Chart 5: Riesgo País Argentina
-    const rpData = getData('BAMLEMARPITRIV');
-    if (rpData.length) {
-      const step5 = Math.max(1, Math.floor(rpData.length / 200));
-      const sampled5 = rpData.filter((_, i) => i % step5 === 0 || i === rpData.length - 1);
-      const labels5  = sampled5.map(d => d.date);
-      const valsRp   = sampled5.map(d => d.value);
-      if (window._macroCharts.rp) window._macroCharts.rp.destroy();
-      window._macroCharts.rp = new Chart(document.getElementById('macro-chart-rp'), {
-        type: 'line',
-        data: { labels: labels5, datasets: [{
-          label: 'Riesgo País ARG (EMBI+)', data: valsRp,
-          borderColor: '#f5a623', backgroundColor: 'rgba(245,166,35,0.08)',
-          borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true,
-        }]},
-        options: {
-          responsive: true, maintainAspectRatio: false, animation: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: {
-            legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
-            tooltip: {
-              backgroundColor: '#111722',
-              titleFont: { family: 'IBM Plex Mono', size: 10 },
-              bodyFont: { family: 'IBM Plex Mono', size: 11 },
-              callbacks: {
-                label: ctx => 'EMBI+: ' + Math.round(ctx.parsed.y) + ' pts',
-                afterBody: (ctxArr) => {
-                  const v = ctxArr[0]?.parsed?.y;
-                  if (v == null) return [];
-                  if (v > 1000) return ['⚠ Riesgo muy alto — sin acceso a mercados'];
-                  if (v > 500)  return ['⚠ Riesgo elevado'];
-                  return ['✅ Acceso a mercados internacionales'];
-                }
-              }
-            }
-          },
-          scales: {
-            x: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
-            y: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => Math.round(v) + ' pts' }, grid: { color: 'rgba(255,255,255,0.04)' } }
           }
         },
         plugins: [{

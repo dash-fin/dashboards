@@ -10,7 +10,7 @@ const SERIES: Record<string, { display: string; unit: string; desc: string }> = 
   CPIAUCSL:       { display: 'CPI USA',                unit: 'índice', desc: 'Consumer Price Index' },
   UNRATE:         { display: 'Desempleo USA',          unit: '%',      desc: 'Tasa de desempleo' },
   UMCSENT:        { display: 'Confianza consumidor',   unit: 'índice', desc: 'U. of Michigan Consumer Sentiment' },
-  BAMLEMARPITRIV: { display: 'Riesgo País Argentina',  unit: 'puntos', desc: 'EMBI+ Argentina' },
+//BAMLEMARPITRIV: { display: 'Riesgo País Argentina',  unit: 'puntos', desc: 'EMBI+ Argentina — descontinuada en FRED' },
 };
 
 const RECESSION_DATES = [
