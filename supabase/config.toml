@@ -10,3 +10,10 @@ verify_jwt = false
 
 [functions.finra-short-volume]
 verify_jwt = false
+
+[functions.fetch-fred]
+verify_jwt = false
+
+[cron.fetch-fred-refresh]
+schedule = "0 21 * * 1-5"
+function = "fetch-fred"

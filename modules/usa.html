@@ -31,6 +31,25 @@
 .btn-share{background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px;border-radius:4px;color:var(--text3);transition:all .15s;flex-shrink:0}
 .btn-share:hover{background:var(--bg-hover,rgba(255,255,255,.08));color:var(--text)}
 .card-head{gap:6px}
+
+/* ── Macro tab ── */
+.macro-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:900px){.macro-kpi-row{grid-template-columns:repeat(2,1fr)}}
+.macro-kpi{background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;position:relative;overflow:hidden;cursor:help;transition:border-color .15s}
+.macro-kpi:hover{border-color:var(--border3)}
+.macro-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--mk-accent,var(--blue));opacity:.8}
+.macro-kpi-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.macro-kpi-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:500;color:var(--mk-accent,var(--blue))}
+.macro-kpi-sub{font-size:9px;color:var(--text3);margin-top:4px;font-family:'IBM Plex Mono',monospace}
+.macro-kpi-tip{font-size:9px;color:var(--text4);margin-top:6px;line-height:1.5;border-top:1px solid var(--border);padding-top:5px;display:none}
+.macro-kpi:hover .macro-kpi-tip{display:block}
+.macro-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.macro-chart-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.macro-chart-title{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px;font-weight:500}
+.macro-chart-body{padding:14px;position:relative}
+.macro-tip{background:rgba(77,166,255,.06);border:1px solid rgba(77,166,255,.15);border-radius:6px;padding:8px 12px;font-size:10px;color:var(--text3);line-height:1.6;margin:0 14px 12px}
+.macro-tip .tip-icon{color:var(--blue);margin-right:4px}
+.macro-recession{fill:rgba(255,63,94,.08);stroke:none}
 </style>
 
 <div class="sub-tabs-row">
@@ -42,6 +61,7 @@
     <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
     <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
     <button class="stab"        id="ustab-topology" onclick="usTab('topology',this)">Market Topology</button>
+    <button class="stab"        id="ustab-macro"    onclick="usTab('macro',this)">Macro</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -553,6 +573,158 @@
 </div>
 <div id="rrg-tooltip" style="position:fixed;background:#0f1822;border:1px solid var(--border2);border-radius:6px;padding:9px 13px;font-size:10px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .12s;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5)"></div>
 
+<!-- ══ MACRO ══ -->
+<div class="sub-panel" id="uspanel-macro">
+
+  <!-- KPI row -->
+  <div class="macro-kpi-row">
+    <div class="macro-kpi" style="--mk-accent:var(--blue)"
+      title="Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. Bajas = estímulo. Subas = enfriamiento.">
+      <div class="macro-kpi-label">💡 Fed Funds Rate</div>
+      <div class="macro-kpi-val" id="mkpi-dff">—</div>
+      <div class="macro-kpi-sub" id="mkpi-dff-sub">Tasa efectiva de la Fed</div>
+      <div class="macro-kpi-tip">Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. <b>Bajas = estímulo. Subas = enfriamiento.</b></div>
+    </div>
+    <div class="macro-kpi" style="--mk-accent:var(--cyan)"
+      title="Rendimiento del bono del Tesoro USA a 10 años. Es la tasa libre de riesgo de referencia global. Sube cuando el mercado espera más inflación o crecimiento. Baja en flight-to-safety.">
+      <div class="macro-kpi-label">💡 Treasury 10Y</div>
+      <div class="macro-kpi-val" id="mkpi-dgs10">—</div>
+      <div class="macro-kpi-sub" id="mkpi-dgs10-sub">Rendimiento bono 10 años</div>
+      <div class="macro-kpi-tip">Tasa libre de riesgo de referencia global. Sube cuando el mercado espera más inflación o crecimiento. Baja en <i>flight-to-safety</i>. Impacta valuación de acciones (DCF).</div>
+    </div>
+    <div class="macro-kpi" style="--mk-accent:var(--amber)"
+      title="Spread 10Y-2Y: positivo = curva normal. Negativo (invertida) = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión.">
+      <div class="macro-kpi-label">💡 Spread 10Y-2Y</div>
+      <div class="macro-kpi-val" id="mkpi-spread">—</div>
+      <div class="macro-kpi-sub" id="mkpi-spread-sub">Curva de rendimiento</div>
+      <div class="macro-kpi-tip"><b>Positivo</b> = curva normal. <b>Negativo (invertida)</b> = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión.</div>
+    </div>
+    <div class="macro-kpi" style="--mk-accent:var(--red)"
+      title="Breakeven inflation = diferencia entre bono nominal y TIPS. El mercado apuesta a esta inflación promedio en los próximos 10 años. Por encima del 2.5% = expectativas desancladas.">
+      <div class="macro-kpi-label">💡 Inflación esperada 10Y</div>
+      <div class="macro-kpi-val" id="mkpi-t10yie">—</div>
+      <div class="macro-kpi-sub" id="mkpi-t10yie-sub">Breakeven inflation</div>
+      <div class="macro-kpi-tip">Breakeven inflation = diferencia entre bono nominal y TIPS. El mercado apuesta a esta inflación promedio en los próximos 10 años. <b>&gt;2.5% = expectativas desancladas.</b></div>
+    </div>
+  </div>
+
+  <!-- Segunda fila KPIs -->
+  <div class="macro-kpi-row" style="margin-bottom:20px">
+    <div class="macro-kpi" style="--mk-accent:var(--green)"
+      title="Consumer Price Index: mide la inflación realizada en USA. La Fed tiene como objetivo 2% anual. Por encima de ese nivel, la Fed sube tasas para enfriar la economía.">
+      <div class="macro-kpi-label">💡 CPI USA (YoY)</div>
+      <div class="macro-kpi-val" id="mkpi-cpi">—</div>
+      <div class="macro-kpi-sub" id="mkpi-cpi-sub">Inflación realizada</div>
+      <div class="macro-kpi-tip">Mide la inflación realizada en USA. La Fed tiene como objetivo <b>2% anual</b>. Por encima de ese nivel, la Fed sube tasas para enfriar la economía.</div>
+    </div>
+    <div class="macro-kpi" style="--mk-accent:var(--purple)"
+      title="Tasa de desempleo USA. Por debajo del 4% = mercado laboral ajustado, presión salarial al alza. Por encima del 5% = enfriamiento económico. La Fed monitorea este dato junto al CPI.">
+      <div class="macro-kpi-label">💡 Desempleo USA</div>
+      <div class="macro-kpi-val" id="mkpi-unrate">—</div>
+      <div class="macro-kpi-sub" id="mkpi-unrate-sub">Tasa de desempleo</div>
+      <div class="macro-kpi-tip">Por debajo del 4% = mercado laboral ajustado, presión salarial al alza. Por encima del 5% = enfriamiento económico. La Fed monitorea este dato junto al CPI.</div>
+    </div>
+    <div class="macro-kpi" style="--mk-accent:var(--orange,#fb923c)"
+      title="University of Michigan Consumer Sentiment. Por encima de 80 = consumidor optimista, gasto fuerte. Por debajo de 60 = pesimismo, riesgo de recesión por caída del consumo.">
+      <div class="macro-kpi-label">💡 Confianza consumidor</div>
+      <div class="macro-kpi-val" id="mkpi-umcsent">—</div>
+      <div class="macro-kpi-sub" id="mkpi-umcsent-sub">U. Michigan Sentiment</div>
+      <div class="macro-kpi-tip">Por encima de 80 = consumidor optimista, gasto fuerte. Por debajo de 60 = pesimismo, riesgo de recesión por caída del consumo.</div>
+    </div>
+    <div class="macro-kpi" style="--mk-accent:var(--red)"
+      title="EMBI+ Argentina: spread de los bonos soberanos argentinos sobre los bonos del Tesoro USA. Mide el riesgo percibido de default. Por encima de 1000 puntos = riesgo muy alto.">
+      <div class="macro-kpi-label">💡 Riesgo País ARG</div>
+      <div class="macro-kpi-val" id="mkpi-embi">—</div>
+      <div class="macro-kpi-sub" id="mkpi-embi-sub">EMBI+ Argentina</div>
+      <div class="macro-kpi-tip">Spread de bonos soberanos ARG sobre Tesoro USA. Mide riesgo percibido de default. <b>&gt;1000 puntos = riesgo muy alto.</b> Baja sostenida = mejora de confianza.</div>
+    </div>
+  </div>
+
+  <!-- Gráfico 1: Fed Funds Rate histórica -->
+  <div class="macro-chart-card">
+    <div class="macro-chart-head">
+      <div class="macro-chart-title">📈 Tasa Fed Funds — Histórico</div>
+      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · DFF</span>
+    </div>
+    <div class="macro-tip">
+      <span class="tip-icon">💡</span>
+      La Fed sube tasas para enfriar la economía (combatir inflación) y las baja para estimular el crecimiento. Los ciclos de suba suelen preceder correcciones en acciones de crecimiento. Las zonas grises representan recesiones oficiales (NBER).
+    </div>
+    <div class="macro-chart-body" style="height:260px">
+      <canvas id="macro-chart-dff"></canvas>
+    </div>
+    <div class="chart-meta">Fed Funds Effective Rate (DFF) · Diario · FRED St. Louis Fed</div>
+  </div>
+
+  <!-- Gráfico 2: Treasury 10Y vs 2Y + Spread -->
+  <div class="macro-chart-card">
+    <div class="macro-chart-head">
+      <div class="macro-chart-title">📈 Curva de Rendimiento — 10Y vs 2Y + Spread</div>
+      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · DGS10 / DGS2</span>
+    </div>
+    <div class="macro-tip">
+      <span class="tip-icon">💡</span>
+      Cuando el rendimiento del bono a 2 años supera al de 10 años, la curva se <b>invierte</b> (spread negativo). Esta señal precedió a todas las recesiones desde 1950 con un adelanto de 6 a 18 meses. El spread se muestra como área sombreada en el eje derecho.
+    </div>
+    <div class="macro-chart-body" style="height:260px">
+      <canvas id="macro-chart-yield"></canvas>
+    </div>
+    <div class="chart-meta">DGS10 vs DGS2 · Spread = 10Y − 2Y · FRED St. Louis Fed</div>
+  </div>
+
+  <!-- Gráfico 3: CPI vs Breakeven inflation -->
+  <div class="macro-chart-card">
+    <div class="macro-chart-head">
+      <div class="macro-chart-title">📈 Inflación: CPI Realizado vs Expectativas (Breakeven 10Y)</div>
+      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · CPIAUCSL / T10YIE</span>
+    </div>
+    <div class="macro-tip">
+      <span class="tip-icon">💡</span>
+      El <b>CPI</b> refleja la inflación REAL pasada (dato mensual). El <b>Breakeven</b> refleja las EXPECTATIVAS de inflación futura del mercado. Cuando el breakeven supera al CPI → el mercado espera inflación al alza. Cuando el CPI supera al breakeven → la inflación sorprendió al alza.
+    </div>
+    <div class="macro-chart-body" style="height:260px">
+      <canvas id="macro-chart-inflation"></canvas>
+    </div>
+    <div class="chart-meta">CPI YoY % vs Breakeven Inflation 10Y · FRED St. Louis Fed</div>
+  </div>
+
+  <!-- Gráfico 4: Desempleo vs Confianza consumidor -->
+  <div class="macro-chart-card">
+    <div class="macro-chart-head">
+      <div class="macro-chart-title">📈 Desempleo USA vs Confianza del Consumidor</div>
+      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · UNRATE / UMCSENT</span>
+    </div>
+    <div class="macro-tip">
+      <span class="tip-icon">💡</span>
+      El <b>desempleo</b> y la <b>confianza del consumidor</b> suelen moverse en direcciones opuestas. Cuando el desempleo sube, la confianza cae y el consumo se contrae. El consumo representa ~70% del PBI de USA, por lo que esta combinación es un indicador adelantado de recesión.
+    </div>
+    <div class="macro-chart-body" style="height:260px">
+      <canvas id="macro-chart-labor"></canvas>
+    </div>
+    <div class="chart-meta">UNRATE (%) vs UMCSENT (índice) · FRED St. Louis Fed</div>
+  </div>
+
+  <!-- Riesgo País Argentina -->
+  <div class="macro-chart-card">
+    <div class="macro-chart-head">
+      <div class="macro-chart-title">📈 Riesgo País Argentina — EMBI+</div>
+      <span style="font-size:9px;color:var(--text4)">Fuente: FRED · BAMLEMARPITRIV</span>
+    </div>
+    <div class="macro-tip">
+      <span class="tip-icon">💡</span>
+      El <b>EMBI+ Argentina</b> mide el spread (diferencial) de los bonos soberanos argentinos sobre los bonos del Tesoro USA. Un nivel por encima de 1000 puntos básicos indica riesgo muy alto de default. La tendencia bajista sostenida es señal de mejora en la percepción de riesgo del país.
+    </div>
+    <div class="macro-chart-body" style="height:220px">
+      <canvas id="macro-chart-embi"></canvas>
+    </div>
+    <div class="chart-meta">EMBI+ Argentina (puntos básicos) · FRED St. Louis Fed</div>
+  </div>
+
+  <div style="font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace;text-align:center;padding:8px 0">
+    Datos provistos por FRED® (Federal Reserve Bank of St. Louis) · Actualización automática lun-vie 18:00 ARG
+  </div>
+</div>
+
 <script>
 (function(){
 
@@ -580,6 +752,7 @@ window.usTab = (name, btn) => {
   if(name==='shortint') siLoad();
   if(name==='rrg')      { if(!rrgLoaded) rrgLoad(); else { rrgRender(); usDrawRotationClock(); } }
   if(name==='topology') usRenderTopology();
+  if(name==='macro')    window.loadMacro();
 };
 
 // ── Load ──
@@ -2638,11 +2811,290 @@ window.shareSiChart = function shareSiChart(elId, title) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════
+// MACRO TAB — FRED data
+// ══════════════════════════════════════════════════════════════
 
+// Chart instances for macro tab
+let _macroCharts = {};
+let _macroLoaded = false;
 
-// ── Init ──
-usLoadAll();
-window.moduleTimers.usa = setInterval(usLoadAll, 30000);
+// NBER recession periods (approximate, for shading)
+const NBER_RECESSIONS = [
+  ['1980-01-01','1980-07-01'],
+  ['1981-07-01','1982-11-01'],
+  ['1990-07-01','1991-03-01'],
+  ['2001-03-01','2001-11-01'],
+  ['2007-12-01','2009-06-01'],
+  ['2020-02-01','2020-04-01'],
+];
 
-})();
-</script>
+function macroRecessionPlugin(recessions) {
+  return {
+    id: 'recessions',
+    beforeDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea || !scales.x) return;
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,63,94,0.07)';
+      for (const [start, end] of recessions) {
+        const startTs = new Date(start).getTime();
+        const endTs   = new Date(end).getTime();
+        // Find pixel positions
+        const xMin = scales.x.min;
+        const xMax = scales.x.max;
+        if (endTs < xMin || startTs > xMax) continue;
+        const x1 = scales.x.getPixelForValue(Math.max(startTs, xMin));
+        const x2 = scales.x.getPixelForValue(Math.min(endTs, xMax));
+        ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
+      }
+      ctx.restore();
+    }
+  };
+}
+
+function macroChartDefaults() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#9dafc5', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 12, padding: 10 } },
+      tooltip: {
+        backgroundColor: 'rgba(8,11,18,0.95)',
+        titleFont: { family: 'IBM Plex Mono', size: 10 },
+        bodyFont: { family: 'IBM Plex Mono', size: 11 },
+        borderColor: 'rgba(255,255,255,0.08)',
+        borderWidth: 1,
+        padding: 9,
+      }
+    },
+    scales: {
+      x: {
+        type: 'time',
+        time: { unit: 'month', tooltipFormat: 'MMM yyyy', displayFormats: { month: 'MMM yy', year: 'yyyy' } },
+        ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 12 },
+        grid: { color: 'rgba(255,255,255,0.03)' }
+      },
+      y: {
+        ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 } },
+        grid: { color: 'rgba(255,255,255,0.04)' }
+      }
+    }
+  };
+}
+
+function macroDestroyAll() {
+  Object.values(_macroCharts).forEach(c => { try { c.destroy(); } catch(_) {} });
+  _macroCharts = {};
+}
+
+function macroSetKPI(id, value, sub, color) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = value != null ? value : '—';
+  if (color) el.style.color = color;
+  const subEl = document.getElementById(id + '-sub');
+  if (subEl && sub) subEl.textContent = sub;
+}
+
+function macroDataToChartPoints(data) {
+  // data: [{date, value}]
+  return (data || []).map(d => ({ x: new Date(d.date).getTime(), y: d.value }));
+}
+
+// Calculate CPI YoY from index values
+function cpiToYoY(data) {
+  if (!data || data.length < 13) return [];
+  const result = [];
+  for (let i = 12; i < data.length; i++) {
+    const curr = data[i].value;
+    const prev = data[i - 12].value;
+    if (prev > 0) {
+      result.push({ x: new Date(data[i].date).getTime(), y: parseFloat(((curr - prev) / prev * 100).toFixed(2)) });
+    }
+  }
+  return result;
+}
+
+window.loadMacro = async function loadMacro() {
+  if (_macroLoaded) return; // already loaded, don't re-fetch
+  _macroLoaded = true;
+
+  // Show loading state
+  ['mkpi-dff','mkpi-dgs10','mkpi-spread','mkpi-t10yie','mkpi-cpi','mkpi-unrate','mkpi-umcsent','mkpi-embi'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = '…'; el.style.color = 'var(--text3)'; }
+  });
+
+  try {
+    // Fetch all series from cache_fred
+    const seriesIds = ['DFF','DGS10','DGS2','T10YIE','CPIAUCSL','UNRATE','UMCSENT','BAMLEMARPITRIV','SPREAD_10Y2Y'];
+    const SBH = { apikey: CFG.SB_KEY, 'Authorization': 'Bearer ' + CFG.SB_KEY };
+    const rows = await Promise.all(
+      seriesIds.map(id =>
+        fetch(`https://endymbpdayeidromxayb.supabase.co/rest/v1/cache_fred?series_id=eq.${id}&select=series_id,data,metadata`, { headers: SBH })
+          .then(r => r.ok ? r.json() : [])
+          .then(arr => arr[0] || null)
+      )
+    );
+
+    const byId = {};
+    rows.forEach(r => { if (r) byId[r.series_id] = r; });
+
+    // Helper: get last non-null value
+    const lastVal = (id) => {
+      const d = byId[id]?.data;
+      if (!d || !d.length) return null;
+      return d[d.length - 1].value;
+    };
+
+    // ── KPIs ──
+    const dff    = lastVal('DFF');
+    const dgs10  = lastVal('DGS10');
+    const dgs2   = lastVal('DGS2');
+    const t10yie = lastVal('T10YIE');
+    const spread = lastVal('SPREAD_10Y2Y') ?? (dgs10 != null && dgs2 != null ? dgs10 - dgs2 : null);
+    const unrate = lastVal('UNRATE');
+    const umcsent= lastVal('UMCSENT');
+    const embi   = lastVal('BAMLEMARPITRIV');
+
+    // CPI YoY from index
+    const cpiData = byId['CPIAUCSL']?.data || [];
+    const cpiYoY  = cpiToYoY(cpiData);
+    const cpiLast = cpiYoY.length ? cpiYoY[cpiYoY.length - 1].y : null;
+
+    macroSetKPI('mkpi-dff',    dff    != null ? dff.toFixed(2) + '%'    : '—', 'Tasa efectiva Fed', dff != null ? (dff > 4 ? 'var(--red)' : dff > 2 ? 'var(--amber)' : 'var(--green)') : null);
+    macroSetKPI('mkpi-dgs10',  dgs10  != null ? dgs10.toFixed(2) + '%'  : '—', 'Rendimiento 10Y',   dgs10 != null ? (dgs10 > 4.5 ? 'var(--red)' : 'var(--cyan)') : null);
+    macroSetKPI('mkpi-spread', spread != null ? (spread >= 0 ? '+' : '') + spread.toFixed(2) + '%' : '—',
+      spread != null ? (spread < 0 ? '⚠ Curva invertida' : 'Curva normal') : 'Spread 10Y-2Y',
+      spread != null ? (spread < 0 ? 'var(--red)' : spread < 0.5 ? 'var(--amber)' : 'var(--green)') : null);
+    macroSetKPI('mkpi-t10yie', t10yie != null ? t10yie.toFixed(2) + '%' : '—', 'Breakeven 10Y',     t10yie != null ? (t10yie > 2.5 ? 'var(--red)' : 'var(--text)') : null);
+    macroSetKPI('mkpi-cpi',    cpiLast!= null ? cpiLast.toFixed(1) + '%': '—', 'Variación anual',   cpiLast != null ? (cpiLast > 4 ? 'var(--red)' : cpiLast > 2 ? 'var(--amber)' : 'var(--green)') : null);
+    macroSetKPI('mkpi-unrate', unrate != null ? unrate.toFixed(1) + '%'  : '—', 'Tasa desempleo',    unrate != null ? (unrate > 5 ? 'var(--red)' : unrate > 4 ? 'var(--amber)' : 'var(--green)') : null);
+    macroSetKPI('mkpi-umcsent',umcsent!= null ? umcsent.toFixed(0)       : '—', 'U. Michigan',       umcsent != null ? (umcsent < 60 ? 'var(--red)' : umcsent < 80 ? 'var(--amber)' : 'var(--green)') : null);
+    macroSetKPI('mkpi-embi',   embi   != null ? embi.toFixed(0) + ' bps' : '—', 'EMBI+ Argentina',   embi != null ? (embi > 1000 ? 'var(--red)' : embi > 600 ? 'var(--amber)' : 'var(--green)') : null);
+
+    // ── Chart 1: Fed Funds Rate ──
+    {
+      const canvas = document.getElementById('macro-chart-dff');
+      if (canvas && byId['DFF']?.data?.length) {
+        if (_macroCharts['dff']) _macroCharts['dff'].destroy();
+        const pts = macroDataToChartPoints(byId['DFF'].data);
+        const recPlugin = macroRecessionPlugin(NBER_RECESSIONS);
+        const opts = macroChartDefaults();
+        opts.plugins.tooltip.callbacks = { label: ctx => 'Fed Funds: ' + ctx.parsed.y.toFixed(2) + '%' };
+        opts.scales.y.ticks.callback = v => v + '%';
+        opts.scales.y.title = { display: true, text: 'Tasa (%)', color: '#4a5568', font: { size: 9 } };
+        _macroCharts['dff'] = new Chart(canvas, {
+          type: 'line',
+          data: {
+            datasets: [{
+              label: 'Fed Funds Rate',
+              data: pts,
+              borderColor: '#4da6ff',
+              backgroundColor: 'rgba(77,166,255,0.08)',
+              borderWidth: 2,
+              pointRadius: 0,
+              fill: true,
+              tension: 0.1,
+            }]
+          },
+          options: opts,
+          plugins: [recPlugin]
+        });
+      }
+    }
+
+    // ── Chart 2: Treasury 10Y vs 2Y + Spread ──
+    {
+      const canvas = document.getElementById('macro-chart-yield');
+      if (canvas && byId['DGS10']?.data?.length && byId['DGS2']?.data?.length) {
+        if (_macroCharts['yield']) _macroCharts['yield'].destroy();
+        const pts10 = macroDataToChartPoints(byId['DGS10'].data);
+        const pts2  = macroDataToChartPoints(byId['DGS2'].data);
+        const ptsSpread = macroDataToChartPoints(byId['SPREAD_10Y2Y']?.data || []);
+        const opts = macroChartDefaults();
+        opts.scales.y.ticks.callback = v => v + '%';
+        opts.scales.y.title = { display: true, text: 'Rendimiento (%)', color: '#4a5568', font: { size: 9 } };
+        opts.scales.y2 = {
+          position: 'right',
+          ticks: { color: '#4a5568', font: { size: 9 }, callback: v => v.toFixed(1) + '%' },
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: 'Spread (%)', color: '#4a5568', font: { size: 9 } }
+        };
+        opts.plugins.tooltip.callbacks = {
+          label: ctx => {
+            if (ctx.dataset.label === 'Spread 10Y-2Y') return 'Spread: ' + ctx.parsed.y.toFixed(2) + '%';
+            return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%';
+          }
+        };
+        const recPlugin = macroRecessionPlugin(NBER_RECESSIONS);
+        _macroCharts['yield'] = new Chart(canvas, {
+          type: 'line',
+          data: {
+            datasets: [
+              {
+                label: 'Treasury 10Y',
+                data: pts10,
+                borderColor: '#00e5a8',
+                backgroundColor: 'rgba(0,229,168,0.05)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.1,
+                yAxisID: 'y',
+              },
+              {
+                label: 'Treasury 2Y',
+                data: pts2,
+                borderColor: '#ff3f5e',
+                backgroundColor: 'rgba(255,63,94,0.05)',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                tension: 0.1,
+                yAxisID: 'y',
+              },
+              {
+                label: 'Spread 10Y-2Y',
+                data: ptsSpread,
+                borderColor: '#f0a500',
+                backgroundColor: ctx => {
+                  const v = ctx.parsed?.y;
+                  return v < 0 ? 'rgba(255,63,94,0.15)' : 'rgba(240,165,0,0.10)';
+                },
+                borderWidth: 1.5,
+                pointRadius: 0,
+                fill: { target: { value: 0 }, above: 'rgba(240,165,0,0.08)', below: 'rgba(255,63,94,0.15)' },
+                tension: 0.1,
+                yAxisID: 'y2',
+                borderDash: [4, 3],
+              }
+            ]
+          },
+          options: opts,
+          plugins: [recPlugin]
+        });
+      }
+    }
+
+    // ── Chart 3: CPI YoY vs Breakeven ──
+    {
+      const canvas = document.getElementById('macro-chart-inflation');
+      if (canvas && cpiYoY.length && byId['T10YIE']?.data?.length) {
+        if (_macroCharts['inflation']) _macroCharts['inflation'].destroy();
+        const ptsBreakeven = macroDataToChartPoints(byId['T10YIE'].data);
+        const opts = macroChartDefaults();
+        opts.scales.y.ticks.callback = v => v.toFixed(1) + '%';
+        opts.scales.y.title = { display: true, text: 'Inflación (%)', color: '#4a5568', font: { size: 9 } };
+        opts.plugins.tooltip.callbacks = {
+          label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%'
+        };
+        // Reference line at 2%
+        const refPlugin = {
+          id: 'refLine2pct',
+          afterDraw(chart) {
+            const { ctx: c, chartArea, scales } = chart;
+            if (!chartArea || !scales.y)
