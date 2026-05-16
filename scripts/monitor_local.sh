@@ -377,13 +377,27 @@ watchdog_ars || true
 
 # Dólar + PnL al cierre (17:01-17:59)
 if in_range 1701 1759; then
-  get_dolar
-  if in_range 1706 1759; then
-    pnl_snapshot
-  fi
-  if in_range 1720 1730; then
-    send_resumen
-  fi
+    get_dolar
+
+    # Backfill del día anterior si faltaron datos (MEP, CCL, oficial)
+    local ayer_fill
+    ayer_fill=$(TZ=America/Argentina/Buenos_Aires date -d 'yesterday' +%Y-%m-%d)
+    local chk_mep chk_ofi
+    chk_mep=$(sb_get "mep_historico" "select=mep&fecha=eq.${ayer_fill}&limit=1" | grep -oP '"mep":[\\d.]+' | head -1)
+    chk_ofi=$(sb_get "dolar_historico" "select=close&fecha=eq.${ayer_fill}&tipo=eq.oficial&limit=1" | grep -oP '"close":[\\d.]+' | head -1)
+    if [[ -z "$chk_mep" || -z "$chk_ofi" ]]; then
+      log "BACKFILL: Completando $ayer_fill — faltaban datos (MEP='${chk_mep:-vacio}' ofi='${chk_ofi:-vacio}')"
+      eval "function date_art() { echo '$ayer_fill'; }"
+      get_dolar 2>&1 || log "BACKFILL: Error completando $ayer_fill"
+      unset -f date_art
+    fi
+
+    if in_range 1706 1759; then
+      pnl_snapshot
+    fi
+    if in_range 1720 1730; then
+      send_resumen
+    fi
 fi
 
 log "=== MONITOR LOCAL FIN ==="
