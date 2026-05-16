@@ -171,7 +171,6 @@
       <div class="usa-heatmap" id="usHeatmap"></div>
     </div>
   </div>
-  <!-- Panel de movers del sector seleccionado -->
   <div id="usSectorDetail" style="display:none" class="card">
     <div class="card-head">
       <div class="card-title" id="usSectorDetailTitle">—</div>
@@ -193,8 +192,6 @@
 
 <!-- ══ OPCIONES ══ -->
 <div class="sub-panel" id="uspanel-opciones">
-
-  <!-- Señales P/C -->
   <div class="sec-head" style="--hc:var(--purple);margin-bottom:10px">Señales Put/Call por subyacente</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="usPCFilterGroup">
     <button class="flt on" onclick="usPCFilter('all',this)">Todos</button>
@@ -205,8 +202,6 @@
   <div id="usSignalsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px">
     <div class="empty-state"><div class="empty-icon">📊</div><p>Cargando señales de opciones...</p></div>
   </div>
-
-  <!-- P/C Ratio general -->
   <div style="margin-top:16px">
     <div class="sec-head" style="--hc:var(--blue);margin-bottom:10px">P/C Ratio — detalle por subyacente</div>
     <div class="card">
@@ -227,11 +222,8 @@
   </div>
 </div>
 
-
 <!-- ══ SHORT INTEREST ══ -->
 <div class="sub-panel" id="uspanel-shortint">
-
-  <!-- Top bar -->
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <div style="display:flex;gap:0;border:1px solid var(--border2);border-radius:6px;overflow:hidden">
       <input id="si-ticker" type="text" value="SPY" placeholder="Ticker…" autocomplete="off" autocapitalize="characters" spellcheck="false"
@@ -245,55 +237,30 @@
     <div id="si-status" style="font-size:10px;color:var(--text3)"></div>
   </div>
 
-  <!-- Guide popup -->
   <div id="si-guide" style="display:none;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:11px;color:var(--text2);line-height:1.7">
     <div style="font-weight:600;color:var(--text);margin-bottom:8px;font-size:13px">📘 Guía Short Data</div>
-
     <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📊 Short Volume % (diario)</div>
     <p><b>¿Qué es?</b> Porcentaje del volumen total del día que se operó como venta en corto.</p>
-    <p><b>Cómo leerlo:</b><br>
-    &gt;40% → presión corta muy alta, posible squeeze setup<br>
-    25-40% → presión corta elevada, monitorear<br>
-    15-25% → rango normal<br>
-    &lt;15% → baja actividad de cortos</p>
-    <p><b>Tendencias:</b><br>
-    Sube sostenido → aumentando presión bajista<br>
-    Baja sostenido → disminuyendo presión bajista</p>
-
+    <p><b>Cómo leerlo:</b><br>&gt;40% → presión corta muy alta<br>25-40% → presión corta elevada<br>15-25% → rango normal<br>&lt;15% → baja actividad de cortos</p>
     <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📈 Percentil Histórico</div>
-    <p><b>¿Qué es?</b> Te dice cómo se compara el Short % de hoy vs el resto de su propio histórico.</p>
-    <p><b>Cómo leerlo:</b><br>
-    Percentil 90+ → nivel extremo, solo visto el 10% del tiempo<br>
-    Percentil 75-90 → alto para este ticker<br>
-    Percentil 25-75 → rango normal para este ticker<br>
-    Percentil &lt;25 → bajo para este ticker</p>
-
+    <p>Percentil 90+ → nivel extremo · 75-90 → alto · 25-75 → normal · &lt;25 → bajo</p>
     <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📉 Short Interest (SI, bi-mensual)</div>
-    <p><b>¿Qué es?</b> Posiciones cortas totales acumuladas reportadas cada 2 semanas.</p>
-    <p><b>Cómo leerlo:</b><br>
-    SI subiendo + Short Volume diario bajo → nuevos cortos lentamente = bajista<br>
-    SI bajando + Short Volume diario alto → cobertura activa (buy to cover) = potencial alcista<br>
-    SI + Short Volume ambos altos → mucha actividad especulativa, alta volatilidad esperada</p>
-
-    <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📐 Días para Cubrir (Days to Cover)</div>
-    <p>Cuantos días de volumen promedio tomaría cerrar todas las posiciones cortas. &gt;10 días = squeeze potencial si hay catalyst.</p>
-
+    <p>SI subiendo + SV bajo → nuevos cortos = bajista · SI bajando + SV alto → cobertura = alcista</p>
+    <div style="font-weight:500;color:var(--text);margin:8px 0 3px">📐 Días para Cubrir</div>
+    <p>&gt;10 días = squeeze potencial si hay catalyst.</p>
     <div style="font-weight:500;color:var(--text);margin:8px 0 3px">🏷️ Benchmark Sectorial</div>
-    <p>Compara el Short % del ticker contra el del benchmark (SPY). Si el ticker está muy por encima del benchmark, está siendo más corto que el mercado general.</p>
-
+    <p>Compara el Short % del ticker contra SPY.</p>
   </div>
 
-  <!-- KPIs -->
   <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px" id="si-kpi-row">
     <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Precio</div><div class="kpi-val" id="si-kpi-price">—</div><div class="kpi-sub" id="si-kpi-price-chg">—</div></div>
     <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Short Vol Hoy</div><div class="kpi-val" id="si-kpi-sv">—</div><div class="kpi-sub" id="si-kpi-sv-pct">—</div></div>
     <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Short % Prom 30d</div><div class="kpi-val" id="si-kpi-ma30">—</div><div class="kpi-sub">media móvil</div></div>
     <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Percentil Hist.</div><div class="kpi-val" id="si-kpi-percentile">—</div><div class="kpi-sub">vs histórico</div></div>
-    <div class="kpi" style="--accent:var(--orange)"><div class="kpi-label">Benchmark SPY</div><div class="kpi-val" id="si-kpi-benchmark">—</div><div class="kpi-sub" id="si-kpi-benchmark-label">short % SPY</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Benchmark SPY</div><div class="kpi-val" id="si-kpi-benchmark">—</div><div class="kpi-sub" id="si-kpi-benchmark-label">short % SPY</div></div>
     <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Short Interest</div><div class="kpi-val" id="si-kpi-si">—</div><div class="kpi-sub" id="si-kpi-si-dtc">—</div></div>
   </div>
 
-  <!-- Ticker header -->
   <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;margin-bottom:10px;flex-wrap:nowrap">
     <span id="si-ticker-badge" style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;color:var(--amber);letter-spacing:-0.5px;white-space:nowrap">SPY</span>
     <span id="si-price-badge" style="font-family:'IBM Plex Mono',monospace;font-size:16px;color:var(--green);font-weight:500;white-space:nowrap">$—</span>
@@ -301,11 +268,10 @@
     <span id="si-name-badge" style="font-size:11px;color:var(--text3);font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">—</span>
   </div>
 
-  <!-- Chart 1: precio + volumen -->
   <div class="card">
     <div class="card-head">
       <div class="card-title">Gráfico: Precio + Volumen Total + Short Volume</div>
-      <button class="btn-share" onclick="window.shareSiChart('si-chart1', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Precio + Short Vol')" title="Compartir">📤</button>
+      <button class="btn-share" onclick="window.shareSiChart&&window.shareSiChart('si-chart1','Short Volume')" title="Compartir">📤</button>
     </div>
     <div class="legend">
       <div class="legend-item"><span class="legend-dot" style="background:var(--amber)"></span> Precio</div>
@@ -317,21 +283,19 @@
     <div class="chart-meta">Short Volume vs Precio · Diario</div>
   </div>
 
-  <!-- Chart 2: short % bars + MA30 -->
   <div class="card">
     <div class="card-head">
       <div class="card-title">Gráfico: Short Volume % del Total Diario</div>
-      <button class="btn-share" onclick="window.shareSiChart('si-chart2', 'Short Volume — ' + (document.getElementById('si-ticker').value || 'TICKER') + ' | Short % + MA30')" title="Compartir">📤</button>
+      <button class="btn-share" onclick="window.shareSiChart&&window.shareSiChart('si-chart2','Short %')" title="Compartir">📤</button>
     </div>
     <div class="legend">
       <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span> Short %</div>
-      <div class="legend-item"><span class="legend-dot" style="background:var(--text3);border:1px dashed var(--text4)"></span> MA 30d (promedio mensual)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:var(--text3)"></span> MA 30d</div>
     </div>
     <div class="card-body" style="height:200px"><canvas id="si-chart2"></canvas></div>
     <div class="chart-meta">Verde ≤34% Baja presión / 35-44% Moderada / Rojo ≥45% Alta presión</div>
   </div>
 
-  <!-- Table -->
   <div class="card">
     <div class="card-head"><div class="card-title">Últimos 20 días</div></div>
     <div class="table-wrap" style="max-height:400px">
@@ -352,16 +316,11 @@
   </div>
 </div>
 
-
 <!-- ══ GEX SPY ══ -->
 <div class="sub-panel" id="uspanel-gex">
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
     <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">GEX Neto</div><div class="kpi-val" id="gex-neto">—</div><div class="kpi-sub" id="gex-neto-label">—</div></div>
-    <div class="kpi" style="--accent:var(--amber)">
-      <div class="kpi-label">Gamma Flip</div>
-      <div class="kpi-val" id="gex-flip">—</div>
-      <div class="kpi-sub" id="gex-flip-label">nivel de transicion</div>
-    </div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Gamma Flip</div><div class="kpi-val" id="gex-flip">—</div><div class="kpi-sub" id="gex-flip-label">nivel de transicion</div></div>
     <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Call GEX</div><div class="kpi-val" id="gex-calls">—</div><div class="kpi-sub">dealers long gamma</div></div>
     <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Put GEX</div><div class="kpi-val" id="gex-puts">—</div><div class="kpi-sub">dealers short gamma</div></div>
     <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Gamma Wall</div><div class="kpi-val" id="gex-wall">—</div><div class="kpi-sub" id="gex-wall-label">mayor concentracion</div></div>
@@ -401,42 +360,18 @@
 <!-- ══ MARKET TOPOLOGY ══ -->
 <div class="sub-panel" id="uspanel-topology">
   <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px">
-    <div class="kpi" style="--accent:var(--green)">
-      <div class="kpi-label">S&amp;P 500 (SPY)</div>
-      <div class="kpi-val" id="tkpi-spy">—</div>
-      <div class="kpi-sub" id="tkpi-spy-chg">—</div>
-    </div>
-    <div class="kpi" style="--accent:var(--cyan)">
-      <div class="kpi-label">Amplitud</div>
-      <div class="kpi-val" id="tkpi-amp">—</div>
-      <div class="kpi-sub">acciones subiendo hoy</div>
-    </div>
-    <div class="kpi" style="--accent:var(--amber)">
-      <div class="kpi-label">VXX</div>
-      <div class="kpi-val" id="tkpi-vixy">—</div>
-      <div class="kpi-sub" id="tkpi-vixy-chg">—</div>
-    </div>
-    <div class="kpi" style="--accent:var(--blue)">
-      <div class="kpi-label">Subiendo</div>
-      <div class="kpi-val" id="tkpi-up">—</div>
-      <div class="kpi-sub" id="tkpi-up-sub">—</div>
-    </div>
-    <div class="kpi" style="--accent:var(--red)">
-      <div class="kpi-label">Bajando</div>
-      <div class="kpi-val" id="tkpi-dn">—</div>
-      <div class="kpi-sub" id="tkpi-dn-sub">—</div>
-    </div>
-    <div class="kpi" style="--accent:var(--purple)">
-      <div class="kpi-label">RSI &gt; 70</div>
-      <div class="kpi-val" id="tkpi-rsi70">—</div>
-      <div class="kpi-sub" id="tkpi-rsi30">—</div>
-    </div>
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">S&amp;P 500 (SPY)</div><div class="kpi-val" id="tkpi-spy">—</div><div class="kpi-sub" id="tkpi-spy-chg">—</div></div>
+    <div class="kpi" style="--accent:var(--cyan)"><div class="kpi-label">Amplitud</div><div class="kpi-val" id="tkpi-amp">—</div><div class="kpi-sub">acciones subiendo hoy</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">VXX</div><div class="kpi-val" id="tkpi-vixy">—</div><div class="kpi-sub" id="tkpi-vixy-chg">—</div></div>
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Subiendo</div><div class="kpi-val" id="tkpi-up">—</div><div class="kpi-sub" id="tkpi-up-sub">—</div></div>
+    <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Bajando</div><div class="kpi-val" id="tkpi-dn">—</div><div class="kpi-sub" id="tkpi-dn-sub">—</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">RSI &gt; 70</div><div class="kpi-val" id="tkpi-rsi70">—</div><div class="kpi-sub" id="tkpi-rsi30">—</div></div>
   </div>
   <div id="topo-grid" style="display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start">
     <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;overflow:hidden">
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px">Momentum 20d vs Volatilidad Relativa</span>
-        <button onclick="captureElement(document.getElementById('topo-grid'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 12px;cursor:pointer;color:var(--text3);font-size:11px;white-space:nowrap;letter-spacing:.5px;margin-right:4px">📷 Compartir</button>
+        <button onclick="captureElement(document.getElementById('topo-grid'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 12px;cursor:pointer;color:var(--text3);font-size:11px;white-space:nowrap">📷 Compartir</button>
         <div style="display:flex;gap:12px">
           <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;background:rgba(22,184,94,.85)"></div>Alcista</div>
           <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:50%;background:rgba(184,42,42,.85)"></div>Bajista</div>
@@ -460,22 +395,10 @@
           <span>0%</span><span id="topo-breadth-val" style="font-weight:500">—</span><span>100%</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
-            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Sobre EMA50</div>
-            <div id="topo-b-sma50" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500">—</div>
-          </div>
-          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
-            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Sobre EMA200</div>
-            <div id="topo-b-sma200" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500">—</div>
-          </div>
-          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
-            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">RSI &gt; 70</div>
-            <div id="topo-b-rsi70" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">—</div>
-          </div>
-          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px">
-            <div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">RSI &lt; 30</div>
-            <div id="topo-b-rsi30" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--blue)">—</div>
-          </div>
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px"><div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Sobre EMA50</div><div id="topo-b-sma50" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500">—</div></div>
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px"><div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Sobre EMA200</div><div id="topo-b-sma200" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500">—</div></div>
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px"><div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">RSI &gt; 70</div><div id="topo-b-rsi70" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--red)">—</div></div>
+          <div style="background:var(--bg3);border-radius:5px;padding:7px 10px"><div style="font-size:8px;color:var(--text3);font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">RSI &lt; 30</div><div id="topo-b-rsi30" style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:500;color:var(--blue)">—</div></div>
         </div>
       </div>
       <div id="topo-regime" style="border-radius:8px;padding:14px 16px;border:1px solid var(--border);background:var(--bg2)">
@@ -499,7 +422,7 @@
         <button class="rrg-mode-btn stab"        onclick="rrgSwitchMode('daily',this)">Diario</button>
       </div>
       <select id="rrg-filter-sel" onchange="rrgSwitchFilter(this)"
-        style="padding:3px 8px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;outline:none;transition:border-color .15s">
+        style="padding:3px 8px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;outline:none">
         <option value="all">Todos los cuadrantes</option>
         <option value="leading">▶ Leading</option>
         <option value="improving">↑ Improving</option>
@@ -507,18 +430,16 @@
         <option value="lagging">↓ Lagging</option>
       </select>
       <button id="rrg-scan-btn" onclick="rrgScanSP500()"
-        style="padding:3px 10px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px;transition:all .15s">
+        style="padding:3px 10px;font-size:9px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text3);cursor:pointer;font-family:'IBM Plex Mono',monospace;letter-spacing:.5px">
         Scan S&amp;P 500
       </button>
-      <!-- Add symbol (acciones tab only) -->
       <div id="rrg-add-wrap" style="display:none;position:relative">
         <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
           <input id="rrg-add-input" type="text" placeholder="+ ticker USA…" autocomplete="off" autocapitalize="characters" spellcheck="false"
             style="background:var(--bg2);border:none;outline:none;padding:3px 8px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text);width:100px;text-transform:uppercase"
             oninput="rrgAddAutocomplete(this.value)"
             onkeydown="if(event.key==='Enter')rrgAddSymbol();if(event.key==='Escape')rrgAddHideAc()">
-          <button onclick="rrgAddSymbol()"
-            style="padding:3px 7px;background:var(--bg3);border:none;border-left:1px solid var(--border);color:var(--cyan);cursor:pointer;font-size:11px;line-height:1">+</button>
+          <button onclick="rrgAddSymbol()" style="padding:3px 7px;background:var(--bg3);border:none;border-left:1px solid var(--border);color:var(--cyan);cursor:pointer;font-size:11px;line-height:1">+</button>
         </div>
         <div id="rrg-add-ac" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:#0f1822;border:1px solid var(--border2);border-radius:5px;margin-top:3px;min-width:130px;max-height:160px;overflow-y:auto;box-shadow:0 6px 20px rgba(0,0,0,.5)"></div>
       </div>
@@ -530,7 +451,7 @@
       <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-title">ETFs de Sectores — S&amp;P 500</div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:9px;color:var(--text4)">Benchmark: SPY · <span id="rrg-benchmark">EMA 10/26 · Cola 8w</span></span>
-        <button onclick="captureElement(document.getElementById('rrg-chart-card'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 14px;cursor:pointer;color:var(--amber);font-size:12px;white-space:nowrap;letter-spacing:.5px;transition:all .15s;font-weight:600">📷 Compartir</button>
+        <button onclick="captureElement(document.getElementById('rrg-chart-card'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 14px;cursor:pointer;color:var(--amber);font-size:12px;white-space:nowrap;font-weight:600">📷 Compartir</button>
       </div>
     </div>
     <div style="padding:14px 14px 8px"><canvas id="rrgChart"></canvas></div>
@@ -542,7 +463,6 @@
       <div style="display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px"><div style="width:9px;height:9px;border-radius:2px;background:rgba(255,63,94,.45);flex-shrink:0"></div>Lagging — RS débil y deteriorando</div>
     </div>
   </div>
-  <!-- Scan S&P 500 results -->
   <div id="rrg-scan-panel" style="display:none;margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border)">
       <div style="font-size:11px;font-weight:600;color:var(--text2)" id="rrg-scan-title">Scan S&P 500 — resultados</div>
@@ -551,16 +471,13 @@
         <button onclick="document.getElementById('rrg-scan-panel').style.display='none'" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 4px">✕</button>
       </div>
     </div>
-    <div id="rrg-scan-body" style="padding:12px 14px">
-      <div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Iniciando scan…</div>
-    </div>
+    <div id="rrg-scan-body" style="padding:12px 14px"><div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Iniciando scan…</div></div>
   </div>
-  <!-- Rotation clock -->
   <div id="rotation-clock-card" style="margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden">
     <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:2px">Reloj de Rotación Sectorial</span>
       <div style="display:flex;gap:14px;align-items:center">
-        <button onclick="captureElement(document.getElementById('rotation-clock-card'),this)" type="button" title="Copiar imagen" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--text2);font-size:10px;white-space:nowrap;letter-spacing:.5px">📷 Compartir</button>
+        <button onclick="captureElement(document.getElementById('rotation-clock-card'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--text2);font-size:10px;white-space:nowrap">📷 Compartir</button>
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(0,229,168,.6)"></div>Leading</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(240,165,0,.6)"></div>Weakening</div>
         <div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)"><div style="width:8px;height:8px;border-radius:2px;background:rgba(255,63,94,.6)"></div>Lagging</div>
@@ -574,35 +491,29 @@
 
 <!-- ══ MACRO ══ -->
 <div class="sub-panel" id="uspanel-macro">
-
-  <!-- KPI row -->
-  <div class="macro-kpi-row" id="macro-kpi-row">
-    <div class="macro-kpi" style="--mk-accent:var(--blue)"
-      title="💡 Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. Tasas bajas = estímulo económico. Tasas altas = enfriamiento de la economía y presión sobre valuaciones de acciones.">
+  <div class="macro-kpi-row">
+    <div class="macro-kpi" style="--mk-accent:var(--blue)" title="💡 Tasa de referencia de la Fed. Impacta directamente el costo de financiamiento, hipotecas y valuación de activos. Tasas bajas = estímulo económico. Tasas altas = enfriamiento de la economía y presión sobre valuaciones de acciones.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">Fed Funds Rate</div>
       <div class="macro-kpi-val" id="mkpi-dff">—<span class="macro-kpi-unit">%</span></div>
       <div class="macro-kpi-sub" id="mkpi-dff-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-dff-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--cyan)"
-      title="💡 Rendimiento del bono del Tesoro USA a 10 años. Es la tasa libre de riesgo de referencia global. Cuando sube, los activos de riesgo (acciones, bonos emergentes) se vuelven menos atractivos relativamente. Impacta el costo de hipotecas y crédito corporativo.">
+    <div class="macro-kpi" style="--mk-accent:var(--cyan)" title="💡 Rendimiento del bono del Tesoro USA a 10 años. Es la tasa libre de riesgo de referencia global. Cuando sube, los activos de riesgo se vuelven menos atractivos relativamente.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">Treasury 10Y</div>
       <div class="macro-kpi-val" id="mkpi-dgs10">—<span class="macro-kpi-unit">%</span></div>
       <div class="macro-kpi-sub" id="mkpi-dgs10-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-dgs10-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--amber)"
-      title="💡 Spread 10Y-2Y: diferencial entre el bono a 10 años y el de 2 años. Spread positivo = curva normal (economía sana). Spread negativo (curva invertida) = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión en USA.">
+    <div class="macro-kpi" style="--mk-accent:var(--amber)" title="💡 Spread 10Y-2Y: diferencial entre el bono a 10 años y el de 2 años. Spread negativo (curva invertida) = señal clásica de recesión en 6-18 meses. Desde 1950, toda inversión de curva precedió a una recesión en USA.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">Spread 10Y-2Y</div>
       <div class="macro-kpi-val" id="mkpi-spread">—<span class="macro-kpi-unit">pp</span></div>
       <div class="macro-kpi-sub" id="mkpi-spread-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-spread-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--red)"
-      title="💡 Breakeven inflation a 10 años: diferencia entre el bono nominal y el TIPS (bono indexado a inflación). Refleja las EXPECTATIVAS del mercado sobre la inflación promedio en los próximos 10 años. Cuando sube, el mercado anticipa más inflación futura.">
+    <div class="macro-kpi" style="--mk-accent:var(--red)" title="💡 Breakeven inflation a 10 años: refleja las EXPECTATIVAS del mercado sobre la inflación promedio en los próximos 10 años. Cuando sube, el mercado anticipa más inflación futura.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">Inflación esperada 10Y</div>
       <div class="macro-kpi-val" id="mkpi-t10yie">—<span class="macro-kpi-unit">%</span></div>
@@ -611,34 +522,29 @@
     </div>
   </div>
 
-  <!-- Fila 2 KPIs: CPI, Desempleo, Confianza, Riesgo País -->
-  <div class="macro-kpi-row" id="macro-kpi-row2">
-    <div class="macro-kpi" style="--mk-accent:var(--red)"
-      title="💡 CPI (Consumer Price Index): mide la inflación REALIZADA en USA. Es un dato rezagado (se publica mensualmente). La Fed usa este dato para decidir si sube o baja tasas. CPI alto = presión para subir tasas.">
+  <div class="macro-kpi-row">
+    <div class="macro-kpi" style="--mk-accent:var(--red)" title="💡 CPI: mide la inflación REALIZADA en USA. La Fed usa este dato para decidir si sube o baja tasas.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">CPI USA (índice)</div>
       <div class="macro-kpi-val" id="mkpi-cpi">—</div>
       <div class="macro-kpi-sub" id="mkpi-cpi-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-cpi-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--green)"
-      title="💡 Tasa de desempleo USA. Dato clave para la Fed (mandato dual: inflación + empleo). Desempleo bajo = economía fuerte pero posible presión inflacionaria. Desempleo subiendo = señal de enfriamiento económico, posible recesión.">
+    <div class="macro-kpi" style="--mk-accent:var(--green)" title="💡 Tasa de desempleo USA. Dato clave para la Fed (mandato dual: inflación + empleo). Desempleo subiendo = señal de enfriamiento económico.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">Desempleo USA</div>
       <div class="macro-kpi-val" id="mkpi-unrate">—<span class="macro-kpi-unit">%</span></div>
       <div class="macro-kpi-sub" id="mkpi-unrate-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-unrate-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--purple)"
-      title="💡 University of Michigan Consumer Sentiment: mide la confianza del consumidor americano. El consumo representa ~70% del PBI de USA. Confianza baja = menor gasto, menor crecimiento. Indicador adelantado de la actividad económica.">
+    <div class="macro-kpi" style="--mk-accent:var(--purple)" title="💡 University of Michigan Consumer Sentiment: mide la confianza del consumidor americano. El consumo representa ~70% del PBI de USA.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">Confianza consumidor</div>
       <div class="macro-kpi-val" id="mkpi-umcsent">—</div>
       <div class="macro-kpi-sub" id="mkpi-umcsent-sub">—</div>
       <div class="macro-kpi-date" id="mkpi-umcsent-date">—</div>
     </div>
-    <div class="macro-kpi" style="--mk-accent:var(--amber)"
-      title="💡 EMBI+ Argentina (Riesgo País): spread entre los bonos soberanos argentinos y los bonos del Tesoro USA. Mide el riesgo percibido de invertir en Argentina. Valores altos = mayor riesgo de default percibido. Por debajo de 500 puntos = acceso a mercados internacionales.">
+    <div class="macro-kpi" style="--mk-accent:var(--amber)" title="💡 EMBI+ Argentina (Riesgo País): spread entre los bonos soberanos argentinos y los bonos del Tesoro USA. Por debajo de 500 puntos = acceso a mercados internacionales.">
       <span class="macro-tip-icon">💡</span>
       <div class="macro-kpi-label">Riesgo País ARG</div>
       <div class="macro-kpi-val" id="mkpi-rp">—<span class="macro-kpi-unit">pts</span></div>
@@ -647,90 +553,52 @@
     </div>
   </div>
 
-  <!-- Loading state -->
   <div id="macro-loading" class="macro-loading">
     <div class="spinner"></div>
     Cargando datos macroeconómicos de FRED…
   </div>
 
-  <!-- Charts (hidden until data loads) -->
   <div id="macro-charts" style="display:none">
-
-    <!-- Chart 1: Fed Funds Rate histórica con recesiones -->
     <div class="macro-chart-card">
       <div class="macro-chart-head">
         <span class="macro-chart-title">Tasa Fed Funds — Histórico</span>
         <button onclick="captureElement(document.getElementById('macro-chart1-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
       </div>
-      <div class="macro-tip-box">
-        <b>📊 Cómo leer este gráfico:</b> Las zonas grises son períodos de recesión según el NBER. La Fed sube tasas para enfriar la economía (combatir inflación) y las baja para estimular el crecimiento. Los picos de tasa suelen preceder recesiones.
-      </div>
-      <div id="macro-chart1-wrap" class="macro-chart-body" style="height:280px">
-        <canvas id="macro-chart-dff"></canvas>
-      </div>
+      <div class="macro-tip-box"><b>📊 Cómo leer este gráfico:</b> Las zonas grises son períodos de recesión según el NBER. La Fed sube tasas para enfriar la economía y las baja para estimular el crecimiento.</div>
+      <div id="macro-chart1-wrap" class="macro-chart-body" style="height:280px"><canvas id="macro-chart-dff"></canvas></div>
     </div>
 
-    <!-- Chart 2: Treasury 10Y vs 2Y + Spread -->
     <div class="macro-chart-card">
       <div class="macro-chart-head">
         <span class="macro-chart-title">Curva de Rendimiento — Treasury 10Y vs 2Y + Spread</span>
         <button onclick="captureElement(document.getElementById('macro-chart2-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
       </div>
-      <div class="macro-tip-box">
-        <b>📊 Inversión de curva:</b> Cuando el spread 10Y-2Y cae por debajo de 0 (línea roja punteada), la curva está invertida. Históricamente, esto precedió a cada recesión en USA desde 1950 con un rezago de 6 a 18 meses. El spread positivo indica condiciones financieras normales.
-      </div>
-      <div id="macro-chart2-wrap" class="macro-chart-body" style="height:280px">
-        <canvas id="macro-chart-yield"></canvas>
-      </div>
+      <div class="macro-tip-box"><b>📊 Inversión de curva:</b> Cuando el spread 10Y-2Y cae por debajo de 0 (línea roja punteada), la curva está invertida. Históricamente precedió a cada recesión en USA desde 1950 con un rezago de 6 a 18 meses.</div>
+      <div id="macro-chart2-wrap" class="macro-chart-body" style="height:280px"><canvas id="macro-chart-yield"></canvas></div>
     </div>
 
-    <!-- Charts 3 y 4 en 2 columnas -->
     <div class="macro-charts-2col">
-
-      <!-- Chart 3: CPI vs Breakeven -->
       <div class="macro-chart-card">
-        <div class="macro-chart-head">
-          <span class="macro-chart-title">Inflación: CPI Anualizado vs Breakeven 10Y</span>
-        </div>
-        <div class="macro-tip-box">
-          <b>📊 CPI vs Expectativas:</b> El CPI refleja inflación REAL pasada. El Breakeven 10Y refleja EXPECTATIVAS futuras del mercado. Cuando Breakeven &gt; CPI → el mercado anticipa inflación al alza. Cuando CPI &gt; Breakeven → la inflación sorprendió al alza.
-        </div>
-        <div class="macro-chart-body" style="height:220px">
-          <canvas id="macro-chart-cpi"></canvas>
-        </div>
+        <div class="macro-chart-head"><span class="macro-chart-title">Inflación: CPI Anualizado vs Breakeven 10Y</span></div>
+        <div class="macro-tip-box"><b>📊 CPI vs Expectativas:</b> El CPI refleja inflación REAL pasada. El Breakeven 10Y refleja EXPECTATIVAS futuras. Cuando Breakeven &gt; CPI → el mercado anticipa inflación al alza.</div>
+        <div class="macro-chart-body" style="height:220px"><canvas id="macro-chart-cpi"></canvas></div>
       </div>
-
-      <!-- Chart 4: Desempleo vs Confianza consumidor -->
       <div class="macro-chart-card">
-        <div class="macro-chart-head">
-          <span class="macro-chart-title">Desempleo USA vs Confianza del Consumidor</span>
-        </div>
-        <div class="macro-tip-box">
-          <b>📊 Mercado laboral:</b> Desempleo bajo + confianza alta = economía fuerte. Cuando el desempleo sube y la confianza cae simultáneamente, suele señalar inicio de recesión. La confianza del consumidor es un indicador adelantado del gasto.
-        </div>
-        <div class="macro-chart-body" style="height:220px">
-          <canvas id="macro-chart-labor"></canvas>
-        </div>
+        <div class="macro-chart-head"><span class="macro-chart-title">Desempleo USA vs Confianza del Consumidor</span></div>
+        <div class="macro-tip-box"><b>📊 Mercado laboral:</b> Desempleo bajo + confianza alta = economía fuerte. Cuando el desempleo sube y la confianza cae simultáneamente, suele señalar inicio de recesión.</div>
+        <div class="macro-chart-body" style="height:220px"><canvas id="macro-chart-labor"></canvas></div>
       </div>
-
     </div>
 
-    <!-- Riesgo País Argentina -->
     <div class="macro-chart-card">
       <div class="macro-chart-head">
         <span class="macro-chart-title">Riesgo País Argentina — EMBI+</span>
         <button onclick="captureElement(document.getElementById('macro-chart5-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
       </div>
-      <div class="macro-tip-box">
-        <b>📊 EMBI+ Argentina:</b> Spread en puntos básicos sobre los Treasuries USA. Por debajo de 500 pts → acceso a mercados internacionales de deuda. Por debajo de 300 pts → grado de inversión especulativo. Valores actuales reflejan la percepción de riesgo soberano del mercado.
-      </div>
-      <div id="macro-chart5-wrap" class="macro-chart-body" style="height:240px">
-        <canvas id="macro-chart-rp"></canvas>
-      </div>
+      <div class="macro-tip-box"><b>📊 EMBI+ Argentina:</b> Spread en puntos básicos sobre los Treasuries USA. Por debajo de 500 pts → acceso a mercados internacionales de deuda.</div>
+      <div id="macro-chart5-wrap" class="macro-chart-body" style="height:240px"><canvas id="macro-chart-rp"></canvas></div>
     </div>
-
-  </div><!-- /macro-charts -->
-
+  </div>
 </div><!-- /uspanel-macro -->
 
 <script>
@@ -770,19 +638,16 @@ window.usLoadAll = async () => {
     sb('sectores_usa','select=*&order=change_pct.desc.nullslast'),
     sb('opciones_usa_signals','select=*&order=vol_total.desc.nullslast&limit=100'),
   ]);
-
   if(rows) usAllData = rows;
   if(sectRows) usSectors = sectRows;
   if(sigRows) usSignals = sigRows;
 
-  // Update sectors dropdown
   const sectors = [...new Set(usAllData.map(r=>r.sector).filter(Boolean))].sort();
   const sel = document.getElementById('usScSector');
   const cur = sel.value;
   sel.innerHTML = '<option value="">Todos los sectores</option>' +
     sectors.map(s=>`<option value="${s}" ${s===cur?'selected':''}>${s}</option>`).join('');
 
-  // KPIs
   const withChange = usAllData.filter(r=>r.change_pct!=null);
   const ups   = withChange.filter(r=>r.change_pct>0).length;
   const dns   = withChange.filter(r=>r.change_pct<0).length;
@@ -796,7 +661,6 @@ window.usLoadAll = async () => {
   document.getElementById('us-kpi-worst').textContent  = worst?.symbol || '—';
   document.getElementById('us-kpi-worst-pct').textContent = worst ? fmtPct(worst.change_pct) : '—';
 
-  // Last update
   const now = new Date();
   document.getElementById('usLastUpdate').textContent =
     'Act: '+now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
@@ -804,7 +668,6 @@ window.usLoadAll = async () => {
   usRenderRankings();
   usApplyScreener();
 
-  // Render active panel
   const activePanel = document.querySelector('[id^="uspanel-"].active')?.id?.replace('uspanel-','');
   if(activePanel==='sectores')  usRenderSectores();
   if(activePanel==='opciones')  usRenderOpciones();
@@ -826,11 +689,9 @@ function usRenderRankings(){
       data = data.filter(r=>r.market_cap_cat===usRankCap);
     }
   }
-
-  const byVol    = [...data].filter(r=>r.volume>0).sort((a,b)=>(b.volume||0)-(a.volume||0)).slice(0,10);
-  const gainers  = [...data].filter(r=>r.change_pct!=null).sort((a,b)=>b.change_pct-a.change_pct).slice(0,10);
-  const losers   = [...data].filter(r=>r.change_pct!=null).sort((a,b)=>a.change_pct-b.change_pct).slice(0,10);
-
+  const byVol   = [...data].filter(r=>r.volume>0).sort((a,b)=>(b.volume||0)-(a.volume||0)).slice(0,10);
+  const gainers = [...data].filter(r=>r.change_pct!=null).sort((a,b)=>b.change_pct-a.change_pct).slice(0,10);
+  const losers  = [...data].filter(r=>r.change_pct!=null).sort((a,b)=>a.change_pct-b.change_pct).slice(0,10);
   renderUSARank('us-turnover', byVol,   'volume');
   renderUSARank('us-gainers',  gainers, 'change');
   renderUSARank('us-losers',   losers,  'change');
@@ -969,10 +830,8 @@ function usRenderSectores(){
     document.getElementById('usHeatmap').innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><p>Sin datos de sectores</p></div>';
     return;
   }
-
   const sorted = [...usSectors].filter(r=>r.change_pct!=null).sort((a,b)=>b.change_pct-a.change_pct);
   const max = Math.max(...sorted.map(r=>Math.abs(r.change_pct||0)), 1);
-
   document.getElementById('usHeatmap').innerHTML = sorted.map(r=>{
     const chg = Number(r.change_pct||0);
     const intensity = Math.min(Math.abs(chg)/max, 1);
@@ -1068,7 +927,6 @@ function usRenderOpciones(){
       }).join('');
 }
 
-
 // ══════════════════════════════════════════════════════════════
 // MACRO TAB
 // ══════════════════════════════════════════════════════════════
@@ -1086,7 +944,6 @@ window.loadMacro = async function() {
   if (chartsEl)  chartsEl.style.display  = 'none';
 
   try {
-    // Fetch all series from cache_fred
     const seriesIds = ['DFF','DGS10','DGS2','T10YIE','CPIAUCSL','UNRATE','UMCSENT','BAMLEMARPITRIV','SPREAD_10Y2Y','RECESSION_DATES'];
     const rows = await sb('cache_fred', `series_id=in.(${seriesIds.map(s=>'"'+s+'"').join(',')})&select=series_id,data,metadata,last_updated`);
 
@@ -1095,28 +952,17 @@ window.loadMacro = async function() {
       return;
     }
 
-    // Build map
     const fredMap = {};
     rows.forEach(r => { fredMap[r.series_id] = r; });
 
-    // Helper: get latest non-null value
-    const getLatest = (id) => {
-      const row = fredMap[id];
-      if (!row) return null;
-      return row.metadata?.latest_value ?? null;
-    };
-    const getLatestDate = (id) => {
-      const row = fredMap[id];
-      if (!row) return null;
-      return row.metadata?.latest_date ?? null;
-    };
+    const getLatest = (id) => fredMap[id]?.metadata?.latest_value ?? null;
+    const getLatestDate = (id) => fredMap[id]?.metadata?.latest_date ?? null;
     const getData = (id) => {
       const row = fredMap[id];
       if (!row || !row.data) return [];
       return row.data.filter(d => d.value != null);
     };
 
-    // ── KPI row 1 ──
     const setMKpi = (suffix, val, unit, sub, date, accentColor) => {
       const valEl  = document.getElementById('mkpi-'+suffix);
       const subEl  = document.getElementById('mkpi-'+suffix+'-sub');
@@ -1141,11 +987,10 @@ window.loadMacro = async function() {
     const umcsent= getLatest('UMCSENT');
     const rp     = getLatest('BAMLEMARPITRIV');
 
-    setMKpi('dff',    dff,    '%',   dff != null ? (dff >= 5 ? 'Restrictiva' : dff >= 3 ? 'Neutral' : 'Expansiva') : '—', getLatestDate('DFF'),    null);
-    setMKpi('dgs10',  dgs10,  '%',   dgs10 != null ? 'Tasa libre de riesgo 10Y' : '—', getLatestDate('DGS10'),  null);
-    setMKpi('t10yie', t10yie, '%',   t10yie != null ? 'Expectativa inflación 10Y' : '—', getLatestDate('T10YIE'), null);
+    setMKpi('dff',    dff,    '%', dff != null ? (dff >= 5 ? 'Restrictiva' : dff >= 3 ? 'Neutral' : 'Expansiva') : '—', getLatestDate('DFF'), null);
+    setMKpi('dgs10',  dgs10,  '%', dgs10 != null ? 'Tasa libre de riesgo 10Y' : '—', getLatestDate('DGS10'), null);
+    setMKpi('t10yie', t10yie, '%', t10yie != null ? 'Expectativa inflación 10Y' : '—', getLatestDate('T10YIE'), null);
 
-    // Spread con color dinámico
     const spreadEl = document.getElementById('mkpi-spread');
     if (spreadEl && spread != null) {
       spreadEl.innerHTML = Number(spread).toFixed(2) + '<span class="macro-kpi-unit">pp</span>';
@@ -1156,7 +1001,6 @@ window.loadMacro = async function() {
     const spreadDateEl = document.getElementById('mkpi-spread-date');
     if (spreadDateEl) spreadDateEl.textContent = 'Dato: ' + (getLatestDate('SPREAD_10Y2Y') || '—');
 
-    // KPI row 2
     const cpiEl = document.getElementById('mkpi-cpi');
     if (cpiEl) cpiEl.innerHTML = cpi != null ? Number(cpi).toFixed(1) : '—';
     const cpiSubEl = document.getElementById('mkpi-cpi-sub');
@@ -1194,12 +1038,9 @@ window.loadMacro = async function() {
     const rpDateEl = document.getElementById('mkpi-rp-date');
     if (rpDateEl) rpDateEl.textContent = 'Dato: ' + (getLatestDate('BAMLEMARPITRIV') || '—');
 
-    // ── Recession shading helper ──
     const recessions = fredMap['RECESSION_DATES']?.data || [];
 
-    function addRecessionShading(chart, labels, recessions) {
-      // Returns annotation config for chartjs-plugin-annotation if available
-      // Otherwise we draw manually via a custom plugin
+    function makeRecessionPlugin(labels) {
       return {
         id: 'recessionShading',
         beforeDraw(ch) {
@@ -1207,13 +1048,10 @@ window.loadMacro = async function() {
           if (!chartArea || !scales.x) return;
           ctx.save();
           recessions.forEach(rec => {
-            const startDate = rec.start;
-            const endDate   = rec.end;
-            // Find label indices
-            const si = labels.findIndex(l => l >= startDate);
-            const ei = labels.findIndex(l => l > endDate);
+            const si = labels.findIndex(l => l >= rec.start);
+            const ei = labels.findIndex(l => l > rec.end);
             if (si < 0) return;
-            const x1 = scales.x.getPixelForValue(si < 0 ? 0 : si);
+            const x1 = scales.x.getPixelForValue(si);
             const x2 = scales.x.getPixelForValue(ei < 0 ? labels.length - 1 : ei);
             ctx.fillStyle = 'rgba(180,180,180,0.12)';
             ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
@@ -1223,37 +1061,23 @@ window.loadMacro = async function() {
       };
     }
 
-    // ── Chart 1: Fed Funds Rate ──
+    // Chart 1: Fed Funds Rate
     const dffData = getData('DFF');
     if (dffData.length) {
-      // Downsample to ~200 points for performance
       const step = Math.max(1, Math.floor(dffData.length / 200));
       const sampled = dffData.filter((_, i) => i % step === 0 || i === dffData.length - 1);
       const labels1 = sampled.map(d => d.date);
       const vals1   = sampled.map(d => d.value);
-
-      const recPlugin1 = addRecessionShading(null, labels1, recessions);
-
       if (window._macroCharts.dff) window._macroCharts.dff.destroy();
       window._macroCharts.dff = new Chart(document.getElementById('macro-chart-dff'), {
         type: 'line',
-        data: {
-          labels: labels1,
-          datasets: [{
-            label: 'Fed Funds Rate',
-            data: vals1,
-            borderColor: '#4488ff',
-            backgroundColor: 'rgba(68,136,255,0.08)',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.2,
-            fill: true,
-          }]
-        },
+        data: { labels: labels1, datasets: [{
+          label: 'Fed Funds Rate', data: vals1,
+          borderColor: '#4488ff', backgroundColor: 'rgba(68,136,255,0.08)',
+          borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true,
+        }]},
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
+          responsive: true, maintainAspectRatio: false, animation: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
@@ -1267,97 +1091,46 @@ window.loadMacro = async function() {
                   const date = ctxArr[0]?.label || '';
                   const val  = ctxArr[0]?.parsed?.y;
                   if (!val) return date;
-                  const note = val >= 5 ? ' — Política restrictiva' : val <= 1 ? ' — Política expansiva' : '';
-                  return date + note;
+                  return date + (val >= 5 ? ' — Política restrictiva' : val <= 1 ? ' — Política expansiva' : '');
                 }
               }
             }
           },
           scales: {
-            x: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 },
-              grid: { color: 'rgba(255,255,255,0.03)' }
-            },
-            y: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' },
-              grid: { color: 'rgba(255,255,255,0.04)' }
-            }
+            x: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+            y: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }
           }
         },
-        plugins: [recPlugin1]
+        plugins: [makeRecessionPlugin(labels1)]
       });
     }
 
-    // ── Chart 2: Treasury 10Y vs 2Y + Spread ──
+    // Chart 2: Treasury 10Y vs 2Y + Spread
     const dgs10Data  = getData('DGS10');
     const dgs2Data   = getData('DGS2');
     const spreadData = getData('SPREAD_10Y2Y');
-
     if (dgs10Data.length && dgs2Data.length) {
-      // Align on common dates
-      const dateSet = new Set(dgs10Data.map(d => d.date));
       const dgs2Map = {};
       dgs2Data.forEach(d => { dgs2Map[d.date] = d.value; });
       const spreadMap = {};
       spreadData.forEach(d => { spreadMap[d.date] = d.value; });
-
       const aligned = dgs10Data.filter(d => dgs2Map[d.date] != null);
       const step2 = Math.max(1, Math.floor(aligned.length / 200));
       const sampled2 = aligned.filter((_, i) => i % step2 === 0 || i === aligned.length - 1);
-
       const labels2  = sampled2.map(d => d.date);
       const vals10   = sampled2.map(d => d.value);
       const vals2    = sampled2.map(d => dgs2Map[d.date]);
       const valsSprd = sampled2.map(d => spreadMap[d.date] ?? null);
-
-      const recPlugin2 = addRecessionShading(null, labels2, recessions);
-
       if (window._macroCharts.yield) window._macroCharts.yield.destroy();
       window._macroCharts.yield = new Chart(document.getElementById('macro-chart-yield'), {
         type: 'line',
-        data: {
-          labels: labels2,
-          datasets: [
-            {
-              label: 'Treasury 10Y',
-              data: vals10,
-              borderColor: '#00ccff',
-              backgroundColor: 'rgba(0,204,255,0.06)',
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.2,
-              fill: false,
-              yAxisID: 'y',
-            },
-            {
-              label: 'Treasury 2Y',
-              data: vals2,
-              borderColor: '#9966ff',
-              backgroundColor: 'rgba(153,102,255,0.06)',
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.2,
-              fill: false,
-              yAxisID: 'y',
-            },
-            {
-              label: 'Spread 10Y-2Y',
-              data: valsSprd,
-              borderColor: '#f5a623',
-              backgroundColor: valsSprd.map(v => v != null && v < 0 ? 'rgba(255,64,96,0.15)' : 'rgba(245,166,35,0.10)'),
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.2,
-              fill: true,
-              yAxisID: 'y2',
-              borderDash: [4, 3],
-            }
-          ]
-        },
+        data: { labels: labels2, datasets: [
+          { label: 'Treasury 10Y', data: vals10, borderColor: '#00ccff', backgroundColor: 'rgba(0,204,255,0.06)', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false, yAxisID: 'y' },
+          { label: 'Treasury 2Y',  data: vals2,  borderColor: '#9966ff', backgroundColor: 'rgba(153,102,255,0.06)', borderWidth: 2, pointRadius: 0, tension: 0.2, fill: false, yAxisID: 'y' },
+          { label: 'Spread 10Y-2Y', data: valsSprd, borderColor: '#f5a623', backgroundColor: valsSprd.map(v => v != null && v < 0 ? 'rgba(255,64,96,0.15)' : 'rgba(245,166,35,0.10)'), borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true, yAxisID: 'y2', borderDash: [4, 3] }
+        ]},
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
+          responsive: true, maintainAspectRatio: false, animation: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
@@ -1367,31 +1140,20 @@ window.loadMacro = async function() {
               bodyFont: { family: 'IBM Plex Mono', size: 11 },
               callbacks: {
                 afterBody: (ctxArr) => {
-                  const spreadVal = ctxArr.find(c => c.dataset.label === 'Spread 10Y-2Y')?.parsed?.y;
-                  if (spreadVal != null && spreadVal < 0) return ['⚠ Curva invertida — señal de recesión'];
+                  const sv = ctxArr.find(c => c.dataset.label === 'Spread 10Y-2Y')?.parsed?.y;
+                  if (sv != null && sv < 0) return ['⚠ Curva invertida — señal de recesión'];
                   return [];
                 }
               }
             }
           },
           scales: {
-            x: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 },
-              grid: { color: 'rgba(255,255,255,0.03)' }
-            },
-            y: {
-              position: 'left',
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' },
-              grid: { color: 'rgba(255,255,255,0.04)' }
-            },
-            y2: {
-              position: 'right',
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v.toFixed(1) + 'pp' },
-              grid: { drawOnChartArea: false }
-            }
+            x:  { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+            y:  { position: 'left',  ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+            y2: { position: 'right', ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v.toFixed(1) + 'pp' }, grid: { drawOnChartArea: false } }
           }
         },
-        plugins: [recPlugin2, {
+        plugins: [makeRecessionPlugin(labels2), {
           id: 'zeroLine',
           afterDraw(ch) {
             const { ctx, chartArea, scales } = ch;
@@ -1412,216 +1174,110 @@ window.loadMacro = async function() {
       });
     }
 
-    // ── Chart 3: CPI anualizado vs Breakeven ──
+    // Chart 3: CPI anualizado vs Breakeven
     const cpiData    = getData('CPIAUCSL');
     const t10yieData = getData('T10YIE');
-
     if (cpiData.length) {
-      // Calcular variación anual del CPI
       const cpiYoY = [];
       for (let i = 12; i < cpiData.length; i++) {
         const prev = cpiData[i - 12]?.value;
         const curr = cpiData[i]?.value;
-        if (prev && curr) {
-          cpiYoY.push({ date: cpiData[i].date, value: ((curr - prev) / prev) * 100 });
-        }
+        if (prev && curr) cpiYoY.push({ date: cpiData[i].date, value: ((curr - prev) / prev) * 100 });
       }
-
-      // Align breakeven to CPI dates
       const bkMap = {};
       t10yieData.forEach(d => { bkMap[d.date] = d.value; });
-
       const step3 = Math.max(1, Math.floor(cpiYoY.length / 150));
       const sampled3 = cpiYoY.filter((_, i) => i % step3 === 0 || i === cpiYoY.length - 1);
       const labels3  = sampled3.map(d => d.date);
       const valsCpi  = sampled3.map(d => d.value);
-
-      // Breakeven: find closest date
-      const bkVals = labels3.map(date => {
+      const bkVals   = labels3.map(date => {
         if (bkMap[date] != null) return bkMap[date];
-        // Find nearest
-        const nearest = t10yieData.reduce((best, d) => {
-          return Math.abs(d.date.localeCompare(date)) < Math.abs(best.date.localeCompare(date)) ? d : best;
-        }, t10yieData[0]);
+        if (!t10yieData.length) return null;
+        const nearest = t10yieData.reduce((best, d) =>
+          Math.abs(d.date.localeCompare(date)) < Math.abs(best.date.localeCompare(date)) ? d : best,
+          t10yieData[0]);
         return nearest?.value ?? null;
       });
-
       if (window._macroCharts.cpi) window._macroCharts.cpi.destroy();
       window._macroCharts.cpi = new Chart(document.getElementById('macro-chart-cpi'), {
         type: 'line',
-        data: {
-          labels: labels3,
-          datasets: [
-            {
-              label: 'CPI Anualizado',
-              data: valsCpi,
-              borderColor: '#ff4060',
-              backgroundColor: 'rgba(255,64,96,0.08)',
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.3,
-              fill: true,
-            },
-            {
-              label: 'Breakeven 10Y',
-              data: bkVals,
-              borderColor: '#f5a623',
-              backgroundColor: 'rgba(245,166,35,0.06)',
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.3,
-              fill: false,
-              borderDash: [5, 3],
-            }
-          ]
-        },
+        data: { labels: labels3, datasets: [
+          { label: 'CPI Anualizado', data: valsCpi, borderColor: '#ff4060', backgroundColor: 'rgba(255,64,96,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true },
+          { label: 'Breakeven 10Y', data: bkVals, borderColor: '#f5a623', backgroundColor: 'rgba(245,166,35,0.06)', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false, borderDash: [5, 3] }
+        ]},
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
+          responsive: true, maintainAspectRatio: false, animation: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
-            tooltip: {
-              backgroundColor: '#111722',
-              titleFont: { family: 'IBM Plex Mono', size: 10 },
-              bodyFont: { family: 'IBM Plex Mono', size: 11 },
-              callbacks: {
-                label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%'
-              }
-            }
+            tooltip: { backgroundColor: '#111722', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 11 }, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%' } }
           },
           scales: {
-            x: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 8, maxRotation: 0 },
-              grid: { color: 'rgba(255,255,255,0.03)' }
-            },
-            y: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v.toFixed(1) + '%' },
-              grid: { color: 'rgba(255,255,255,0.04)' }
-            }
+            x: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 8, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+            y: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v.toFixed(1) + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }
           }
         }
       });
     }
 
-    // ── Chart 4: Desempleo vs Confianza consumidor ──
+    // Chart 4: Desempleo vs Confianza consumidor
     const unrateData  = getData('UNRATE');
     const umcsentData = getData('UMCSENT');
-
     if (unrateData.length && umcsentData.length) {
       const umcMap = {};
       umcsentData.forEach(d => { umcMap[d.date] = d.value; });
-
       const step4 = Math.max(1, Math.floor(unrateData.length / 150));
       const sampled4 = unrateData.filter((_, i) => i % step4 === 0 || i === unrateData.length - 1);
       const labels4  = sampled4.map(d => d.date);
       const valsUn   = sampled4.map(d => d.value);
       const valsUmc  = labels4.map(date => {
         if (umcMap[date] != null) return umcMap[date];
+        if (!umcsentData.length) return null;
         const nearest = umcsentData.reduce((best, d) =>
           Math.abs(d.date.localeCompare(date)) < Math.abs(best.date.localeCompare(date)) ? d : best,
           umcsentData[0]);
         return nearest?.value ?? null;
       });
-
       if (window._macroCharts.labor) window._macroCharts.labor.destroy();
       window._macroCharts.labor = new Chart(document.getElementById('macro-chart-labor'), {
         type: 'line',
-        data: {
-          labels: labels4,
-          datasets: [
-            {
-              label: 'Desempleo',
-              data: valsUn,
-              borderColor: '#ff4060',
-              backgroundColor: 'rgba(255,64,96,0.08)',
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.3,
-              fill: true,
-              yAxisID: 'y',
-            },
-            {
-              label: 'Confianza consumidor',
-              data: valsUmc,
-              borderColor: '#9966ff',
-              backgroundColor: 'rgba(153,102,255,0.06)',
-              borderWidth: 2,
-              pointRadius: 0,
-              tension: 0.3,
-              fill: false,
-              yAxisID: 'y2',
-            }
-          ]
-        },
+        data: { labels: labels4, datasets: [
+          { label: 'Desempleo', data: valsUn, borderColor: '#ff4060', backgroundColor: 'rgba(255,64,96,0.08)', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true, yAxisID: 'y' },
+          { label: 'Confianza consumidor', data: valsUmc, borderColor: '#9966ff', backgroundColor: 'rgba(153,102,255,0.06)', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false, yAxisID: 'y2' }
+        ]},
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
+          responsive: true, maintainAspectRatio: false, animation: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
-            tooltip: {
-              backgroundColor: '#111722',
-              titleFont: { family: 'IBM Plex Mono', size: 10 },
-              bodyFont: { family: 'IBM Plex Mono', size: 11 },
-              callbacks: {
-                label: ctx => {
-                  if (ctx.dataset.label === 'Desempleo') return 'Desempleo: ' + ctx.parsed.y.toFixed(1) + '%';
-                  return 'Confianza: ' + ctx.parsed.y.toFixed(1);
-                }
-              }
-            }
+            tooltip: { backgroundColor: '#111722', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 11 }, callbacks: { label: ctx => ctx.dataset.label === 'Desempleo' ? 'Desempleo: ' + ctx.parsed.y.toFixed(1) + '%' : 'Confianza: ' + ctx.parsed.y.toFixed(1) } }
           },
           scales: {
-            x: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 8, maxRotation: 0 },
-              grid: { color: 'rgba(255,255,255,0.03)' }
-            },
-            y: {
-              position: 'left',
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' },
-              grid: { color: 'rgba(255,255,255,0.04)' }
-            },
-            y2: {
-              position: 'right',
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 } },
-              grid: { drawOnChartArea: false }
-            }
+            x:  { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 8, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+            y:  { position: 'left',  ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+            y2: { position: 'right', ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 } }, grid: { drawOnChartArea: false } }
           }
         }
       });
     }
 
-    // ── Chart 5: Riesgo País Argentina ──
+    // Chart 5: Riesgo País Argentina
     const rpData = getData('BAMLEMARPITRIV');
     if (rpData.length) {
       const step5 = Math.max(1, Math.floor(rpData.length / 200));
       const sampled5 = rpData.filter((_, i) => i % step5 === 0 || i === rpData.length - 1);
       const labels5  = sampled5.map(d => d.date);
       const valsRp   = sampled5.map(d => d.value);
-
       if (window._macroCharts.rp) window._macroCharts.rp.destroy();
       window._macroCharts.rp = new Chart(document.getElementById('macro-chart-rp'), {
         type: 'line',
-        data: {
-          labels: labels5,
-          datasets: [{
-            label: 'Riesgo País ARG (EMBI+)',
-            data: valsRp,
-            borderColor: '#f5a623',
-            backgroundColor: 'rgba(245,166,35,0.08)',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.2,
-            fill: true,
-          }]
-        },
+        data: { labels: labels5, datasets: [{
+          label: 'Riesgo País ARG (EMBI+)', data: valsRp,
+          borderColor: '#f5a623', backgroundColor: 'rgba(245,166,35,0.08)',
+          borderWidth: 2, pointRadius: 0, tension: 0.2, fill: true,
+        }]},
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
+          responsive: true, maintainAspectRatio: false, animation: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
@@ -1642,14 +1298,8 @@ window.loadMacro = async function() {
             }
           },
           scales: {
-            x: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 },
-              grid: { color: 'rgba(255,255,255,0.03)' }
-            },
-            y: {
-              ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => Math.round(v) + ' pts' },
-              grid: { color: 'rgba(255,255,255,0.04)' }
-            }
+            x: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+            y: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => Math.round(v) + ' pts' }, grid: { color: 'rgba(255,255,255,0.04)' } }
           }
         },
         plugins: [{
@@ -1659,8 +1309,8 @@ window.loadMacro = async function() {
             if (!scales.y) return;
             ctx.save();
             [
-              { val: 500, color: 'rgba(0,229,168,0.4)', label: '500 — acceso mercados' },
-              { val: 1000, color: 'rgba(255,64,96,0.4)', label: '1000 — riesgo muy alto' },
+              { val: 500,  color: 'rgba(0,229,168,0.4)',  label: '500 — acceso mercados' },
+              { val: 1000, color: 'rgba(255,64,96,0.4)',  label: '1000 — riesgo muy alto' },
             ].forEach(lv => {
               const y = scales.y.getPixelForValue(lv.val);
               if (y < chartArea.top || y > chartArea.bottom) return;
@@ -1683,7 +1333,6 @@ window.loadMacro = async function() {
       });
     }
 
-    // Show charts
     if (loadingEl) loadingEl.style.display = 'none';
     if (chartsEl)  chartsEl.style.display  = '';
 
@@ -1693,13 +1342,12 @@ window.loadMacro = async function() {
   }
 };
 
-
 // ── GEX SPY ──────────────────────────────────────────────────────
-window.window.gexAllData = [];
+window.gexAllData = [];
 window.gexSelectedExp = 'all';
 window.gexSpot = 550;
 
-window.loadGEX = async function loadGEX() {
+window.loadGEX = async function() {
   document.getElementById('gex-neto').textContent = '...';
   document.getElementById('gex-interpretation').textContent = 'Bajando datos de CBOE...';
   try {
@@ -1707,11 +1355,7 @@ window.loadGEX = async function loadGEX() {
     const token = session?.data?.session?.access_token;
     const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/rapid-worker', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token,
-        'apikey': CFG.SB_KEY,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': CFG.SB_KEY },
       body: JSON.stringify({ mode: 'cboe', ticker: 'SPY' }),
       signal: AbortSignal.timeout(20000)
     });
@@ -1721,48 +1365,40 @@ window.loadGEX = async function loadGEX() {
     if (!d.options || !d.options.length) throw new Error('Sin opciones de CBOE');
 
     window.gexSpot = Number(d.spot) || 550;
-
     const validRows = d.options.filter(o =>
-      Number(o.gamma) > 0 &&
-      Number(o.open_interest) > 0 &&
-      Number(o.strike) >= gexSpot * 0.80 &&
-      Number(o.strike) <= gexSpot * 1.20
+      Number(o.gamma) > 0 && Number(o.open_interest) > 0 &&
+      Number(o.strike) >= window.gexSpot * 0.80 && Number(o.strike) <= window.gexSpot * 1.20
     );
-
     if (!validRows.length) {
       document.getElementById('gex-neto').textContent = 'Sin gamma';
-      document.getElementById('gex-interpretation').textContent = 'CBOE: ' + d.options.length + ' opciones recibidas pero sin gamma en strikes cercanos al spot $' + gexSpot.toFixed(0);
+      document.getElementById('gex-interpretation').textContent = 'Sin gamma en strikes cercanos al spot $' + window.gexSpot.toFixed(0);
       return;
     }
-
     window.gexAllData = validRows;
     const exps = [...new Set(validRows.map(r => r.expiration))].filter(Boolean).sort();
     const selEl = document.getElementById('gex-exp-selector');
-    selEl.innerHTML = '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px;background:var(--bg3)" onclick="gexSetExp(&quot;all&quot;,this)">Todos</button>';
+    selEl.innerHTML = '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px;background:var(--bg3)" onclick="gexSetExp(\'all\',this)">Todos</button>';
     exps.slice(0, 8).forEach(e => {
-      const label = e ? e.slice(0,10) : '?';
-      selEl.innerHTML += '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="gexSetExp(&quot;' + e + '&quot;,this)">' + label + '</button>';
+      selEl.innerHTML += '<button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="gexSetExp(\'' + e + '\',this)">' + (e ? e.slice(0,10) : '?') + '</button>';
     });
-    renderGEX();
+    window.renderGEX();
   } catch(e) {
     document.getElementById('gex-neto').textContent = 'Error';
     document.getElementById('gex-interpretation').textContent = 'Error: ' + e.message;
   }
-}
+};
 
-window.gexSetExp = function gexSetExp(exp, btn) {
+window.gexSetExp = function(exp, btn) {
   window.gexSelectedExp = exp;
   document.querySelectorAll('#gex-exp-selector button').forEach(b => b.style.background = '');
   if (btn) btn.style.background = 'var(--bg3)';
-  renderGEX();
-}
+  window.renderGEX();
+};
 
-window.renderGEX = async function renderGEX() {
-  const rows = window.gexSelectedExp === 'all' ? window.gexAllData : gexAllData.filter(r => r.expiration === gexSelectedExp);
+window.renderGEX = function() {
+  const rows = window.gexSelectedExp === 'all' ? window.gexAllData : window.gexAllData.filter(r => r.expiration === window.gexSelectedExp);
   if (!rows.length) return;
-
   const spot = window.gexSpot;
-
   const strikeMap = {};
   rows.forEach(r => {
     const strike = Number(r.strike);
@@ -1773,39 +1409,29 @@ window.renderGEX = async function renderGEX() {
     if (r.kind === 'call') { strikeMap[strike].call_gex += gex; strikeMap[strike].call_oi += oi; }
     else                   { strikeMap[strike].put_gex  -= gex; strikeMap[strike].put_oi  += oi; }
   });
-
   const nearStrikes = Object.values(strikeMap)
     .filter(s => s.strike >= spot * 0.85 && s.strike <= spot * 1.15)
     .sort((a,b) => a.strike - b.strike);
-
   if (!nearStrikes.length) {
     document.getElementById('gex-interpretation').textContent = 'No hay strikes cercanos al spot ($' + spot.toFixed(0) + ')';
     return;
   }
-
   const totalCallGex = nearStrikes.reduce((s,r) => s + r.call_gex, 0);
   const totalPutGex  = nearStrikes.reduce((s,r) => s + r.put_gex, 0);
   const netGex = totalCallGex + totalPutGex;
-  const wall     = nearStrikes.reduce((best,r) =>
+  const wall = nearStrikes.reduce((best,r) =>
     Math.abs(r.call_gex+r.put_gex) > Math.abs(best.call_gex+best.put_gex) ? r : best, nearStrikes[0]);
   const callWall = nearStrikes.filter(s=>s.strike>spot).sort((a,b)=>b.call_gex-a.call_gex)[0] || wall;
   const putWall  = nearStrikes.filter(s=>s.strike<spot).sort((a,b)=>a.put_gex-b.put_gex)[0]  || wall;
-
   const sortedByStrike = [...nearStrikes].sort((a,b) => b.strike - a.strike);
-  let cumGex = 0;
-  let gammaFlip = null;
+  let cumGex = 0, gammaFlip = null;
   for (const s of sortedByStrike) {
     const prevCum = cumGex;
     cumGex += s.call_gex + s.put_gex;
-    if (prevCum > 0 && cumGex <= 0 || prevCum < 0 && cumGex >= 0) {
-      gammaFlip = s.strike;
-      break;
-    }
+    if ((prevCum > 0 && cumGex <= 0) || (prevCum < 0 && cumGex >= 0)) { gammaFlip = s.strike; break; }
   }
   if (!gammaFlip) gammaFlip = wall.strike;
-
   const fmtG = v => { const m=v/1e6; return (m>=0?'+':'')+m.toFixed(0)+'M'; };
-
   document.getElementById('gex-neto').textContent  = fmtG(netGex);
   document.getElementById('gex-neto').style.color  = netGex>0?'var(--green)':'var(--red)';
   document.getElementById('gex-neto-label').textContent = netGex>0 ? 'Long Gamma' : 'Short Gamma';
@@ -1815,30 +1441,23 @@ window.renderGEX = async function renderGEX() {
   document.getElementById('gex-calls').textContent = fmtG(totalCallGex);
   document.getElementById('gex-puts').textContent  = fmtG(totalPutGex);
   document.getElementById('gex-wall').textContent  = '$'+(wall.strike||0).toFixed(0);
-
   const isLong = netGex > 0;
   const pct = Math.abs(netGex/(Math.abs(totalCallGex)+Math.abs(totalPutGex))*100).toFixed(0);
   document.getElementById('gex-interpretation').innerHTML = isLong
-    ? '<strong style="color:var(--green)">LONG GAMMA</strong> — Dealers con gamma positivo neto (' + pct + '% dominancia calls). El precio tiende a gravitar hacia el Gamma Wall en $' + wall.strike + '. Volatilidad comprimida, favorable para venta de opciones.'
-    : '<strong style="color:var(--red)">SHORT GAMMA</strong> — Dealers con gamma negativo neto (' + pct + '% dominancia puts). Los movimientos se amplifican en ambas direcciones. Gamma Wall en $' + wall.strike + ' como referencia clave.';
+    ? '<strong style="color:var(--green)">LONG GAMMA</strong> — Dealers con gamma positivo neto (' + pct + '% dominancia calls). El precio tiende a gravitar hacia el Gamma Wall en $' + wall.strike + '.'
+    : '<strong style="color:var(--red)">SHORT GAMMA</strong> — Dealers con gamma negativo neto (' + pct + '% dominancia puts). Los movimientos se amplifican en ambas direcciones. Gamma Wall en $' + wall.strike + '.';
 
   const canvasEl = document.getElementById('gexChart');
   if (typeof Chart !== 'undefined' && canvasEl) {
-    const ctx = canvasEl.getContext('2d');
     if (window._gexChart) window._gexChart.destroy();
-
     const cumArr = [];
     let cumSum = 0;
     for (const s of nearStrikes) { cumSum += s.call_gex + s.put_gex; cumArr.push(cumSum); }
-
     const flipIdx = nearStrikes.findIndex(s => s.strike >= gammaFlip);
-    const spotIdx = nearStrikes.reduce((bi, s, i) =>
-      Math.abs(s.strike - spot) < Math.abs(nearStrikes[bi].strike - spot) ? i : bi, 0);
+    const spotIdx = nearStrikes.reduce((bi, s, i) => Math.abs(s.strike - spot) < Math.abs(nearStrikes[bi].strike - spot) ? i : bi, 0);
     const wallIdx = nearStrikes.findIndex(s => s.strike === wall.strike);
-
     const callBg = nearStrikes.map((_,i) => i >= Math.max(0,flipIdx) ? 'rgba(0,229,168,0.80)' : 'rgba(0,229,168,0.35)');
     const putBg  = nearStrikes.map((_,i) => i >= Math.max(0,flipIdx) ? 'rgba(255,63,94,0.35)'  : 'rgba(255,63,94,0.80)');
-
     const bgPlugin = {
       id: 'gexBg',
       beforeDraw(chart) {
@@ -1852,7 +1471,7 @@ window.renderGEX = async function renderGEX() {
           c.fillStyle = 'rgba(0,229,168,0.06)';
           c.fillRect(xf, chartArea.top, chartArea.right - xf, chartArea.bottom - chartArea.top);
           c.restore();
-        } catch(e) { console.log(e); }
+        } catch(e) {}
       },
       afterDraw(chart) {
         const {ctx:c, chartArea, scales} = chart;
@@ -1881,41 +1500,33 @@ window.renderGEX = async function renderGEX() {
           c.fillStyle = 'rgba(0,0,0,0.7)'; c.fillRect(xs - 26, chartArea.top + 32, 52, 14);
           c.fillStyle = '#00e5a8'; c.fillText('● $' + spot.toFixed(0), xs, chartArea.top + 42);
           c.restore();
-        } catch(e) { console.log(e); }
+        } catch(e) {}
       }
     };
-
-    window._gexChart = new Chart(ctx, {
+    window._gexChart = new Chart(canvasEl, {
       type: 'bar',
       data: {
         labels: nearStrikes.map(s => '$' + s.strike),
         datasets: [
-          {label:'Call GEX', data: nearStrikes.map(s => s.call_gex/1e6),
-            backgroundColor: callBg, borderColor:'rgba(0,229,168,0.3)', borderWidth:1, order:2},
-          {label:'Put GEX',  data: nearStrikes.map(s => s.put_gex/1e6),
-            backgroundColor: putBg,  borderColor:'rgba(255,63,94,0.3)',  borderWidth:1, order:2},
-          {label:'GEX Acum.', data: cumArr.map(v => v/1e6),
-            type:'line', borderColor:'#60b3d8', borderWidth:2,
-            pointRadius:0, fill:false, tension:0.3, order:1, yAxisID:'y2'}
+          {label:'Call GEX', data: nearStrikes.map(s => s.call_gex/1e6), backgroundColor: callBg, borderColor:'rgba(0,229,168,0.3)', borderWidth:1, order:2},
+          {label:'Put GEX',  data: nearStrikes.map(s => s.put_gex/1e6),  backgroundColor: putBg,  borderColor:'rgba(255,63,94,0.3)',  borderWidth:1, order:2},
+          {label:'GEX Acum.', data: cumArr.map(v => v/1e6), type:'line', borderColor:'#60b3d8', borderWidth:2, pointRadius:0, fill:false, tension:0.3, order:1, yAxisID:'y2'}
         ]
       },
       options: {
-        responsive: true,
-        animation: false,
+        responsive: true, animation: false,
         plugins: {
           legend: { labels: { color:'#9dafc5', font:{family:'IBM Plex Mono',size:10} } },
-          tooltip: { callbacks: {
-            label: ctx => {
-              if (ctx.datasetIndex === 2) return 'GEX Acum.: ' + (cumArr[ctx.dataIndex]/1e6).toFixed(0) + 'M';
-              const s = nearStrikes[ctx.dataIndex];
-              const raw = ctx.datasetIndex === 0 ? s.call_gex : s.put_gex;
-              return ctx.dataset.label + ': ' + (raw/1e6).toFixed(0) + 'M';
-            }
-          }}
+          tooltip: { callbacks: { label: ctx => {
+            if (ctx.datasetIndex === 2) return 'GEX Acum.: ' + (cumArr[ctx.dataIndex]/1e6).toFixed(0) + 'M';
+            const s = nearStrikes[ctx.dataIndex];
+            const raw = ctx.datasetIndex === 0 ? s.call_gex : s.put_gex;
+            return ctx.dataset.label + ': ' + (raw/1e6).toFixed(0) + 'M';
+          }}}
         },
         scales: {
-          x: { ticks:{color:'#9dafc5',font:{size:9},maxRotation:45,autoSkip:true}, grid:{color:'rgba(30,37,48,0.5)'} },
-          y: { ticks:{color:'#9dafc5',font:{size:8},callback:v=>v+'M'}, grid:{color:'rgba(30,37,48,0.5)'} },
+          x:  { ticks:{color:'#9dafc5',font:{size:9},maxRotation:45,autoSkip:true}, grid:{color:'rgba(30,37,48,0.5)'} },
+          y:  { ticks:{color:'#9dafc5',font:{size:8},callback:v=>v+'M'}, grid:{color:'rgba(30,37,48,0.5)'} },
           y2: { position:'right', ticks:{color:'#4a6580',font:{size:8},callback:v=>v+'M'}, grid:{drawOnChartArea:false} }
         }
       },
@@ -1939,128 +1550,93 @@ window.renderGEX = async function renderGEX() {
       +'<td style="padding:7px 8px;text-align:center">'+nivel+'</td></tr>';
   }).join('');
 
-  renderGEXHorizontal(nearStrikes, wall, callWall, putWall, gammaFlip, spot);
-}
-
-function renderGEXHorizontal(strikes, wall, callWall, putWall, gammaFlip, spot) {
+  // Horizontal GEX chart
   const canvas = document.getElementById('gexPriceChart');
-  if (!canvas || typeof Chart === 'undefined') return;
-
-  const wallIdx  = strikes.findIndex(s => s.strike === wall.strike);
-  const cwIdx    = strikes.findIndex(s => s.strike === callWall.strike);
-  const pwIdx    = strikes.findIndex(s => s.strike === putWall.strike);
-  const flipIdx  = strikes.findIndex(s => s.strike >= gammaFlip);
-  const spotIdx  = strikes.reduce((bi,s,i) =>
-    Math.abs(s.strike-spot) < Math.abs(strikes[bi].strike-spot) ? i : bi, 0);
-
-  const lvls = [
-    {idx: cwIdx,   color: '#f0a500', label: '★ Call Wall $'+callWall.strike.toFixed(0)},
-    {idx: pwIdx,   color: '#ff3f5e', label: '▼ Put Wall  $'+putWall.strike.toFixed(0)},
-    {idx: flipIdx, color: '#00b4d8', label: '⟳ Flip       $'+gammaFlip.toFixed(0)},
-    {idx: spotIdx, color: '#00e5a8', label: '● Spot       $'+spot.toFixed(0)},
-    {idx: wallIdx, color: '#b39dff', label: '◆ G.Magnet  $'+wall.strike.toFixed(0)},
-  ];
-
-  const hPlugin = {
-    id: 'hLevels',
-    afterDraw(chart) {
-      const {ctx:c, chartArea, scales} = chart;
-      if (!chartArea || !scales.y) return;
-      c.save();
-      c.font = '9px IBM Plex Mono';
-      c.textAlign = 'left';
-      for (const lv of lvls) {
-        if (lv.idx < 0) continue;
-        const y = scales.y.getPixelForValue(lv.idx);
-        if (y < chartArea.top - 2 || y > chartArea.bottom + 2) continue;
-        c.setLineDash([5,3]); c.strokeStyle = lv.color; c.lineWidth = 1.5;
-        c.beginPath(); c.moveTo(chartArea.left, y); c.lineTo(chartArea.right, y); c.stroke();
-        c.setLineDash([]);
-        c.fillStyle = 'rgba(10,15,24,0.88)';
-        c.fillRect(chartArea.right + 3, y - 7, 102, 13);
-        c.fillStyle = lv.color;
-        c.fillText(lv.label, chartArea.right + 5, y + 3);
-      }
-      c.restore();
-    }
-  };
-
-  if (!window._tvSPYGexLoaded) {
-    window._tvSPYGexLoaded = true;
-    function _createTVSPY() {
-      const c = document.getElementById('tvspy_gex');
-      if (!c) return;
-      c.innerHTML = '';
-      const d = document.createElement('div');
-      d.id = 'tvspy_gex_' + Date.now();
-      d.style.cssText = 'width:100%;height:100%';
-      c.appendChild(d);
-      try {
-        new window.TradingView.widget({
-          autosize:true, symbol:'AMEX:SPY', interval:'D',
-          timezone:'America/New_York', theme:'dark',
-          style:'1', locale:'es', toolbar_bg:'#131c2b',
-          enable_publishing:false, hide_top_toolbar:false,
-          hide_legend:false, save_image:false, container_id:d.id
-        });
-      } catch(e) {
-        c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">No se pudo cargar TradingView</div>';
-      }
-    }
-    if (window.TradingView) {
-      _createTVSPY();
-    } else {
-      const sc = document.createElement('script');
-      sc.src = 'https://s3.tradingview.com/tv.js';
-      sc.onload = _createTVSPY;
-      sc.onerror = () => {
-        const c = document.getElementById('tvspy_gex');
-        if(c) c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">TradingView no disponible</div>';
-      };
-      document.head.appendChild(sc);
-    }
-  }
-
-  if (window._gexPriceChart) window._gexPriceChart.destroy();
-  window._gexPriceChart = new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: strikes.map(s => '$'+s.strike),
-      datasets: [
-        {
-          label: 'Call GEX',
-          data: strikes.map(s => s.call_gex / 1e6),
-          backgroundColor: 'rgba(0,229,168,0.65)',
-          borderColor: 'rgba(0,229,168,0.9)',
-          borderWidth: 1
-        },
-        {
-          label: 'Put GEX',
-          data: strikes.map(s => s.put_gex / 1e6),
-          backgroundColor: 'rgba(255,63,94,0.65)',
-          borderColor: 'rgba(255,63,94,0.9)',
-          borderWidth: 1
+  if (canvas && typeof Chart !== 'undefined') {
+    const wallIdx2  = nearStrikes.findIndex(s => s.strike === wall.strike);
+    const cwIdx     = nearStrikes.findIndex(s => s.strike === callWall.strike);
+    const pwIdx     = nearStrikes.findIndex(s => s.strike === putWall.strike);
+    const flipIdx2  = nearStrikes.findIndex(s => s.strike >= gammaFlip);
+    const spotIdx2  = nearStrikes.reduce((bi,s,i) => Math.abs(s.strike-spot) < Math.abs(nearStrikes[bi].strike-spot) ? i : bi, 0);
+    const lvls = [
+      {idx: cwIdx,    color: '#f0a500', label: '★ Call Wall $'+callWall.strike.toFixed(0)},
+      {idx: pwIdx,    color: '#ff3f5e', label: '▼ Put Wall  $'+putWall.strike.toFixed(0)},
+      {idx: flipIdx2, color: '#00b4d8', label: '⟳ Flip       $'+gammaFlip.toFixed(0)},
+      {idx: spotIdx2, color: '#00e5a8', label: '● Spot       $'+spot.toFixed(0)},
+      {idx: wallIdx2, color: '#b39dff', label: '◆ G.Magnet  $'+wall.strike.toFixed(0)},
+    ];
+    const hPlugin = {
+      id: 'hLevels',
+      afterDraw(chart) {
+        const {ctx:c, chartArea, scales} = chart;
+        if (!chartArea || !scales.y) return;
+        c.save();
+        c.font = '9px IBM Plex Mono';
+        c.textAlign = 'left';
+        for (const lv of lvls) {
+          if (lv.idx < 0) continue;
+          const y = scales.y.getPixelForValue(lv.idx);
+          if (y < chartArea.top - 2 || y > chartArea.bottom + 2) continue;
+          c.setLineDash([5,3]); c.strokeStyle = lv.color; c.lineWidth = 1.5;
+          c.beginPath(); c.moveTo(chartArea.left, y); c.lineTo(chartArea.right, y); c.stroke();
+          c.setLineDash([]);
+          c.fillStyle = 'rgba(10,15,24,0.88)';
+          c.fillRect(chartArea.right + 3, y - 7, 102, 13);
+          c.fillStyle = lv.color;
+          c.fillText(lv.label, chartArea.right + 5, y + 3);
         }
-      ]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      layout: { padding: { right: 110 } },
-      plugins: {
-        legend: { labels: { color:'#9dafc5', font:{family:'IBM Plex Mono',size:10} } }
-      },
-      scales: {
-        y: { ticks:{color:'#9dafc5',font:{size:9}}, grid:{color:'rgba(30,37,48,0.5)'} },
-        x: { ticks:{color:'#9dafc5',font:{size:8},callback:v=>v+'M'}, grid:{color:'rgba(30,37,48,0.5)'},
-             title:{display:true,text:'GEX (millones)',color:'#5c7090',font:{size:9}} }
+        c.restore();
       }
-    },
-    plugins: [hPlugin]
-  });
-}
+    };
+    if (!window._tvSPYGexLoaded) {
+      window._tvSPYGexLoaded = true;
+      const tvC = document.getElementById('tvspy_gex');
+      if (tvC) {
+        tvC.innerHTML = '';
+        const d = document.createElement('div');
+        d.id = 'tvspy_gex_' + Date.now();
+        d.style.cssText = 'width:100%;height:100%';
+        tvC.appendChild(d);
+        const tryTV = () => {
+          try {
+            new window.TradingView.widget({ autosize:true, symbol:'AMEX:SPY', interval:'D', timezone:'America/New_York', theme:'dark', style:'1', locale:'es', toolbar_bg:'#131c2b', enable_publishing:false, hide_top_toolbar:false, hide_legend:false, save_image:false, container_id:d.id });
+          } catch(e) {
+            tvC.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">No se pudo cargar TradingView</div>';
+          }
+        };
+        if (window.TradingView) { tryTV(); }
+        else {
+          const sc = document.createElement('script');
+          sc.src = 'https://s3.tradingview.com/tv.js';
+          sc.onload = tryTV;
+          sc.onerror = () => { tvC.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:11px">TradingView no disponible</div>'; };
+          document.head.appendChild(sc);
+        }
+      }
+    }
+    if (window._gexPriceChart) window._gexPriceChart.destroy();
+    window._gexPriceChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: nearStrikes.map(s => '$'+s.strike),
+        datasets: [
+          { label: 'Call GEX', data: nearStrikes.map(s => s.call_gex / 1e6), backgroundColor: 'rgba(0,229,168,0.65)', borderColor: 'rgba(0,229,168,0.9)', borderWidth: 1 },
+          { label: 'Put GEX',  data: nearStrikes.map(s => s.put_gex / 1e6),  backgroundColor: 'rgba(255,63,94,0.65)',  borderColor: 'rgba(255,63,94,0.9)',  borderWidth: 1 }
+        ]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+        layout: { padding: { right: 110 } },
+        plugins: { legend: { labels: { color:'#9dafc5', font:{family:'IBM Plex Mono',size:10} } } },
+        scales: {
+          y: { ticks:{color:'#9dafc5',font:{size:9}}, grid:{color:'rgba(30,37,48,0.5)'} },
+          x: { ticks:{color:'#9dafc5',font:{size:8},callback:v=>v+'M'}, grid:{color:'rgba(30,37,48,0.5)'}, title:{display:true,text:'GEX (millones)',color:'#5c7090',font:{size:9}} }
+        }
+      },
+      plugins: [hPlugin]
+    });
+  }
+};
 
 // ── RRG ──────────────────────────────────────────────────────
 let rrgLoaded  = false;
@@ -2071,24 +1647,12 @@ let rrgData    = {sectores:[], acciones:[], sectores_d:[], acciones_d:[]};
 let rrgRange   = {min:95, max:106};
 
 const RRG_SECTORS  = ['XLK','XLF','XLE','XLV','XLY','XLP','XLI','XLB','XLRE','XLU','XLC'];
-const RRG_ACCIONES = [
-  'AAPL','MSFT','NVDA','GOOGL','META','AMZN','AVGO','ORCL','AMD','NFLX','CRM',
-  'JPM','V','MA','BAC','GS',
-  'UNH','LLY','JNJ','ABBV',
-  'TSLA','COST','WMT','HD',
-  'XOM','CVX',
-];
-const RRG_COLORS = [
-  '#38c8ff','#00e5a8','#ffc84a','#ff3f5e','#a855f7','#fb923c',
-  '#f472b6','#34d399','#60a5fa','#facc15','#e879f9','#818cf8',
-  '#ef4444','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ec4899',
-  '#14b8a6','#f97316','#84cc16','#6366f1','#06b6d4','#d946ef',
-  '#22c55e','#eab308',
-];
-const RRG_PAD      = {top:36, right:44, bottom:46, left:52};
-const RRG_CENTER   = 100;
-const RRG_TAIL     = 8;
-const RRG_TAIL_D   = 5;
+const RRG_ACCIONES = ['AAPL','MSFT','NVDA','GOOGL','META','AMZN','AVGO','ORCL','AMD','NFLX','CRM','JPM','V','MA','BAC','GS','UNH','LLY','JNJ','ABBV','TSLA','COST','WMT','HD','XOM','CVX'];
+const RRG_COLORS   = ['#38c8ff','#00e5a8','#ffc84a','#ff3f5e','#a855f7','#fb923c','#f472b6','#34d399','#60a5fa','#facc15','#e879f9','#818cf8','#ef4444','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16','#6366f1','#06b6d4','#d946ef','#22c55e','#eab308'];
+const RRG_PAD    = {top:36, right:44, bottom:46, left:52};
+const RRG_CENTER = 100;
+const RRG_TAIL   = 8;
+const RRG_TAIL_D = 5;
 
 function rrgEma(arr, p) {
   const k = 2/(p+1), r = [];
@@ -2096,13 +1660,11 @@ function rrgEma(arr, p) {
   arr.forEach(v => { prev = v*k + prev*(1-k); r.push(prev); });
   return r;
 }
-
 function rrgDailyMap(series) {
   const m = new Map();
   series.forEach(({date,close}) => m.set(date, Number(close)));
   return m;
 }
-
 function rrgCalcSymbolDaily(dayMap, spyMap) {
   const days = [...spyMap.keys()].filter(k => dayMap.has(k)).sort();
   if (days.length < 20) return null;
@@ -2114,7 +1676,6 @@ function rrgCalcSymbolDaily(dayMap, spyMap) {
   const n = ratio.length, tail = RRG_TAIL_D+1;
   return ratio.slice(-tail).map((r,i) => [r, mom[n-tail+i]]);
 }
-
 function rrgWeeklyMap(series) {
   const m = new Map();
   series.forEach(({date,close}) => {
@@ -2126,7 +1687,6 @@ function rrgWeeklyMap(series) {
   });
   return m;
 }
-
 function rrgCalcSymbol(weekMap, spyMap) {
   const weeks = [...spyMap.keys()].filter(k => weekMap.has(k)).sort();
   if (weeks.length < 35) return null;
@@ -2155,35 +1715,27 @@ async function rrgLoad() {
       )
     );
     const rows = results.flat();
-
     if (!rows?.length) { document.getElementById('rrg-meta').textContent='Sin datos en historico_precios.'; return; }
-
     const bySymbol = {};
     rows.forEach(r => {
       if (!bySymbol[r.symbol]) bySymbol[r.symbol]=[];
       bySymbol[r.symbol].push({date:r.fecha, close:r.close});
     });
-
     const spyMap = rrgWeeklyMap(bySymbol['SPY']||[]);
     if (spyMap.size < 30) { document.getElementById('rrg-meta').textContent='Insuficientes datos de SPY.'; return; }
-
     const buildTab = syms => syms.map((s,i) => {
       const pts = bySymbol[s] ? rrgCalcSymbol(rrgWeeklyMap(bySymbol[s]), spyMap) : null;
       return {s, c:RRG_COLORS[i%RRG_COLORS.length], p:pts||[]};
     }).filter(d => d.p.length > 1);
-
     rrgData.sectores = buildTab(RRG_SECTORS);
     rrgData.acciones = buildTab(RRG_ACCIONES);
-
     const spyDayMap = rrgDailyMap(bySymbol['SPY']||[]);
     const buildTabDaily = syms => syms.map((s,i) => {
       const pts = bySymbol[s] ? rrgCalcSymbolDaily(rrgDailyMap(bySymbol[s]), spyDayMap) : null;
       return {s, c:RRG_COLORS[i%RRG_COLORS.length], p:pts||[]};
     }).filter(d => d.p.length > 1);
-
     rrgData.sectores_d = buildTabDaily(RRG_SECTORS);
     rrgData.acciones_d = buildTabDaily(RRG_ACCIONES);
-
     const lastDate = [...spyMap.keys()].sort().pop()||'—';
     document.getElementById('rrg-meta').textContent = `Benchmark: SPY · Actualizado ${lastDate}`;
     rrgRender();
@@ -2204,14 +1756,12 @@ function rrgXY(ratio, mom, W, H) {
     RRG_PAD.top  + (rrgRange.max-mom)/span*ph
   ];
 }
-
 function rrgArrow(ctx,x1,y1,x2,y2,fill,sz=6) {
   const a=Math.atan2(y2-y1,x2-x1);
   ctx.save(); ctx.fillStyle=fill; ctx.translate(x2,y2); ctx.rotate(a);
   ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz,-sz*.5); ctx.lineTo(-sz,sz*.5);
   ctx.closePath(); ctx.fill(); ctx.restore();
 }
-
 function rrgQ(r,m) {
   if(r>=RRG_CENTER&&m>=RRG_CENTER) return{name:'Leading',   color:'#00e5a8'};
   if(r< RRG_CENTER&&m>=RRG_CENTER) return{name:'Improving', color:'#38c8ff'};
@@ -2235,29 +1785,23 @@ function rrgRender() {
     const dev=pts.reduce((mx,[r,m])=>Math.max(mx,Math.abs(r-100),Math.abs(m-100)),2);
     const sp=Math.min(dev*1.25, 4.5);
     rrgRange={min:100-sp, max:100+sp}; }
-
   const [cx,cy]=rrgXY(RRG_CENTER,RRG_CENTER,W,H);
-
   ctx.fillStyle='rgba(0,229,168,.08)';  ctx.fillRect(cx,RRG_PAD.top,W-RRG_PAD.right-cx,cy-RRG_PAD.top);
   ctx.fillStyle='rgba(56,200,255,.08)'; ctx.fillRect(RRG_PAD.left,RRG_PAD.top,cx-RRG_PAD.left,cy-RRG_PAD.top);
   ctx.fillStyle='rgba(255,63,94,.08)';  ctx.fillRect(RRG_PAD.left,cy,cx-RRG_PAD.left,H-RRG_PAD.bottom-cy);
   ctx.fillStyle='rgba(255,200,74,.08)'; ctx.fillRect(cx,cy,W-RRG_PAD.right-cx,H-RRG_PAD.bottom-cy);
-
   ctx.strokeStyle='rgba(255,255,255,.03)'; ctx.lineWidth=1;
   for(let i=0;i<=10;i++){
     const x=RRG_PAD.left+pw/10*i,y=RRG_PAD.top+ph/10*i;
     ctx.beginPath();ctx.moveTo(x,RRG_PAD.top);ctx.lineTo(x,H-RRG_PAD.bottom);ctx.stroke();
     ctx.beginPath();ctx.moveTo(RRG_PAD.left,y);ctx.lineTo(W-RRG_PAD.right,y);ctx.stroke();
   }
-
   ctx.setLineDash([6,5]); ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(cx,RRG_PAD.top);ctx.lineTo(cx,H-RRG_PAD.bottom);ctx.stroke();
   ctx.beginPath();ctx.moveTo(RRG_PAD.left,cy);ctx.lineTo(W-RRG_PAD.right,cy);ctx.stroke();
   ctx.setLineDash([]);
-
   ctx.strokeStyle='#1e2a38'; ctx.lineWidth=1;
   ctx.strokeRect(RRG_PAD.left,RRG_PAD.top,pw,ph);
-
   const qfs=Math.max(9,Math.round(pw/28));
   ctx.font=`700 ${qfs}px 'IBM Plex Mono',monospace`; ctx.textAlign='center';
   const qp=16;
@@ -2266,7 +1810,6 @@ function rrgRender() {
    ['LAGGING',RRG_PAD.left+(cx-RRG_PAD.left)/2,H-RRG_PAD.bottom-qp,'rgba(255,63,94,.15)'],
    ['WEAKENING',cx+(W-RRG_PAD.right-cx)/2,H-RRG_PAD.bottom-qp,'rgba(255,200,74,.15)'],
   ].forEach(([t,x,y,c])=>{ctx.fillStyle=c;ctx.fillText(t,x,y);});
-
   ctx.fillStyle='#3d5166'; ctx.font=`400 8px 'IBM Plex Mono',monospace`;
   const TICKS=5,TSTEP=(rrgRange.max-rrgRange.min)/TICKS;
   for(let i=0;i<=TICKS;i++){
@@ -2280,7 +1823,6 @@ function rrgRender() {
   ctx.fillText('RS-Ratio →',RRG_PAD.left+pw/2,H-8);
   ctx.save(); ctx.translate(13,RRG_PAD.top+ph/2); ctx.rotate(-Math.PI/2);
   ctx.fillText('RS-Momentum →',0,0); ctx.restore();
-
   const rrgVisible = rrgData[rrgKey].filter(({p})=>{
     if(rrgFilter==='all') return true;
     if(!p.length) return false;
@@ -2292,7 +1834,6 @@ function rrgRender() {
     const n=p.length, rgb=parseInt(c.slice(1),16);
     const r=(rgb>>16)&255,g=(rgb>>8)&255,b=rgb&255;
     const rgba=(a)=>`rgba(${r},${g},${b},${a})`;
-
     for(let i=0;i<n-1;i++){
       const alpha=((i+1)/(n-1))*.85;
       const [x1,y1]=rrgXY(p[i][0],p[i][1],W,H);
@@ -2305,11 +1846,9 @@ function rrgRender() {
     const [x1,y1]=rrgXY(p[n-2][0],p[n-2][1],W,H);
     const [x2,y2]=rrgXY(p[n-1][0],p[n-1][1],W,H);
     rrgArrow(ctx,x1,y1,x2,y2,c,7);
-
     ctx.beginPath(); ctx.fillStyle=rgba(.13); ctx.arc(x2,y2,12,0,Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.strokeStyle=rgba(.4); ctx.lineWidth=1.5; ctx.arc(x2,y2,9,0,Math.PI*2); ctx.stroke();
     ctx.beginPath(); ctx.fillStyle=c; ctx.arc(x2,y2,4.5,0,Math.PI*2); ctx.fill();
-
     ctx.fillStyle=c; ctx.font=`600 9.5px 'IBM Plex Mono',monospace`; ctx.textAlign='left';
     ctx.fillText(s,x2+12,y2+4);
   });
@@ -2389,7 +1928,6 @@ window.rrgSwitchTab = function(tab,btn){
 };
 
 let rrgAddCache = null;
-
 async function rrgGetSymbolList() {
   if (rrgAddCache) return rrgAddCache;
   const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
@@ -2411,72 +1949,59 @@ window.rrgAddAutocomplete = async function(val) {
   ac.style.display = '';
   ac.innerHTML = matches.map(s => {
     const alreadyIn = rrgData.acciones.some(d=>d.s===s) || rrgData.acciones_d.some(d=>d.s===s);
-    return `<div onclick="rrgAddPick('${s}')" style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;color:${alreadyIn?'var(--text4)':'var(--text)'};transition:background .1s" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+    return `<div onclick="rrgAddPick('${s}')" style="padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;color:${alreadyIn?'var(--text4)':'var(--text)'}" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
       ${s}${alreadyIn?' <span style="color:var(--text4);font-size:8px">ya en gráfico</span>':''}
     </div>`;
   }).join('');
 };
-
 window.rrgAddPick = function(sym) {
   document.getElementById('rrg-add-input').value = sym;
   document.getElementById('rrg-add-ac').style.display = 'none';
   rrgAddSymbol();
 };
-
 window.rrgAddHideAc = function() {
   document.getElementById('rrg-add-ac').style.display = 'none';
 };
-
 window.rrgAddSymbol = async function() {
   const inp = document.getElementById('rrg-add-input');
   const sym = inp.value.toUpperCase().trim();
   if (!sym) return;
   rrgAddHideAc();
-
   if (rrgData.acciones.some(d=>d.s===sym)) {
     inp.style.borderColor='var(--amber)'; setTimeout(()=>inp.style.borderColor='',1200);
     return;
   }
-
   inp.disabled = true;
   const meta = document.getElementById('rrg-meta');
   const prevMeta = meta.textContent;
   meta.textContent = `Cargando ${sym}…`;
-
   try {
     const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
     const since = new Date(); since.setDate(since.getDate()-420);
     const sinceStr = since.toISOString().slice(0,10);
-
     const [symRows, spyRows] = await Promise.all([
       fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
       fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
     ]);
-
     if (!symRows.length) {
       meta.textContent = `${sym}: no encontrado en historico_precios`;
       setTimeout(()=>meta.textContent=prevMeta, 2500);
       return;
     }
-
     const spyMap    = rrgWeeklyMap(spyRows.map(r=>({date:r.fecha,close:r.close})));
     const spyDayMap = rrgDailyMap(spyRows.map(r=>({date:r.fecha,close:r.close})));
-
     const series  = symRows.map(r=>({date:r.fecha,close:r.close}));
     const ptsW    = rrgCalcSymbol(rrgWeeklyMap(series), spyMap);
     const ptsD    = rrgCalcSymbolDaily(rrgDailyMap(series), spyDayMap);
-
     if (!ptsW || ptsW.length < 2) {
       meta.textContent = `${sym}: insuficientes datos`;
       setTimeout(()=>meta.textContent=prevMeta, 2500);
       return;
     }
-
     const color = RRG_COLORS[rrgData.acciones.length % RRG_COLORS.length];
     rrgData.acciones.push({s:sym, c:color, p:ptsW||[]});
     rrgData.acciones_d.push({s:sym, c:color, p:ptsD||[]});
-
     inp.value = '';
     meta.textContent = prevMeta;
     rrgRender(); rrgBuildLegend();
@@ -2497,7 +2022,6 @@ window.rrgSwitchMode = function(mode,btn){
   if(bm) bm.textContent = mode==='weekly' ? 'EMA 10/26 · Cola 8w' : 'EMA 5/13 · Cola 5d';
   rrgRender(); rrgBuildLegend();
 };
-
 window.rrgSwitchFilter = function(sel){
   rrgFilter = sel.value;
   const colors = {leading:'#00e5a8',improving:'#38c8ff',weakening:'#ffc84a',lagging:'#ff3f5e'};
@@ -2514,19 +2038,15 @@ window.rrgScanSP500 = async function(){
   const meta  = document.getElementById('rrg-scan-meta');
   const title = document.getElementById('rrg-scan-title');
   const btn   = document.getElementById('rrg-scan-btn');
-
   panel.style.display = '';
   body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:11px">Obteniendo lista de símbolos…</div>';
   btn.textContent = '⏳ Escaneando…';
   btn.disabled = true;
-
   const qLabel = {leading:'Leading',improving:'Improving',weakening:'Weakening',lagging:'Lagging'};
   title.textContent = `Scan S&P 500 — ${qLabel[filterVal] || 'Todos'}`;
-
   try {
     const SBH  = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
-
     let allSyms = rrgAddCache ? [...rrgAddCache] : [];
     if (!allSyms.length) {
       const symResp = await fetch(`${base}?select=symbol&fecha=eq.2024-01-02&order=symbol.asc&limit=600`, {headers:SBH});
@@ -2538,20 +2058,14 @@ window.rrgScanSP500 = async function(){
       rrgAddCache = [...new Set(allSyms)];
       allSyms = rrgAddCache;
     }
-
     if (!allSyms.length) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en historico_precios</div>'; return; }
-
     meta.textContent = `${allSyms.length} símbolos · cargando histórico…`;
-
     const since = new Date(); since.setDate(since.getDate()-420);
     const sinceStr = since.toISOString().slice(0,10);
-
     const spyResp = await fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=500`, {headers:SBH});
     const spyRows = spyResp.ok ? await spyResp.json() : [];
-    const spySeries = spyRows.map(r=>({date:r.fecha,close:r.close}));
-    const spyMap = rrgWeeklyMap(spySeries);
+    const spyMap = rrgWeeklyMap(spyRows.map(r=>({date:r.fecha,close:r.close})));
     if (spyMap.size < 30) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Insuficientes datos SPY</div>'; return; }
-
     const BATCH = 40;
     const results = [];
     for (let i = 0; i < allSyms.length; i += BATCH) {
@@ -2566,57 +2080,29 @@ window.rrgScanSP500 = async function(){
       );
       results.push(...fetches);
     }
-
     const scanResults = [];
     for (const {sym, rows} of results) {
       if (!rows.length) continue;
       const series = rows.map(r=>({date:r.fecha,close:r.close}));
-      const wMap = rrgWeeklyMap(series);
-      const pts = rrgCalcSymbol(wMap, spyMap);
+      const pts = rrgCalcSymbol(rrgWeeklyMap(series), spyMap);
       if (!pts || pts.length < 2) continue;
       const last = pts[pts.length-1];
       const {name, color} = rrgQ(last[0], last[1]);
       const prev = pts[pts.length-2];
-      const dR = last[0]-prev[0];
-      const dM = last[1]-prev[1];
-      scanResults.push({sym, name, color, ratio:last[0], mom:last[1], dR, dM});
+      scanResults.push({sym, name, color, ratio:last[0], mom:last[1], dR:last[0]-prev[0], dM:last[1]-prev[1]});
     }
-
     const qOrder = {Improving:0,Leading:1,Weakening:2,Lagging:3};
-    const filtered = filterVal === 'all'
-      ? scanResults
-      : scanResults.filter(r => r.name.toLowerCase() === filterVal);
-
-    filtered.sort((a,b) => {
-      const qd = (qOrder[a.name]??4)-(qOrder[b.name]??4);
-      if (qd!==0) return qd;
-      return b.ratio - a.ratio;
-    });
-
-    meta.textContent = `${filtered.length} símbolos en ${qLabel[filterVal]||'todos los cuadrantes'} de ${allSyms.length} escaneados`;
-
-    if (!filtered.length) {
-      body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en este cuadrante</div>';
-      return;
-    }
-
+    const filtered = filterVal === 'all' ? scanResults : scanResults.filter(r => r.name.toLowerCase() === filterVal);
+    filtered.sort((a,b) => { const qd=(qOrder[a.name]??4)-(qOrder[b.name]??4); return qd!==0?qd:b.ratio-a.ratio; });
+    meta.textContent = `${filtered.length} símbolos en ${qLabel[filterVal]||'todos'} de ${allSyms.length} escaneados`;
+    if (!filtered.length) { body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en este cuadrante</div>'; return; }
     const arrowR = v => v>0?`<span style="color:#00e5a8">▲</span>`:`<span style="color:#ff3f5e">▼</span>`;
-
-    body.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">
-        ${filtered.map(r=>`
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;gap:6px">
-            <div>
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text)">${r.sym}</div>
-              <div style="font-size:8px;color:${r.color};margin-top:2px">${r.name}</div>
-            </div>
-            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
-              <div>${r.ratio.toFixed(1)} ${arrowR(r.dR)}</div>
-              <div>${r.mom.toFixed(1)} ${arrowR(r.dM)}</div>
-            </div>
-          </div>`).join('')}
-      </div>`;
-
+    body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">
+      ${filtered.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;gap:6px">
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text)">${r.sym}</div><div style="font-size:8px;color:${r.color};margin-top:2px">${r.name}</div></div>
+        <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"><div>${r.ratio.toFixed(1)} ${arrowR(r.dR)}</div><div>${r.mom.toFixed(1)} ${arrowR(r.dM)}</div></div>
+      </div>`).join('')}
+    </div>`;
   } catch(e) {
     body.innerHTML = `<div style="text-align:center;padding:24px;color:var(--red);font-size:11px">Error: ${e.message}</div>`;
   } finally {
@@ -2630,14 +2116,12 @@ window.addEventListener('resize',()=>{
   if(document.getElementById('uspanel-topology')?.classList.contains('active')) usDrawTopoScatter();
   if(document.getElementById('uspanel-rrg')?.classList.contains('active')) usDrawRotationClock();
 });
-
 document.addEventListener('click', e => {
   const wrap = document.getElementById('rrg-add-wrap');
   if (wrap && !wrap.contains(e.target)) rrgAddHideAc();
 });
 
 // ── Market Topology ─────────────────────────────────────────
-
 function usAnimEl(el, i) {
   el.style.opacity = '0';
   el.style.transform = 'translateY(6px)';
@@ -2653,7 +2137,6 @@ function usRenderTopology() {
   if (!usAllData.length) return;
   const withChg = usAllData.filter(r => r.change_pct != null);
   const total   = withChg.length;
-
   const spy = usAllData.find(r => r.symbol === 'SPY') || usSectors.find(r => r.symbol === 'SPY');
   const spyEl = document.getElementById('tkpi-spy');
   const spyChgEl = document.getElementById('tkpi-spy-chg');
@@ -2665,7 +2148,6 @@ function usRenderTopology() {
       spyChgEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
     }
   }
-
   const vxx = usAllData.find(r => r.symbol === 'VXX') || usAllData.find(r => r.symbol === 'UVXY');
   const vixyEl    = document.getElementById('tkpi-vixy');
   const vixyChgEl = document.getElementById('tkpi-vixy-chg');
@@ -2677,13 +2159,11 @@ function usRenderTopology() {
       vixyChgEl.style.color = chg >= 0 ? 'var(--red)' : 'var(--green)';
     }
   }
-
   const ups = withChg.filter(r => r.change_pct > 0).length;
   const dns = withChg.filter(r => r.change_pct < 0).length;
   const pctUps = total > 0 ? Math.round(ups / total * 100) : 0;
   const ampEl = document.getElementById('tkpi-amp');
   if (ampEl) ampEl.textContent = pctUps + '%';
-
   const upEl  = document.getElementById('tkpi-up');
   const dnEl  = document.getElementById('tkpi-dn');
   const upSub = document.getElementById('tkpi-up-sub');
@@ -2692,7 +2172,6 @@ function usRenderTopology() {
   if (dnEl)  dnEl.textContent  = dns;
   if (upSub) upSub.textContent = `de ${total} activos`;
   if (dnSub) dnSub.textContent = `de ${total} activos`;
-
   const withSma200 = usAllData.filter(r => r.above_sma200 != null || (r.last != null && r.sma_200 != null));
   const withSma50  = usAllData.filter(r => r.above_sma50  != null || (r.last != null && r.sma_50  != null));
   const withRsiAll = usAllData.filter(r => r.rsi_14 != null);
@@ -2704,18 +2183,15 @@ function usRenderTopology() {
   const rsiOB = withRsiAll.filter(r => Number(r.rsi_14) >= 70).length;
   const rsiOS = withRsiAll.filter(r => Number(r.rsi_14) <= 30).length;
   const pctRsi70 = nRsi >= 20 ? Math.round(rsiOB / nRsi * 100) : null;
-
   const rsi70El = document.getElementById('tkpi-rsi70');
   const rsi30El = document.getElementById('tkpi-rsi30');
   if (rsi70El) rsi70El.textContent = nRsi >= 20 ? rsiOB : '—';
   if (rsi30El) rsi30El.textContent = nRsi >= 20 ? `RSI < 30: ${rsiOS}` : 'Sin datos RSI';
-
   const fillEl = document.getElementById('topo-breadth-fill');
   const valEl  = document.getElementById('topo-breadth-val');
   const bColor = pctUps >= 60 ? 'var(--green)' : pctUps >= 40 ? 'var(--amber)' : 'var(--red)';
   if (fillEl) { fillEl.style.width = pctUps + '%'; fillEl.style.background = bColor; }
   if (valEl)  { valEl.textContent = pctUps + '%'; valEl.style.color = bColor; }
-
   const b50  = document.getElementById('topo-b-sma50');
   const b200 = document.getElementById('topo-b-sma200');
   const br70 = document.getElementById('topo-b-rsi70');
@@ -2728,7 +2204,6 @@ function usRenderTopology() {
   if (b200) b200.innerHTML = fmtB(pctSma200, pctSma200 != null ? smaC(pctSma200) : '', n200);
   if (br70) br70.innerHTML = fmtB(pctRsi70, 'var(--red)', nRsi);
   if (br30) br30.innerHTML = fmtB(nRsi >= 20 ? Math.round(rsiOS/nRsi*100) : null, 'var(--blue)', nRsi);
-
   const regEl = document.getElementById('topo-regime');
   if (regEl) {
     let label, desc, col, bg, border;
@@ -2748,7 +2223,6 @@ function usRenderTopology() {
       <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:${col}">${label}</div>
       <div style="font-size:10px;margin-top:5px;line-height:1.6;color:${col};opacity:.8">${desc}</div>`;
   }
-
   usRenderTopoSectors();
   usDrawTopoScatter();
   _topoSetupTip();
@@ -2764,51 +2238,39 @@ function usDrawTopoScatter() {
   if (!canvas || !usAllData.length) return;
   const W = canvas.offsetWidth;
   if (!W) return;
-  var dpr = window.devicePixelRatio || 1;
-  var H = +canvas.getAttribute('height') || 460;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
+  const dpr = window.devicePixelRatio || 1;
+  const H = +canvas.getAttribute('height') || 460;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
-
   const pad = {top:30, right:20, bottom:40, left:48};
   const pw = W - pad.left - pad.right;
   const ph = H - pad.top - pad.bottom;
   const cx = pad.left + pw / 2;
   const cy = pad.top  + ph / 2;
-
-  ctx.strokeStyle = 'rgba(50,61,80,.8)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(50,61,80,.8)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(cx, pad.top); ctx.lineTo(cx, H - pad.bottom); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(pad.left, cy); ctx.lineTo(W - pad.right, cy); ctx.stroke();
-
   ctx.font = "8px 'IBM Plex Mono', monospace";
-  ctx.fillStyle = 'rgba(110,136,168,.35)';
-  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(110,136,168,.35)'; ctx.textAlign = 'center';
   ctx.fillText('ALCISTA / BAJA VOL',   cx + pw * .27, pad.top + 14);
   ctx.fillText('BAJISTA / BAJA VOL',   cx - pw * .27, pad.top + 14);
   ctx.fillText('ALCISTA / ALTA VOL',   cx + pw * .27, H - pad.bottom - 8);
   ctx.fillText('BAJISTA / ALTA VOL',   cx - pw * .27, H - pad.bottom - 8);
-
   ctx.fillStyle = 'rgba(110,136,168,.6)';
   ctx.fillText('← Variación % (momentum) →', cx, H - pad.bottom + 22);
   ctx.save(); ctx.translate(14, cy); ctx.rotate(-Math.PI / 2);
   ctx.fillText('← Volumen Relativo →', 0, 0); ctx.restore();
-
   const ETF_SKIP = new Set(['SPY','QQQ','IWM','DIA','VIXY','VXX','UVXY','GLD','SLV','TLT','BND','TQQQ','SQQQ','USO']);
   const stocks = usAllData.filter(r => r.change_pct != null && r.volume != null && !ETF_SKIP.has(r.symbol));
   if (!stocks.length) return;
-
   const vols = stocks.map(r => Number(r.volume)).filter(Boolean).sort((a,b) => a-b);
   const medVol = vols[Math.floor(vols.length / 2)] || 1;
   const getVolRel = r => r.volume_rel != null ? Number(r.volume_rel) : Number(r.volume) / medVol;
-
   const maxChg = Math.max(...stocks.map(r => Math.abs(Number(r.change_pct))), 4);
   const maxVol = Math.max(...stocks.map(r => getVolRel(r)), 3);
-
   function ptColor(chg, alpha) {
     if (chg >= 4)    return `rgba(13,107,53,${alpha})`;
     if (chg >= 2)    return `rgba(18,146,74,${alpha})`;
@@ -2819,7 +2281,6 @@ function usDrawTopoScatter() {
     if (chg >= -4)   return `rgba(184,42,42,${alpha})`;
     return `rgba(217,53,53,${alpha})`;
   }
-
   const hitPoints = [];
   stocks.forEach(s => {
     const chg = Number(s.change_pct);
@@ -2827,50 +2288,35 @@ function usDrawTopoScatter() {
     const x = cx + (chg / maxChg) * (pw / 2);
     const y = pad.top + (vol / maxVol) * ph;
     const r = 3.5;
-
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = ptColor(chg, .75);
-    ctx.fill();
-
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = ptColor(chg, .75); ctx.fill();
     if (vol > 2) {
-      ctx.beginPath();
-      ctx.arc(x, y, r + 3.5, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(240,165,0,.5)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([2, 2]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(x, y, r + 3.5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(240,165,0,.5)'; ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]); ctx.stroke(); ctx.setLineDash([]);
     }
-
     if (Math.abs(chg) >= 5 || vol >= 3) {
       ctx.font = "7px 'IBM Plex Mono', monospace";
-      ctx.fillStyle = 'rgba(238,242,248,.8)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(238,242,248,.8)'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       ctx.fillText(s.symbol, x, y - r - 3);
     }
-
     hitPoints.push({x, y, r: r + 5, sym: s.symbol, chg, vol, rsi: s.rsi_14});
   });
-
   canvas._hitPoints = hitPoints;
 }
 
 function usRenderTopoSectors() {
   const el = document.getElementById('topo-sector-list');
   if (!el || !usSectors.length) return;
-  const sorted = [...usSectors].filter(r => r.change_pct != null)
-    .sort((a, b) => b.change_pct - a.change_pct);
+  const sorted = [...usSectors].filter(r => r.change_pct != null).sort((a, b) => b.change_pct - a.change_pct);
   const maxAbs = Math.max(...sorted.map(r => Math.abs(r.change_pct || 0)), 1);
   el.innerHTML = sorted.map(r => {
     const chg  = Number(r.change_pct || 0);
     const w    = (Math.abs(chg) / maxAbs * 100).toFixed(1);
     const col  = chg >= 0 ? 'var(--green)' : 'var(--red)';
     const sign = chg >= 0 ? '+' : '';
-    const name = r.name || r.symbol;
     return `<div style="display:grid;grid-template-columns:100px 1fr 52px;align-items:center;gap:8px;padding:4px 14px">
-      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.name||r.symbol}</div>
       <div style="height:4px;border-radius:2px;background:var(--bg3);overflow:hidden"><div style="height:100%;border-radius:2px;width:${w}%;background:${col};transition:width .6s"></div></div>
       <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:right;color:${col}">${sign}${chg.toFixed(2)}%</div>
     </div>`;
@@ -2884,32 +2330,22 @@ function usDrawRotationClock() {
   if (!W) { setTimeout(usDrawRotationClock, 150); return; }
   const dpr = window.devicePixelRatio || 1;
   const cssH = +canvas.getAttribute('height') || 420;
-  canvas.width  = Math.round(W * dpr);
-  canvas.height = Math.round(cssH * dpr);
-  canvas.style.width  = W + 'px';
-  canvas.style.height = cssH + 'px';
+  canvas.width  = Math.round(W * dpr); canvas.height = Math.round(cssH * dpr);
+  canvas.style.width  = W + 'px'; canvas.style.height = cssH + 'px';
   const H = cssH;
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
-
   const cx = W / 2, cy = H / 2;
   const outerR = Math.min(W, H) / 2 - 50;
-
   [.33, .66, 1].forEach(f => {
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR * f, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(30,37,48,.6)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, outerR * f, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(30,37,48,.6)'; ctx.lineWidth = 1; ctx.stroke();
   });
-
-  ctx.strokeStyle = 'rgba(40,48,63,.8)';
-  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(40,48,63,.8)'; ctx.setLineDash([4, 4]);
   ctx.beginPath(); ctx.moveTo(cx - outerR - 15, cy); ctx.lineTo(cx + outerR + 15, cy); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(cx, cy - outerR - 15); ctx.lineTo(cx, cy + outerR + 15); ctx.stroke();
   ctx.setLineDash([]);
-
   const qLabs = [
     {angle: 45,  label: 'LEADING',   color: 'rgba(0,229,168,.8)'},
     {angle: 135, label: 'WEAKENING', color: 'rgba(240,165,0,.8)'},
@@ -2921,45 +2357,32 @@ function usDrawRotationClock() {
     const lx = cx + Math.cos(rad) * outerR * .62;
     const ly = cy + Math.sin(rad) * outerR * .62;
     ctx.font = "600 8px 'IBM Plex Mono', monospace";
-    ctx.fillStyle = q.color;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.fillStyle = q.color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(q.label, lx, ly);
   });
-
   ctx.font = "500 9px 'IBM Plex Mono', monospace";
-  ctx.fillStyle = 'rgba(110,136,168,.5)';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('SECTOR', cx, cy - 7);
-  ctx.fillText('ROTATION', cx, cy + 7);
-
+  ctx.fillStyle = 'rgba(110,136,168,.5)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('SECTOR', cx, cy - 7); ctx.fillText('ROTATION', cx, cy + 7);
   const sectors = rrgData.sectores.filter(d => d.p && d.p.length);
   if (!sectors.length) {
     ctx.font = "10px 'IBM Plex Mono', monospace";
-    ctx.fillStyle = 'rgba(110,136,168,.5)';
-    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(110,136,168,.5)'; ctx.textBaseline = 'middle';
     ctx.fillText('Sin datos RRG', cx, cy + 40);
     return;
   }
-
   const allPts = sectors.map(d => d.p[d.p.length - 1]);
   const maxDev = Math.max(...allPts.map(p => Math.hypot(p[0] - 100, p[1] - 100)), 0.1);
-
   const colMap = {Leading:'rgba(0,229,168,1)', Weakening:'rgba(240,165,0,1)', Lagging:'rgba(255,63,94,1)', Improving:'rgba(77,166,255,1)'};
-
   sectors.forEach(({s, p}) => {
     const last  = p[p.length - 1];
     const {name: qname} = rrgQ(last[0], last[1]);
     const col    = colMap[qname] || 'rgba(110,136,168,1)';
     const colDim = col.replace(',1)', ',.12)');
-
     const angle = Math.atan2(-(last[1] - 100), last[0] - 100);
     const dev   = Math.hypot(last[0] - 100, last[1] - 100);
     const plotR = outerR * (0.38 + (dev / maxDev) * 0.50);
     const x = cx + Math.cos(angle) * plotR;
     const y = cy + Math.sin(angle) * plotR;
-
     if (p.length >= 2) {
       const tail = p.slice(-Math.min(5, p.length));
       for (let i = 0; i < tail.length - 1; i++) {
@@ -2973,23 +2396,15 @@ function usDrawRotationClock() {
         ctx.beginPath();
         ctx.moveTo(cx + Math.cos(a1)*r1, cy + Math.sin(a1)*r1);
         ctx.lineTo(cx + Math.cos(a2)*r2, cy + Math.sin(a2)*r2);
-        ctx.strokeStyle = col.replace(',1)', `,${alpha})`);
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.strokeStyle = col.replace(',1)', `,${alpha})`); ctx.lineWidth = 1.5; ctx.stroke();
       }
     }
-
     ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI * 2);
     ctx.fillStyle = colDim; ctx.fill();
-    ctx.strokeStyle = col.replace(',1)', ',.65)');
-    ctx.lineWidth = 1.5; ctx.stroke();
-
+    ctx.strokeStyle = col.replace(',1)', ',.65)'); ctx.lineWidth = 1.5; ctx.stroke();
     ctx.font = "600 9px 'IBM Plex Mono', monospace";
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(s, x, y - 5);
-
     const sec = usSectors.find(r => r.symbol === s);
     if (sec && sec.change_pct != null) {
       const chg  = Number(sec.change_pct);
@@ -3032,32 +2447,22 @@ function _topoSetupTip() {
 // ══════════════════════════════════════════════════════════════
 // Short Interest
 // ══════════════════════════════════════════════════════════════
-
 window.siToggleGuide = () => {
   const g = document.getElementById('si-guide');
   g.style.display = g.style.display === 'none' ? 'block' : 'none';
 };
-
-window.siHistory = [];
 
 function siSetStatus(msg, isError) {
   const el = document.getElementById('si-status');
   if (!el) return;
   el.textContent = msg;
   el.style.color = isError ? 'var(--red)' : 'var(--text3)';
-  if (!msg) el.textContent = '';
 }
 
 window.siLoad = async (sym) => {
   const symbol = (sym || document.getElementById('si-ticker').value || 'SPY').toUpperCase().trim();
   if (!sym) document.getElementById('si-ticker').value = symbol;
-
   siSetStatus('⏳ cargando ' + symbol + '…');
-
-  const c1 = document.getElementById('si-chart1');
-  const c2 = document.getElementById('si-chart2');
-  if (c1) { c1.innerHTML = ''; }
-  if (c2) { c2.innerHTML = ''; }
 
   const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
   const BASE = 'https://endymbpdayeidromxayb.supabase.co/functions/v1';
@@ -3070,10 +2475,7 @@ window.siLoad = async (sym) => {
       clearTimeout(id);
       if (!r.ok) return null;
       return r.json();
-    } catch(e) {
-      if (e.name === 'AbortError') return null;
-      return null;
-    }
+    } catch(e) { return null; }
   };
 
   const prices = await fetchJSON(BASE + '/yahoo-prices', { symbols:[symbol], mode:'yahoo-history', range:'3mo', interval:'1d' }).then(d => d ? d[symbol] || [] : []);
@@ -3087,13 +2489,13 @@ window.siLoad = async (sym) => {
   const siResp = await fetchJSON(BASE + '/finra-si', { ticker: symbol });
   const siData = (siResp && siResp.settlementDate) ? [siResp] : (Array.isArray(siResp) ? siResp : []);
   const companyName = (siResp && siResp.issueName) || '';
+
   try {
     if (!svData || svData.length === 0) {
       siSetStatus('❌ Sin datos de short volume para ' + symbol + ' en FINRA', true);
       siRender(symbol, null, null, companyName);
       return;
     }
-
     const priceMap = {};
     if (prices && prices.length) {
       prices.forEach(p => {
@@ -3101,24 +2503,21 @@ window.siLoad = async (sym) => {
         if (d && p.close != null) priceMap[d] = { close: p.close, change: p.change_pct || 0 };
       });
     }
-
     const bmMap = {};
     if (bmData && bmData.length) {
       bmData.forEach(r => { if (r.fecha) bmMap[r.fecha] = r.short_pct; });
     }
-
     const merged = (svData || []).map(r => ({
       ...r,
       close: priceMap[r.fecha]?.close || null,
       change: null,
       benchmark_pct: bmMap[r.fecha] !== undefined ? Math.round(bmMap[r.fecha] * 100) / 100 : null,
     }));
-
-    siSetStatus('✅ ' + symbol + ' · ' + merged.length + ' días · ' + (prices && prices.length ? '✓ precio' : 'sin precio') + ' · ' + (bmData && bmData.length ? '✓ benchmark' : 'sin benchmark'));
+    siSetStatus('✅ ' + symbol + ' · ' + merged.length + ' días');
     setTimeout(() => siSetStatus(''), 5000);
     siRender(symbol, merged, siData, companyName);
   } catch(err) {
-    siSetStatus('❌ Error al cargar ' + symbol + (err.message ? ' (' + err.message + ')' : ''), true);
+    siSetStatus('❌ Error al cargar ' + symbol, true);
     siRender(symbol, null, null, companyName);
   }
 };
@@ -3126,61 +2525,161 @@ window.siLoad = async (sym) => {
 let siChart1 = null, siChart2 = null;
 
 function siRender(symbol, data, siData, companyName) {
+  document.getElementById('si-ticker-badge').textContent = symbol;
+  document.getElementById('si-name-badge').textContent = companyName || '—';
+
   if (!data || data.length === 0) {
-    ['si-kpi-price','si-kpi-sv','si-kpi-ma30','si-kpi-percentile','si-kpi-benchmark','si-kpi-si'].forEach(id =>
-      document.getElementById(id).textContent = '—');
-    document.getElementById('si-kpi-price-chg').textContent = '—';
-    document.getElementById('si-kpi-benchmark-label').textContent = '—';
-    document.getElementById('si-kpi-si-dtc').textContent = '—';
+    ['si-kpi-price','si-kpi-sv','si-kpi-ma30','si-kpi-percentile','si-kpi-benchmark','si-kpi-si'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.textContent = '—';
+    });
+    const els = ['si-kpi-price-chg','si-kpi-benchmark-label','si-kpi-si-dtc'];
+    els.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
     document.getElementById('si-table-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin datos en este período</td></tr>';
-    document.getElementById('si-last-update').style.display = 'none';
-    document.getElementById('si-ticker-badge').textContent = symbol;
     document.getElementById('si-price-badge').textContent = '$—';
-    const _chgEl = document.getElementById('si-change-badge'); if (_chgEl) { _chgEl.textContent = '—'; _chgEl.style.background = 'transparent'; }
-    document.getElementById('si-name-badge').textContent = companyName || '—';
+    const chgEl = document.getElementById('si-change-badge');
+    if (chgEl) { chgEl.textContent = '—'; chgEl.style.background = 'transparent'; }
     return;
   }
 
   const today = data[data.length - 1];
-  const prev = data.length > 1 ? data[data.length - 2] : null;
-  const kpi_sv = today.short_vol;
-  const kpi_sv_pct = today.short_pct;
-  const kpi_close = today.close;
-  const kpi_chg = (kpi_close != null && prev?.close != null) ? ((kpi_close - prev.close) / prev.close) * 100 : null;
-  const kpi_ma30 = data[data.length - 1]?.ma30;
-  const kpi_pctl = data[data.length - 1]?.percentile;
-  const kpi_bm = data[data.length - 1]?.benchmark_pct;
+  const prev  = data.length > 1 ? data[data.length - 2] : null;
+  const kpi_sv      = today.short_vol;
+  const kpi_sv_pct  = today.short_pct;
+  const kpi_close   = today.close;
+  const kpi_chg     = (kpi_close != null && prev?.close != null) ? ((kpi_close - prev.close) / prev.close) * 100 : null;
+  const kpi_ma30    = today.ma30;
+  const kpi_pctl    = today.percentile;
+  const kpi_bm      = today.benchmark_pct;
 
-  const fmtVol = (n) => n != null ? (n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n)) : '—';
-  const fmtPct = (n) => n != null ? n.toFixed(1) + '%' : '—';
+  const fmtVol = (n) => n != null ? (n >= 1e9 ? (n/1e9).toFixed(1)+'B' : n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n)) : '—';
+  const fmtPctSI = (n) => n != null ? n.toFixed(1) + '%' : '—';
 
-  document.getElementById('si-kpi-price').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '—';
-  document.getElementById('si-kpi-price-chg').textContent = kpi_chg != null ? (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%' : '—';
+  const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  setEl('si-kpi-price', kpi_close != null ? '$' + kpi_close.toFixed(2) : '—');
+  setEl('si-kpi-price-chg', kpi_chg != null ? (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%' : '—');
   document.getElementById('si-price-badge').textContent = kpi_close != null ? '$' + kpi_close.toFixed(2) : '$—';
-  let _chgEl = document.getElementById('si-change-badge');
-  if (kpi_chg != null && _chgEl) {
-    _chgEl.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%';
-    _chgEl.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)';
-    _chgEl.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
-  } else if (_chgEl) {
-    _chgEl.textContent = '—'; _chgEl.style.background = 'transparent';
-  }
-  document.getElementById('si-kpi-price-chg').style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
-  document.getElementById('si-kpi-sv').textContent = fmtVol(kpi_sv);
-  document.getElementById('si-kpi-sv-pct').textContent = fmtPct(kpi_sv_pct);
-  document.getElementById('si-kpi-ma30').textContent = kpi_ma30 != null ? kpi_ma30.toFixed(1) + '%' : '—';
-  document.getElementById('si-kpi-percentile').textContent = kpi_pctl != null ? 'P' + kpi_pctl : '—';
-  document.getElementById('si-kpi-percentile').style.color = kpi_pctl >= 90 ? 'var(--red)' : kpi_pctl >= 75 ? 'var(--amber)' : 'var(--text)';
-  document.getElementById('si-kpi-benchmark').textContent = kpi_bm != null ? kpi_bm.toFixed(1) + '%' : '—';
-  const diff = kpi_sv_pct != null && kpi_bm != null ? (kpi_sv_pct - kpi_bm).toFixed(1) + 'pp' : '—';
-  document.getElementById('si-kpi-benchmark-label').textContent = symbol + ' vs SPY: ' + diff;
 
-  const st = Math.max(1, (data.length / 60) | 0);
-  const labels = data.slice(-45).map((r, i) => i % st === 0 || i === 44 ? r.fecha.slice(5) : '');
-  const prices = data.slice(-45).filter(d => d.close != null).map(d => d.close);
-  const volTv = data.slice(-45).map(d => d.total_vol / 1e3);
-  const volSv = data.slice(-45).map(d => d.short_vol / 1e3);
+  const chgEl = document.getElementById('si-change-badge');
+  if (kpi_chg != null && chgEl) {
+    chgEl.textContent = (kpi_chg >= 0 ? '+' : '') + kpi_chg.toFixed(2) + '%';
+    chgEl.style.background = kpi_chg >= 0 ? 'rgba(16,232,152,0.15)' : 'rgba(255,64,96,0.15)';
+    chgEl.style.color = kpi_chg >= 0 ? 'var(--green)' : 'var(--red)';
+  } else if (chgEl) { chgEl.textContent = '—'; chgEl.style.background = 'transparent'; }
+
+  const priceChgEl = document.getElementById('si-kpi-price-chg');
+  if (priceChgEl) priceChgEl.style.color = kpi_chg != null ? (kpi_chg >= 0 ? 'var(--green)' : 'var(--red)') : 'var(--text3)';
+
+  setEl('si-kpi-sv', fmtVol(kpi_sv));
+  setEl('si-kpi-sv-pct', fmtPctSI(kpi_sv_pct));
+  setEl('si-kpi-ma30', kpi_ma30 != null ? kpi_ma30.toFixed(1) + '%' : '—');
+
+  const pctEl = document.getElementById('si-kpi-percentile');
+  if (pctEl) {
+    pctEl.textContent = kpi_pctl != null ? 'P' + kpi_pctl : '—';
+    pctEl.style.color = kpi_pctl >= 90 ? 'var(--red)' : kpi_pctl >= 75 ? 'var(--amber)' : 'var(--text)';
+  }
+  setEl('si-kpi-benchmark', kpi_bm != null ? kpi_bm.toFixed(1) + '%' : '—');
+  const diff = kpi_sv_pct != null && kpi_bm != null ? (kpi_sv_pct - kpi_bm).toFixed(1) + 'pp' : '—';
+  setEl('si-kpi-benchmark-label', symbol + ' vs SPY: ' + diff);
+
+  // Short Interest KPI
+  if (siData && siData.length) {
+    const latest = siData[0];
+    const si = latest.shortInterest || latest.short_interest;
+    const dtc = latest.daysToCover || latest.days_to_cover;
+    setEl('si-kpi-si', si ? (si >= 1e6 ? (si/1e6).toFixed(1)+'M' : si >= 1e3 ? (si/1e3).toFixed(0)+'K' : String(si)) : '—');
+    setEl('si-kpi-si-dtc', dtc ? dtc.toFixed(1) + ' días para cubrir' : '—');
+  }
+
+  // Charts
+  const labels = data.slice(-45).map(r => r.fecha ? r.fecha.slice(5) : '');
+  const closePrices = data.slice(-45).map(d => d.close);
+  const volTv  = data.slice(-45).map(d => (d.total_vol || 0) / 1e3);
+  const volSv  = data.slice(-45).map(d => (d.short_vol || 0) / 1e3);
   const shortPct = data.slice(-45).map(d => d.short_pct);
+  const ma30arr  = data.slice(-45).map(d => d.ma30);
 
   if (siChart1) { siChart1.destroy(); siChart1 = null; }
-  siChart1 = new Chart(document.getElementById('si-chart1
+  const ctx1 = document.getElementById('si-chart1')?.getContext('2d');
+  if (ctx1) {
+    siChart1 = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Vol Total', data: volTv, backgroundColor: 'rgba(68,136,255,0.35)', borderColor: 'rgba(68,136,255,0.6)', borderWidth: 1, yAxisID: 'y', order: 3 },
+          { label: 'Short Vol', data: volSv, backgroundColor: 'rgba(255,64,96,0.5)',   borderColor: 'rgba(255,64,96,0.8)',   borderWidth: 1, yAxisID: 'y', order: 2 },
+          { label: 'Precio',    data: closePrices, type: 'line', borderColor: '#f5a623', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2, yAxisID: 'y2', order: 1 },
+          { label: 'Short %',  data: shortPct, type: 'line', borderColor: 'rgba(255,64,96,0.5)', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.2, yAxisID: 'y3', order: 0, borderDash: [4,3] },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+          tooltip: { backgroundColor: '#111722', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 11 } }
+        },
+        scales: {
+          x:  { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 12, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+          y:  { position: 'left',  ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + 'K' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+          y2: { position: 'right', ticks: { color: '#f5a623', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => '$' + v.toFixed(0) }, grid: { drawOnChartArea: false } },
+          y3: { position: 'right', display: false }
+        }
+      }
+    });
+  }
+
+  if (siChart2) { siChart2.destroy(); siChart2 = null; }
+  const ctx2 = document.getElementById('si-chart2')?.getContext('2d');
+  if (ctx2) {
+    const barColors = shortPct.map(v => v == null ? 'rgba(100,100,100,0.3)' : v >= 45 ? 'rgba(255,64,96,0.75)' : v >= 35 ? 'rgba(245,166,35,0.75)' : 'rgba(0,229,168,0.65)');
+    siChart2 = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Short %', data: shortPct, backgroundColor: barColors, borderColor: barColors.map(c => c.replace('0.75','1').replace('0.65','1')), borderWidth: 1, order: 2 },
+          { label: 'MA 30d',  data: ma30arr,  type: 'line', borderColor: 'rgba(180,180,180,0.7)', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3, borderDash: [5,3], order: 1 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+          tooltip: { backgroundColor: '#111722', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 11 }, callbacks: { label: ctx => ctx.dataset.label + ': ' + (ctx.parsed.y != null ? ctx.parsed.y.toFixed(1) + '%' : '—') } }
+        },
+        scales: {
+          x: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 12, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+          y: { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,0.04)' } }
+        }
+      }
+    });
+  }
+
+  // Table
+  const tableRows = [...data].reverse().slice(0, 20);
+  document.getElementById('si-table-body').innerHTML = tableRows.map(r => {
+    const pctCls = r.short_pct >= 45 ? 'style="color:var(--red)"' : r.short_pct >= 35 ? 'style="color:var(--amber)"' : 'style="color:var(--green)"';
+    const pctlCls = r.percentile >= 90 ? 'style="color:var(--red)"' : r.percentile >= 75 ? 'style="color:var(--amber)"' : '';
+    return `<tr>
+      <td class="td-left" style="color:var(--text2)">${r.fecha || '—'}</td>
+      <td style="text-align:right">${r.close != null ? '$' + r.close.toFixed(2) : '—'}</td>
+      <td style="text-align:right;color:var(--text3)">${r.total_vol ? (r.total_vol/1e6).toFixed(1)+'M' : '—'}</td>
+      <td style="text-align:right;color:var(--text3)">${r.short_vol ? (r.short_vol/1e6).toFixed(1)+'M' : '—'}</td>
+      <td style="text-align:right" ${pctCls}>${r.short_pct != null ? r.short_pct.toFixed(1)+'%' : '—'}</td>
+      <td style="text-align:right;color:var(--text3)">${r.ma30 != null ? r.ma30.toFixed(1)+'%' : '—'}</td>
+      <td style="text-align:right" ${pctlCls}>${r.percentile != null ? 'P'+r.percentile : '—'}</td>
+      <td style="text-align:right;color:var(--text3)">${r.benchmark_pct != null ? r.benchmark_pct.toFixed(1)+'%' : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Init: load data on module load ──
+window.usLoadAll();
+window.moduleTimers = window.moduleTimers || {};
+window.moduleTimers.usa = setInterval(window.usLoadAll, 60000);
+
+})();
+</script>
