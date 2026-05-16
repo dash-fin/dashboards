@@ -1237,39 +1237,6 @@ window.loadMacro = async function() {
       });
     }
 
-          }
-        },
-        plugins: [{
-          id: 'rpLevels',
-          afterDraw(ch) {
-            const { ctx, chartArea, scales } = ch;
-            if (!scales.y) return;
-            ctx.save();
-            [
-              { val: 500,  color: 'rgba(0,229,168,0.4)',  label: '500 — acceso mercados' },
-              { val: 1000, color: 'rgba(255,64,96,0.4)',  label: '1000 — riesgo muy alto' },
-            ].forEach(lv => {
-              const y = scales.y.getPixelForValue(lv.val);
-              if (y < chartArea.top || y > chartArea.bottom) return;
-              ctx.setLineDash([5, 4]);
-              ctx.strokeStyle = lv.color;
-              ctx.lineWidth = 1.5;
-              ctx.beginPath();
-              ctx.moveTo(chartArea.left, y);
-              ctx.lineTo(chartArea.right, y);
-              ctx.stroke();
-              ctx.setLineDash([]);
-              ctx.fillStyle = lv.color;
-              ctx.font = "8px 'IBM Plex Mono', monospace";
-              ctx.textAlign = 'right';
-              ctx.fillText(lv.label, chartArea.right - 4, y - 3);
-            });
-            ctx.restore();
-          }
-        }]
-      });
-    }
-
     if (loadingEl) loadingEl.style.display = 'none';
     if (chartsEl)  chartsEl.style.display  = '';
 
