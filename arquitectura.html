@@ -838,6 +838,210 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
   </div>
 </div>
 
+<!-- ── TAREAS PROGRAMADAS COMPLETAS ── -->
+<div class="flows-section" style="margin-top:28px">
+  <div class="flows-title">📋 Inventario completo de tareas programadas</div>
+  
+  <div style="background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:13px;color:#48aaff;margin-bottom:12px">🪟 Windows Task Scheduler</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+      <thead><tr style="color:#4a6e90;border-bottom:1px solid #1e3a5a">
+        <th style="text-align:left;padding:6px 8px">Tarea</th>
+        <th style="text-align:left;padding:6px 8px">Programación</th>
+        <th style="text-align:left;padding:6px 8px">Ejecuta</th>
+        <th style="text-align:left;padding:6px 8px">Estado</th>
+        <th style="text-align:left;padding:6px 8px">Recuperación</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px"><code style="color:#f0b020">\Dashboard</code><br><span style="font-size:9px;color:#4a6e90">Monitor RT ARS</span></td>
+          <td style="padding:8px;color:#7a9ec0">Diario 10:29 · Corre <code>monitor_rt.py</code> (loop)</td>
+          <td style="padding:8px"><code style="font-size:9px">powershell.exe python.exe monitor_rt.py</code></td>
+          <td style="padding:8px;color:#00d084">✅ Activo</td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90"><code>schtasks /run /tn "\Dashboard"</code></td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px"><code style="color:#48aaff">\Dashboard USA</code><br><span style="font-size:9px;color:#4a6e90">Monitor USA</span></td>
+          <td style="padding:8px;color:#7a9ec0">Diario 10:29 · Corre <code>alpaca_usa.py</code> (loop)</td>
+          <td style="padding:8px"><code style="font-size:9px">powershell.exe python.exe alpaca_usa.py</code></td>
+          <td style="padding:8px;color:#00d084">✅ Activo</td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90"><code>schtasks /run /tn "\Dashboard USA"</code></td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px"><code style="color:#ff4455">\Monitor Bateria Telegram</code><br><span style="font-size:9px;color:#4a6e90">Batería baja + Watchdog</span></td>
+          <td style="padding:8px;color:#7a9ec0">Cada 5 min (24/7)<br>Inicia 18/4/2026</td>
+          <td style="padding:8px"><code style="font-size:9px">powershell.exe -File C:\Dashboard\Scripts\monitor_dashboard.ps1</code></td>
+          <td style="padding:8px;color:#00d084">✅ Activo</td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90"><code>schtasks /run /tn "\Monitor Bateria Telegram"</code></td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px"><code style="color:#00d084">\Backup Dashboard Financiero</code><br><span style="font-size:9px;color:#4a6e90">Dump SQL semanal</span></td>
+          <td style="padding:8px;color:#7a9ec0">Viernes 21:00</td>
+          <td style="padding:8px"><code style="font-size:9px">wsl.exe python3 /mnt/c/Dashboard/Github/Backup/backup.py</code></td>
+          <td style="padding:8px;color:#00d084">✅ Activo</td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90"><code>schtasks /run /tn "\Backup Dashboard Financiero"</code></td>
+        </tr>
+        <tr>
+          <td style="padding:8px"><code style="color:#00d084">\Backup Ortopedia Caseros</code><br><span style="font-size:9px;color:#4a6e90">Dump SQL diario</span></td>
+          <td style="padding:8px;color:#7a9ec0">Diario 20:00</td>
+          <td style="padding:8px"><code style="font-size:9px">wsl.exe python3 /mnt/c/Dashboard/Ortopedia/Backup/backup.py</code></td>
+          <td style="padding:8px;color:#00d084">✅ Activo</td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90"><code>schtasks /run /tn "\Backup Ortopedia Caseros"</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:10px;color:#4a6e90;line-height:1.6">
+      📍 Para ver estado y logs: <code>powershell -Command "schtasks /query /tn '\NombreTarea' /fo LIST /v"</code><br>
+      📍 Para reiniciar manual: <code>powershell -Command "schtasks /run /tn '\NombreTarea'"</code><br>
+      📍 Script monitor batería: <code>C:\Dashboard\Scripts\monitor_dashboard.ps1</code> (mide %, envía Telegram a &lt;20% y &lt;10%, + watchdog mercado ARS/USA)
+    </div>
+  </div>
+
+  <div style="background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px">
+    <div style="font-weight:700;font-size:13px;color:#00d8e8;margin-bottom:12px">🐧 WSL Cron (Roma)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+      <thead><tr style="color:#4a6e90;border-bottom:1px solid #1e3a5a">
+        <th style="text-align:left;padding:6px 8px">Cron</th>
+        <th style="text-align:left;padding:6px 8px">Horario</th>
+        <th style="text-align:left;padding:6px 8px">Script</th>
+        <th style="text-align:left;padding:6px 8px">Log</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px"><code style="color:#00d084">Monitor Local</code></td>
+          <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * 1-5</code><br>Lun-vie, 10:40-18:00 ART</td>
+          <td style="padding:8px"><code style="font-size:9px">scripts/monitor_local.sh</code><br><span style="font-size:9px;color:#4a6e90">Watchdog ARS + dólar (17:01) + PnL (17:06)</span></td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90">monitor_local.log</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px"><code style="color:#48aaff">Monitor USA</code></td>
+          <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * 1-5</code><br>Lun-vie, 08:10-20:30 ART</td>
+          <td style="padding:8px"><code style="font-size:9px">scripts/monitor_usa.sh</code><br><span style="font-size:9px;color:#4a6e90">Watchdog USA + health check + earnings</span></td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90">monitor_usa.log</td>
+        </tr>
+        <tr>
+          <td style="padding:8px"><code style="color:#b090ff">Backup Markdowns</code></td>
+          <td style="padding:8px;color:#7a9ec0"><code>0 6 * * 1</code><br>Lunes 03:00 ART</td>
+          <td style="padding:8px"><code style="font-size:9px">Drive/scripts/backup-markdowns.sh</code><br><span style="font-size:9px;color:#4a6e90">Copia AGENTS, SOUL, TOOLS, MEMORY, etc → Drive/Markdowns/</span></td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90">backup-markdowns.log</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:10px;color:#4a6e90;line-height:1.6">
+      📍 Editar cron: <code>crontab -e</code><br>
+      📍 Ver cron actual: <code>crontab -l</code><br>
+      📍 WSL está en UTC — los scripts convierten a ART internamente
+    </div>
+  </div>
+</div>
+
+<!-- ── PLAN DE RECUPERACIÓN ── -->
+<div class="flows-section" style="margin-top:28px">
+  <div class="flows-title">🔄 Plan de recuperación ante desastre</div>
+  <div class="flows-grid">
+
+    <div class="flow-card red">
+      <div class="flow-title" style="color:#ff4455">💥 Se rompe el index.html o un módulo</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Git revert: <code>git log --oneline -5</code> para ver último commit bueno</div>
+      <div class="flow-step"><div class="flow-dot">2</div><code>git revert HEAD</code> o <code>git reset --hard &lt;hash-bueno&gt; && git push --force</code></div>
+      <div class="flow-step"><div class="flow-dot">3</div>GitHub Pages redeploya automáticamente en ~60 segundos</div>
+    </div>
+
+    <div class="flow-card amber">
+      <div class="flow-title" style="color:#f0b020">🗄️ Se corrompe la base Supabase</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Restaurar backup SQL más reciente de <code>Github/Backup/*.sql</code> o <code>Ortopedia/Backup/*.sql</code></div>
+      <div class="flow-step"><div class="flow-dot">2</div><code>psql \$SUPABASE_CONNECTION_STRING &lt; backup.sql</code></div>
+      <div class="flow-step"><div class="flow-dot">3</div>Backups semanales (Dashboard: viernes 21:00, Ortopedia: diario 20:00)</div>
+    </div>
+
+    <div class="flow-card green">
+      <div class="flow-title" style="color:#00d084">🤖 Se rompe el OpenClaw o Nyx</div>
+      <div class="flow-step"><div class="flow-dot">1</div>Archivos de identidad en <code>/mnt/c/Users/crist/</code> — AGENTS.md, SOUL.md, USER.md, etc.</div>
+      <div class="flow-step"><div class="flow-dot">2</div>Backup semanal en <code>Drive/Markdowns/</code> — copia de cada lunes, guarda 12 semanas</div>
+      <div class="flow-step"><div class="flow-dot">3</div>TOOLS.md tiene todas las API keys y endpoints. MEMORY.md tiene contexto de proyectos</div>
+      <div class="flow-step"><div class="flow-dot">4</div>Para restaurar Nyx: copiar AGENTS.md, SOUL.md, USER.md, IDENTITY.md, TOOLS.md, MEMORY.md al workspace nuevo</div>
+    </div>
+
+    <div class="flow-card" style="border-left-color:#b090ff">
+      <div class="flow-title" style="color:#b090ff">📁 Se pierden archivos del workspace</div>
+      <div class="flow-step"><div class="flow-dot">1</div>GitHub: <code>git clone https://github.com/dash-fin/dashboards.git</code></div>
+      <div class="flow-step"><div class="flow-dot">2</div>Backups de sesiones: revisar <code>Drive/HISTORIAL.md</code></div>
+      <div class="flow-step"><div class="flow-dot">3</div>Drive/Markdowns tiene copias semanales de todos los archivos de identidad</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── ALMACENAMIENTO: ¿MOVER PROYECTOS A DRIVE? ── -->
+<div class="flows-section" style="margin-top:28px">
+  <div class="flows-title">💾 Evaluación: mover proyectos a Drive</div>
+  <div style="background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px;font-size:11px;color:#7a9ec0;line-height:1.7">
+    <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+      <thead><tr style="color:#4a6e90;border-bottom:1px solid #1e3a5a">
+        <th style="text-align:left;padding:6px 8px">Proyecto</th>
+        <th style="text-align:left;padding:6px 8px">Ruta actual</th>
+        <th style="text-align:left;padding:6px 8px">Peso</th>
+        <th style="text-align:left;padding:6px 8px">¿Mover?</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px;color:#48aaff">Dashboard Financiero</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\Github\</code></td>
+          <td style="padding:8px">~130 MB</td>
+          <td style="padding:8px;color:#f0b020">⚠️ Ya en GitHub. Drive backup opcional</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px;color:#00d084">Ortopedia Web</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\Ortopedia\</code></td>
+          <td style="padding:8px">~200 KB</td>
+          <td style="padding:8px;color:#00d084">✅ Sí, apenas pesa</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px;color:#b090ff">¿Quién la Sabe?</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\QLS\Game\</code></td>
+          <td style="padding:8px">~5 MB (sin node_modules)</td>
+          <td style="padding:8px;color:#f0b020">⚠️ Node + .next pesan ~300 MB</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px;color:#00d8e8">Scripts / utilidades</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\Scripts\</code></td>
+          <td style="padding:8px">~500 KB</td>
+          <td style="padding:8px;color:#00d084">✅ Sí, liviano</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px;color:#ff6680">FINRA (datos históricos)</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\Github\FINRA\</code></td>
+          <td style="padding:8px;color:#ff4455">~1.2 GB</td>
+          <td style="padding:8px;color:#ff4455">❌ Muy pesado. Mantener en GitHub LFS o no trackear</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px;color:#ff4455">FINBOARD App</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\finboard-app\</code></td>
+          <td style="padding:8px;color:#ff4455">~1.5 GB (node_modules)</td>
+          <td style="padding:8px;color:#ff4455">❌ Muy pesado</td>
+        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
+          <td style="padding:8px;color:#ff4455">Ortopedia App</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\ortopedia-app\</code></td>
+          <td style="padding:8px;color:#ff4455">~1.5 GB (node_modules)</td>
+          <td style="padding:8px;color:#ff4455">❌ Muy pesado</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;color:#f0b020">Drive (docs existentes)</td>
+          <td style="padding:8px;color:#7a9ec0"><code>C:\Dashboard\Drive\</code></td>
+          <td style="padding:8px">~200 MB (APKs + docs)</td>
+          <td style="padding:8px;color:#4a6e90">— Ya está en Drive</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;background:rgba(240,176,32,.06);border:1px solid rgba(240,176,32,.15);border-radius:8px;padding:10px;font-size:10.5px;color:#7a9ec0;line-height:1.6">
+      <strong style="color:#f0b020">📊 Total sin apps:</strong> ~135 MB (código fuente + FINRA + scripts)<br>
+      <strong style="color:#ff4455">📊 Total con apps:</strong> ~3.2 GB (principalmente node_modules)<br>
+      <strong style="color:#00d084">Opción recomendada:</strong> Mover solo los proyectos livianos a <code>Drive/</code> (Ortopedia web, scripts, docs). Las apps React Native y FINRA quedan donde están. Crear un script de backup que copie solo código fuente (excluyendo node_modules, .next, FINRA) a Drive semanalmente.
+    </div>
+  </div>
+</div>
+
 <!-- ── LEGEND ── -->
 <div class="legend">
   <div class="leg-item"><div class="leg-dot" style="background:#48aaff"></div>Web App + módulos</div>
@@ -845,7 +1049,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
   <div class="leg-item"><div class="leg-dot" style="background:#b090ff"></div>Backend Supabase</div>
   <div class="leg-item"><div class="leg-dot" style="background:#0a0e18;border:1px solid #1e2d48"></div>Base de datos PostgreSQL</div>
   <div class="leg-item"><div class="leg-dot" style="background:#00d084"></div>Notificaciones + Infra</div>
-  <div style="margin-left:auto;font-size:11px;color:#4a6e90">Generado: Abril 2026 · Usuario único · Sin TypeScript · Sin bundler · Sin framework</div>
+  <div style="margin-left:auto;font-size:11px;color:#4a6e90">Generado: Mayo 2026 · Usuario único · Sin TypeScript · Sin bundler · Sin framework</div>
 </div>
 
 </body>
