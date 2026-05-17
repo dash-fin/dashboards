@@ -1,0 +1,1350 @@
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="alstab-activas"   onclick="alTab('activas',this)">Activas</button>
+    <button class="stab"        id="alstab-sltp"      onclick="alTab('sltp',this)">SL / TP</button>
+    <button class="stab"        id="alstab-nueva"     onclick="alTab('nueva',this)">+ Nueva</button>
+    <button class="stab"        id="alstab-historial" onclick="alTab('historial',this)">Historial</button>
+  </div>
+  <div id="al-engine-status" style="display:flex;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
+    <span id="al-rt-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text4);flex-shrink:0"></span>
+    <span id="al-rt-label">Conectando...</span>
+    <span id="al-refresh-ts" style="color:var(--text4)">—</span>
+    <span id="al-no-canal-badge" style="display:none;background:rgba(240,165,0,.15);color:var(--amber);border:1px solid rgba(240,165,0,.3);border-radius:3px;padding:2px 8px;font-size:8px;letter-spacing:.5px">⚠ Sin canal — alertas no se enviarán</span>
+  </div>
+</div>
+
+<div class="sub-panel active" id="alpanel-activas">
+
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+    <div class="kpi" style="--accent:var(--green)">
+      <div class="kpi-label">Activas</div>
+      <div class="kpi-val" id="al-kpi-activas">—</div>
+      <div class="kpi-sub">alertas habilitadas</div>
+    </div>
+    <div class="kpi" style="--accent:var(--amber)">
+      <div class="kpi-label">Disparadas hoy</div>
+      <div class="kpi-val" id="al-kpi-hoy">—</div>
+      <div class="kpi-sub">notificaciones enviadas</div>
+    </div>
+    <div class="kpi" style="--accent:var(--blue)">
+      <div class="kpi-label">Tickers</div>
+      <div class="kpi-val" id="al-kpi-tickers">—</div>
+      <div class="kpi-sub">símbolos únicos</div>
+    </div>
+    <div class="kpi" style="--accent:var(--cyan)">
+      <div class="kpi-label">Engine</div>
+      <div class="kpi-val" id="al-kpi-rt" style="font-size:13px">—</div>
+      <div class="kpi-sub">última ejecución</div>
+    </div>
+    <div class="kpi" style="--accent:var(--purple)">
+      <div class="kpi-label">Canal</div>
+      <div class="kpi-val" id="al-kpi-canal" style="font-size:13px">—</div>
+      <div class="kpi-sub" id="al-kpi-canal-sub">sin configurar</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between">
+      <div style="display:flex;gap:4px">
+        <button class="flt on" onclick="alFiltro('all',this)">Todas</button>
+        <button class="flt"    onclick="alFiltro('precio',this)"    data-cls="on-green">Precio</button>
+        <button class="flt"    onclick="alFiltro('ma',this)"        data-cls="on-blue">Medias</button>
+        <button class="flt"    onclick="alFiltro('variacion',this)" data-cls="on-amber">Variación %</button>
+        <button class="flt"    onclick="alFiltro('volumen',this)"   data-cls="on-cyan">Volumen</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="search-input" placeholder="Buscar ticker..." id="al-search" oninput="alRenderActivas()" style="max-width:160px">
+        <button class="btn btn-outline" onclick="alReload()" style="font-size:9px;padding:3px 10px">↺ Recargar</button>
+        <button class="btn btn-outline" onclick="alTestCanal('wa')" style="font-size:9px;padding:3px 10px;color:var(--green);border-color:rgba(0,229,168,.3)">📱 Test WA</button>
+        <button class="btn btn-outline" onclick="alTestCanal('tg')" style="font-size:9px;padding:3px 10px;color:var(--blue);border-color:rgba(77,166,255,.3)">✈️ Test TG</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th class="th-left">Condición</th>
+          <th>Precio actual</th>
+          <th>Estado</th>
+          <th>Último disparo</th>
+          <th>Cooldown</th>
+          <th class="th-left">Acciones</th>
+        </tr></thead>
+        <tbody id="al-activas-tbody">
+          <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">
+            <div class="spinner" style="margin:0 auto 8px"></div>Cargando alertas...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">⚡ Log de eventos</div>
+      <button class="btn btn-outline" onclick="alClearLog()" style="font-size:9px;padding:3px 10px">Limpiar</button>
+    </div>
+    <div id="al-log" style="padding:12px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);max-height:180px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:3px">
+      <span style="color:var(--text4);font-style:italic">Esperando eventos de la edge function...</span>
+    </div>
+  </div>
+</div>
+
+<div class="sub-panel" id="alpanel-sltp">
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between">
+      <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace">Alertas automáticas de Stop Loss / Take Profit creadas desde el portafolio</span>
+      <button class="btn btn-outline" onclick="alReload()" style="font-size:9px;padding:3px 10px">↺ Recargar</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th>Precio objetivo</th>
+          <th>Precio actual</th>
+          <th>Estado</th>
+          <th>Último disparo</th>
+          <th class="th-left">Acciones</th>
+        </tr></thead>
+        <tbody id="al-sltp-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">
+            <div class="spinner" style="margin:0 auto 8px"></div>Cargando...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="sub-panel" id="alpanel-nueva">
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">🔔 Nueva alerta</div></div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:14px">
+
+        <div class="al-field" style="position:relative">
+          <div class="al-label">Ticker</div>
+          <input class="search-input" id="al-f-ticker" placeholder="Ej: GGAL, YPFD, MELI" 
+                 oninput="alTickerSearch(this.value); alFormPreview()" 
+                 onkeydown="if(event.key==='Escape') alTickerHideResults()"
+                 onblur="setTimeout(alTickerHideResults, 200)"
+                 autocomplete="off"
+                 style="max-width:200px;font-size:13px;font-weight:500;text-transform:uppercase">
+          <div id="al-ticker-results" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;z-index:300;min-width:260px;max-height:280px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.4)"></div>
+        </div>
+
+        <div class="al-field">
+          <div class="al-label">Tipo de alerta</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap" id="al-tipo-btns">
+            <button class="flt on-green on" onclick="alSetTipo('precio',this)">💰 Precio</button>
+            <button class="flt" onclick="alSetTipo('ma',this)">📈 Cruce medias</button>
+            <button class="flt" onclick="alSetTipo('variacion',this)">📊 Variación %</button>
+            <button class="flt" onclick="alSetTipo('volumen',this)">🔊 Volumen</button>
+          </div>
+        </div>
+
+        <div id="al-cond-precio" class="al-cond-panel">
+          <div class="al-label">Condición</div>
+          <div id="al-f-precio-primario" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="al-select" id="al-f-precio-dir" onchange="alFormPreview()">
+              <option value="gt">Sube por encima de</option>
+              <option value="lt">Baja por debajo de</option>
+              <option value="cross_up">Cruza hacia arriba</option>
+              <option value="cross_dn">Cruza hacia abajo</option>
+            </select>
+            <input class="search-input" type="number" id="al-f-precio-val" placeholder="1500.00" oninput="alFormPreview()" style="max-width:130px">
+            <span style="font-size:11px;color:var(--text2)">ARS</span>
+          </div>
+
+          <div id="al-f-precio-or-wrap" style="display:none;margin-top:8px;padding-top:12px;border-top:1px dashed var(--border2)">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--amber);font-weight:600;margin-bottom:6px;letter-spacing:1px">◈ OR</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select class="al-select" id="al-f-precio-or-dir" onchange="alFormPreview()">
+                <option value="gt">Sube por encima de</option>
+                <option value="lt">Baja por debajo de</option>
+                <option value="cross_up">Cruza hacia arriba</option>
+                <option value="cross_dn">Cruza hacia abajo</option>
+              </select>
+              <input class="search-input" type="number" id="al-f-precio-or-val" placeholder="1500.00" oninput="alFormPreview()" style="max-width:130px">
+              <span style="font-size:11px;color:var(--text2)">ARS</span>
+              <button class="flt" onclick="alRemoveSegundaCond()" style="padding:2px 8px;font-size:10px;color:var(--red);border-color:rgba(255,70,70,.3);background:rgba(255,70,70,.08)" title="Quitar segunda condición">✕</button>
+            </div>
+          </div>
+
+          <button id="al-btn-agregar-or" class="flt" onclick="alAddSegundaCond()" style="margin-top:6px;padding:3px 10px;font-size:9px;color:var(--amber);border-color:rgba(240,165,0,.3);background:rgba(240,165,0,.08)">+ Segunda condición</button>
+        </div>
+
+        <div id="al-cond-ma" class="al-cond-panel" style="display:none">
+          <div class="al-label">Parámetros</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+            <div class="al-field"><div class="al-label">MA rápida</div><input class="search-input" type="number" id="al-f-ma-fast" value="20" oninput="alFormPreview()" style="max-width:80px"></div>
+            <div class="al-field"><div class="al-label">MA lenta</div><input class="search-input" type="number" id="al-f-ma-slow" value="50" oninput="alFormPreview()" style="max-width:80px"></div>
+            <div class="al-field"><div class="al-label">Cruce</div>
+              <select class="al-select" id="al-f-ma-dir" onchange="alFormPreview()">
+                <option value="golden">Golden cross ↑</option>
+                <option value="death">Death cross ↓</option>
+                <option value="any">Cualquiera</option>
+              </select>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">Requiere tabla <code style="color:var(--blue)">mercado_history</code> con al menos <strong id="al-ma-req" style="color:var(--text2)">50</strong> velas.</div>
+        </div>
+
+        <div id="al-cond-variacion" class="al-cond-panel" style="display:none">
+          <div class="al-label">Condición</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select class="al-select" id="al-f-var-dir" onchange="alFormPreview()">
+              <option value="gt">Sube más de</option>
+              <option value="lt">Baja más de</option>
+              <option value="abs">Varía más de (absoluto)</option>
+            </select>
+            <input class="search-input" type="number" id="al-f-var-val" placeholder="3" step="0.1" oninput="alFormPreview()" style="max-width:100px">
+            <span style="font-size:11px;color:var(--text2)">% en el día</span>
+          </div>
+        </div>
+
+        <div id="al-cond-volumen" class="al-cond-panel" style="display:none">
+          <div class="al-label">Turnover supera</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="search-input" type="number" id="al-f-vol-val" placeholder="5000000" oninput="alFormPreview()" style="max-width:180px">
+            <span style="font-size:11px;color:var(--text2)">ARS</span>
+          </div>
+        </div>
+
+        <div class="al-field" id="al-cooldown-wrap" style="display:none">
+          <div class="al-label">Cooldown (evitar spam)</div>
+          <select class="al-select" id="al-f-cooldown">
+            <option value="0" selected>Sin límite</option>
+            <option value="300">5 minutos</option>
+            <option value="900">15 minutos</option>
+            <option value="1800">30 minutos</option>
+            <option value="3600">1 hora</option>
+            <option value="14400">4 horas</option>
+            <option value="86400">1 vez por día</option>
+          </select>
+        </div>
+
+        <div class="al-field">
+          <div class="al-label">Mensaje personalizado (opcional)</div>
+          <input class="search-input" id="al-f-msg" placeholder="Ej: Revisá posición en {ticker}" oninput="alFormPreview()" style="width:100%">
+          <div style="font-size:9px;color:var(--text3);margin-top:3px">Variables: <code style="color:var(--blue)">{ticker}</code> <code style="color:var(--blue)">{precio}</code> <code style="color:var(--blue)">{condicion}</code> <code style="color:var(--blue)">{hora}</code></div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-green" onclick="alGuardar()" id="al-guardar-btn">💾 Guardar en Supabase</button>
+          <button class="btn btn-outline" onclick="alLimpiarForm()">Limpiar</button>
+        </div>
+        <div id="al-form-msg" style="font-size:10px;font-family:'IBM Plex Mono',monospace;display:none"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="card">
+        <div class="card-head"><div class="card-title">📱 Vista previa del mensaje</div></div>
+        <div class="card-body">
+          <div id="al-msg-preview" style="background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:12px;font-size:10px;color:var(--text2);line-height:1.75;font-family:'IBM Plex Mono',monospace;white-space:pre-wrap;min-height:90px">Completá el formulario...</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">ℹ️ Cómo funciona el Realtime</div></div>
+        <div class="card-body" style="font-size:10px;color:var(--text3);line-height:1.7">
+          El módulo se suscribe a la tabla <code style="color:var(--blue)">mercado</code> de Supabase vía <strong style="color:var(--text2)">WebSocket</strong>. Cada vez que un precio cambia en esa tabla, Supabase lo empuja al browser al instante — sin polling, sin countdown. La evaluación de alertas ocurre en ese mismo momento.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sub-panel" id="alpanel-historial">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">📋 Historial de disparos</div>
+      <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--text3)">Guardado en Supabase · últimos 200</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Fecha/Hora</th>
+          <th class="th-left">Ticker</th>
+          <th class="th-left">Tipo</th>
+          <th class="th-left">Condición</th>
+          <th>Precio</th>
+          <th>Canal</th>
+          <th>Estado</th>
+        </tr></thead>
+        <tbody id="al-hist-tbody">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">
+            <div class="spinner" style="margin:0 auto 8px"></div>Cargando historial...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<style>
+.al-field{display:flex;flex-direction:column;gap:4px}
+.al-label{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;font-weight:500}
+.al-select{background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:5px 10px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text);outline:none;cursor:pointer;transition:border-color .15s}
+.al-select:focus{border-color:var(--green)}
+.al-cond-panel{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px}
+.al-rt-pulse{animation:pulse 1.5s infinite}
+</style>
+
+<script>
+(function(){
+'use strict';
+
+// ─────────────────────────────────────────────
+// ESTADO
+// ─────────────────────────────────────────────
+const AL = {
+  alerts: [],
+  prevPrices: {},   // sym → precio anterior
+  prevMAs: {},      // sym → {fast, slow}
+  tipoActual: 'precio',
+  filtroTipo: 'all',
+  cfg: {},          // waNum, waKey, tgToken, tgChatId, canal
+  rtChannel: null,     // Supabase Realtime — tabla mercado (ARS)
+  rtChannelUsa: null,  // Supabase Realtime — tabla mercado_usa
+  rtChannelOpt: null,  // Supabase Realtime — tabla opciones_rt
+};
+
+// Limpiador agresivo de tickers para que siempre coincidan
+function alCleanTicker(t) {
+  return (t || '').replace(/(_|\s|-)*(24hs|ci|48hs)/i, '').toUpperCase().trim();
+}
+
+function alUserId(){
+  return window.currentUser?.id || 'anon';
+}
+
+// ─────────────────────────────────────────────
+// SUPABASE HELPERS PROPIOS DE LA ESCRITURA
+// ─────────────────────────────────────────────
+async function sbHeaders(){
+  const session = await window.sbAuth.auth.getSession();
+  const token = session?.data?.session?.access_token;
+  return token
+    ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer '+token, 'Content-Type': 'application/json' }
+    : { ...CFG.SBH, 'Content-Type': 'application/json' };
+}
+
+async function sbPost(table, body, prefer='return=minimal'){
+  const h = await sbHeaders();
+  return fetch(`${CFG.SB_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { ...h, 'Prefer': prefer },
+    body: JSON.stringify(body)
+  });
+}
+
+async function sbPatch(table, params, body){
+  const h = await sbHeaders();
+  return fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {
+    method: 'PATCH',
+    headers: { ...h, 'Prefer': 'return=minimal' },
+    body: JSON.stringify(body)
+  });
+}
+
+async function sbDelete(table, params){
+  const h = await sbHeaders();
+  return fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {
+    method: 'DELETE',
+    headers: await sbHeaders()
+  });
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+async function alCargarPreciosIniciales(evaluar = false) {
+  try {
+    // Snapshot ANTES de actualizar (para detectar cruces)
+    const prevSnapshot = evaluar ? {...AL.prevPrices} : null;
+
+    const [arsRows, usaRows, optRows] = await Promise.all([
+      window.sbAll('mercado', 'settlement=eq.24hs&select=symbol,last').catch(()=>[]),
+      window.sbAll('mercado_usa', 'select=symbol,last').catch(()=>[]),
+      window.sb('opciones_rt', 'select=symbol,last,bid&order=updated_at.desc&limit=500').catch(()=>[])
+    ]);
+
+    [...(arsRows||[]), ...(usaRows||[])].forEach(r => {
+      const sym = alCleanTicker(r.symbol);
+      if(sym && r.last != null) AL.prevPrices[sym] = Number(r.last);
+    });
+    (optRows||[]).forEach(r => {
+      const sym = alCleanTicker(r.symbol);
+      const price = Number(r.last||0) || Number(r.bid||0);
+      if(sym && price) AL.prevPrices[sym] = price;
+    });
+
+    // Fetch puntual de tickers con alerta activa que aún no tienen precio
+    // (evita depender de que caigan dentro del limit=500 general)
+    const sinPrecio = AL.alerts
+      .filter(a => a.activa)
+      .map(a => alCleanTicker(a.ticker))
+      .filter((s, i, arr) => arr.indexOf(s) === i && AL.prevPrices[s] === undefined);
+    if(sinPrecio.length){
+      const extra = await window.sb('opciones_rt',
+        `symbol=in.(${sinPrecio.join(',')})&select=symbol,last,bid&limit=50`
+      ).catch(()=>[]);
+      (extra||[]).forEach(r => {
+        const sym = alCleanTicker(r.symbol);
+        const price = Number(r.last||0) || Number(r.bid||0);
+        if(sym && price) AL.prevPrices[sym] = price;
+      });
+    }
+
+    // Fallback: evaluar alertas de precio para tickers cuyo precio cambió
+    if(evaluar && prevSnapshot){
+      const alertTickers = new Set(
+        AL.alerts.filter(a => a.activa && a.tipo === 'precio').map(a => alCleanTicker(a.ticker))
+      );
+      for(const sym of alertTickers){
+        const cur  = AL.prevPrices[sym];
+        const prev = prevSnapshot[sym];
+        if(cur !== undefined && prev !== undefined && cur !== prev){
+          await alEvaluarAlertas(sym, cur, prev, 0, 0);
+        }
+      }
+    }
+
+    // Timestamp de último refresh
+    const tsEl = document.getElementById('al-refresh-ts');
+    if(tsEl) tsEl.textContent = '↺ ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    alRenderActivas();
+  } catch(e) {
+    console.error("Error cargando precios:", e);
+  }
+}
+
+async function alInit(){
+  alCfgCargarLocal();
+  await alCargarAlertas();
+  await alCargarPreciosIniciales();
+  await alCargarHistorial();
+  alKpiUpdate();
+  alFormPreview();
+  alHealthCheck();
+  setInterval(alHealthCheck, 30000);
+  setInterval(() => alCargarPreciosIniciales(true), 10000);
+}
+
+alInit();
+
+// ─────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────
+window.alTab = function(id, btn){
+  document.querySelectorAll('[id^="alpanel-"]').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('[id^="alstab-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('alpanel-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (window.qaTrack) window.qaTrack('alertas', id);
+  if(id === 'historial') alCargarHistorial();
+  if(id === 'sltp') alRenderSltp();
+};
+
+// ─────────────────────────────────────────────
+// HEALTH CHECK — Edge Function en la nube
+// ─────────────────────────────────────────────
+async function alHealthCheck(){
+  const dot = document.getElementById('al-rt-dot');
+  const label = document.getElementById('al-rt-label');
+  const ts = document.getElementById('al-refresh-ts');
+  if(!dot) return;
+  try{
+    dot.style.background = 'var(--amber)';
+    label.textContent = 'Consultando...';
+    label.style.color = 'var(--amber)';
+    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/alertas-engine', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    const d = await r.json();
+    if(d.ok){
+      const kpiRt = document.getElementById('al-kpi-rt');
+      if(kpiRt) kpiRt.textContent = d.ms + 'ms | ' + (d.disparadas||0) + ' disp';
+      ts.textContent = '⚡ ' + d.alertas + ' alertas | ' + d.ms + 'ms';
+      dot.style.background = 'var(--green)';
+      dot.className = '';
+      label.textContent = 'Engine online';
+      label.style.color = 'var(--green)';
+    } else {
+      throw new Error(d.error || 'Respuesta inválida');
+    }
+  }catch(e){
+    dot.style.background = 'var(--red)';
+    dot.className = '';
+    label.textContent = 'Offline';
+    label.style.color = 'var(--red)';
+    const kpiRt = document.getElementById('al-kpi-rt');
+    if(kpiRt) kpiRt.textContent = '⛔ error';
+    ts.textContent = '⛔ ' + e.message;
+  }
+}
+
+// SUPABASE REALTIME (removed — now handled by edge function)
+// ─────────────────────────────────────────────
+function alRtConnect(){ // no-op: engine runs in cloud
+  if(AL.rtChannel){
+    try{ AL.rtChannel.unsubscribe(); }catch(e){}
+  }
+
+  alRtStatus('connecting');
+
+  AL.rtChannel = window.sbAuth
+    .channel('mercado-alertas')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'mercado'
+    }, alOnMercadoUpdate)
+    .subscribe((status) => {
+      if(status === 'SUBSCRIBED'){
+        alRtStatus('connected');
+        alLog('🟢 Realtime conectado — escuchando cambios en tabla mercado.', 'green');
+      } else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
+        alRtStatus('error');
+        alLog('🔴 Realtime error: '+status+'. Reconectando en 5s...', 'red');
+        setTimeout(alRtConnect, 5000);
+      } else if(status === 'CLOSED'){
+        alRtStatus('disconnected');
+      }
+    });
+}
+
+// Evaluador compartido entre mercado ARS, USA y opciones
+async function alEvaluarAlertas(sym, cur, prev, change, turnover){
+  const alertasDelTicker = AL.alerts.filter(a => a.activa && alCleanTicker(a.ticker) === sym);
+  if(!alertasDelTicker.length) return;
+
+  alLog(`📡 ${sym} → $${fmtAR(cur,2)} | var: ${change>=0?'+':''}${change.toFixed(2)}%`, 'text3');
+  alLog(`🔍 Evaluando ${alertasDelTicker.length} alerta(s) para ${sym}`, 'blue');
+
+  for(const alerta of alertasDelTicker){
+    let disparado = false, condDesc = '';
+    if(alerta.tipo === 'precio')     [disparado, condDesc] = evalPrecio(alerta, cur, prev);
+    else if(alerta.tipo === 'ma')    [disparado, condDesc] = await evalMA(alerta, sym);
+    else if(alerta.tipo === 'variacion') [disparado, condDesc] = evalVariacion(alerta, change);
+    else if(alerta.tipo === 'volumen')   [disparado, condDesc] = evalVolumen(alerta, turnover);
+
+    if(disparado){
+      const ahora = Date.now();
+      const cooldownMs = (alerta.params?.cooldown || 1800) * 1000;
+      const lastFiredMs = alerta.last_fired ? new Date(alerta.last_fired).getTime() : 0;
+      if(cooldownMs > 0 && (ahora - lastFiredMs) < cooldownMs){
+        const restMin = Math.round((cooldownMs - (ahora - lastFiredMs)) / 60000);
+        alLog(`⏳ ${sym}: en cooldown (${restMin}min).`, 'amber');
+        continue;
+      }
+      alLog(`🔔 ALERTA DISPARADA: ${sym} — ${condDesc}`, 'green');
+      alLog(`   → Procesado por edge function en la nube`, 'blue');
+      alKpiUpdate();
+    }
+  }
+}
+
+async function alOnMercadoUpdate(payload){
+  const row = payload.new;
+  if(!row || row.settlement !== '24hs') return;
+  const sym = alCleanTicker(row.symbol);
+  const cur = Number(row.last);
+  if(!sym || isNaN(cur)) return;
+  const tsStr = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const krtEl = document.getElementById('al-kpi-rt');
+  if(krtEl) krtEl.textContent = sym + ' ' + tsStr.slice(0,5);
+  const prev = AL.prevPrices[sym];
+  AL.prevPrices[sym] = cur;
+  await alEvaluarAlertas(sym, cur, prev, Number(row.change||0), Number(row.turnover||0));
+  alRenderActivas();
+}
+
+function alRtConnectUsa(){
+  if(AL.rtChannelUsa){ try{ AL.rtChannelUsa.unsubscribe(); }catch(e){} }
+  AL.rtChannelUsa = window.sbAuth
+    .channel('mercado-usa-alertas')
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'mercado_usa' }, async payload => {
+      const row = payload.new;
+      if(!row) return;
+      const sym = alCleanTicker(row.symbol);
+      const cur = Number(row.last);
+      if(!sym || isNaN(cur)) return;
+      const prev = AL.prevPrices[sym];
+      AL.prevPrices[sym] = cur;
+      await alEvaluarAlertas(sym, cur, prev, Number(row.change_pct||row.change||0), 0);
+      alRenderActivas();
+    })
+    .subscribe(status => {
+      if(status === 'SUBSCRIBED') alLog('🟢 Realtime USA activo.', 'green');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setTimeout(alRtConnectUsa, 5000);
+    });
+}
+
+function alRtConnectOpt(){
+  if(AL.rtChannelOpt){ try{ AL.rtChannelOpt.unsubscribe(); }catch(e){} }
+  AL.rtChannelOpt = window.sbAuth
+    .channel('opciones-rt-alertas')
+    .on('postgres_changes', { event:'*', schema:'public', table:'opciones_rt' }, async payload => {
+      const row = payload.new;
+      if(!row) return;
+      const sym = alCleanTicker(row.symbol);
+      const price = Number(row.last||0) || Number(row.bid||0);
+      if(!sym || !price) return;
+      const prev = AL.prevPrices[sym];
+      AL.prevPrices[sym] = price;
+      await alEvaluarAlertas(sym, price, prev, 0, 0);
+      alRenderActivas();
+    })
+    .subscribe(status => {
+      if(status === 'SUBSCRIBED') alLog('🟢 Realtime Opciones activo.', 'green');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setTimeout(alRtConnectOpt, 5000);
+    });
+}
+
+function alRtStatus(status){
+  const dot   = document.getElementById('al-rt-dot');
+  const label = document.getElementById('al-rt-label');
+  if(!dot || !label) return;
+  const map = {
+    connecting:   {color:'var(--amber)', text:'Conectando...', pulse:true},
+    connected:    {color:'var(--green)', text:'Realtime activo', pulse:true},
+    disconnected: {color:'var(--text4)', text:'Desconectado', pulse:false},
+    error:        {color:'var(--red)',   text:'Error de conexión', pulse:false},
+  };
+  const s = map[status] || map.disconnected;
+  dot.style.background = s.color;
+  dot.className = s.pulse ? 'al-rt-pulse' : '';
+  label.textContent = s.text;
+  label.style.color = s.color;
+}
+
+// ─────────────────────────────────────────────
+// EVALUADORES
+// ─────────────────────────────────────────────
+function evalPrecio(a, cur, prev){
+  const val = a.params.valor;
+  const dir = a.params.dir;
+  let ok = false;
+
+  if(dir === 'gt') ok = cur >= val;
+  if(dir === 'lt') ok = cur <= val;
+  // cross: requiere precio anterior conocido y que haya cruzado el umbral
+  if(dir === 'cross_up') ok = prev !== undefined && prev < val && cur >= val;
+  if(dir === 'cross_dn') ok = prev !== undefined && prev > val && cur <= val;
+
+  const labels = {
+    gt:`superó $${fmtAR(val,2)}`,
+    lt:`bajó de $${fmtAR(val,2)}`,
+    cross_up:`↑ cruzó hacia arriba $${fmtAR(val,2)}`,
+    cross_dn:`↓ cruzó hacia abajo $${fmtAR(val,2)}`
+  };
+  return [ok, `Precio ${labels[dir]||dir}`];
+}
+
+async function evalMA(a, sym){
+  const fast = a.params.maFast;
+  const slow = a.params.maSlow;
+  const dir  = a.params.maDir;
+  let rows = null;
+  try{
+    rows = await window.sb('mercado_history', `symbol=eq.${sym}&select=last&order=ts.desc&limit=${slow+5}`);
+  }catch(e){}
+  if(!rows || rows.length < slow) return [false, `MA${fast}/MA${slow} — historial insuficiente`];
+  const closes = rows.map(r => Number(r.last));
+  const maFast = closes.slice(0, fast).reduce((s,v)=>s+v,0) / fast;
+  const maSlow = closes.slice(0, slow).reduce((s,v)=>s+v,0) / slow;
+  const prev = AL.prevMAs[sym];
+  AL.prevMAs[sym] = {fast: maFast, slow: maSlow};
+  if(!prev) return [false, ''];
+  let ok = false;
+  if(dir === 'golden') ok = prev.fast < prev.slow && maFast >= maSlow;
+  if(dir === 'death')  ok = prev.fast > prev.slow && maFast <= maSlow;
+  if(dir === 'any')    ok = (prev.fast < prev.slow && maFast >= maSlow) || (prev.fast > prev.slow && maFast <= maSlow);
+  const lbl = {golden:'Golden cross ↑', death:'Death cross ↓', any:'Cruce'}[dir]||dir;
+  return [ok, `MA${fast}/MA${slow} ${lbl}`];
+}
+
+function evalVariacion(a, change){
+  const val = a.params.valor;
+  const dir = a.params.varDir;
+  let ok = false;
+  if(dir === 'gt')  ok = change >= val;
+  if(dir === 'lt')  ok = change <= -Math.abs(val);
+  if(dir === 'abs') ok = Math.abs(change) >= Math.abs(val);
+  const lblDir = {gt:`≥+${val}%`, lt:`≤-${val}%`, abs:`|Δ|≥${val}%`}[dir]||dir;
+  return [ok, `Variación ${lblDir} (actual: ${change>=0?'+':''}${change.toFixed(2)}%)`];
+}
+
+function evalVolumen(a, turnover){
+  const val = a.params.valor;
+  return [turnover >= val, `Turnover ≥ ${fmtM(val)} (actual: ${fmtM(turnover)})`];
+}
+
+// ─────────────────────────────────────────────
+// MENSAJE
+// ─────────────────────────────────────────────
+function alBuildMsg(a, precio, change, condDesc){
+  const hora = new Date().toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+  const custom = a.params?.mensaje || '';
+  const base = `🔔 *ALERTA FINANCIERA*\nTicker: *${a.ticker}*\nTipo: ${alTipoLabel(a.tipo)}\nCondición: ${condDesc}\nPrecio: $${fmtAR(precio,2)}\nVariación: ${change>=0?'+':''}${change.toFixed(2)}%\nHora: ${hora}`;
+  if(custom){
+    const interp = custom.replace('{ticker}',a.ticker).replace('{precio}','$'+fmtAR(precio,2)).replace('{condicion}',condDesc).replace('{hora}',hora);
+    return base + '\n\n💬 ' + interp;
+  }
+  return base;
+}
+
+// ─────────────────────────────────────────────
+// ENVÍO
+// ─────────────────────────────────────────────
+async function alEnviar(msg){
+  const canal = AL.cfg.canal || 'ninguno';
+  let ok = false;
+  if(canal === 'wa'    || canal === 'ambos') ok = await alEnviarWA(msg) || ok;
+  if(canal === 'tg'    || canal === 'ambos') ok = await alEnviarTG(msg) || ok;
+  if(canal === 'ninguno') alLog('⚠️ Sin canal configurado.', 'amber');
+  return ok;
+}
+
+async function alEnviarWA(msg){
+  const num = AL.cfg.waNum, key = AL.cfg.waKey;
+  if(!num || !key){ alLog('⚠️ WhatsApp: faltan credenciales.', 'amber'); return false; }
+  try{
+    await fetch(`https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(num)}&text=${encodeURIComponent(msg)}&apikey=${key}`, {mode:'no-cors'});
+    alLog('📱 WhatsApp enviado.', 'green');
+    return true;
+  }catch(e){ alLog('❌ WhatsApp error: '+e.message, 'red'); return false; }
+}
+
+async function alEnviarTG(msg){
+  const token = AL.cfg.tgToken, chatId = AL.cfg.tgChatId;
+  if(!token || !chatId){ alLog('⚠️ Telegram: faltan credenciales.', 'amber'); return false; }
+  try{
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({chat_id: chatId, text: msg, parse_mode:'Markdown'})
+    });
+    const d = await r.json();
+    if(d.ok){ alLog('✈️ Telegram enviado.', 'green'); return true; }
+    else{ alLog('❌ Telegram: '+d.description, 'red'); return false; }
+  }catch(e){ alLog('❌ Telegram error: '+e.message, 'red'); return false; }
+}
+
+// ─────────────────────────────────────────────
+// CRUD ALERTAS — Supabase
+// ─────────────────────────────────────────────
+async function alCargarAlertas(){
+  const uid = alUserId();
+  const rows = await window.sb('alertas', `user_id=eq.${uid}&order=created_at.desc`);
+  AL.alerts = rows || [];
+  alRenderActivas();
+  alRenderSltp();
+  alKpiUpdate();
+}
+
+window.alReload = async function(){
+  await alCargarAlertas();
+  alLog('↺ Alertas recargadas desde Supabase.', 'blue');
+};
+
+window.alGuardar = async function(){
+  const ticker = alCleanTicker(document.getElementById('al-f-ticker').value);
+  if(!ticker){ alFlash('al-guardar-btn','Falta ticker'); return; }
+
+  const tipo = AL.tipoActual;
+  const params = { cooldown: Number(document.getElementById('al-f-cooldown').value), mensaje: document.getElementById('al-f-msg').value };
+
+  if(tipo === 'precio'){
+    params.dir   = document.getElementById('al-f-precio-dir').value;
+    params.valor = parseFloat(document.getElementById('al-f-precio-val').value);
+    if(isNaN(params.valor)){ alFlash('al-guardar-btn','Valor inválido'); return; }
+    // Segunda condición OR
+    const orWrap = document.getElementById('al-f-precio-or-wrap');
+    if(orWrap && orWrap.style.display !== 'none'){
+      const orDirEl = document.getElementById('al-f-precio-or-dir');
+      const orValEl = document.getElementById('al-f-precio-or-val');
+      const orDir = orDirEl?.value;
+      const orVal = parseFloat(orValEl?.value);
+      if(orDir && !isNaN(orVal)){
+        params.or_dir = orDir;
+        params.or_valor = orVal;
+      }
+    }
+  } else if(tipo === 'ma'){
+    params.maFast = parseInt(document.getElementById('al-f-ma-fast').value)||20;
+    params.maSlow = parseInt(document.getElementById('al-f-ma-slow').value)||50;
+    params.maDir  = document.getElementById('al-f-ma-dir').value;
+  } else if(tipo === 'variacion'){
+    params.varDir = document.getElementById('al-f-var-dir').value;
+    params.valor  = parseFloat(document.getElementById('al-f-var-val').value);
+    if(isNaN(params.valor)){ alFlash('al-guardar-btn','Valor inválido'); return; }
+  } else if(tipo === 'volumen'){
+    params.valor = parseFloat(document.getElementById('al-f-vol-val').value);
+    if(isNaN(params.valor)){ alFlash('al-guardar-btn','Valor inválido'); return; }
+  }
+
+  const row = {
+    id:         'al_' + Date.now(),
+    user_id:    alUserId(),
+    ticker, // Se guarda limpio
+    tipo,
+    params,
+    activa:     true,
+    cooldown:   params.cooldown,
+    mensaje:    params.mensaje,
+    fired_count:0,
+    last_fired: null,
+    created_at: new Date().toISOString()
+  };
+
+  const btn = document.getElementById('al-guardar-btn');
+  btn.disabled = true; btn.textContent = '⏳ Guardando...';
+
+  const r = await sbPost('alertas', row);
+  btn.disabled = false; btn.textContent = '💾 Guardar en Supabase';
+
+  if(r.ok || r.status === 201){
+    alShowMsg('al-form-msg','✅ Alerta guardada en Supabase.','green');
+    alLog(`✅ Alerta guardada: ${ticker} — ${alTipoLabel(tipo)}`, 'green');
+    await alCargarAlertas();
+    alLimpiarForm();
+    alTab('activas', document.getElementById('alstab-activas'));
+  } else {
+    alShowMsg('al-form-msg','❌ Error al guardar: '+r.status,'red');
+    alLog('❌ Error Supabase al guardar: '+r.status, 'red');
+  }
+};
+
+window.alToggle = async function(id, val){
+  const a = AL.alerts.find(x => x.id === id);
+  if(!a) return;
+  a.activa = val;
+  await sbPatch('alertas', `id=eq.${id}`, {activa: val});
+  alRenderActivas();
+  alRenderSlTp();
+  alKpiUpdate();
+};
+
+window.alEliminar = async function(id){
+  if(!confirm('¿Eliminar esta alerta?')) return;
+  await sbDelete('alertas', `id=eq.${id}`);
+  AL.alerts = AL.alerts.filter(x => x.id !== id);
+  alRenderActivas();
+  alKpiUpdate();
+  alLog('🗑 Alerta eliminada.', 'text3');
+};
+
+const _alEditCache = {};
+window.alEditar = function(id) {
+  const a = AL.alerts.find(x => x.id === id);
+  if (!a) return;
+  const p = a.params || {};
+  _alEditCache[id] = JSON.parse(JSON.stringify(p));
+  const isSltp = a.tipo === 'sltp';
+  let html = '<div class="al-edit-overlay" onclick="if(event.target===this)alEditarCancel()" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:9999">';
+  html += '<div style="background:var(--bg2);padding:20px;border-radius:8px;min-width:320px;max-width:400px">';
+  html += '<h3 style="margin:0 0 12px">\u270f\ufe0f Editar ' + a.ticker + '</h3>';
+  if (isSltp) {
+    html += 'SL: <input id="al-edit-sl" type="number" step="0.01" value="' + (p.sl||'') + '" style="width:90px"> ';
+    html += 'TP: <input id="al-edit-tp" type="number" step="0.01" value="' + (p.tp||'') + '" style="width:90px">';
+  } else {
+    html += 'Dir: <select id="al-edit-dir">';
+    var dirs = [['gt','Mayor que'],['lt','Menor que'],['gte','Mayor o igual'],['lte','Menor o igual']];
+    for (var i=0;i<dirs.length;i++) {
+      html += '<option value="' + dirs[i][0] + '"' + ((p.dir===dirs[i][0]||p.dir===dirs[i][0].replace('g','>').replace('l','<'))?' selected':'') + '>' + dirs[i][1] + '</option>';
+    }
+    html += '</select> ';
+    html += 'Valor: <input id="al-edit-valor" type="number" step="0.01" value="' + (p.valor||'') + '" style="width:90px">';
+  }
+  html += '<br><br>Cooldown (seg): <input id="al-edit-cd" type="number" value="' + (p.cooldown||'') + '" style="width:80px"><br><br>';
+  html += '<button class="flt" onclick="alEditarSave(\'' + id + '\')" style="padding:6px 16px">\ud83d\udcbe Guardar</button> ';
+  html += '<button class="flt" onclick="alEditarCancel()" style="padding:6px 16px;margin-left:8px">Cancelar</button>';
+  html += '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+};
+window.alEditarCancel = function() {
+  var el = document.querySelector('.al-edit-overlay');
+  if (el) el.remove();
+};
+window.alEditarSave = async function(id) {
+  var a = AL.alerts.find(x => x.id === id);
+  if (!a) return;
+  var isSltp = a.tipo === 'sltp';
+  var params = {};
+  if (isSltp) {
+    params.sl = parseFloat(document.getElementById('al-edit-sl')?.value) || null;
+    params.tp = parseFloat(document.getElementById('al-edit-tp')?.value) || null;
+    params.cooldown = parseInt(document.getElementById('al-edit-cd')?.value) || 300;
+  } else {
+    params.dir = document.getElementById('al-edit-dir')?.value || 'gt';
+    params.valor = parseFloat(document.getElementById('al-edit-valor')?.value) || 0;
+    params.cooldown = parseInt(document.getElementById('al-edit-cd')?.value) || 0;
+  }
+  a.params = Object.assign({}, a.params, params);
+  await sbPatch('alertas', 'id=eq.' + id, { params: a.params });
+  alEditarCancel();
+  alRenderActivas();
+  alRenderSltp();
+  alLog('\u2705 Par\u00e1metros actualizados para ' + a.ticker, 'green');
+};
+
+window.alCondLabel = function(a) {
+  if (a.tipo === 'sltp') {
+    const sl = a.params?.sl, tp = a.params?.tp;
+    let parts = [];
+    if (sl) parts.push('SL: \u2264 $' + fmtAR(sl, 2));
+    if (tp) parts.push('TP: \u2265 $' + fmtAR(tp, 2));
+    return parts.join(' / ') || '\u2014';
+  }
+  const dir = a.params?.dir || '>';
+  return '$' + fmtAR(a.params?.valor || 0, 2) + ' ' + dir;
+};
+
+window.alTestAlert = async function(id){
+  const a = AL.alerts.find(x => x.id === id);
+  if(!a) return;
+  const msg = `🧪 TEST\nTicker: *${a.ticker}*\nTipo: ${alTipoLabel(a.tipo)}\nCondición: ${alCondLabel(a)}\n\nEsta es una notificación de prueba.`;
+  alLog(`🧪 Enviando test para ${a.ticker}...`, 'blue');
+  await alEnviar(msg);
+};
+
+// ─────────────────────────────────────────────
+// HISTORIAL — Supabase
+// ─────────────────────────────────────────────
+async function alCargarHistorial(){
+  const uid = alUserId();
+  const rows = await window.sb('alertas_historial', `user_id=eq.${uid}&order=fired_at.desc&limit=200`);
+  alRenderHistorial(rows||[]);
+  // Reflejar últimos 5 eventos en el log
+  const recientes = (rows||[]).slice(0,5);
+  for(const h of recientes){
+    const emoji = h.estado?.includes('✅') ? '✅' : '❌';
+    alLog(`${h.estado?.includes('✅')?'✅':'❌'} ${h.ticker} — ${h.cond_desc||'—'} [${h.canal||'—'}]`, h.estado?.includes('✅')?'green':'red');
+  }
+}
+
+function alRenderHistorial(rows){
+  const tbody = document.getElementById('al-hist-tbody');
+  if(!tbody) return;
+  if(!rows.length){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin historial aún.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(h => {
+    const ts = new Date(h.fired_at).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'});
+    const okColor = h.estado?.includes('✅') ? 'var(--green)' : 'var(--red)';
+    return `<tr>
+      <td class="td-left" style="color:var(--text3);font-size:9px">${ts}</td>
+      <td class="td-left" style="font-weight:500;color:var(--text)">${h.ticker}</td>
+      <td class="td-left"><span class="badge" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border)">${alTipoLabel(h.tipo)}</span></td>
+      <td class="td-left" style="color:var(--text2)">${h.cond_desc||'—'}</td>
+      <td>$${fmtAR(h.precio,2)}</td>
+      <td style="color:var(--text3)">${h.canal||'—'}</td>
+      <td style="color:${okColor}">${h.estado||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// DETECCIÓN SL/TP
+// ─────────────────────────────────────────────
+function isSlTpAlert(a) {
+  if (a.tipo === 'sltp') return true;
+  const id  = a.id || '';
+  const msg = (a.mensaje || '').toLowerCase();
+  return id.endsWith('_sl') || id.endsWith('_tp') ||
+         msg.startsWith('stop loss') || msg.startsWith('take profit');
+}
+
+function alRenderSltp() {
+  const rows = AL.alerts.filter(isSlTpAlert);
+  const tbody = document.getElementById('al-sltp-tbody');
+  if(!tbody) return;
+  if(!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Sin alertas SL/TP. Se crean automáticamente al guardar una posición con Stop Loss o Take Profit en el portafolio.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(a => {
+    const id   = a.id || '';
+    const isSltp = a.tipo === 'sltp';
+    const isSL = id.endsWith('_sl') || a.params?.dir === '<=';
+    const label = isSltp ? '🎯 SL/TP' : (isSL ? '🛑 Stop Loss' : '🎯 Take Profit');
+    const color = isSltp ? 'var(--orange)' : (isSL ? 'var(--red)' : 'var(--green)');
+    const objetivo = isSltp
+      ? 'SL: ' + (a.params?.sl != null ? '$' + fmtAR(a.params.sl, 2) : '—') + ' / TP: ' + (a.params?.tp != null ? '$' + fmtAR(a.params.tp, 2) : '—')
+      : (a.params?.valor != null ? '$' + fmtAR(a.params.valor, 2) : '—');
+    const cleanTicker = alCleanTicker(a.ticker);
+    const curPrice = AL.prevPrices[cleanTicker] !== undefined ? '$' + fmtAR(AL.prevPrices[cleanTicker], 2) : '—';
+    const lastF = a.last_fired ? new Date(a.last_fired).toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'}) : '—';
+    return `<tr>
+      <td class="td-left" style="font-weight:500;color:var(--text)">${a.ticker}</td>
+      <td class="td-left"><span class="badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${label}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-weight:bold;color:var(--text)">${objetivo}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;color:var(--text2)">${curPrice}</td>
+      <td>
+        <label style="display:flex;align-items:center;justify-content:flex-end;gap:5px;cursor:pointer">
+          <input type="checkbox" ${a.activa?'checked':''} onchange="alToggle('${a.id}',this.checked)" style="accent-color:var(--green)">
+          <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${a.activa?'var(--green)':'var(--text3)'}">${a.activa?'ON':'OFF'}</span>
+        </label>
+      </td>
+      <td style="font-size:9px;color:var(--text3)">${lastF}</td>
+      <td class="td-left">
+        <div style="display:flex;gap:4px">
+          <button class="flt" onclick="alTestAlert('${a.id}')" style="padding:2px 7px;font-size:8px">test</button>
+          <button class="flt" onclick="alEditar('${a.id}')" style="padding:2px 7px;font-size:8px">✏️</button>
+          <button class="flt" onclick="alEliminar('${a.id}')" style="padding:2px 7px;font-size:8px;color:var(--red)">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// RENDER TABLA ACTIVAS
+// ─────────────────────────────────────────────
+window.alRenderActivas = function(){
+  const q  = (document.getElementById('al-search')?.value||'').toLowerCase();
+  const tf = AL.filtroTipo;
+  const rows = AL.alerts.filter(a => {
+    if(isSlTpAlert(a)) return false;
+    if(tf !== 'all' && a.tipo !== tf) return false;
+    if(q && !a.ticker.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const tbody = document.getElementById('al-activas-tbody');
+  if(!tbody) return;
+  if(!rows.length){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">
+      ${AL.alerts.length ? 'Sin resultados.' : 'No hay alertas. Creá una en <strong style="color:var(--text2)">+ Nueva</strong>.'}
+    </td></tr>`;
+    return;
+  }
+  const colorMap = {precio:'var(--green)',ma:'var(--blue)',variacion:'var(--amber)',volumen:'var(--cyan)'};
+  tbody.innerHTML = rows.map(a => {
+    const tc = colorMap[a.tipo] || 'var(--text2)';
+    const lastF = a.last_fired ? new Date(a.last_fired).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—';
+    const cd = (a.params?.cooldown||a.cooldown||0);
+    const cdLabel = cd===0?'sin límite':cd>=3600?Math.round(cd/3600)+'h':Math.round(cd/60)+'min';
+    
+    const cleanTicker = alCleanTicker(a.ticker);
+    const curPrice = AL.prevPrices[cleanTicker] !== undefined ? '$' + fmtAR(AL.prevPrices[cleanTicker],2) : '—';
+    
+    return `<tr>
+      <td class="td-left" style="font-weight:500;color:var(--text)">${a.ticker}</td>
+      <td class="td-left"><span class="badge" style="background:${tc}22;color:${tc};border:1px solid ${tc}44">${alTipoLabel(a.tipo)}</span></td>
+      <td class="td-left" style="color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis">${alCondLabel(a)}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-weight:bold;color:var(--text)">${curPrice}</td>
+      <td>
+        <label style="display:flex;align-items:center;justify-content:flex-end;gap:5px;cursor:pointer">
+          <input type="checkbox" ${a.activa?'checked':''} onchange="alToggle('${a.id}',this.checked)" style="accent-color:var(--green)">
+          <span style="font-size:9px;font-family:'IBM Plex Mono',monospace;color:${a.activa?'var(--green)':'var(--text3)'}">${a.activa?'ON':'OFF'}</span>
+        </label>
+      </td>
+      <td style="font-size:9px;color:var(--text3)">${lastF}</td>
+      <td style="font-size:9px;color:var(--text3)">${cdLabel}</td>
+      <td class="td-left">
+        <div style="display:flex;gap:4px">
+          <button class="flt" onclick="alTestAlert('${a.id}')" style="padding:2px 7px;font-size:8px">test</button>
+          <button class="flt" onclick="alEliminar('${a.id}')" style="padding:2px 7px;font-size:8px;color:var(--red)">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+};
+
+window.alFiltro = function(tipo, btn){
+  AL.filtroTipo = tipo;
+  document.querySelectorAll('.toolbar .flt').forEach(b => b.className='flt');
+  const clsMap = {all:'on', precio:'on-green', ma:'on-blue', variacion:'on-amber', volumen:'on-cyan'};
+  btn.className = 'flt ' + (clsMap[tipo]||'on') + ' on';
+  alRenderActivas();
+};
+
+// ─────────────────────────────────────────────
+// FORMULARIO
+// ─────────────────────────────────────────────
+window.alSetTipo = function(tipo, btn){
+  AL.tipoActual = tipo;
+  document.querySelectorAll('#al-tipo-btns .flt').forEach(b => b.className='flt');
+  const clsMap = {precio:'on-green',ma:'on-blue',variacion:'on-amber',volumen:'on-cyan'};
+  btn.className = 'flt ' + (clsMap[tipo]||'on') + ' on';
+  document.querySelectorAll('.al-cond-panel').forEach(p => p.style.display='none');
+  document.getElementById('al-cond-'+tipo).style.display='flex';
+  const cdWrap = document.getElementById('al-cooldown-wrap');
+  if(cdWrap) cdWrap.style.display = (tipo==='variacion'||tipo==='volumen') ? 'flex' : 'none';
+  alFormPreview();
+};
+
+window.alAddSegundaCond = function(){
+  const wrap = document.getElementById('al-f-precio-or-wrap');
+  const btn = document.getElementById('al-btn-agregar-or');
+  if(wrap){
+    wrap.style.display = 'block';
+    alFormPreview();
+  }
+  if(btn) btn.style.display = 'none';
+};
+
+window.alRemoveSegundaCond = function(){
+  const wrap = document.getElementById('al-f-precio-or-wrap');
+  const btn = document.getElementById('al-btn-agregar-or');
+  if(wrap){
+    wrap.style.display = 'none';
+    document.getElementById('al-f-precio-or-dir').value = 'gt';
+    document.getElementById('al-f-precio-or-val').value = '';
+  }
+  if(btn) btn.style.display = 'inline-block';
+  alFormPreview();
+};
+
+window.alFormPreview = function(){
+  const ticker = alCleanTicker(document.getElementById('al-f-ticker')?.value || 'TICKER');
+  const tipo = AL.tipoActual;
+  let condDesc = '';
+  if(tipo==='precio'){
+    const dir = document.getElementById('al-f-precio-dir').value;
+    const val = document.getElementById('al-f-precio-val').value||'?';
+    condDesc = `Precio ${ {gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'}[dir]||dir } $${val}`;
+    // Segunda condición OR
+    const orWrap = document.getElementById('al-f-precio-or-wrap');
+    if(orWrap && orWrap.style.display !== 'none'){
+      const orDir = document.getElementById('al-f-precio-or-dir')?.value;
+      const orVal = document.getElementById('al-f-precio-or-val')?.value;
+      if(orDir && orVal){
+        condDesc += ` OR ${ {gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'}[orDir]||orDir } $${orVal}`;
+      }
+    }
+  } else if(tipo==='ma'){
+    const f=document.getElementById('al-f-ma-fast').value||'20', s=document.getElementById('al-f-ma-slow').value||'50';
+    const dir=document.getElementById('al-f-ma-dir').value;
+    document.getElementById('al-ma-req').textContent = s;
+    condDesc = `MA${f}/MA${s} — ${{golden:'Golden↑',death:'Death↓',any:'Cualquier cruce'}[dir]||dir}`;
+  } else if(tipo==='variacion'){
+    const dir=document.getElementById('al-f-var-dir').value, val=document.getElementById('al-f-var-val').value||'?';
+    condDesc = `Variación ${ {gt:'≥+',lt:'≤-',abs:'|Δ|≥'}[dir]||dir }${val}%`;
+  } else if(tipo==='volumen'){
+    const val=document.getElementById('al-f-vol-val').value||'?';
+    condDesc = `Turnover ≥ $${Number(val).toLocaleString('es-AR')}`;
+  }
+  const hora = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const custom = document.getElementById('al-f-msg')?.value||'';
+  const base = `🔔 ALERTA FINANCIERA\nTicker: ${ticker}\nTipo: ${alTipoLabel(tipo)}\nCondición: ${condDesc}\nPrecio: $X.XX\nVariación: +X.XX%\nHora: ${hora}`;
+  const full = custom ? base+'\n\n💬 '+custom.replace('{ticker}',ticker).replace('{precio}','$X.XX').replace('{condicion}',condDesc).replace('{hora}',hora) : base;
+  const el = document.getElementById('al-msg-preview');
+  if(el) el.textContent = full;
+};
+
+window.alLimpiarForm = function(){
+  ['al-f-ticker','al-f-precio-val','al-f-var-val','al-f-vol-val','al-f-msg'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('al-msg-preview').textContent='Completá el formulario...';
+};
+
+// ─────────────────────────────────────────────
+// CONFIG CANAL
+// ─────────────────────────────────────────────
+function alCfgCargarLocal(){
+  AL.cfg = {
+    tgToken:  window.CFG?.TG_TOKEN   || '',
+    tgChatId: window.CFG?.TG_CHAT_ID || '',
+    waNum:    window.CFG?.WA_NUM     || '',
+    waKey:    window.CFG?.WA_KEY     || '',
+    canal:    window.CFG?.AL_CANAL   || 'ambos',
+  };
+  alCfgUI();
+  alKpiUpdate();
+}
+
+window.alTestCanal = async function(canal){
+  const msg = `🧪 *TEST DE CANAL*\nDashboard Financiero\nCanal: ${canal==='wa'?'📱 WhatsApp':'✈️ Telegram'}\nHora: ${new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}\n\n✅ Notificaciones funcionando correctamente.`;
+  alLog(`🧪 Enviando test por ${canal==='wa'?'WhatsApp':'Telegram'}...`, 'blue');
+  const ok = canal==='wa' ? await alEnviarWA(msg) : await alEnviarTG(msg);
+  alLog(ok ? `✅ Test ${canal.toUpperCase()} enviado — revisá tu teléfono.` : `❌ Test ${canal.toUpperCase()} falló — verificá credenciales en CFG.`, ok?'green':'red');
+};
+
+function alCfgUI(){
+  const hasWa = !!(AL.cfg.waNum && AL.cfg.waKey);
+  const hasTg = !!(AL.cfg.tgToken && AL.cfg.tgChatId);
+  const canal = {wa:'📱 WhatsApp', tg:'✈️ Telegram', ambos:'📢 Ambos'}[AL.cfg.canal]||'—';
+
+  const waTag = document.getElementById('al-cfg-wa-tag');
+  const tgTag = document.getElementById('al-cfg-tg-tag');
+  const waDetail = document.getElementById('al-cfg-wa-detail');
+  const tgDetail = document.getElementById('al-cfg-tg-detail');
+  const canalEl = document.getElementById('al-canal-actual');
+
+  if(waTag){ waTag.className=hasWa?'tag tag-ok':'tag tag-err'; waTag.textContent=hasWa?'ACTIVO':'NO CONFIG'; }
+  if(tgTag){ tgTag.className=hasTg?'tag tag-ok':'tag tag-err'; tgTag.textContent=hasTg?'ACTIVO':'NO CONFIG'; }
+  if(waDetail) waDetail.textContent = hasWa ? AL.cfg.waNum : 'Falta WA_NUM o WA_KEY en CFG del index.html';
+  if(tgDetail) tgDetail.textContent = hasTg ? 'Chat ID: '+AL.cfg.tgChatId : 'Falta TG_TOKEN o TG_CHAT_ID en CFG del index.html';
+  if(canalEl) canalEl.textContent = canal;
+}
+
+// ─────────────────────────────────────────────
+// KPI
+// ─────────────────────────────────────────────
+function alKpiUpdate(){
+  const act = AL.alerts.filter(a=>a.activa).length;
+  const tickers = [...new Set(AL.alerts.filter(a=>a.activa).map(a=>a.ticker))].length;
+  const today = new Date().toDateString();
+  const canal = {wa:'WhatsApp',tg:'Telegram',ambos:'Ambos'}[AL.cfg.canal]||'—';
+  const canalSub = AL.cfg.canal ? ({wa: AL.cfg.waNum||'—', tg:'@bot', ambos:'WA + TG'}[AL.cfg.canal]) : 'sin configurar';
+  const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('al-kpi-activas', act);
+  set('al-kpi-tickers', tickers);
+  set('al-kpi-canal', canal);
+  set('al-kpi-canal-sub', canalSub);
+  const hoyCount = AL.alerts.reduce((s,a) => {
+    if(!a.last_fired) return s;
+    return new Date(a.last_fired).toDateString()===today ? s+1 : s;
+  }, 0);
+  set('al-kpi-hoy', hoyCount);
+  const badge = document.getElementById('al-no-canal-badge');
+  if(badge) badge.style.display = (!AL.cfg.canal || AL.cfg.canal === 'ninguno') ? 'inline-block' : 'none';
+}
+
+// ─────────────────────────────────────────────
+// LOG
+// ─────────────────────────────────────────────
+function alLog(msg, color){
+  const el = document.getElementById('al-log');
+  if(!el) return;
+  const colors = {green:'var(--green)',red:'var(--red)',amber:'var(--amber)',blue:'var(--blue)',cyan:'var(--cyan)',text3:'var(--text3)'};
+  const ts = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const line = document.createElement('span');
+  line.style.color = colors[color]||'var(--text2)';
+  line.textContent = `[${ts}] ${msg}`;
+  el.prepend(line);
+  while(el.children.length > 80) el.removeChild(el.lastChild);
+}
+
+window.alClearLog = function(){
+  const el = document.getElementById('al-log');
+  if(el) el.innerHTML='<span style="color:var(--text4);font-style:italic">Log limpiado.</span>';
+};
+
+// ─────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────
+function alShowMsg(id, msg, color){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display='block';
+  el.style.color = {green:'var(--green)',red:'var(--red)',amber:'var(--amber)'}[color]||'var(--text2)';
+  el.textContent = msg;
+  setTimeout(()=>{ el.style.display='none'; }, 4000);
+}
+
+function alFlash(id, msg){
+  const btn = document.getElementById(id);
+  if(!btn) return;
+  const orig = btn.textContent;
+  btn.textContent = '⚠️ '+msg;
+  btn.style.background = 'var(--amber)';
+  setTimeout(()=>{ btn.textContent=orig; btn.style.background=''; }, 2000);
+}
+
+function alTipoLabel(tipo){
+  return {precio:'Precio', ma:'Medias móviles', variacion:'Variación %', volumen:'Volumen'}[tipo]||tipo;
+}
+
+function alCondLabel(a){
+  const p = a.params||{};
+  if(a.tipo==='precio'){
+    const dirs={gt:'≥',lt:'≤',cross_up:'↑ cruza',cross_dn:'↓ cruza'};
+    let label = `Precio ${dirs[p.dir]||p.dir} $${fmtAR(p.valor,2)}`;
+    if(p.or_dir && p.or_valor != null){
+      label += ` OR ${dirs[p.or_dir]||p.or_dir} $${fmtAR(p.or_valor,2)}`;
+    }
+    return label;
+  }
+  if(a.tipo==='ma') return `MA${p.maFast}/MA${p.maSlow} — ${{golden:'Golden↑',death:'Death↓',any:'Cruce'}[p.maDir]||p.maDir}`;
+  if(a.tipo==='variacion'){
+    const dirs={gt:'≥+',lt:'≤-',abs:'|Δ|≥'};
+    return `Variación ${dirs[p.varDir]||p.varDir}${p.valor}%`;
+  }
+  if(a.tipo==='volumen') return `Turnover ≥ ${fmtM(p.valor)}`;
+  return '—';
+}
+
+function fmtAR(n, dec=0){ return Number(n).toLocaleString('es-AR',{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
+function fmtM(n){ n=Number(n); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(0)+'K'; return n.toFixed(0); }
+
+
+// ─────────────────────────────────────────────
+// BUSCADOR PREDICTIVO DE TICKERS
+// ─────────────────────────────────────────────
+let _alTickerTimer = null;
+
+window.alTickerSearch = async function(q){
+  clearTimeout(_alTickerTimer);
+  const res = document.getElementById('al-ticker-results');
+  if(!q || q.length < 1){ res.style.display = 'none'; return; }
+
+  res.style.display = 'block';
+  res.innerHTML = '<div style="padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3)">Buscando...</div>';
+
+  _alTickerTimer = setTimeout(async () => {
+    const qEnc = encodeURIComponent(q);
+    const [arsRows, usaRows, optRows] = await Promise.all([
+      window.sb('mercado',     `symbol=ilike.${qEnc}*&settlement=eq.24hs&select=symbol,last,change&order=turnover.desc.nullslast&limit=6`).catch(()=>[]),
+      window.sb('mercado_usa', `symbol=ilike.${qEnc}*&select=symbol,last,change_pct,name&order=symbol.asc&limit=4`).catch(()=>[]),
+      window.sb('opciones_rt', `symbol=ilike.${qEnc}*&select=symbol,last,bid,ask&order=symbol.asc&limit=4`).catch(()=>[]),
+    ]);
+
+    const items = [
+      ...(arsRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change||0), src:'ARS', sub:'' })),
+      ...(usaRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0), chg:Number(r.change_pct||r.change||0), src:'USA', sub:r.name||'' })),
+      ...(optRows||[]).map(r => ({ sym:alCleanTicker(r.symbol), price:Number(r.last||0)||Number(r.bid||0), chg:0, src:'OPT', sub:r.last?'':r.bid?'bid':'—' })),
+    ];
+
+    if(!items.length){
+      res.innerHTML = '<div style="padding:10px 14px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:var(--text3)">Sin resultados</div>';
+      return;
+    }
+
+    const srcCfg = {
+      ARS: { color:'var(--cyan)',   label:'ARS' },
+      USA: { color:'var(--green)',  label:'USA' },
+      OPT: { color:'var(--amber)',  label:'OPT' },
+    };
+
+    res.innerHTML = items.map(r => {
+      const chgColor = r.chg > 0 ? 'var(--green)' : r.chg < 0 ? 'var(--red)' : 'var(--text3)';
+      const chgStr   = r.chg !== 0 ? (r.chg >= 0 ? '+' : '') + r.chg.toFixed(2) + '%' : '—';
+      const priceStr = r.price ? '$' + fmtAR(r.price, 2) + (r.src==='USA' ? ' USD' : '') : '—';
+      const cfg = srcCfg[r.src];
+      const sub = r.sub ? `<div style="font-size:9px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.sub}</div>` : '';
+      return `<div onclick="alTickerSelect('${r.sym}')" style="display:flex;gap:10px;align-items:center;padding:8px 14px;cursor:pointer;border-bottom:1px solid rgba(30,37,48,.5);transition:background .1s" onmouseover="this.style.background='rgba(255,255,255,.04)'" onmouseout="this.style.background=''">
+        <span style="flex-shrink:0;font-size:8px;font-weight:600;color:${cfg.color};background:${cfg.color}22;border:1px solid ${cfg.color}44;border-radius:3px;padding:1px 5px;letter-spacing:.5px">${cfg.label}</span>
+        <div style="flex:1;min-width:0;font-family:'IBM Plex Mono',monospace">
+          <div style="font-size:12px;font-weight:500;color:var(--text)">${r.sym}</div>
+          ${sub}
+        </div>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);white-space:nowrap">${priceStr}</span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:${chgColor};white-space:nowrap">${chgStr}</span>
+      </div>`;
+    }).join('');
+  }, 250);
+};
+
+window.alTickerSelect = function(sym){
+  const input = document.getElementById('al-f-ticker');
+  input.value = sym;
+  document.getElementById('al-ticker-results').style.display = 'none';
+  alFormPreview(); 
+};
+
+window.alTickerHideResults = function(){
+  const res = document.getElementById('al-ticker-results');
+  if(res) res.style.display = 'none';
+};
+
+})();
+</script>

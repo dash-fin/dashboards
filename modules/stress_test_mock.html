@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stress Test — Portafolio</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:       #0d1117;
+  --card:     #111827;
+  --border:   #1e2a38;
+  --border2:  #243040;
+  --text:     #e2eaf4;
+  --text2:    #8899aa;
+  --text3:    #4a5a6a;
+  --cyan:     #38c8ff;
+  --green:    #00e5a8;
+  --red:      #ff3f5e;
+  --amber:    #ffc84a;
+  --cyanDim:  rgba(56,200,255,0.08);
+  --greenDim: rgba(0,229,168,0.08);
+  --redDim:   rgba(255,63,94,0.08);
+}
+
+html,body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:13px;
+  min-height:100vh;
+  line-height:1.4;
+}
+
+/* subtle grid background */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(56,200,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,200,255,0.025) 1px, transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;
+  z-index:0;
+}
+
+.wrap{
+  position:relative;
+  z-index:1;
+  max-width:1200px;
+  margin:0 auto;
+  padding:24px 20px;
+}
+
+/* ── Header ── */
+.header{
+  display:flex;
+  align-items:baseline;
+  gap:16px;
+  margin-bottom:24px;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--border);
+}
+.header-title{
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--text2);
+}
+.scenario-active{
+  font-size:10px;
+  color:var(--cyan);
+  letter-spacing:2px;
+  text-transform:uppercase;
+  opacity:0;
+  transition:opacity .2s;
+}
+.scenario-active.visible{opacity:1}
+.header-right{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:10px;
+  color:var(--text3);
+}
+.dot{
+  width:6px;height:6px;
+  border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 6px var(--green);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Layout ── */
+.layout{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:16px;
+  align-items:start;
+}
+
+/* ── Panel base ── */
+.panel{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:4px;
+  overflow:hidden;
+}
+
+.panel-header{
+  padding:10px 16px;
+  border-bottom:1px solid var(--border);
+  font-size:8px;
+  font-weight:600;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+  color:var(--text3);
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.panel-header::before{
+  content:'';
+  width:3px;height:12px;
+  background:var(--cyan);
+  border-radius:1px;
+  flex-shrink:0;
+}
+
+/* ── Left: Controls ── */
+.controls{
+  padding:20px 16px;
+  display:flex;
+  flex-direction:column;
+  gap:24px;
+}
+
+.slider-group{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.slider-item{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.slider-label-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+}
+.slider-label{
+  font-size:10px;
+  color:var(--text2);
+  letter-spacing:0.5px;
+}
+.slider-val{
+  font-size:13px;
+  font-weight:600;
+  color:var(--cyan);
+  min-width:52px;
+  text-align:right;
+  transition:color .15s;
+}
+.slider-val.neg{color:var(--red)}
+.slider-val.pos{color:var(--green)}
+.slider-val.zero{color:var(--text3)}
+
+input[type=range]{
+  -webkit-appearance:none;
+  appearance:none;
+  width:100%;
+  height:2px;
+  background:var(--border2);
+  border-radius:1px;
+  outline:none;
+  cursor:pointer;
+  position:relative;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:14px;height:14px;
+  border-radius:2px;
+  background:var(--cyan);
+  box-shadow:0 0 8px rgba(56,200,255,0.5);
+  cursor:pointer;
+  transition:box-shadow .15s, transform .15s;
+}
+input[type=range]:hover::-webkit-slider-thumb{
+  box-shadow:0 0 14px rgba(56,200,255,0.8);
+  transform:scale(1.15);
+}
+input[type=range]::-moz-range-thumb{
+  width:14px;height:14px;
+  border-radius:2px;
+  background:var(--cyan);
+  border:none;
+  cursor:pointer;
+}
+
+.slider-ticks{
+  display:flex;
+  justify-content:space-between;
+  font-size:8px;
+  color:var(--text3);
+  padding:0 1px;
+}
+
+/* Divider */
+.divider{
+  height:1px;
+  background:var(--border);
+}
+
+/* ── Preset buttons ── */
+.presets-label{
+  font-size:8px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--text3);
+  margin-bottom:8px;
+}
+.presets{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.preset-btn{
+  background:transparent;
+  border:1px solid var(--border2);
+  color:var(--text2);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:10px;
+  padding:8px 12px;
+  cursor:pointer;
+  text-align:left;
+  border-radius:3px;
+  transition:all .15s;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.preset-btn:hover{
+  border-color:var(--cyan);
+  color:var(--text);
+  background:var(--cyanDim);
+}
+.preset-btn.active{
+  border-color:var(--cyan);
+  color:var(--cyan);
+  background:var(--cyanDim);
+}
+.preset-btn .preset-hint{
+  font-size:8px;
+  color:var(--text3);
+  font-weight:300;
+}
+.reset-btn{
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--text3);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:9px;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  padding:7px 12px;
+  cursor:pointer;
+  border-radius:3px;
+  width:100%;
+  margin-top:4px;
+  transition:all .15s;
+}
+.reset-btn:hover{
+  border-color:var(--text3);
+  color:var(--text2);
+}
+
+/* ── Right: Portfolio ── */
+.pf-table{
+  width:100%;
+  border-collapse:collapse;
+}
+.pf-table thead tr{
+  border-bottom:1px solid var(--border);
+}
+.pf-table th{
+  padding:10px 12px;
+  font-size:8px;
+  font-weight:600;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  color:var(--text3);
+  text-align:right;
+  white-space:nowrap;
+}
+.pf-table th:first-child{text-align:left}
+.pf-table tbody tr{
+  border-bottom:1px solid rgba(30,42,56,.5);
+  transition:background .15s;
+}
+.pf-table tbody tr:last-child{border-bottom:none}
+.pf-table tbody tr:hover{background:rgba(56,200,255,0.03)}
+.pf-table td{
+  padding:11px 12px;
+  text-align:right;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+.pf-table td:first-child{text-align:left}
+
+.ticker-cell{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.badge{
+  display:inline-block;
+  padding:2px 6px;
+  border-radius:2px;
+  font-size:7px;
+  font-weight:600;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.badge-cedear{background:rgba(56,200,255,.12);color:var(--cyan);border:1px solid rgba(56,200,255,.2)}
+.badge-bono{background:rgba(0,229,168,.1);color:var(--green);border:1px solid rgba(0,229,168,.2)}
+.badge-bono-ars{background:rgba(255,200,74,.1);color:var(--amber);border:1px solid rgba(255,200,74,.2)}
+.badge-opcion{background:rgba(255,63,94,.1);color:var(--red);border:1px solid rgba(255,63,94,.2)}
+
+.ticker-name{
+  font-weight:500;
+  font-size:12px;
+}
+.ticker-sub{
+  font-size:9px;
+  color:var(--text3);
+  display:block;
+  margin-top:1px;
+}
+
+.val-base{color:var(--text2);font-size:12px}
+.val-stress{font-size:13px;font-weight:600;color:var(--text)}
+.val-delta{font-size:12px;font-weight:500}
+.val-pct{font-size:11px}
+
+.flash{
+  animation:flashAnim .25s ease-out;
+}
+@keyframes flashAnim{
+  0%{opacity:.3;transform:scale(.97)}
+  100%{opacity:1;transform:scale(1)}
+}
+
+/* ── KPI Bar ── */
+.kpi-bar{
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:0;
+  border-top:1px solid var(--border);
+}
+.kpi-cell{
+  padding:14px 16px;
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.kpi-cell:last-child{border-right:none}
+.kpi-lbl{
+  font-size:7px;
+  font-weight:600;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--text3);
+}
+.kpi-num{
+  font-size:15px;
+  font-weight:600;
+  color:var(--text);
+  letter-spacing:-0.5px;
+}
+.kpi-num.impact-pos{color:var(--green)}
+.kpi-num.impact-neg{color:var(--red)}
+.kpi-sub{
+  font-size:9px;
+  color:var(--text3);
+}
+
+/* ── Sensitivity indicator ── */
+.sens-dot{
+  width:5px;height:5px;
+  border-radius:50%;
+  display:inline-block;
+  margin-left:4px;
+  vertical-align:middle;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <span class="header-title">Stress Test</span>
+    <span class="scenario-active" id="scenarioLabel">— CRISIS CAMBIARIA —</span>
+    <div class="header-right">
+      <div class="dot"></div>
+      <span>MOCK · datos simulados</span>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- ── LEFT: Controls ── -->
+    <div class="panel">
+      <div class="panel-header">Escenario</div>
+      <div class="controls">
+
+        <div class="slider-group">
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span class="slider-label">Acciones USA (S&P)</span>
+              <span class="slider-val zero" id="val-stocks">0%</span>
+            </div>
+            <input type="range" id="sl-stocks" min="-40" max="40" value="0" step="1" oninput="update()">
+            <div class="slider-ticks"><span>-40%</span><span>0</span><span>+40%</span></div>
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span class="slider-label">Bonos soberanos</span>
+              <span class="slider-val zero" id="val-bonds">0%</span>
+            </div>
+            <input type="range" id="sl-bonds" min="-30" max="30" value="0" step="1" oninput="update()">
+            <div class="slider-ticks"><span>-30%</span><span>0</span><span>+30%</span></div>
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span class="slider-label">Vol. implícita (opciones)</span>
+              <span class="slider-val zero" id="val-vol">0 pts</span>
+            </div>
+            <input type="range" id="sl-vol" min="-50" max="100" value="0" step="1" oninput="update()">
+            <div class="slider-ticks"><span>-50</span><span>0</span><span>+100</span></div>
+          </div>
+
+        </div>
+
+        <div class="divider"></div>
+
+        <div>
+          <div class="presets-label">Escenarios predefinidos</div>
+          <div class="presets">
+            <button class="preset-btn" id="p-crisis" onclick="applyPreset('crisis')">
+              <span>Crisis cambiaria</span>
+              <span class="preset-hint">bonos -20% · vol +40</span>
+            </button>
+            <button class="preset-btn" id="p-crash" onclick="applyPreset('crash')">
+              <span>Crash USA</span>
+              <span class="preset-hint">acciones -25% · vol +30</span>
+            </button>
+            <button class="preset-btn" id="p-rebote" onclick="applyPreset('rebote')">
+              <span>Rebote</span>
+              <span class="preset-hint">acciones +15% · bonos +8%</span>
+            </button>
+          </div>
+          <button class="reset-btn" onclick="resetAll()">↺ &nbsp;Reset</button>
+        </div>
+
+        <!-- Legend -->
+        <div style="font-size:8px;color:var(--text3);line-height:1.8;border-top:1px solid var(--border);padding-top:14px">
+          <div><span class="sens-dot" style="background:var(--cyan)"></span> sensible a acciones</div>
+          <div><span class="sens-dot" style="background:var(--green)"></span> sensible a bonos</div>
+          <div><span class="sens-dot" style="background:var(--red)"></span> opciones (delta+vega)</div>
+          <div><span class="sens-dot" style="background:var(--text3)"></span> sin exposición</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── RIGHT: Portfolio ── -->
+    <div class="panel">
+      <div class="panel-header">Impacto en portafolio</div>
+      <table class="pf-table">
+        <thead>
+          <tr>
+            <th>Posición</th>
+            <th>Base USD</th>
+            <th>Estresado</th>
+            <th>Δ USD</th>
+            <th>Δ %</th>
+          </tr>
+        </thead>
+        <tbody id="pf-body"></tbody>
+      </table>
+
+      <!-- KPI Bar -->
+      <div class="kpi-bar">
+        <div class="kpi-cell">
+          <span class="kpi-lbl">Base total</span>
+          <span class="kpi-num" id="k-base">$21,650</span>
+          <span class="kpi-sub">USD</span>
+        </div>
+        <div class="kpi-cell">
+          <span class="kpi-lbl">Estresado</span>
+          <span class="kpi-num" id="k-stress">$21,650</span>
+          <span class="kpi-sub">USD</span>
+        </div>
+        <div class="kpi-cell">
+          <span class="kpi-lbl">Impacto $</span>
+          <span class="kpi-num" id="k-delta">$0</span>
+          <span class="kpi-sub">USD</span>
+        </div>
+        <div class="kpi-cell">
+          <span class="kpi-lbl">Impacto %</span>
+          <span class="kpi-num" id="k-pct">0.0%</span>
+          <span class="kpi-sub">vs base</span>
+        </div>
+        <div class="kpi-cell">
+          <span class="kpi-lbl">Peor posición</span>
+          <span class="kpi-num" id="k-worst" style="font-size:12px">—</span>
+          <span class="kpi-sub" id="k-worst-sub">—</span>
+        </div>
+        <div class="kpi-cell">
+          <span class="kpi-lbl">Mejor posición</span>
+          <span class="kpi-num" id="k-best" style="font-size:12px">—</span>
+          <span class="kpi-sub" id="k-best-sub">—</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /layout -->
+</div><!-- /wrap -->
+
+<script>
+// ── Portfolio positions ──────────────────────────────────────────
+const POSITIONS = [
+  {
+    ticker:'AAPL',
+    sub:'CEDEAR · NasdaqGS',
+    tipo:'cedear',
+    base:8200,
+    // stressed = base * (1 + stocks/100)
+    stressFn: (s,b,v) => 8200 * (1 + s/100),
+    sens:'stocks',
+  },
+  {
+    ticker:'MSFT',
+    sub:'CEDEAR · NasdaqGS',
+    tipo:'cedear',
+    base:5100,
+    stressFn: (s,b,v) => 5100 * (1 + s/100),
+    sens:'stocks',
+  },
+  {
+    ticker:'AL30',
+    sub:'Bono soberano · USD',
+    tipo:'bono',
+    base:3800,
+    stressFn: (s,b,v) => 3800 * (1 + b/100),
+    sens:'bonds',
+  },
+  {
+    ticker:'GD30',
+    sub:'Bono soberano · USD',
+    tipo:'bono',
+    base:2900,
+    stressFn: (s,b,v) => 2900 * (1 + b/100),
+    sens:'bonds',
+  },
+  {
+    ticker:'GGAL C-K6000',
+    sub:'Call opciones · delta≈0.4',
+    tipo:'opcion',
+    base:450,
+    // delta component + vega component
+    // delta=0.4, vega≈0.3 per 10 vol pts normalized
+    stressFn: (s,b,v) => {
+      const delta = 0.40;
+      const vega  = 0.030; // per 1 vol pt
+      const stressed = 450 * (1 + delta*(s/100)) + 450 * vega * v;
+      return Math.max(0, stressed);
+    },
+    sens:'opcion',
+  },
+  {
+    ticker:'LECAP',
+    sub:'Letra ARS · Capital',
+    tipo:'bono-ars',
+    base:1200,
+    stressFn: (s,b,v) => 1200, // ARS-denominated, no USD sensitivity
+    sens:'none',
+  },
+];
+
+const BADGE_HTML = {
+  cedear:   '<span class="badge badge-cedear">CEDEAR</span>',
+  bono:     '<span class="badge badge-bono">Bono SOB</span>',
+  'bono-ars':'<span class="badge badge-bono-ars">Bono ARS</span>',
+  opcion:   '<span class="badge badge-opcion">Opción</span>',
+};
+
+const SENS_DOT = {
+  stocks: `<span class="sens-dot" style="background:var(--cyan)"></span>`,
+  bonds:  `<span class="sens-dot" style="background:var(--green)"></span>`,
+  opcion: `<span class="sens-dot" style="background:var(--red)"></span>`,
+  none:   `<span class="sens-dot" style="background:var(--text3)"></span>`,
+};
+
+const fmt = (n,dp=0) => '$'+Math.abs(n).toLocaleString('es-AR',{minimumFractionDigits:dp,maximumFractionDigits:dp});
+const pct  = n => (n>=0?'+':'')+n.toFixed(1)+'%';
+const sign = n => n>=0?'+':'-';
+
+// ── Build table rows ─────────────────────────────────────────────
+function buildTable() {
+  const tbody = document.getElementById('pf-body');
+  tbody.innerHTML = POSITIONS.map((p,i) => `
+    <tr>
+      <td>
+        <div class="ticker-cell">
+          ${BADGE_HTML[p.tipo]}
+          <div>
+            <span class="ticker-name">${p.ticker}</span>${SENS_DOT[p.sens]}
+            <span class="ticker-sub">${p.sub}</span>
+          </div>
+        </div>
+      </td>
+      <td><span class="val-base">${fmt(p.base)}</span></td>
+      <td><span class="val-stress" id="st-${i}">${fmt(p.base)}</span></td>
+      <td><span class="val-delta" id="dd-${i}">—</span></td>
+      <td><span class="val-pct"  id="pp-${i}">—</span></td>
+    </tr>
+  `).join('');
+}
+
+// ── Update ───────────────────────────────────────────────────────
+let lastValues = {s:0,b:0,v:0};
+
+function update() {
+  const s = +document.getElementById('sl-stocks').value;
+  const b = +document.getElementById('sl-bonds').value;
+  const v = +document.getElementById('sl-vol').value;
+
+  // Slider labels
+  const setVal = (id, n, unit='%') => {
+    const el = document.getElementById(id);
+    el.textContent = (n>=0?'+':'')+n+unit;
+    el.className = 'slider-val ' + (n>0?'pos':n<0?'neg':'zero');
+  };
+  setVal('val-stocks', s);
+  setVal('val-bonds',  b);
+  setVal('val-vol',    v, ' pts');
+
+  // Compute stressed values
+  let totalBase = 0, totalStress = 0;
+  const results = POSITIONS.map((p,i) => {
+    const stressed = p.stressFn(s, b, v);
+    const delta    = stressed - p.base;
+    const deltaPct = p.base > 0 ? (delta/p.base)*100 : 0;
+    totalBase   += p.base;
+    totalStress += stressed;
+
+    // Flash animation if value changed
+    const stEl = document.getElementById(`st-${i}`);
+    const ddEl = document.getElementById(`dd-${i}`);
+    const ppEl = document.getElementById(`pp-${i}`);
+
+    const newStress = fmt(stressed);
+    if(stEl.textContent !== newStress) {
+      stEl.classList.remove('flash');
+      void stEl.offsetWidth; // reflow
+      stEl.classList.add('flash');
+    }
+
+    stEl.textContent = newStress;
+
+    const dc = delta >= 0 ? 'var(--green)' : 'var(--red)';
+    ddEl.style.color = dc;
+    ppEl.style.color = dc;
+
+    if(Math.abs(delta) < 0.5) {
+      ddEl.textContent = '—';
+      ppEl.textContent = '—';
+    } else {
+      ddEl.textContent = (delta>=0?'+':'-')+fmt(delta);
+      ppEl.textContent = pct(deltaPct);
+    }
+
+    return { ticker: p.ticker, stressed, delta, deltaPct };
+  });
+
+  // KPIs
+  const totalDelta = totalStress - totalBase;
+  const totalPct   = totalBase > 0 ? (totalDelta/totalBase)*100 : 0;
+
+  document.getElementById('k-base').textContent   = fmt(totalBase);
+  document.getElementById('k-stress').textContent = fmt(totalStress);
+
+  const kdEl = document.getElementById('k-delta');
+  kdEl.textContent = (totalDelta>=0?'+':'-')+fmt(totalDelta);
+  kdEl.className   = 'kpi-num ' + (totalDelta>0?'impact-pos':totalDelta<0?'impact-neg':'');
+
+  const kpEl = document.getElementById('k-pct');
+  kpEl.textContent = pct(totalPct);
+  kpEl.className   = 'kpi-num ' + (totalPct>0?'impact-pos':totalPct<0?'impact-neg':'');
+
+  // Best / worst (exclude unchanged)
+  const moved = results.filter(r => Math.abs(r.delta) > 0.5);
+  if(moved.length) {
+    const worst = moved.reduce((a,b)=>b.deltaPct<a.deltaPct?b:a);
+    const best  = moved.reduce((a,b)=>b.deltaPct>a.deltaPct?b:a);
+    document.getElementById('k-worst').textContent     = worst.ticker;
+    document.getElementById('k-worst-sub').textContent = pct(worst.deltaPct);
+    document.getElementById('k-worst-sub').style.color = 'var(--red)';
+    document.getElementById('k-best').textContent      = best.ticker;
+    document.getElementById('k-best-sub').textContent  = pct(best.deltaPct);
+    document.getElementById('k-best-sub').style.color  = 'var(--green)';
+  } else {
+    ['k-worst','k-best'].forEach(id=>document.getElementById(id).textContent='—');
+    ['k-worst-sub','k-best-sub'].forEach(id=>{document.getElementById(id).textContent='sin cambios';document.getElementById(id).style.color='var(--text3)'});
+  }
+
+  lastValues = {s,b,v};
+}
+
+// ── Presets ──────────────────────────────────────────────────────
+const PRESETS = {
+  crisis: { s:0,  b:-20, v:40,  label:'CRISIS CAMBIARIA'  },
+  crash:  { s:-25,b:0,   v:30,  label:'CRASH USA'         },
+  rebote: { s:15, b:8,   v:-10, label:'REBOTE'            },
+};
+
+let activePreset = null;
+
+function applyPreset(key) {
+  const p = PRESETS[key];
+  document.getElementById('sl-stocks').value = p.s;
+  document.getElementById('sl-bonds').value  = p.b;
+  document.getElementById('sl-vol').value    = p.v;
+  update();
+
+  // Update active state
+  ['crisis','crash','rebote'].forEach(k => {
+    document.getElementById('p-'+k).classList.toggle('active', k===key);
+  });
+  activePreset = key;
+  const lbl = document.getElementById('scenarioLabel');
+  lbl.textContent = '— '+p.label+' —';
+  lbl.classList.add('visible');
+}
+
+function resetAll() {
+  ['sl-stocks','sl-bonds','sl-vol'].forEach(id => {
+    document.getElementById(id).value = 0;
+  });
+  ['crisis','crash','rebote'].forEach(k => {
+    document.getElementById('p-'+k).classList.remove('active');
+  });
+  activePreset = null;
+  document.getElementById('scenarioLabel').classList.remove('visible');
+  update();
+}
+
+// Clear preset highlight when slider moved manually
+['sl-stocks','sl-bonds','sl-vol'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', () => {
+    if(activePreset) {
+      ['crisis','crash','rebote'].forEach(k=>document.getElementById('p-'+k).classList.remove('active'));
+      activePreset=null;
+      document.getElementById('scenarioLabel').classList.remove('visible');
+    }
+  });
+});
+
+// ── Init ─────────────────────────────────────────────────────────
+buildTable();
+update();
+</script>
+</body>
+</html>
