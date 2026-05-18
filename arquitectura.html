@@ -797,6 +797,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
           <li><strong>Watchdog</strong>: verifica que la tabla <code>mercado_usa</code> tenga precios frescos (&lt;7 min)</li>
           <li><strong>Health check</strong>: edge function <code>yahoo-prices</code> responde? Alerta Telegram si caída</li>
           <li><strong>Earnings watch</strong>: consulta ADRs del portafolio, chequea próximos earnings, alerta una vez por ticker+fecha</li>
+          <li><strong>Watchdog guardián (también en monitor_dashboard.ps1)</strong>: mismo watchdog vía Windows Task Scheduler como respaldo</li>
         </ul>
       </div>
     </div>
@@ -868,7 +869,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
           <td style="padding:8px;font-size:9px;color:#4a6e90"><code>schtasks /run /tn "\Dashboard USA"</code></td>
         </tr>
         <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
-          <td style="padding:8px"><code style="color:#ff4455">\Monitor Bateria Telegram</code><br><span style="font-size:9px;color:#4a6e90">Batería baja + Watchdog</span></td>
+          <td style="padding:8px"><code style="color:#ff4455">\Monitor Bateria Telegram</code><br><span style="font-size:9px;color:#4a6e90">Batería + Watchdog + Earnings + PnL + Dólar</span></td>
           <td style="padding:8px;color:#7a9ec0">Cada 5 min (24/7)<br>Inicia 18/4/2026</td>
           <td style="padding:8px"><code style="font-size:9px">powershell.exe -File C:\Dashboard\Scripts\monitor_dashboard.ps1</code></td>
           <td style="padding:8px;color:#00d084">✅ Activo</td>
@@ -893,7 +894,12 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
     <div style="margin-top:10px;font-size:10px;color:#4a6e90;line-height:1.6">
       📍 Para ver estado y logs: <code>powershell -Command "schtasks /query /tn '\NombreTarea' /fo LIST /v"</code><br>
       📍 Para reiniciar manual: <code>powershell -Command "schtasks /run /tn '\NombreTarea'"</code><br>
-      📍 Script monitor batería: <code>C:\Dashboard\Scripts\monitor_dashboard.ps1</code> (mide %, envía Telegram a &lt;20% y &lt;10%, + watchdog mercado ARS/USA)
+      📍 Script monitor batería: <code>C:\Dashboard\Scripts\monitor_dashboard.ps1</code> — funciones completas:<br>
+    &nbsp;&nbsp;• 🔋 Batería baja: Telegram a &lt;20% y &lt;10%<br>
+    &nbsp;&nbsp;• 👁 Watchdog ARS+USA: reinicia monitores si &gt;7min sin datos<br>
+    &nbsp;&nbsp;• 📊 Earnings: alerta 5, 3 y 1 día antes de earnings de ADRs del portafolio<br>
+    &nbsp;&nbsp;• 💰 PnL diario: snapshot de valor portafolio al cierre (17:06 ART)<br>
+    &nbsp;&nbsp;• 💵 Dólar MEP: captura AL30/AL30D al cierre (17:01 ART)
     </div>
   </div>
 
@@ -916,7 +922,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
           <td style="padding:8px"><code style="color:#48aaff">Monitor USA</code></td>
           <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * 1-5</code><br>Lun-vie, 08:10-20:30 ART</td>
-          <td style="padding:8px"><code style="font-size:9px">scripts/monitor_usa.sh</code><br><span style="font-size:9px;color:#4a6e90">Watchdog USA + health check + earnings</span></td>
+          <td style="padding:8px"><code style="font-size:9px">scripts/monitor_usa.sh</code><br><span style="font-size:9px;color:#4a6e90">Watchdog USA + health check + earnings (WSL)</span></td>
           <td style="padding:8px;font-size:9px;color:#4a6e90">monitor_usa.log</td>
         </tr>
         <tr>
