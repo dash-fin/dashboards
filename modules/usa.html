@@ -3369,14 +3369,14 @@ window.loadSmartMoney = async () => {
     const top = (window.usAllData||[]).slice(0,8).map(r=>r.symbol);
     // Base por defecto: SPY (mercado), QQQ (tech), GLD (oro), TLT (bonos largos), SHY (bonos cortos), XLU (utilities), XLP (defensivo), EEM (emergentes)
     const base = ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT','SHY','XLU','XLP','EEM','XLK','XLV','XLE'];
-    const all = [...new Set([...pfTickersUSA, ...top, ...base])].slice(0,20);
+    const all = [...new Set([...pfTickersUSA, ...top, ...base])].slice(0,30);
     
     // Guardar tickers del portafolio para usarlos en análisis
     window._smPfTickersUSA = pfTickersUSA;
     
     const [vwapR,corrR,momR] = await Promise.allSettled([
       window._smFetchVwap(['SPY','QQQ','AAPL']),
-      window._smCalcCorr(all.slice(0,11)),
+      window._smCalcCorr(all.slice(0,15)),
       window._smCalcMomentum()
     ]);
     if(vwapR.status==='fulfilled') window._smRenderVwap(vwapR.value);
@@ -3523,7 +3523,7 @@ window._smCalcCorr = async (tickers) => {
 window._smRenderCorr = (r) => {
   const el = document.getElementById('sm-correlation-grid');
   if(!el||!r||!r.symbols||r.symbols.length<2){el.innerHTML='<div class="sm-error">Pocos datos para correlaci\u00f3n</div>'; return;}
-  const s = r.symbols.slice(0,11);
+  const s = r.symbols.slice(0,15);
   let html = '<table style="width:100%;border-collapse:collapse;font-size:9px"><tr><td style="padding:2px 4px;color:var(--text3);font-size:8px"></td>';
   s.forEach(sym => html += '<td style="padding:2px 4px;text-align:center;font-weight:600;color:var(--blue);font-size:8px">'+sym+'</td>');
   html += '</tr>';
@@ -3548,7 +3548,7 @@ window._smRenderCorr = (r) => {
   
   // Análisis automático de correlación
   const pairs = [];
-  const syms2 = r.symbols.slice(0,11);
+  const syms2 = r.symbols.slice(0,15);
   for(let i=0;i<syms2.length;i++) for(let j=i+1;j<syms2.length;j++) {
     const v = r.matrix[syms2[i]+'|'+syms2[j]];
     if(v!=null) pairs.push({a:syms2[i],b:syms2[j],v});
@@ -3658,12 +3658,20 @@ window._smRenderRecommendation = (corrResult) => {
 };
 
 window._smCalcMomentum = async () => {
-  // Usar tickers del portafolio + top del mercado en vez de todos los 600 de usAllData
+  // Usar hasta 100 tickers de usAllData, priorizando portafolio + benchmarks
   const pfTickers = window._smPfTickersUSA||[];
   const pfAll = window.usAllData||[];
-  const topMkt = pfAll.filter(r=>pfTickers.includes(r.symbol)||['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT'].includes(r.symbol));
-  const data = pfAll.length ? pfAll.filter(r => pfTickers.includes(r.symbol) || ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT','SHY','XLU','XLP','EEM'].includes(r.symbol)) : [];
-  console.log('[momentum] Filtered to', data.length, 'tickers (portfolio + benchmarks)');
+  const benchmarks = ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT','SHY','XLU','XLP','EEM'];
+  const prioritySet = new Set([...pfTickers, ...benchmarks]);
+  // Ordenar: primero los prioritarios, luego el resto por volumen descendente
+  const sorted = [...pfAll].sort((a,b) => {
+    const aP = prioritySet.has(a.symbol) ? 0 : 1;
+    const bP = prioritySet.has(b.symbol) ? 0 : 1;
+    if (aP !== bP) return aP - bP;
+    return (b.volume||0) - (a.volume||0);
+  });
+  const data = sorted.slice(0, 100);
+  console.log('[momentum] Filtered to', data.length, 'tickers (priority + top by volume)');
   if(!data.length) { console.warn('[momentum] No matching tickers found'); return []; }
   const syms = data.map(r=>r.symbol);
   console.log('[momentum] Fetching historico_precios for', syms.length, 'symbols:', syms.join(','));
