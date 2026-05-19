@@ -3364,7 +3364,7 @@ window.loadSmartMoney = async () => {
     const pfData = pf.ok ? await pf.json() : [];
     console.log('[sm] Portfolio fetch:', {url: pfUrl, count: pfData.length, email: userEmail});
     // ticker_adr = ADR/USA (ej. PG, GGAL), ticker_usd = ARS (ej. PGD, GGALD) → sacar D
-    const pfTickersUSA = [...new Set(pfData.flatMap(r=>[r.ticker_adr, r.ticker_usd?.replace(/D$/,'')]).filter(Boolean))].slice(0,15);
+    const pfTickersUSA = [...new Set(pfData.flatMap(r=>[r.ticker_adr, r.ticker_usd?.replace(/D$/,'')]).filter(Boolean))].slice(0,30);
     
     const top = (window.usAllData||[]).slice(0,8).map(r=>r.symbol);
     // Base por defecto: SPY (mercado), QQQ (tech), GLD (oro), TLT (bonos largos), SHY (bonos cortos), XLU (utilities), XLP (defensivo), EEM (emergentes)
