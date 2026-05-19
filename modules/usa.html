@@ -3375,7 +3375,7 @@ window.loadSmartMoney = async () => {
     window._smPfTickersUSA = pfTickersUSA;
     
     const [vwapR,corrR,momR] = await Promise.allSettled([
-      window._smFetchVwap(['SPY','QQQ','AAPL']),
+      window._smFetchVwap(all.slice(0,15)),
       window._smCalcCorr(all.slice(0,15)),
       window._smCalcMomentum()
     ]);
@@ -3658,20 +3658,12 @@ window._smRenderRecommendation = (corrResult) => {
 };
 
 window._smCalcMomentum = async () => {
-  // Usar hasta 100 tickers de usAllData, priorizando portafolio + benchmarks
-  const pfTickers = window._smPfTickersUSA||[];
+  // Usar hasta 100 tickers de usAllData, sin filtrar por portafolio/benchmarks
   const pfAll = window.usAllData||[];
-  const benchmarks = ['SPY','QQQ','AAPL','MSFT','NVDA','AMZN','TSLA','GOOGL','META','GLD','TLT','SHY','XLU','XLP','EEM'];
-  const prioritySet = new Set([...pfTickers, ...benchmarks]);
-  // Ordenar: primero los prioritarios, luego el resto por volumen descendente
-  const sorted = [...pfAll].sort((a,b) => {
-    const aP = prioritySet.has(a.symbol) ? 0 : 1;
-    const bP = prioritySet.has(b.symbol) ? 0 : 1;
-    if (aP !== bP) return aP - bP;
-    return (b.volume||0) - (a.volume||0);
-  });
+  // Ordenar por volumen descendente
+  const sorted = [...pfAll].sort((a,b) => (b.volume||0) - (a.volume||0));
   const data = sorted.slice(0, 100);
-  console.log('[momentum] Filtered to', data.length, 'tickers (priority + top by volume)');
+  console.log('[momentum] Using top', data.length, 'tickers by volume');
   if(!data.length) { console.warn('[momentum] No matching tickers found'); return []; }
   const syms = data.map(r=>r.symbol);
   console.log('[momentum] Fetching historico_precios for', syms.length, 'symbols:', syms.join(','));
