@@ -1,0 +1,37 @@
+# ──────────────────────────────────────────────
+# .aiderignore — Dashboard Financiero
+# Impide que Aider mapee archivos basura al repo
+# ──────────────────────────────────────────────
+
+# Dependencias
+node_modules/
+
+# Cachés de Aider
+.aider.tags.cache.v4/
+.aider.chat.history.md
+.aider.input.history
+
+# IDE / asistentes
+.claude/
+
+# Backups / archivos muertos
+Backup/
+memory/
+OLD/
+
+# Scripts de sistema (no del proyecto)
+scripts/
+
+# Binarios y archivos enormes
+*.exe
+*.apk
+*.msix
+*.mp4
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# HTMLs enormes (mockups, tests >200KB)
+login_mockup_finboard.html
+finboard_test.html

@@ -1,0 +1,11 @@
+# Git ignore para Aider (logs, caches)
+.aider.tags.cache.v4/
+.aider.chat.history.md
+.aider.input.history
+# NO ignorar .aiderignore ni .aider.conf.yml — son parte del proyecto
+
+.env.monitor
+ElliottWave/
+node_modules/
+package-lock.json
+package.json

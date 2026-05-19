@@ -5,10 +5,17 @@
 - **No repitas la lógica en texto**: Si el cambio es evidente en el código provisto, no agregues una explicación textual debajo repitiendo lo mismo que ya hace el código.
 - **Sin marcadores de posición proactivos**: No generes archivos de andamiaje (boilerplate) completos con comentarios `// TODO`. Si falta implementar algo, deja solo la firma del método.
 
-## Ahorro de Tokens al usar Aider
+## Aider — Wrappers
 
-- **`aider-deepseek`** → deepseek/deepseek-chat (tareas rápidas)
-- **`aider-sonnet`** → anthropic/claude-sonnet-4 (tareas complejas)
-- **`aider-gemini`** → gemini/gemini-2.5-flash (tareas baratas/grandes)
+| Comando | Arquitecto | Editor | Para qué |
+|---------|-----------|--------|----------|
+| `aider-deepseek` | — | DeepSeek | Tareas rápidas, refactors simples |
+| `aider-sonnet` | 🧠 Sonnet | ✏️ DeepSeek | Bugs complejos, lógica financiera |
+| `aider-gemini` | — | Gemini | Contextos grandes, tareas baratas |
 
-Los 3 wrappers usan `--map-tokens 512` (~50% menos tokens de mapa del repo vs default 1024). No tocar este flag a menos que el proyecto crezca tanto que Aider no entienda la estructura.
+- **Architect Mode** (`aider-sonnet`): Sonnet razona y planifica en 1-2 turns → DeepSeek aplica los cambios mecánicamente
+- `--map-tokens 512` en todos (~50% menos tokens de mapa del repo vs default 1024)
+- `--auto-lint` activo: Ruff corrige formato Python post-edit automáticamente
+- `.aiderignore` en la raíz del repo excluye basura (node_modules, mockups, binarios)
+
+**NUNCA cambiar `--map-tokens 512`** sin evaluar el impacto en tokens.
