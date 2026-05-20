@@ -98,10 +98,10 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 /* ── Drawer ── */
 .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;opacity:0;pointer-events:none;transition:opacity .2s}
 .drawer-overlay.open{opacity:1;pointer-events:all}
-.drawer{position:fixed;top:0;left:0;bottom:0;width:252px;background:#07090f;border-right:1px solid rgba(255,255,255,.08);z-index:901;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .2s cubic-bezier(.4,0,.2,1);box-shadow:4px 0 24px rgba(0,0,0,.6)}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:252px;background:#07090f;border-right:1px solid rgba(255,255,255,.08);z-index:901;display:flex;flex-direction:column;transform:translateX(calc(-100% - 2px));transition:transform .2s cubic-bezier(.4,0,.2,1);box-shadow:6px 0 32px rgba(0,0,0,.7)}
 .drawer.open{transform:translateX(0)}
 .drawer-head{display:flex;flex-direction:column;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative}
-.drawer-head-banner{width:100%;height:72px;object-fit:cover;object-position:center 30%;display:block;opacity:.92}
+.drawer-head-banner{width:100%;height:58px;object-fit:cover;object-position:center 30%;display:block;opacity:.92}
 .drawer-head-close{position:absolute;top:8px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:rgba(0,0,0,.45);border-radius:4px;color:rgba(255,255,255,.5);font-size:12px;transition:all .12s;backdrop-filter:blur(4px)}
 .drawer-head-close:hover{background:rgba(0,0,0,.7);color:#fff}
 .drawer-close{width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:rgba(255,255,255,.04);border-radius:4px;color:var(--text3);font-size:14px;transition:all .12s}
@@ -493,13 +493,10 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 </style>
 </head>
 <body>
-<div class="app">
-
-  <div class="header">
-    <!-- Drawer overlay -->
-    <div class="drawer-overlay" id="drawerOverlay" onclick="drawerClose()"></div>
-    <!-- Drawer -->
-    <div class="drawer" id="drawer">
+<!-- Drawer overlay -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="drawerClose()"></div>
+<!-- Drawer -->
+<div class="drawer" id="drawer">
       <div class="drawer-head">
         <img src="banner.jpg" alt="Finboard" class="drawer-head-banner">
         <button class="drawer-head-close" onclick="drawerClose()">✕</button>
@@ -623,7 +620,10 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
         </div>
       </div>
     </div>
+</div><!-- /drawer -->
 
+<div class="app">
+  <div class="header">
     <div class="header-top">
       <div style="display:flex;align-items:center;gap:6px">
         <button class="ham-btn" onclick="drawerOpen()" title="Menú">
@@ -1191,19 +1191,13 @@ function updateUserUI() {
 // Mapa mod → función de tab interna
 const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',usa:'usTab',opciones:'oSetTab',analisis:'analTab'};
 // Navegar a módulo + sub-tab desde el drawer
-window.drawerNav = (mod, tab) => {
-  const btn=document.getElementById('mtab-'+mod);
-  const isAuth=btn?.getAttribute('onclick')?.includes('Auth');
-  isAuth?loadModuleAuth(mod,btn):loadModule(mod,btn);
-  if(tab){
-    const fnName=_tabFn[mod]||mod+'Tab';
-    const check=setInterval(()=>{
-      const fn=window[fnName];
-      if(typeof fn==='function'){clearInterval(check);fn(tab,null);}
-    },80);
-    setTimeout(()=>clearInterval(check),4000);
-  }
+window.drawerNav = async (mod, tab) => {
   drawerClose();
+  await loadModule(mod, document.getElementById('mtab-'+mod));
+  if(tab){
+    const fn=window[_tabFn[mod]||mod+'Tab'];
+    if(typeof fn==='function') fn(tab, null);
+  }
 };
 window.qaTrack=()=>{};
 
