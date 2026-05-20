@@ -1,0 +1,250 @@
+<!-- ══════════════════════════════════════════════
+     MÓDULO: CADENA RT — Opciones GGAL realtime
+     Datos: opciones_rt (bid/ask/last/previous_close)
+     Flash verde/rojo por tick según dirección
+══════════════════════════════════════════════ -->
+<style>
+.rtc-header{display:flex;justify-content:space-between;align-items:center;padding:12px 0 6px;flex-wrap:wrap;gap:8px}
+.rtc-title{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--text)}
+.rtc-spot{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500;color:var(--text)}
+.rtc-chg{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600}
+.rtc-meta{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)}
+.rtc-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:4px;padding:4px 12px;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer;transition:filter .15s}
+.rtc-btn:hover{filter:brightness(1.15)}
+
+.rtc-exp-tabs{display:flex;gap:6px;padding:4px 0 10px;flex-wrap:wrap}
+.rtc-etab{padding:4px 14px;border-radius:12px;border:1px solid var(--border2);background:var(--bg3);font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;transition:all .15s}
+.rtc-etab.active{border-color:var(--green);background:rgba(0,229,168,.12);color:var(--green)}
+.rtc-etab:hover:not(.active){border-color:var(--border);color:var(--text2)}
+
+.rtc-scroll{overflow-x:auto;margin-top:2px}
+.rtc-table{width:100%;min-width:1080px;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:11px}
+
+/* Section headers */
+.rtc-th-section-calls{background:rgba(0,229,168,.07);color:var(--green);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:5px 8px;text-align:center;border-bottom:1px solid rgba(0,229,168,.2)}
+.rtc-th-section-puts {background:rgba(255,63,94,.07); color:var(--red);  font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:5px 8px;text-align:center;border-bottom:1px solid rgba(255,63,94,.2)}
+.rtc-th-section-mid  {background:var(--bg3);border-left:2px solid var(--border);border-right:2px solid var(--border)}
+
+/* Column headers */
+.rtc-th{font-size:7px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;padding:5px 8px;text-align:right;border-bottom:2px solid var(--border);white-space:nowrap;color:var(--text3)}
+.rtc-th.l{text-align:left}
+.rtc-th.c{text-align:center;border-left:2px solid var(--border);border-right:2px solid var(--border);color:var(--text2)}
+.rtc-th.gc{color:rgba(0,229,168,.7)}
+.rtc-th.rc{color:rgba(255,63,94,.7)}
+
+/* Data cells */
+.rtc-td{padding:4px 8px;text-align:right;border-bottom:1px solid rgba(30,37,48,.5);font-size:11px;color:var(--text);white-space:nowrap}
+.rtc-td.l{text-align:left;font-size:9px;color:var(--text3)}
+.rtc-td.c{text-align:center;font-size:12px;font-weight:700;color:var(--text2);border-left:2px solid var(--border);border-right:2px solid var(--border)}
+.rtc-td.bid {color:var(--green)}
+.rtc-td.ask {color:var(--red)}
+.rtc-td.iv  {color:var(--text3);font-size:10px}
+.rtc-td.dash{color:var(--text3)}
+
+/* Row states */
+.rtc-call-itm{background:rgba(0,229,168,.025)}
+.rtc-put-itm {background:rgba(255,63,94,.025)}
+.rtc-atm-row {background:rgba(251,191,36,.065)!important}
+.rtc-atm-row .rtc-td.c{color:var(--amber)}
+.rtc-atm-badge{font-size:6px;font-weight:800;letter-spacing:1.2px;color:var(--amber);display:block;margin-top:1px}
+
+/* VAR% badges */
+.rtc-var{display:inline-block;border-radius:3px;padding:1px 6px;font-size:9px;font-weight:600;min-width:52px;text-align:center}
+.rtc-var.pos{background:rgba(0,229,168,.2);color:var(--green)}
+.rtc-var.neg{background:rgba(255,63,94,.2);color:var(--red)}
+.rtc-var.neu{color:var(--text3)}
+
+/* Flash animations */
+@keyframes flashUp  {0%{background:rgba(0,229,168,.4)}100%{background:transparent}}
+@keyframes flashDn  {0%{background:rgba(255,63,94,.4)} 100%{background:transparent}}
+.flash-up{animation:flashUp .85s ease-out forwards}
+.flash-dn{animation:flashDn .85s ease-out forwards}
+
+.rtc-empty{padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
+</style>
+
+<div id="rtcWrap">
+
+  <!-- Header -->
+  <div class="rtc-header">
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <span class="rtc-title">GGAL</span>
+      <span id="rtcSpot" class="rtc-spot">—</span>
+      <span id="rtcChg"  class="rtc-chg"></span>
+      <span class="rtc-meta">opciones · realtime</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span id="rtcUpd" class="rtc-meta"></span>
+      <button class="rtc-btn" onclick="rtcLoad()">↻ Actualizar</button>
+    </div>
+  </div>
+
+  <!-- Expiration tabs -->
+  <div id="rtcExpTabs" class="rtc-exp-tabs"></div>
+
+  <!-- Table -->
+  <div class="rtc-scroll">
+    <table class="rtc-table">
+      <thead>
+        <tr>
+          <th colspan="6" class="rtc-th-section-calls">▶ CALLS</th>
+          <th class="rtc-th-section-mid" rowspan="2"></th>
+          <th colspan="6" class="rtc-th-section-puts">PUTS ◀</th>
+        </tr>
+        <tr>
+          <th class="rtc-th l gc">TICKER</th>
+          <th class="rtc-th gc">BID</th>
+          <th class="rtc-th gc">LAST</th>
+          <th class="rtc-th rc">OFFER</th>
+          <th class="rtc-th">VI%</th>
+          <th class="rtc-th">VAR%</th>
+          <th class="rtc-th l gc">TICKER</th>
+          <th class="rtc-th gc">BID</th>
+          <th class="rtc-th gc">LAST</th>
+          <th class="rtc-th rc">OFFER</th>
+          <th class="rtc-th">VI%</th>
+          <th class="rtc-th">VAR%</th>
+        </tr>
+      </thead>
+      <tbody id="rtcBody">
+        <tr><td colspan="13" class="rtc-empty">Cargando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+(function(){
+
+// ── BS IV ──────────────────────────────────────────────────────
+const normCDF=z=>{const t=1/(1+0.2316419*Math.abs(z));const p=t*(0.31938153+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));const c=1-Math.exp(-0.5*z*z)/2.506628274590452*p;return z>=0?c:1-c};
+const bsV=(S,K,T,s,c)=>{if(T<=0||s<=0)return Math.max(c?S-K:K-S,0);const q=Math.sqrt(T),d1=(Math.log(S/K)+0.5*s*s*T)/(s*q),d2=d1-s*q;return c?S*normCDF(d1)-K*normCDF(d2):K*normCDF(-d2)-S*normCDF(-d1)};
+const calcIV=(price,S,K,T,isC)=>{if(!price||price<=0||T<=0||S<=0||K<=0)return null;if(price<Math.max(isC?S-K:K-S,0)-1)return null;let s=0.5;for(let i=0;i<60;i++){const q=Math.sqrt(T),d1=(Math.log(S/K)+0.5*s*s*T)/(s*q);const vg=S*q*Math.exp(-0.5*d1*d1)/2.506628274590452;if(vg<1e-8)break;const df=bsV(S,K,T,s,isC)-price;if(Math.abs(df)<0.05)break;s-=df/vg;if(s<=0.001){s=0.001;break;}if(s>15)return null}return s>0.001&&s<15?s:null};
+
+// ── Format ────────────────────────────────────────────────────
+const fn=(n,d=0)=>{if(n==null||isNaN(n))return'—';const p=Math.abs(n).toFixed(d).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');return(n<0?'-':'')+p.join(',')};
+const fk=n=>fn(n,1);
+const mid=o=>o.bid!=null&&o.ask!=null?(o.bid+o.ask)/2:(o.last??o.ask??o.bid??null);
+
+// ── State ─────────────────────────────────────────────────────
+const SBR='https://endymbpdayeidromxayb.supabase.co/rest/v1/';
+const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+const sbF=(t,p)=>fetch(SBR+t+'?'+p,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}).then(r=>r.ok?r.json():[]);
+
+let gSpot=null, gOpts=[], gExp=null, gPrev={}, gTimer=null;
+
+// ── Load ──────────────────────────────────────────────────────
+window.rtcLoad=async()=>{
+  try{
+    const today=new Date().toISOString().slice(0,10);
+    const[sR,oR]=await Promise.all([
+      sbF('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last,change&limit=1'),
+      sbF('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,previous_close&order=expiration.asc,strike.asc&limit=500')
+    ]);
+    if(sR?.length){
+      gSpot=sR[0].last;
+      const chg=sR[0].change;
+      document.getElementById('rtcSpot').textContent='$'+fn(gSpot);
+      const el=document.getElementById('rtcChg');
+      if(chg!=null){el.textContent=(chg>=0?'+':'')+fn(chg,2)+'%';el.style.color=chg>=0?'var(--green)':'var(--red)';}
+    }
+    const opts=(Array.isArray(oR)?oR:[]).filter(o=>o.expiration>=today);
+    // Flash detection
+    const newPrev={};
+    opts.forEach(o=>{
+      newPrev[o.symbol]=o.last;
+      if(gPrev[o.symbol]!=null&&o.last!=null&&o.last!==gPrev[o.symbol])
+        o._flash=o.last>gPrev[o.symbol]?'up':'dn';
+    });
+    gPrev=newPrev;
+    gOpts=opts;
+
+    // Exp tabs
+    const exps=[...new Set(opts.map(o=>o.expiration.slice(0,10)))].sort();
+    const tabsEl=document.getElementById('rtcExpTabs');
+    const needRebuild=tabsEl.children.length!==exps.length;
+    if(needRebuild){
+      tabsEl.innerHTML=exps.map(e=>{
+        const d=Math.ceil((new Date(e)-new Date())/86400000);
+        return`<div class="rtc-etab${e===gExp?' active':''}" onclick="rtcSetExp('${e}',this)">${e}<span style="opacity:.55"> (${d}d)</span></div>`;
+      }).join('');
+      if(!gExp||!exps.includes(gExp)) gExp=exps[0]||null;
+    }
+
+    const now=new Date();
+    document.getElementById('rtcUpd').textContent='Act. '+[now.getHours(),now.getMinutes(),now.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+    rtcRender();
+  }catch(e){console.error('[cadena_rt]',e);}
+};
+
+window.rtcSetExp=(e,el)=>{
+  gExp=e;
+  document.querySelectorAll('.rtc-etab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  rtcRender();
+};
+
+// ── Render ────────────────────────────────────────────────────
+window.rtcRender=()=>{
+  const tbody=document.getElementById('rtcBody');
+  if(!gSpot||!gOpts.length||!gExp){tbody.innerHTML=`<tr><td colspan="13" class="rtc-empty">Sin datos</td></tr>`;return;}
+  const T=Math.max((new Date(gExp)-new Date())/(365*86400000),1/365);
+  const filt=gOpts.filter(o=>o.expiration.slice(0,10)===gExp);
+
+  const byK=new Map();
+  filt.forEach(o=>{
+    if(!byK.has(o.strike))byK.set(o.strike,{k:o.strike,c:null,p:null});
+    const r=byK.get(o.strike);
+    if(o.kind==='CALL')r.c=o;else if(o.kind==='PUT')r.p=o;
+  });
+  const rows=[...byK.values()].sort((a,b)=>a.k-b.k);
+  const atmK=rows.reduce((b,r)=>Math.abs(r.k-gSpot)<Math.abs(b.k-gSpot)?r:b,rows[0])?.k;
+
+  const varBadge=v=>{
+    if(v==null)return'<span class="rtc-var neu">—</span>';
+    const cls=v>0.5?'pos':v<-0.5?'neg':'neu';
+    return`<span class="rtc-var ${cls}">${v>=0?'+':''}${fn(v,1)}%</span>`;
+  };
+  const fc=o=>o?._flash==='up'?'flash-up':o?._flash==='dn'?'flash-dn':'';
+
+  tbody.innerHTML=rows.map(r=>{
+    const atm=r.k===atmK;
+    const callITM=r.k<gSpot&&!atm;
+    const putITM =r.k>gSpot&&!atm;
+    const rc=atm?'rtc-atm-row':callITM?'rtc-call-itm':putITM?'rtc-put-itm':'';
+    const callIV=r.c?calcIV(mid(r.c),gSpot,r.k,T,true):null;
+    const putIV =r.p?calcIV(mid(r.p),gSpot,r.k,T,false):null;
+    const cv=r.c?.last!=null&&r.c?.previous_close?(r.c.last/r.c.previous_close-1)*100:null;
+    const pv=r.p?.last!=null&&r.p?.previous_close?(r.p.last/r.p.previous_close-1)*100:null;
+    const strikeCell=atm
+      ?`<td class="rtc-td c">${fk(r.k)}<span class="rtc-atm-badge">ATM</span></td>`
+      :`<td class="rtc-td c">${fk(r.k)}</td>`;
+    return`<tr class="${rc}">
+      <td class="rtc-td l">${r.c?r.c.symbol:'—'}</td>
+      <td class="rtc-td bid">${r.c?.bid!=null?fn(r.c.bid):'—'}</td>
+      <td class="rtc-td ${fc(r.c)}">${r.c?.last!=null?fn(r.c.last):'—'}</td>
+      <td class="rtc-td ask">${r.c?.ask!=null?fn(r.c.ask):'—'}</td>
+      <td class="rtc-td iv">${callIV!=null?Math.round(callIV*100)+'%':'—'}</td>
+      <td class="rtc-td">${varBadge(cv)}</td>
+      ${strikeCell}
+      <td class="rtc-td l">${r.p?r.p.symbol:'—'}</td>
+      <td class="rtc-td bid">${r.p?.bid!=null?fn(r.p.bid):'—'}</td>
+      <td class="rtc-td ${fc(r.p)}">${r.p?.last!=null?fn(r.p.last):'—'}</td>
+      <td class="rtc-td ask">${r.p?.ask!=null?fn(r.p.ask):'—'}</td>
+      <td class="rtc-td iv">${putIV!=null?Math.round(putIV*100)+'%':'—'}</td>
+      <td class="rtc-td">${varBadge(pv)}</td>
+    </tr>`;
+  }).join('');
+
+  // Clear flash flags after animation
+  setTimeout(()=>filt.forEach(o=>delete o._flash),950);
+};
+
+// ── Init ──────────────────────────────────────────────────────
+rtcLoad();
+if(gTimer)clearInterval(gTimer);
+gTimer=setInterval(rtcLoad,30000);
+
+})();
+</script>

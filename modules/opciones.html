@@ -6,6 +6,7 @@
     <button class="stab"        id="ostab-hist"       onclick="oSetTab('hist',this)">Histórico OI</button>
     <button class="stab"        id="ostab-estrategias" onclick="oSetTab('estrategias',this)">Estrategias</button>
     <button class="stab"        id="ostab-analisis"   onclick="oSetTab('analisis',this)">Señales</button>
+    <button class="stab"        id="ostab-cadena"     onclick="oSetTab('cadena',this)">Cadena RT</button>
   </div>
   <div style="display:flex; gap:12px; align-items:center">
     <div class="filter-group">
@@ -270,6 +271,11 @@
 <!-- ── Panel 6: Señales ──────────────────────────────── -->
 <div class="sub-panel" id="opanel-analisis" data-loaded="false">
   <div class="an-empty" style="padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Cargando módulo de señales...</div>
+</div>
+
+<!-- ── Panel 7: Cadena RT ──────────────────────────────── -->
+<div class="sub-panel" id="opanel-cadena" data-loaded="false">
+  <div style="padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Cargando cadena RT...</div>
 </div>
 
 <script>
@@ -594,7 +600,7 @@ window.oSetTab = async (n,b)=>{
   }
   if(n==='hist' && !hLoaded) hLoadData();
   // Lazy-load módulos externos
-  for(const mod of ['estrategias','analisis']){
+  for(const mod of ['estrategias','analisis','cadena']){
     if(n===mod){
       const panel=document.getElementById('opanel-'+mod);
       if(panel.dataset.loaded==='false'){
