@@ -1,7 +1,8 @@
 <!-- ══════════════════════════════════════════════
      MÓDULO: CADENA RT — Opciones GGAL realtime
-     Datos: opciones_rt (bid/ask/last/previous_close)
-     Flash verde/rojo por tick según dirección
+     Columnas: BID / LAST / OFFER / VI% / VAR% / VOL
+     Flash: bid, last, ask por separado via operations count
+     Gráficos: Sonrisa de Volatilidad + Volumen por Strike (SVG)
 ══════════════════════════════════════════════ -->
 <style>
 .rtc-header{display:flex;justify-content:space-between;align-items:center;padding:12px 0 6px;flex-wrap:wrap;gap:8px}
@@ -18,7 +19,7 @@
 .rtc-etab:hover:not(.active){border-color:var(--border);color:var(--text2)}
 
 .rtc-scroll{overflow-x:auto;margin-top:2px}
-.rtc-table{width:100%;min-width:1080px;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:11px}
+.rtc-table{width:100%;min-width:1260px;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:11px}
 
 /* Section headers */
 .rtc-th-section-calls{background:rgba(0,229,168,.07);color:var(--green);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:5px 8px;text-align:center;border-bottom:1px solid rgba(0,229,168,.2)}
@@ -39,6 +40,7 @@
 .rtc-td.bid {color:var(--green)}
 .rtc-td.ask {color:var(--red)}
 .rtc-td.iv  {color:var(--text3);font-size:10px}
+.rtc-td.vol {color:var(--text3);font-size:10px}
 .rtc-td.dash{color:var(--text3)}
 
 /* Row states */
@@ -55,10 +57,19 @@
 .rtc-var.neu{color:var(--text3)}
 
 /* Flash animations */
-@keyframes flashUp  {0%{background:rgba(0,229,168,.4)}100%{background:transparent}}
-@keyframes flashDn  {0%{background:rgba(255,63,94,.4)} 100%{background:transparent}}
-.flash-up{animation:flashUp .85s ease-out forwards}
-.flash-dn{animation:flashDn .85s ease-out forwards}
+@keyframes flashUp{0%{background:rgba(0,229,168,.45)}100%{background:transparent}}
+@keyframes flashDn{0%{background:rgba(255,63,94,.45)}100%{background:transparent}}
+.flash-up{animation:flashUp .9s ease-out forwards}
+.flash-dn{animation:flashDn .9s ease-out forwards}
+
+/* Charts */
+.rtc-charts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+@media(max-width:820px){.rtc-charts{grid-template-columns:1fr}}
+.rtc-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px}
+.rtc-chart-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.rtc-chart-title{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3)}
+.rtc-chart-legend{display:flex;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:9px}
+.rtc-chart-svg{display:block;width:100%;overflow:visible}
 
 .rtc-empty{padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
 </style>
@@ -87,9 +98,9 @@
     <table class="rtc-table">
       <thead>
         <tr>
-          <th colspan="6" class="rtc-th-section-calls">▶ CALLS</th>
+          <th colspan="7" class="rtc-th-section-calls">▶ CALLS</th>
           <th class="rtc-th-section-mid" rowspan="2"></th>
-          <th colspan="6" class="rtc-th-section-puts">PUTS ◀</th>
+          <th colspan="7" class="rtc-th-section-puts">PUTS ◀</th>
         </tr>
         <tr>
           <th class="rtc-th l gc">TICKER</th>
@@ -98,18 +109,44 @@
           <th class="rtc-th rc">OFFER</th>
           <th class="rtc-th">VI%</th>
           <th class="rtc-th">VAR%</th>
+          <th class="rtc-th">VOL</th>
           <th class="rtc-th l gc">TICKER</th>
           <th class="rtc-th gc">BID</th>
           <th class="rtc-th gc">LAST</th>
           <th class="rtc-th rc">OFFER</th>
           <th class="rtc-th">VI%</th>
           <th class="rtc-th">VAR%</th>
+          <th class="rtc-th">VOL</th>
         </tr>
       </thead>
       <tbody id="rtcBody">
-        <tr><td colspan="13" class="rtc-empty">Cargando...</td></tr>
+        <tr><td colspan="15" class="rtc-empty">Cargando...</td></tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- Charts -->
+  <div class="rtc-charts">
+    <div class="rtc-chart-card">
+      <div class="rtc-chart-hdr">
+        <span class="rtc-chart-title">Sonrisa de Volatilidad</span>
+        <span class="rtc-chart-legend">
+          <span style="color:var(--green)">● CALL</span>
+          <span style="color:var(--red)">● PUT</span>
+        </span>
+      </div>
+      <svg id="rtcSmileSvg" class="rtc-chart-svg" viewBox="0 0 600 200" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div class="rtc-chart-card">
+      <div class="rtc-chart-hdr">
+        <span class="rtc-chart-title">Volumen por Strike</span>
+        <span class="rtc-chart-legend">
+          <span style="color:var(--green)">■ CALL</span>
+          <span style="color:var(--red)">■ PUT</span>
+        </span>
+      </div>
+      <svg id="rtcVolSvg" class="rtc-chart-svg" viewBox="0 0 600 200" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
   </div>
 
 </div>
@@ -125,6 +162,7 @@ const calcIV=(price,S,K,T,isC)=>{if(!price||price<=0||T<=0||S<=0||K<=0)return nu
 // ── Format ────────────────────────────────────────────────────
 const fn=(n,d=0)=>{if(n==null||isNaN(n))return'—';const p=Math.abs(n).toFixed(d).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');return(n<0?'-':'')+p.join(',')};
 const fk=n=>fn(n,1);
+const fvol=n=>{if(!n||n<=0)return'—';if(n>=1000)return fn(n/1000,1)+'k';return fn(n,0)};
 const mid=o=>o.bid!=null&&o.ask!=null?(o.bid+o.ask)/2:(o.last??o.ask??o.bid??null);
 
 // ── State ─────────────────────────────────────────────────────
@@ -140,7 +178,7 @@ window.rtcLoad=async()=>{
     const today=new Date().toISOString().slice(0,10);
     const[sR,oR]=await Promise.all([
       sbF('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last,change&limit=1'),
-      sbF('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,previous_close&order=expiration.asc,strike.asc&limit=500')
+      sbF('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,previous_close,volume,operations,bid_size,ask_size&order=expiration.asc,strike.asc&limit=500')
     ]);
     if(sR?.length){
       gSpot=sR[0].last;
@@ -150,12 +188,20 @@ window.rtcLoad=async()=>{
       if(chg!=null){el.textContent=(chg>=0?'+':'')+fn(chg,2)+'%';el.style.color=chg>=0?'var(--green)':'var(--red)';}
     }
     const opts=(Array.isArray(oR)?oR:[]).filter(o=>o.expiration>=today);
-    // Flash detection
+
+    // Flash detection: track bid, ask, last, operations per symbol
     const newPrev={};
     opts.forEach(o=>{
-      newPrev[o.symbol]=o.last;
-      if(gPrev[o.symbol]!=null&&o.last!=null&&o.last!==gPrev[o.symbol])
-        o._flash=o.last>gPrev[o.symbol]?'up':'dn';
+      const prev=gPrev[o.symbol];
+      newPrev[o.symbol]={bid:o.bid,ask:o.ask,last:o.last,ops:o.operations||0};
+      if(prev){
+        // New trade → operations count increased, or last price changed
+        const newTrade=(o.operations||0)>(prev.ops||0)||(o.last!=null&&o.last!==prev.last);
+        if(newTrade&&o.last!=null) o._fl=o.last>(prev.last??o.last)?'up':'dn';
+        // Bid/ask quote update
+        if(o.bid!=null&&o.bid!==prev.bid) o._fb=o.bid>(prev.bid??0)?'up':'dn';
+        if(o.ask!=null&&o.ask!==prev.ask) o._fa=o.ask>(prev.ask??0)?'up':'dn';
+      }
     });
     gPrev=newPrev;
     gOpts=opts;
@@ -163,8 +209,7 @@ window.rtcLoad=async()=>{
     // Exp tabs
     const exps=[...new Set(opts.map(o=>o.expiration.slice(0,10)))].sort();
     const tabsEl=document.getElementById('rtcExpTabs');
-    const needRebuild=tabsEl.children.length!==exps.length;
-    if(needRebuild){
+    if(tabsEl.children.length!==exps.length){
       tabsEl.innerHTML=exps.map(e=>{
         const d=Math.ceil((new Date(e)-new Date())/86400000);
         return`<div class="rtc-etab${e===gExp?' active':''}" onclick="rtcSetExp('${e}',this)">${e}<span style="opacity:.55"> (${d}d)</span></div>`;
@@ -185,10 +230,13 @@ window.rtcSetExp=(e,el)=>{
   rtcRender();
 };
 
-// ── Render ────────────────────────────────────────────────────
+// ── Render tabla ──────────────────────────────────────────────
 window.rtcRender=()=>{
   const tbody=document.getElementById('rtcBody');
-  if(!gSpot||!gOpts.length||!gExp){tbody.innerHTML=`<tr><td colspan="13" class="rtc-empty">Sin datos</td></tr>`;return;}
+  if(!gSpot||!gOpts.length||!gExp){
+    tbody.innerHTML=`<tr><td colspan="15" class="rtc-empty">Sin datos</td></tr>`;
+    rtcDrawSmile([],null);rtcDrawVol([],null);return;
+  }
   const T=Math.max((new Date(gExp)-new Date())/(365*86400000),1/365);
   const filt=gOpts.filter(o=>o.expiration.slice(0,10)===gExp);
 
@@ -206,8 +254,12 @@ window.rtcRender=()=>{
     const cls=v>0.5?'pos':v<-0.5?'neg':'neu';
     return`<span class="rtc-var ${cls}">${v>=0?'+':''}${fn(v,1)}%</span>`;
   };
-  const fc=o=>o?._flash==='up'?'flash-up':o?._flash==='dn'?'flash-dn':'';
+  const fl =o=>o?._fl==='up'?'flash-up':o?._fl==='dn'?'flash-dn':'';
+  const fb =o=>o?._fb==='up'?'flash-up':o?._fb==='dn'?'flash-dn':'';
+  const fa =o=>o?._fa==='up'?'flash-up':o?._fa==='dn'?'flash-dn':'';
 
+  // Compute IVs for charts
+  const chartRows=[];
   tbody.innerHTML=rows.map(r=>{
     const atm=r.k===atmK;
     const callITM=r.k<gSpot&&!atm;
@@ -217,29 +269,148 @@ window.rtcRender=()=>{
     const putIV =r.p?calcIV(mid(r.p),gSpot,r.k,T,false):null;
     const cv=r.c?.last!=null&&r.c?.previous_close?(r.c.last/r.c.previous_close-1)*100:null;
     const pv=r.p?.last!=null&&r.p?.previous_close?(r.p.last/r.p.previous_close-1)*100:null;
+    chartRows.push({k:r.k,callIV,putIV,callVol:r.c?.volume||0,putVol:r.p?.volume||0});
     const strikeCell=atm
       ?`<td class="rtc-td c">${fk(r.k)}<span class="rtc-atm-badge">ATM</span></td>`
       :`<td class="rtc-td c">${fk(r.k)}</td>`;
     return`<tr class="${rc}">
       <td class="rtc-td l">${r.c?r.c.symbol:'—'}</td>
-      <td class="rtc-td bid">${r.c?.bid!=null?fn(r.c.bid):'—'}</td>
-      <td class="rtc-td ${fc(r.c)}">${r.c?.last!=null?fn(r.c.last):'—'}</td>
-      <td class="rtc-td ask">${r.c?.ask!=null?fn(r.c.ask):'—'}</td>
+      <td class="rtc-td bid ${fb(r.c)}">${r.c?.bid!=null?fn(r.c.bid):'—'}</td>
+      <td class="rtc-td ${fl(r.c)}">${r.c?.last!=null?fn(r.c.last):'—'}</td>
+      <td class="rtc-td ask ${fa(r.c)}">${r.c?.ask!=null?fn(r.c.ask):'—'}</td>
       <td class="rtc-td iv">${callIV!=null?Math.round(callIV*100)+'%':'—'}</td>
       <td class="rtc-td">${varBadge(cv)}</td>
+      <td class="rtc-td vol">${fvol(r.c?.volume)}</td>
       ${strikeCell}
       <td class="rtc-td l">${r.p?r.p.symbol:'—'}</td>
-      <td class="rtc-td bid">${r.p?.bid!=null?fn(r.p.bid):'—'}</td>
-      <td class="rtc-td ${fc(r.p)}">${r.p?.last!=null?fn(r.p.last):'—'}</td>
-      <td class="rtc-td ask">${r.p?.ask!=null?fn(r.p.ask):'—'}</td>
+      <td class="rtc-td bid ${fb(r.p)}">${r.p?.bid!=null?fn(r.p.bid):'—'}</td>
+      <td class="rtc-td ${fl(r.p)}">${r.p?.last!=null?fn(r.p.last):'—'}</td>
+      <td class="rtc-td ask ${fa(r.p)}">${r.p?.ask!=null?fn(r.p.ask):'—'}</td>
       <td class="rtc-td iv">${putIV!=null?Math.round(putIV*100)+'%':'—'}</td>
       <td class="rtc-td">${varBadge(pv)}</td>
+      <td class="rtc-td vol">${fvol(r.p?.volume)}</td>
     </tr>`;
   }).join('');
 
   // Clear flash flags after animation
-  setTimeout(()=>filt.forEach(o=>delete o._flash),950);
+  setTimeout(()=>filt.forEach(o=>{delete o._fl;delete o._fb;delete o._fa;}),950);
+
+  // Draw charts
+  rtcDrawSmile(chartRows,atmK);
+  rtcDrawVol(chartRows,atmK);
 };
+
+// ── Charts ────────────────────────────────────────────────────
+const CW=600,CH=200,PL=44,PR=14,PT=18,PB=28;
+const ccW=CW-PL-PR,ccH=CH-PT-PB;
+
+function rtcDrawSmile(rows,atmK){
+  const el=document.getElementById('rtcSmileSvg');
+  if(!el)return;
+  const validC=rows.filter(r=>r.callIV!=null),validP=rows.filter(r=>r.putIV!=null);
+  const allIV=[...validC.map(r=>r.callIV),...validP.map(r=>r.putIV)];
+  if(!allIV.length){el.innerHTML=`<text x="300" y="100" text-anchor="middle" style="font-family:IBM Plex Mono,monospace;font-size:10px;fill:rgba(200,218,240,.3)">Sin datos de IV</text>`;return;}
+
+  const strikes=rows.map(r=>r.k);
+  const xMin=strikes[0],xMax=strikes[strikes.length-1];
+  const yMin=Math.max(0,Math.min(...allIV)*0.88);
+  const yMax=Math.max(...allIV)*1.12;
+  const xS=v=>PL+((v-xMin)/(xMax-xMin||1))*ccW;
+  const yS=v=>PT+ccH-((v-yMin)/(yMax-yMin||0.01))*ccH;
+
+  // Grid + y-axis labels
+  let grid='';
+  const yTicks=4;
+  for(let i=0;i<=yTicks;i++){
+    const yv=yMin+(yMax-yMin)/yTicks*i;
+    const y=yS(yv).toFixed(1);
+    grid+=`<line x1="${PL}" y1="${y}" x2="${CW-PR}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+    grid+=`<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-family:'IBM Plex Mono',monospace;font-size:8px;fill:rgba(200,218,240,.4)">${Math.round(yv*100)}%</text>`;
+  }
+
+  // X-axis labels (every ~4th strike)
+  let xLabels='';
+  const step=Math.max(1,Math.round(rows.length/7));
+  rows.forEach((r,i)=>{
+    if(i%step===0||r.k===atmK){
+      xLabels+=`<text x="${xS(r.k).toFixed(1)}" y="${CH-PB+14}" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:7.5px;fill:rgba(200,218,240,.4)">${fn(r.k,0)}</text>`;
+    }
+  });
+
+  // ATM vertical line
+  let atmLine='';
+  if(atmK){
+    const ax=xS(atmK).toFixed(1);
+    atmLine=`<line x1="${ax}" y1="${PT}" x2="${ax}" y2="${CH-PB}" stroke="rgba(251,191,36,.5)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="${ax}" y="${PT-5}" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:7px;fill:rgba(251,191,36,.7)">ATM</text>`;
+  }
+
+  // Call IV line + dots
+  let callLine='',callDots='';
+  if(validC.length>1) callLine=`<path d="${validC.map((r,i)=>(i?'L':'M')+xS(r.k).toFixed(1)+','+yS(r.callIV).toFixed(1)).join(' ')}" stroke="rgba(0,229,168,.85)" stroke-width="2" fill="none" stroke-linejoin="round"/>`;
+  callDots=validC.map(r=>`<circle cx="${xS(r.k).toFixed(1)}" cy="${yS(r.callIV).toFixed(1)}" r="2.8" fill="rgba(0,229,168,.9)"/>`).join('');
+
+  // Put IV line + dots
+  let putLine='',putDots='';
+  if(validP.length>1) putLine=`<path d="${validP.map((r,i)=>(i?'L':'M')+xS(r.k).toFixed(1)+','+yS(r.putIV).toFixed(1)).join(' ')}" stroke="rgba(255,63,94,.85)" stroke-width="2" fill="none" stroke-linejoin="round"/>`;
+  putDots=validP.map(r=>`<circle cx="${xS(r.k).toFixed(1)}" cy="${yS(r.putIV).toFixed(1)}" r="2.8" fill="rgba(255,63,94,.9)"/>`).join('');
+
+  const axes=`<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${CH-PB}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+  <line x1="${PL}" y1="${CH-PB}" x2="${CW-PR}" y2="${CH-PB}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
+
+  el.innerHTML=`${grid}${atmLine}${axes}${callLine}${putLine}${callDots}${putDots}${xLabels}`;
+}
+
+function rtcDrawVol(rows,atmK){
+  const el=document.getElementById('rtcVolSvg');
+  if(!el)return;
+  const withVol=rows.filter(r=>(r.callVol||0)>0||(r.putVol||0)>0);
+  if(!withVol.length){
+    el.innerHTML=`<text x="300" y="100" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:10px;fill:rgba(200,218,240,.3)">Sin datos de volumen</text>`;return;
+  }
+
+  const xMin=withVol[0].k,xMax=withVol[withVol.length-1].k;
+  const maxVol=Math.max(...withVol.map(r=>(r.callVol||0)+(r.putVol||0)),1);
+  const xS=v=>PL+((v-xMin)/(xMax-xMin||1))*ccW;
+  const yS=v=>PT+ccH-(v/maxVol)*ccH;
+  const halfBar=Math.min(ccW/(withVol.length*2.8),14);
+
+  // Grid + y-axis labels
+  let grid='';
+  [0,0.25,0.5,0.75,1].forEach(pct=>{
+    const y=(PT+ccH-pct*ccH).toFixed(1);
+    const v=Math.round(maxVol*pct);
+    grid+=`<line x1="${PL}" y1="${y}" x2="${CW-PR}" y2="${y}" stroke="rgba(255,255,255,.06)" stroke-width="1"/>`;
+    if(pct>0)grid+=`<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-family:'IBM Plex Mono',monospace;font-size:8px;fill:rgba(200,218,240,.4)">${fvol(v)}</text>`;
+  });
+
+  // ATM
+  let atmLine='';
+  if(atmK){
+    const ax=xS(atmK).toFixed(1);
+    atmLine=`<line x1="${ax}" y1="${PT}" x2="${ax}" y2="${CH-PB}" stroke="rgba(251,191,36,.4)" stroke-width="1" stroke-dasharray="4,3"/>`;
+  }
+
+  // Bars + x labels
+  let bars='',xLabels='';
+  const labelStep=Math.max(1,Math.round(withVol.length/7));
+  withVol.forEach((r,i)=>{
+    const cx=xS(r.k);
+    const cv=r.callVol||0,pv=r.putVol||0;
+    const bH_c=(cv/maxVol)*ccH,bH_p=(pv/maxVol)*ccH;
+    const bw=(halfBar-1).toFixed(1);
+    if(cv>0) bars+=`<rect x="${(cx-halfBar).toFixed(1)}" y="${(PT+ccH-bH_c).toFixed(1)}" width="${bw}" height="${bH_c.toFixed(1)}" fill="rgba(0,229,168,.65)" rx="1"/>`;
+    if(pv>0) bars+=`<rect x="${(cx+1).toFixed(1)}" y="${(PT+ccH-bH_p).toFixed(1)}" width="${bw}" height="${bH_p.toFixed(1)}" fill="rgba(255,63,94,.65)" rx="1"/>`;
+    if(i%labelStep===0||r.k===atmK){
+      xLabels+=`<text x="${cx.toFixed(1)}" y="${CH-PB+14}" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace;font-size:7.5px;fill:rgba(200,218,240,.4)">${fn(r.k,0)}</text>`;
+    }
+  });
+
+  const axes=`<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${CH-PB}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+  <line x1="${PL}" y1="${CH-PB}" x2="${CW-PR}" y2="${CH-PB}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`;
+
+  el.innerHTML=`${grid}${atmLine}${axes}${bars}${xLabels}`;
+}
 
 // ── Init ──────────────────────────────────────────────────────
 rtcLoad();
