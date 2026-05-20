@@ -816,7 +816,7 @@
           <th>Apertura</th><th>Cierre</th>
           <th class="th-left">Patas</th>
           <th>Spot entrada</th><th>Spot cierre</th>
-          <th>P&amp;L neto</th><th></th>
+          <th>P&amp;L ARS</th><th>MEP</th><th>P&amp;L USD</th><th></th>
         </tr></thead>
         <tbody id="pfHistOpsTbody"></tbody>
       </table>
@@ -3874,6 +3874,29 @@ async function pfLoadHistorial() {
     sb('trades', `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.desc&limit=200`),
     sb('operaciones', `user_id=eq.${window.currentUser?.id}&estado=eq.cerrada&order=fecha_cierre.desc&limit=100&select=id,fecha,fecha_cierre,nombre,subyacente,patas,spot_entrada,spot_cierre`),
   ]);
+
+  // MEP por fecha para convertir P&L de opciones (ARS) a USD
+  let mepByDate = {};
+  if(pfMepSeries?.length) {
+    pfMepSeries.forEach(r => { mepByDate[r.fecha] = Number(r.mep); });
+  }
+  const allOpsDates = (opsRows||[]).map(op => op.fecha_cierre).filter(Boolean);
+  const missingDates = allOpsDates.filter(d => !mepByDate[d]);
+  if(missingDates.length) {
+    const minDate = missingDates.reduce((a,b) => a < b ? a : b);
+    const mepRows = await sb('mep_historico', `fecha=gte.${minDate}&order=fecha.asc&select=fecha,mep`);
+    (mepRows||[]).forEach(r => { mepByDate[r.fecha] = Number(r.mep); });
+  }
+  // Buscar MEP más cercano (hasta 5 días atrás)
+  const getMep = fecha => {
+    if(mepByDate[fecha]) return mepByDate[fecha];
+    for(let i=1; i<=5; i++) {
+      const d = new Date(fecha+'T12:00:00'); d.setDate(d.getDate()-i);
+      const k = d.toISOString().split('T')[0];
+      if(mepByDate[k]) return mepByDate[k];
+    }
+    return pfMep || 1450;
+  };
   const tbody   = document.getElementById('pfHistTbody');
   const statsEl = document.getElementById('pfHistStats');
   if(!tbody) return;
@@ -3893,7 +3916,13 @@ async function pfLoadHistorial() {
       const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
       return allClose ? s + calcPnl(op) : s;
     }, 0);
-    // tradesTotal en USD, opsPnL en ARS — nunca sumarlos juntos
+    // Convertir P&L de cada opción a USD usando MEP del día de cierre
+    const opsPnlsUSD = (opsRows||[]).map(op => {
+      const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
+      if(!allClose) return null;
+      return calcPnl(op) / getMep(op.fecha_cierre);
+    }).filter(v => v !== null);
+    const opsTotalUSD = opsPnlsUSD.reduce((s,v) => s+v, 0);
     const tradesTotal = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0);
     const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length + opsWins;
     const opsCount = (opsRows||[]).length;
@@ -3901,22 +3930,29 @@ async function pfLoadHistorial() {
       const _priv = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
       const totalTrades = rows.length + opsCount;
       const winPct = totalTrades > 0 ? (wins / totalTrades * 100).toFixed(0) : '—';
-      // MDD y PF solo sobre trades en USD (no mezclar con ARS de opciones)
-      const tradePnls = rows.map(r => r.ganancia_usd||0).filter(v => v !== 0);
-      const maxDD = tradePnls.length ? Math.min(...tradePnls) : 0;
-      const sumGains  = tradePnls.filter(v => v > 0).reduce((s,v) => s+v, 0);
-      const sumLosses = tradePnls.filter(v => v < 0).reduce((s,v) => s+Math.abs(v), 0);
+      // MDD y PF: trades USD + opciones convertidas a USD por MEP de cierre
+      const allPnlsUSD = [
+        ...rows.map(r => r.ganancia_usd||0),
+        ...opsPnlsUSD
+      ].filter(v => v !== 0);
+      const maxDD = allPnlsUSD.length ? Math.min(...allPnlsUSD) : 0;
+      const sumGains  = allPnlsUSD.filter(v => v > 0).reduce((s,v) => s+v, 0);
+      const sumLosses = allPnlsUSD.filter(v => v < 0).reduce((s,v) => s+Math.abs(v), 0);
       const profitFactor = sumLosses > 0 ? (sumGains / sumLosses).toFixed(2) : '—';
+      const combTotal = tradesTotal + opsTotalUSD;
       const tColor = tradesTotal >= 0 ? 'var(--green)' : 'var(--red)';
       const tSign  = tradesTotal >= 0 ? '+' : '';
-      const oColor = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
-      const oSign  = opsPnL >= 0 ? '+' : '';
+      const oColor = opsTotalUSD >= 0 ? 'var(--green)' : 'var(--red)';
+      const oSign  = opsTotalUSD >= 0 ? '+' : '';
+      const cColor = combTotal >= 0 ? 'var(--green)' : 'var(--red)';
+      const cSign  = combTotal >= 0 ? '+' : '';
       statsEl.innerHTML =
         `${rows.length} trades · ${opsCount} opciones · WR: ${winPct}% · `
         + `PF: ${profitFactor} · `
         + `MDD: <span style="color:var(--red)">U$S ${Math.abs(Math.round(maxDD)).toLocaleString('es-AR')}</span> · `
         + `Trades: <span style="color:${tColor};font-weight:500;filter:${_priv?'blur(5px)':''}">${tSign}U$S ${Math.round(Math.abs(tradesTotal)).toLocaleString('es-AR')}</span>`
-        + (opsCount > 0 ? ` · Opciones: <span style="color:${oColor};font-weight:500;filter:${_priv?'blur(5px)':''}">${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS</span>` : '');
+        + (opsCount > 0 ? ` · Opciones: <span style="color:${oColor};font-weight:500;filter:${_priv?'blur(5px)':''}">${oSign}U$S ${Math.round(Math.abs(opsTotalUSD)).toLocaleString('es-AR')} <span style="color:var(--text3)">(${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS)</span></span>` : '')
+        + ` · <span style="color:${cColor};font-weight:600;filter:${_priv?'blur(5px)':''}">${cSign}U$S ${Math.round(Math.abs(combTotal)).toLocaleString('es-AR')} total</span>`;
     }
     tbody.innerHTML = rows.map(r => {
       const gan = r.ganancia_usd||0, pct = r.ganancia_pct||0;
@@ -3955,9 +3991,11 @@ async function pfLoadHistorial() {
     opsEl.style.display = 'block';
     const opsTotEl = document.getElementById('pfHistOpsTotal');
     if(opsTotEl) {
-      const oColor = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
-      const oSign  = opsPnL >= 0 ? '+' : '';
-      opsTotEl.innerHTML = `Total: <span style="color:${oColor};font-weight:600">${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS</span>`;
+      const oColor  = opsTotalUSD >= 0 ? 'var(--green)' : 'var(--red)';
+      const oSign   = opsTotalUSD >= 0 ? '+' : '';
+      const oAColor = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
+      const oASign  = opsPnL >= 0 ? '+' : '';
+      opsTotEl.innerHTML = `<span style="color:${oColor};font-weight:600">${oSign}U$S ${Math.round(Math.abs(opsTotalUSD)).toLocaleString('es-AR')}</span> <span style="color:var(--text3)">(${oASign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS)</span>`;
     }
     const opsTbody = document.getElementById('pfHistOpsTbody');
     if(opsTbody) {
@@ -3976,11 +4014,19 @@ async function pfLoadHistorial() {
               return s + sign * (l.prima_cierre - l.prima) * l.qty * optSz;
             }, 0)
           : null;
+        const mepCierre = op.fecha_cierre ? getMep(op.fecha_cierre) : null;
+        const pnlUSD = pnlReal != null && mepCierre ? pnlReal / mepCierre : null;
         const pc2 = pnlReal != null ? (pnlReal>=0?'var(--green)':'var(--red)') : 'var(--text3)';
         const ps2 = pnlReal != null ? (pnlReal>=0?'+':'') : '';
+        const pu2 = pnlUSD  != null ? (pnlUSD >=0?'var(--green)':'var(--red)') : 'var(--text3)';
+        const pus = pnlUSD  != null ? (pnlUSD >=0?'+':'') : '';
         const pnlStr = pnlReal != null
           ? `<span style="color:${pc2}">${ps2}$${Math.round(Math.abs(pnlReal)).toLocaleString('es-AR')}</span>`
-          : `<span style="color:var(--text4);font-size:9px">sin datos cierre</span>`;
+          : `<span style="color:var(--text4);font-size:9px">sin datos</span>`;
+        const mepStr = mepCierre ? `<span style="color:var(--text3);font-size:10px">${Math.round(mepCierre).toLocaleString('es-AR')}</span>` : '—';
+        const usdStr = pnlUSD != null
+          ? `<span style="color:${pu2};font-weight:600">${pus}U$S ${Math.abs(pnlUSD).toFixed(1)}</span>`
+          : '—';
 
         return `<tr>
           <td class="th-left" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500">${op.nombre||'—'}</td>
@@ -3990,14 +4036,20 @@ async function pfLoadHistorial() {
           <td>${op.spot_entrada ? '$'+Number(op.spot_entrada).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
           <td>${op.spot_cierre ? '$'+Number(op.spot_cierre).toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
           <td>${pnlStr}</td>
+          <td>${mepStr}</td>
+          <td>${usdStr}</td>
           <td><button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text4);padding:0 4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button></td>
         </tr>`;
       }).join('') + (() => {
-        const oColor = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
-        const oSign  = opsPnL >= 0 ? '+' : '';
+        const oColor  = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
+        const oSign   = opsPnL >= 0 ? '+' : '';
+        const ouColor = opsTotalUSD >= 0 ? 'var(--green)' : 'var(--red)';
+        const ouSign  = opsTotalUSD >= 0 ? '+' : '';
         return `<tr style="border-top:1px solid var(--border2);font-weight:600;font-size:10px;color:var(--text3)">
           <td class="th-left" colspan="7" style="padding-top:8px;letter-spacing:0.5px;font-size:9px;text-transform:uppercase">Total opciones</td>
-          <td style="padding-top:8px;color:${oColor};font-weight:700">${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS</td>
+          <td style="padding-top:8px;color:${oColor};font-weight:700">${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')}</td>
+          <td></td>
+          <td style="padding-top:8px;color:${ouColor};font-weight:700">${ouSign}U$S ${Math.round(Math.abs(opsTotalUSD)).toLocaleString('es-AR')}</td>
           <td></td>
         </tr>`;
       })();
