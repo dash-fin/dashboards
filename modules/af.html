@@ -1,0 +1,300 @@
+<style>
+.af-wrap{padding:16px;max-width:1100px}
+.af-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.af-search{display:flex;align-items:center;gap:0;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;overflow:hidden}
+.af-search input{background:transparent;border:none;outline:none;padding:7px 12px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text);width:130px;text-transform:uppercase}
+.af-search input::placeholder{text-transform:none;color:var(--text3)}
+.af-btn{background:var(--green);border:none;color:#000;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.8px;padding:7px 14px;cursor:pointer;border-radius:4px;text-transform:uppercase;transition:opacity .15s}
+.af-btn:hover{opacity:.85}
+.af-btn.sec{background:var(--bg3);border:1px solid var(--border2);color:var(--text2)}
+.af-btn.sec.active{border-color:var(--green);color:var(--green)}
+.af-head{margin-bottom:12px}
+.af-ticker-name{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:var(--text);letter-spacing:1px}
+.af-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);margin-top:3px}
+.af-kpis{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.af-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 14px;min-width:90px}
+.af-kpi-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.af-kpi-val{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--text)}
+.af-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;position:relative}
+.af-chart-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;padding:8px 12px 4px;position:absolute;top:0;left:0;z-index:10}
+#afPriceChart{height:320px}
+.af-sub-svg{width:100%;display:block}
+.af-empty{text-align:center;padding:60px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
+.af-err{color:var(--red);font-size:10px;font-family:'IBM Plex Mono',monospace;padding:4px 0}
+</style>
+
+<div class="af-wrap">
+  <div class="af-toolbar">
+    <div class="af-search">
+      <input id="afInput" placeholder="Ticker (ej: NOW)" value="NOW" onkeydown="if(event.key==='Enter')afLoad()">
+    </div>
+    <button class="af-btn" onclick="afLoad()">↗ Analizar</button>
+    <div style="display:flex;gap:4px" id="afRangeBar">
+      <button class="af-btn sec active" data-r="5y"  onclick="afSetRange(this)">5A</button>
+      <button class="af-btn sec"        data-r="3y"  onclick="afSetRange(this)">3A</button>
+      <button class="af-btn sec"        data-r="1y"  onclick="afSetRange(this)">1A</button>
+    </div>
+    <span id="afErr" class="af-err"></span>
+  </div>
+
+  <div id="afBody">
+    <div class="af-empty">Ingresá un ticker y presioná Analizar</div>
+  </div>
+</div>
+
+<script>
+(function(){
+const fn2=(n,d=1)=>{if(n==null||isNaN(n))return'—';return(n<0?'-':'')+Math.abs(n).toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g,'.');};
+const fmtB=n=>{if(!n)return'—';const a=Math.abs(n);if(a>=1e9)return(n/1e9).toFixed(1)+'B';if(a>=1e6)return(n/1e6).toFixed(0)+'M';return n.toLocaleString();};
+const pct=(a,b)=>b?((a-b)/Math.abs(b)*100):null;
+
+let gRange='5y', gTicker='', gChart=null;
+
+const PROXY='https://corsproxy.io/?url=';
+const yhFetch=async url=>{
+  // try direct first, fallback to proxy
+  try{
+    const r=await fetch(url,{credentials:'omit',headers:{'Accept':'application/json'}});
+    if(r.ok)return r.json();
+  }catch(e){}
+  const r2=await fetch(PROXY+encodeURIComponent(url),{credentials:'omit'});
+  if(!r2.ok)throw new Error('HTTP '+r2.status);
+  return r2.json();
+};
+
+window.afSetRange=el=>{
+  document.querySelectorAll('#afRangeBar .af-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  gRange=el.dataset.r;
+  if(gTicker)afLoad();
+};
+
+window.afLoad=async()=>{
+  const ticker=document.getElementById('afInput').value.trim().toUpperCase();
+  if(!ticker)return;
+  gTicker=ticker;
+  document.getElementById('afErr').textContent='';
+  document.getElementById('afBody').innerHTML='<div class="af-empty">Cargando '+ticker+'…</div>';
+
+  try{
+    const [chartData, summaryData] = await Promise.all([
+      yhFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&range=${gRange}&includePrePost=false`),
+      yhFetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=incomeStatementHistoryQuarterly,defaultKeyStatistics,price`)
+    ]);
+
+    // ── Parse price data ──
+    const res=chartData?.chart?.result?.[0];
+    if(!res)throw new Error('Sin datos de precio para '+ticker);
+    const ts=res.timestamps;
+    const q=res.indicators?.quote?.[0];
+    const ohlcv=ts.map((t,i)=>({
+      t:t, time:Math.floor(t), // unix timestamp
+      o:q.open[i], h:q.high[i], l:q.low[i], c:q.close[i], v:q.volume[i]
+    })).filter(d=>d.o&&d.h&&d.l&&d.c);
+
+    const companyName=res.meta?.longName||res.meta?.shortName||ticker;
+    const currency=res.meta?.currency||'USD';
+    const lastPrice=res.meta?.regularMarketPrice||ohlcv[ohlcv.length-1]?.c;
+
+    // ── Parse fundamentals ──
+    const qResult=summaryData?.quoteSummary?.result?.[0];
+    const incQ=qResult?.incomeStatementHistoryQuarterly?.incomeStatementHistory||[];
+    const stats=qResult?.defaultKeyStatistics||{};
+    const priceInfo=qResult?.price||{};
+
+    // Revenue quarters sorted ascending
+    const revQ=[...incQ].reverse().map(q=>({
+      date:q.endDate?.raw*1000,
+      rev:q.totalRevenue?.raw,
+      eps:q.basicEPS?.raw
+    })).filter(q=>q.date&&q.rev);
+
+    // YoY revenue growth per quarter
+    revQ.forEach((q,i)=>{
+      if(i>=4)q.yoy=pct(q.rev,revQ[i-4].rev);
+    });
+
+    // ── Drawdown from ATH ──
+    let ath=0;
+    const dd=ohlcv.map(d=>{
+      if(d.c>ath)ath=d.c;
+      return{time:d.time, val:ath>0?(d.c-ath)/ath*100:0};
+    });
+
+    // ── P/E estimate per week (price / trailing 4Q EPS) ──
+    // Build trailing 4Q EPS at each date
+    const epsHistory=revQ.map(q=>({date:q.date,eps:q.eps})).filter(q=>q.eps!=null);
+    const peData=ohlcv.map(d=>{
+      const ms=d.t*1000;
+      // trailing 4 quarters before this date
+      const trailing=epsHistory.filter(e=>e.date<=ms).slice(-4);
+      if(trailing.length<4)return null;
+      const sumEps=trailing.reduce((s,e)=>s+e.eps,0);
+      if(sumEps<=0)return null;
+      return{time:d.time, val:d.c/sumEps};
+    }).filter(Boolean);
+
+    // ── Current KPIs ──
+    const pe=stats.trailingPE?.raw;
+    const mktCap=priceInfo.marketCap?.raw;
+    const fwdPE=stats.forwardPE?.raw;
+    const lastRev=revQ[revQ.length-1];
+    const lastYoy=lastRev?.yoy;
+
+    afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,dd,peData,{pe,mktCap,fwdPE,lastYoy});
+  }catch(e){
+    console.error('[af]',e);
+    document.getElementById('afErr').textContent='Error: '+e.message;
+    document.getElementById('afBody').innerHTML='<div class="af-empty" style="color:var(--red)">No se pudo cargar '+ticker+'.<br><span style="font-size:9px;color:var(--text3)">Verificá el ticker o intentá de nuevo.</span></div>';
+  }
+};
+
+function afRender(ticker,name,curr,price,ohlcv,revQ,dd,peData,kpis){
+  const fv=(n,d=2)=>n!=null&&!isNaN(n)?fn2(n,d):'—';
+
+  const yoyColor=kpis.lastYoy!=null?(kpis.lastYoy>0?'var(--green)':'var(--red)'):'var(--text3)';
+
+  document.getElementById('afBody').innerHTML=`
+    <div class="af-head">
+      <div class="af-ticker-name">${ticker} <span style="color:var(--text3);font-weight:400;font-size:12px">${name}</span></div>
+      <div class="af-meta">${curr} · Datos semanales</div>
+    </div>
+    <div class="af-kpis">
+      <div class="af-kpi"><div class="af-kpi-lbl">Precio</div><div class="af-kpi-val">${fv(price)}</div></div>
+      <div class="af-kpi"><div class="af-kpi-lbl">P/E Trailing</div><div class="af-kpi-val">${kpis.pe!=null?fv(kpis.pe,0)+'x':'—'}</div></div>
+      <div class="af-kpi"><div class="af-kpi-lbl">P/E Forward</div><div class="af-kpi-val">${kpis.fwdPE!=null?fv(kpis.fwdPE,0)+'x':'—'}</div></div>
+      <div class="af-kpi"><div class="af-kpi-lbl">Mkt Cap</div><div class="af-kpi-val">${fmtB(kpis.mktCap)}</div></div>
+      <div class="af-kpi"><div class="af-kpi-lbl">Rev YoY</div><div class="af-kpi-val" style="color:${yoyColor}">${kpis.lastYoy!=null?(kpis.lastYoy>=0?'+':'')+fv(kpis.lastYoy,1)+'%':'—'}</div></div>
+    </div>
+    <div class="af-chart-card" style="margin-bottom:8px">
+      <div class="af-chart-lbl">Precio semanal · Revenue growth por trimestre</div>
+      <div id="afPriceChart"></div>
+    </div>
+    <div class="af-chart-card" style="margin-bottom:8px">
+      <div class="af-chart-lbl">P/E Trailing (estimado)</div>
+      <svg id="afPeSvg" class="af-sub-svg" height="90"></svg>
+    </div>
+    <div class="af-chart-card">
+      <div class="af-chart-lbl">Drawdown desde ATH</div>
+      <svg id="afDdSvg" class="af-sub-svg" height="90"></svg>
+    </div>
+  `;
+
+  // ── LightweightCharts — precio ──
+  if(gChart){try{gChart.remove();}catch(e){} gChart=null;}
+  const container=document.getElementById('afPriceChart');
+  gChart=LightweightCharts.createChart(container,{
+    width:container.clientWidth, height:320,
+    layout:{background:{type:'solid',color:'transparent'},textColor:'rgba(200,218,240,.6)'},
+    grid:{vertLines:{color:'rgba(255,255,255,.04)'},horzLines:{color:'rgba(255,255,255,.04)'}},
+    timeScale:{timeVisible:false,borderColor:'rgba(255,255,255,.1)'},
+    rightPriceScale:{borderColor:'rgba(255,255,255,.1)'},
+    crosshair:{mode:1},
+    handleScroll:true, handleScale:true,
+  });
+
+  // Candles
+  const series=gChart.addCandlestickSeries({
+    upColor:'#10e898',downColor:'#ff4060',
+    borderUpColor:'#10e898',borderDownColor:'#ff4060',
+    wickUpColor:'rgba(16,232,152,.5)',wickDownColor:'rgba(255,64,96,.5)',
+  });
+  series.setData(ohlcv.map(d=>({time:d.time,open:d.o,high:d.h,low:d.l,close:d.c})));
+
+  // Earnings markers (revenue growth annotations)
+  const markers=revQ.filter(q=>q.yoy!=null).map(q=>{
+    const nearestBar=ohlcv.reduce((b,d)=>Math.abs(d.t*1000-q.date)<Math.abs(b.t*1000-q.date)?d:b,ohlcv[0]);
+    const sign=q.yoy>=0?'+':'';
+    return{
+      time:nearestBar.time,
+      position:'aboveBar',
+      color:q.yoy>=20?'#10e898':q.yoy>=0?'rgba(16,232,152,.7)':'#ff4060',
+      shape:'circle',
+      text:`${sign}${q.yoy.toFixed(1)}%`,
+      size:0.6
+    };
+  });
+  series.setMarkers(markers.sort((a,b)=>a.time-b.time));
+
+  gChart.timeScale().fitContent();
+
+  // ── Sub panels SVG ──
+  afDrawLine('afPeSvg', peData, v=>v+'x', 'rgba(68,136,255,.85)', v=>v<20?'var(--green)':v>60?'var(--red)':'rgba(68,136,255,.85)');
+  afDrawBars('afDdSvg', dd, v=>v.toFixed(0)+'%', 'rgba(255,64,96,.7)');
+}
+
+function afDrawLine(id, data, fmtY, color, colorFn){
+  const el=document.getElementById(id);if(!el||!data.length)return;
+  const W=el.clientWidth||900,H=90,PL=38,PR=10,PT=16,PB=20;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const vals=data.map(d=>d.val);
+  const vMin=Math.min(...vals),vMax=Math.max(...vals);
+  const xS=i=>PL+(i/(data.length-1))*cW;
+  const yS=v=>PT+cH-((v-vMin)/(vMax-vMin||1))*cH;
+
+  // Grid lines
+  let g='';
+  [0,.5,1].forEach(p=>{
+    const v=vMin+(vMax-vMin)*p;
+    const y=yS(v).toFixed(1);
+    g+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="rgba(255,255,255,.05)" stroke-width="1"/>`;
+    g+=`<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-size:7px;fill:rgba(200,218,240,.4);font-family:'IBM Plex Mono',monospace">${fmtY(v.toFixed(0))}</text>`;
+  });
+
+  // Line path
+  const path=data.map((d,i)=>(i?'L':'M')+xS(i).toFixed(1)+','+yS(d.val).toFixed(1)).join(' ');
+
+  // Last value label
+  const last=data[data.length-1];
+  const lastColor=colorFn?colorFn(last.val):color;
+  const lastX=(W-PR+2).toFixed(1),lastY=yS(last.val).toFixed(1);
+  const lastLabel=`<rect x="${lastX}" y="${parseFloat(lastY)-8}" width="32" height="14" rx="2" fill="${lastColor}" opacity=".9"/>
+  <text x="${parseFloat(lastX)+16}" y="${parseFloat(lastY)+1}" text-anchor="middle" dominant-baseline="middle" style="font-size:7px;fill:#000;font-weight:700;font-family:'IBM Plex Mono',monospace">${fmtY(last.val.toFixed(0))}</text>`;
+
+  el.innerHTML=`${g}<path d="${path}" stroke="${color}" stroke-width="1.5" fill="none" stroke-linejoin="round"/>${lastLabel}`;
+}
+
+function afDrawBars(id, data, fmtY, color){
+  const el=document.getElementById(id);if(!el||!data.length)return;
+  const W=el.clientWidth||900,H=90,PL=38,PR=10,PT=16,PB=20;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const vals=data.map(d=>d.val);
+  const vMin=Math.min(...vals,0),vMax=Math.max(...vals,0);
+  const xS=i=>PL+(i/(data.length-1))*cW;
+  const yS=v=>PT+cH-((v-vMin)/(vMax-vMin||1))*cH;
+  const y0=yS(0).toFixed(1);
+  const bw=Math.max(1,(cW/data.length)-1);
+
+  let g='';
+  [0,.5,1].forEach(p=>{
+    const v=vMin+(vMax-vMin)*p;
+    const y=yS(v).toFixed(1);
+    g+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="rgba(255,255,255,.05)" stroke-width="1"/>`;
+    g+=`<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-size:7px;fill:rgba(200,218,240,.4);font-family:'IBM Plex Mono',monospace">${fmtY(v.toFixed(0))}</text>`;
+  });
+
+  let bars='';
+  data.forEach((d,i)=>{
+    const x=(xS(i)-bw/2).toFixed(1);
+    const y=yS(Math.max(d.val,0)).toFixed(1);
+    const barH=Math.abs(yS(d.val)-yS(0));
+    if(barH>0) bars+=`<rect x="${x}" y="${d.val<0?y0:y}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${color}">
+      <title>${fmtY(d.val.toFixed(1))}</title></rect>`;
+  });
+
+  // Worst drawdown label
+  const worst=Math.min(...vals);
+  el.innerHTML=`${g}<line x1="${PL}" y1="${y0}" x2="${W-PR}" y2="${y0}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>${bars}
+  <text x="${W-PR-2}" y="${H-PB+14}" text-anchor="end" style="font-size:8px;fill:var(--red);font-family:'IBM Plex Mono',monospace">Máx: ${fmtY(worst.toFixed(1))}</text>`;
+}
+
+// Responsive resize
+window.addEventListener('resize',()=>{
+  if(gChart){const c=document.getElementById('afPriceChart');if(c)gChart.resize(c.clientWidth,320);}
+  if(gTicker){
+    afDrawLine('afPeSvg',[],()=>'','',''); // redraw on resize would need stored data
+  }
+});
+
+})();
+</script>
