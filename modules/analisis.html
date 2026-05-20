@@ -1,8 +1,6 @@
 <!-- ══════════════════════════════════════════════
      MÓDULO: SEÑALES / ESTRATEGIAS — Opciones GGAL
-     Calculadas desde opciones_rt (cadena RT)
-     Estrategias: Bull Spread, Bear Spread, Naked Put,
-                  Bull Spread +1, Bear Spread +1
+     Datos: opciones_rt · cálculos Black-Scholes
 ══════════════════════════════════════════════ -->
 <style>
 .anl-header{display:flex;align-items:center;justify-content:space-between;padding:12px 0 10px;flex-wrap:wrap;gap:8px}
@@ -17,21 +15,30 @@
 .anl-right{display:flex;align-items:center;gap:8px}
 .anl-meta{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)}
 .anl-rbtn{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:4px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer}
-.anl-section{margin-top:14px}
+.anl-section{margin-top:18px}
 .anl-sec-hdr{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase;padding-bottom:7px;border-bottom:1px solid var(--border);margin-bottom:8px}
 .anl-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media(max-width:960px){.anl-grid2{grid-template-columns:1fr}}
-.anl-card{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;overflow:hidden}
+.anl-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:1100px){.anl-grid3{grid-template-columns:1fr 1fr}}
+@media(max-width:960px){.anl-grid2,.anl-grid3{grid-template-columns:1fr}}
+.anl-card{background:var(--bg2);border:1px solid var(--border2);border-radius:6px;overflow:hidden;margin-bottom:0}
 .anl-card-hdr{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--bg3)}
 .anl-card-title{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
-.anl-card-sub{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3)}
+.anl-card-sub{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-align:right;max-width:260px}
+.anl-tscroll{overflow-x:auto}
 .anl-table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace}
 .anl-th{font-size:7px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;padding:5px 10px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
 .anl-th.l{text-align:left}
-.anl-td{font-size:10px;color:var(--text);padding:5px 10px;text-align:right;border-bottom:1px solid rgba(30,37,48,.5)}
+.anl-td{font-size:10px;color:var(--text);padding:5px 10px;text-align:right;border-bottom:1px solid rgba(30,37,48,.5);white-space:nowrap}
 .anl-td.l{text-align:left;color:var(--text2);font-size:9px}
+.anl-td.s{font-size:9px}
 .anl-tr:last-child .anl-td{border-bottom:none}
 .anl-tr:hover .anl-td{background:rgba(255,255,255,.02)}
+.anl-badge{display:inline-block;border-radius:3px;padding:1px 7px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.anl-badge.buy {background:rgba(0,229,168,.2);color:var(--green)}
+.anl-badge.sell{background:rgba(255,63,94,.2);color:var(--red)}
+.anl-badge.atm {background:rgba(251,191,36,.2);color:var(--amber)}
+/* Colors */
 .c-costo{color:var(--red)}
 .c-win{color:var(--green)}
 .c-rr{color:var(--green)}
@@ -40,14 +47,18 @@
 .c-prob-md{color:var(--amber)}
 .c-prob-hi{color:var(--red)}
 .c-tna-bid{color:var(--green)}
-.c-tna-offer{color:var(--red)}
+.c-tna-off{color:var(--red)}
 .c-tna-pos{color:var(--green)}
 .c-tna-neg{color:var(--red)}
+.c-neutral{color:var(--text3)}
+.c-delta{color:var(--cyan)}
+.c-theta{color:var(--red)}
+.c-vega{color:var(--purple)}
 .anl-note{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);padding:6px 12px;background:rgba(255,255,255,.015);border-top:1px solid var(--border)}
 .anl-empty{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);text-align:center;padding:20px}
 </style>
 
-<div id="anlWrap" style="padding-bottom:30px">
+<div id="anlWrap" style="padding-bottom:40px">
   <div class="anl-header">
     <div class="anl-left">
       <span class="anl-label">Precio:</span>
@@ -69,35 +80,35 @@
 
 <script>
 (function(){
-
-// ── Black-Scholes IV (Newton-Raphson) ─────────────────────────
+// ── Black-Scholes ─────────────────────────────────────────────
 const normCDF=z=>{const t=1/(1+0.2316419*Math.abs(z));const p=t*(0.31938153+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));const c=1-Math.exp(-0.5*z*z)/2.506628274590452*p;return z>=0?c:1-c};
+const normPDF=z=>Math.exp(-0.5*z*z)/2.506628274590452;
 const bsV=(S,K,T,s,isC)=>{if(T<=0||s<=0)return Math.max(isC?S-K:K-S,0);const q=Math.sqrt(T),d1=(Math.log(S/K)+0.5*s*s*T)/(s*q),d2=d1-s*q;return isC?S*normCDF(d1)-K*normCDF(d2):K*normCDF(-d2)-S*normCDF(-d1)};
-const calcIV=(price,S,K,T,isC)=>{if(!price||price<=0||T<=0||S<=0||K<=0)return null;if(price<Math.max(isC?S-K:K-S,0)-1)return null;let s=0.5;for(let i=0;i<60;i++){const q=Math.sqrt(T),d1=(Math.log(S/K)+0.5*s*s*T)/(s*q);const vg=S*q*Math.exp(-0.5*d1*d1)/2.506628274590452;if(vg<1e-8)break;const df=bsV(S,K,T,s,isC)-price;if(Math.abs(df)<0.05)break;s-=df/vg;if(s<=0.001){s=0.001;break;}if(s>15)return null}return s>0.001&&s<15?s:null};
-// P(S_T > K) — prob de que el subyacente termine arriba del strike
-const probAbove=(S,K,T,s)=>{if(!s||T<=0||S<=0||K<=0)return null;const d2=(Math.log(S/K)-0.5*s*s*T)/(s*Math.sqrt(T));return normCDF(d2)*100};
+const calcIV=(price,S,K,T,isC)=>{if(!price||price<=0||T<=0||S<=0||K<=0)return null;if(price<Math.max(isC?S-K:K-S,0)-1)return null;let s=0.5;for(let i=0;i<60;i++){const q=Math.sqrt(T),d1=(Math.log(S/K)+0.5*s*s*T)/(s*q);const vg=S*q*normPDF(d1);if(vg<1e-8)break;const df=bsV(S,K,T,s,isC)-price;if(Math.abs(df)<0.05)break;s-=df/vg;if(s<=0.001){s=0.001;break;}if(s>15)return null}return s>0.001&&s<15?s:null};
+const bsDelta=(S,K,T,s,isC)=>{if(T<=0||s<=0)return isC?(S>K?1:0):(S<K?-1:0);const d1=(Math.log(S/K)+0.5*s*s*T)/(s*Math.sqrt(T));return isC?normCDF(d1):normCDF(d1)-1};
+const bsTheta=(S,K,T,s)=>{if(T<=0||s<=0)return 0;const q=Math.sqrt(T),d1=(Math.log(S/K)+0.5*s*s*T)/(s*q);return-(S*normPDF(d1)*s/(2*q))/365};
+const bsVega=(S,K,T,s)=>{if(T<=0||s<=0)return 0;const q=Math.sqrt(T),d1=(Math.log(S/K)+0.5*s*s*T)/(s*q);return S*q*normPDF(d1)/100};
+// P(S_T > K)
+const pAbove=(S,K,T,s)=>{if(!s||T<=0||S<=0||K<=0)return null;return normCDF((Math.log(S/K)-0.5*s*s*T)/(s*Math.sqrt(T)))*100};
+// P(K_lo < S_T < K_hi)
+const pBetween=(S,Klo,Khi,T,s)=>{const a=pAbove(S,Klo,T,s),b=pAbove(S,Khi,T,s);return(a!=null&&b!=null)?a-b:null};
 
 // ── Formatters ────────────────────────────────────────────────
-const fn=(n,d=2)=>{if(n==null||isNaN(n))return'—';const abs=Math.abs(n).toFixed(d).split('.');abs[0]=abs[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');return(n<0?'-':'')+abs.join(',')};
+const fn=(n,d=2)=>{if(n==null||isNaN(n))return'—';const p=Math.abs(n).toFixed(d).split('.');p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');return(n<0?'-':'')+p.join(',')};
 const fk=n=>fn(n,1);
 const fp=n=>fn(n,2);
+const fpct=(n,d=1)=>n==null?'—':(n>=0?'+':'')+fn(n,d)+'%';
 const mid=o=>o.bid!=null&&o.ask!=null?(o.bid+o.ask)/2:(o.last??o.ask??o.bid??null);
+const pc=p=>p<20?'c-prob-lo':p<55?'c-prob-md':'c-prob-hi';
 
 // ── Config ────────────────────────────────────────────────────
 const SBR='https://endymbpdayeidromxayb.supabase.co/rest/v1/';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 const sbF=(t,p)=>fetch(SBR+t+'?'+p,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}).then(r=>r.ok?r.json():[]);
 
-let gSpot=null, gOpts=[], gPriceMode='last', gAtmIV=0.4, gTimer=null;
-
-window.anlMode=(m,btn)=>{
-  gPriceMode=m;
-  document.querySelectorAll('.anl-tbtn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  anlRender();
-};
-
-const px=o=>{if(!o)return null;return gPriceMode==='last'?(o.last??null):mid(o)};
+let gSpot=null,gOpts=[],gMode='last',gIV=0.4,gTimer=null;
+window.anlMode=(m,btn)=>{gMode=m;document.querySelectorAll('.anl-tbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');anlRender()};
+const px=o=>{if(!o)return null;return gMode==='last'?(o.last??null):mid(o)};
 
 // ── Load ──────────────────────────────────────────────────────
 window.anlLoad=async()=>{
@@ -113,8 +124,7 @@ window.anlLoad=async()=>{
     const sel=document.getElementById('anlExp');const cur=sel.value;
     sel.innerHTML=exps.map(e=>{const d=Math.ceil((new Date(e)-new Date())/86400000);return`<option value="${e}">${e} (${d}d)</option>`}).join('');
     if(cur&&exps.includes(cur))sel.value=cur;
-    const now=new Date();
-    document.getElementById('anlUpd').textContent='Act. '+[now.getHours(),now.getMinutes()].map(v=>String(v).padStart(2,'0')).join(':');
+    const now=new Date();document.getElementById('anlUpd').textContent='Act. '+[now.getHours(),now.getMinutes()].map(v=>String(v).padStart(2,'0')).join(':');
     anlRender();
   }catch(e){console.error('[analisis]',e);}
 };
@@ -122,113 +132,457 @@ window.anlLoad=async()=>{
 // ── Render ────────────────────────────────────────────────────
 window.anlRender=()=>{
   const body=document.getElementById('anlBody');
-  if(!gSpot||!gOpts.length){body.innerHTML='<div class="anl-empty">Sin datos — verificar conexión</div>';return}
+  if(!gSpot||!gOpts.length){body.innerHTML='<div class="anl-empty">Sin datos</div>';return}
   const expVal=document.getElementById('anlExp').value;if(!expVal)return;
   const days=Math.max(Math.ceil((new Date(expVal)-new Date())/86400000),1);
   const T=days/365;
   const filt=gOpts.filter(o=>o.expiration.slice(0,10)===expVal);
-
-  // Agrupar por strike y calcular IV
   const byK=new Map();
   filt.forEach(o=>{if(!byK.has(o.strike))byK.set(o.strike,{k:o.strike,c:null,p:null});const r=byK.get(o.strike);if(o.kind==='CALL')r.c=o;else if(o.kind==='PUT')r.p=o});
   const rows=[...byK.values()].sort((a,b)=>a.k-b.k);
-  rows.forEach(r=>{
-    r.cIV=r.c?calcIV(mid(r.c),gSpot,r.k,T,true):null;
-    r.pIV=r.p?calcIV(mid(r.p),gSpot,r.k,T,false):null;
-    r.iv=r.cIV??r.pIV;
-  });
-  // ATM IV
+  rows.forEach(r=>{r.cIV=r.c?calcIV(mid(r.c),gSpot,r.k,T,true):null;r.pIV=r.p?calcIV(mid(r.p),gSpot,r.k,T,false):null;r.iv=r.cIV??r.pIV});
   const atmRow=rows.reduce((b,r)=>Math.abs(r.k-gSpot)<Math.abs(b.k-gSpot)?r:b,rows[0]);
-  gAtmIV=atmRow?.iv||0.40;
+  gIV=atmRow?.iv||0.40;
   const ivEl=document.getElementById('anlAtmIV');
-  if(ivEl)ivEl.textContent=atmRow?.iv?'IV ATM: '+Math.round(gAtmIV*100)+'%':'';
-
+  if(ivEl)ivEl.textContent=atmRow?.iv?'IV ATM: '+Math.round(gIV*100)+'%':'';
   const calls=rows.filter(r=>r.c);
   const puts =rows.filter(r=>r.p);
 
-  // Bull Spread B1-B2
-  const bs1=[];
+  body.innerHTML=`
+    ${secCalls(calls,rows,T)}
+    ${secPuts(puts,rows,T,days)}
+    ${secCombinadas(calls,puts,rows,T,days)}
+    ${secMultiPata(calls,puts,T)}
+    ${secSinteticos(rows,T,days)}
+    ${secRatios(calls,puts,T)}
+  `;
+};
+
+// ══════════════════════════════════════════════════════════════
+// SECCIÓN 1 — CALLS
+// ══════════════════════════════════════════════════════════════
+function secCalls(calls,rows,T){
+  const bs1=[],bs2=[];
+  for(let i=0;i<calls.length-1;i++){
+    const r1=calls[i],r2=calls[i+1];const p1=px(r1.c),p2=px(r2.c);
+    if(p1==null||p2==null)continue;const costo=p1-p2;if(costo<=0)continue;
+    const w=r2.k-r1.k;if(w<=0)continue;const mw=w-costo;if(mw<=0)continue;
+    const be=r1.k+costo,iv=r1.iv||gIV;
+    const pa=pAbove(gSpot,r1.k,T,iv);
+    bs1.push({lbl:`${fk(r1.k)} / ${fk(r2.k)}`,costo,mw,be,pL:pa!=null?100-pa:50,rr:mw/costo,pct:costo/w*100});
+  }
+  for(let i=0;i<calls.length-2;i++){
+    const r1=calls[i],r3=calls[i+2];const p1=px(r1.c),p3=px(r3.c);
+    if(p1==null||p3==null)continue;const costo=p1-p3;if(costo<=0)continue;
+    const w=r3.k-r1.k;if(w<=0)continue;const mw=w-costo;if(mw<=0)continue;
+    const be=r1.k+costo,iv=r1.iv||gIV;
+    const pa=pAbove(gSpot,r1.k,T,iv);
+    bs2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL:pa!=null?100-pa:50,rr:mw/costo,pct:costo/w*100});
+  }
+  return`<div class="anl-section">
+    <div class="anl-sec-hdr">ESTRATEGIAS CON CALLS</div>
+    <div class="anl-grid2">${mkSpread('Bull Spread','B1 – B2',bs1,'bull')}${mkSpread('Bull Spread +1','B1 – B3',bs2,'bull')}</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECCIÓN 2 — PUTS
+// ══════════════════════════════════════════════════════════════
+function secPuts(puts,rows,T,days){
+  const br1=[],br2=[];
+  for(let i=0;i<puts.length-1;i++){
+    const r1=puts[i],r2=puts[i+1];const p1=px(r1.p),p2=px(r2.p);
+    if(p1==null||p2==null)continue;const costo=p2-p1;if(costo<=0)continue;
+    const w=r2.k-r1.k;if(w<=0)continue;const mw=w-costo;if(mw<=0)continue;
+    const be=r2.k-costo,iv=r2.iv||gIV;
+    const pL=pAbove(gSpot,r2.k,T,iv)??50;
+    br1.push({lbl:`${fk(r1.k)} / ${fk(r2.k)}`,costo,mw,be,pL,rr:mw/costo,pct:costo/w*100});
+  }
+  for(let i=0;i<puts.length-2;i++){
+    const r1=puts[i],r3=puts[i+2];const p1=px(r1.p),p3=px(r3.p);
+    if(p1==null||p3==null)continue;const costo=p3-p1;if(costo<=0)continue;
+    const w=r3.k-r1.k;if(w<=0)continue;const mw=w-costo;if(mw<=0)continue;
+    const be=r3.k-costo,iv=r3.iv||gIV;
+    const pL=pAbove(gSpot,r3.k,T,iv)??50;
+    br2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL,rr:mw/costo,pct:costo/w*100});
+  }
+  const np=puts.map(r=>{
+    const tnaBid=r.p.bid!=null?(r.p.bid/r.k)*(365/days)*100:null;
+    const tnaLast=r.p.last!=null?(r.p.last/r.k)*(365/days)*100:null;
+    const tnaOff=r.p.ask!=null?(r.p.ask/r.k)*(365/days)*100:null;
+    const tnaNet=tnaLast!=null?tnaLast-19.9:null;
+    const probOk=pAbove(gSpot,r.k,T,r.iv||gIV);
+    return{lbl:fk(r.k),tnaBid,tnaLast,tnaOff,tnaNet,cap:r.k*100,probOk};
+  });
+  return`<div class="anl-section">
+    <div class="anl-sec-hdr">ESTRATEGIAS CON PUTS</div>
+    ${mkNakedPut(np)}
+    <div class="anl-grid2" style="margin-top:10px">${mkSpread('Bear Spread','B2 – B1',br1,'bear')}${mkSpread('Bear Spread +1','B3 – B1',br2,'bear')}</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECCIÓN 3 — COMBINADAS
+// ══════════════════════════════════════════════════════════════
+function secCombinadas(calls,puts,rows,T,days){
+  // ── Straddle ──────────────────────────────────────────────
+  const straddleRows=rows.filter(r=>r.c&&r.p).slice(0).sort((a,b)=>Math.abs(a.k-gSpot)-Math.abs(b.k-gSpot)).slice(0,12);
+  const strRows=straddleRows.map(r=>{
+    const p1=px(r.c),p2=px(r.p);if(p1==null||p2==null)return null;
+    const total=p1+p2;
+    const iv=r.iv||gIV;
+    const dc=bsDelta(gSpot,r.k,T,iv,true),dp=bsDelta(gSpot,r.k,T,iv,false);
+    const th=bsTheta(gSpot,r.k,T,iv)*2,vg=bsVega(gSpot,r.k,T,iv)*2;
+    const atm=Math.abs(r.k-gSpot)/gSpot<0.025;
+    return{lbl:fk(r.k),atm,total,mov:total/gSpot*100,beU:r.k+total,beD:r.k-total,dC:dc,dP:dp,dT:dc+dp,theta:th,vega:vg};
+  }).filter(Boolean);
+
+  // ── Strangle ──────────────────────────────────────────────
+  const otmCalls=calls.filter(r=>r.k>gSpot);
+  const otmPuts =puts.filter(r=>r.k<gSpot);
+  const strgl=[];
+  for(let pi=0;pi<Math.min(otmPuts.length,8);pi++){
+    for(let ci=0;ci<Math.min(otmCalls.length,8);ci++){
+      const rP=otmPuts[otmPuts.length-1-pi];
+      const rC=otmCalls[ci];
+      const pp=px(rP.p),cp=px(rC.c);if(pp==null||cp==null)continue;
+      const total=pp+cp;
+      const dc=bsDelta(gSpot,rC.k,T,rC.iv||gIV,true),dp=bsDelta(gSpot,rP.k,T,rP.iv||gIV,false);
+      strgl.push({lblP:fk(rP.k),lblC:fk(rC.k),pp,cp,total,beU:rC.k+total,beD:rP.k-total,dT:dc+dp});
+    }
+  }
+  // limit to reasonable combos: closest to ATM
+  const strgFiltered=strgl.sort((a,b)=>a.total-b.total).slice(0,16);
+
+  // ── Covered Call ──────────────────────────────────────────
+  const ccRows=calls.filter(r=>r.k>gSpot).map(r=>{
+    const p=px(r.c);if(p==null)return null;
+    const tnaB=r.c.bid!=null?(r.c.bid/gSpot)*(365/days)*100:null;
+    const tnaL=r.c.last!=null?(r.c.last/gSpot)*(365/days)*100:null;
+    const tnaN=tnaL!=null?tnaL-19.9:null;
+    const cob=p/gSpot*100;
+    const atm=Math.abs(r.k-gSpot)/gSpot<0.025;
+    return{lbl:fk(r.k),atm,prima:p,tnaB,tnaL,tnaN,cob};
+  }).filter(Boolean);
+
+  // ── Collar ────────────────────────────────────────────────
+  const collarRows=[];
+  const otmC=calls.filter(r=>r.k>gSpot);
+  const otmP=puts.filter(r=>r.k<gSpot);
+  for(let ci=0;ci<Math.min(otmC.length,5);ci++){
+    for(let pi=0;pi<Math.min(otmP.length,6);pi++){
+      const rC=otmC[ci],rP=otmP[otmP.length-1-pi];
+      const cp=px(rC.c),pp=px(rP.p);if(cp==null||pp==null)continue;
+      const neto=pp-cp; // negativo=crédito, positivo=débito
+      const upside=(rC.k-gSpot)/gSpot*100;
+      const prot=(gSpot-rP.k)/gSpot*100;
+      collarRows.push({lblP:fk(rP.k),lblC:fk(rC.k),neto,upside,prot});
+    }
+  }
+
+  const straddleHtml=`<div class="anl-card">
+    <div class="anl-card-hdr"><span class="anl-card-title">Straddle</span><span class="anl-card-sub">Call + Put · mismo strike</span></div>
+    <div class="anl-tscroll"><table class="anl-table"><thead><tr>
+      <th class="anl-th l">STRIKE</th>
+      <th class="anl-th">PRIMA</th><th class="anl-th">MOV%</th>
+      <th class="anl-th">BE↑</th><th class="anl-th">BE↓</th>
+      <th class="anl-th c-delta">ΔCALL</th><th class="anl-th c-delta">ΔPUT</th><th class="anl-th c-delta">ΔTOTAL</th>
+      <th class="anl-th c-theta">THETA/D</th><th class="anl-th c-vega">VEGA</th>
+    </tr></thead><tbody>${strRows.map(r=>`<tr class="anl-tr">
+      <td class="anl-td l">${fk(r.lbl??r.k)}&nbsp;${r.atm?'<span class="anl-badge atm">ATM</span>':''}</td>
+      <td class="anl-td">${fp(r.total)}</td>
+      <td class="anl-td">${fn(r.mov,1)}%</td>
+      <td class="anl-td c-win">${fp(r.beU)}</td>
+      <td class="anl-td c-costo">${fp(r.beD)}</td>
+      <td class="anl-td c-delta">${fn(r.dC,3)}</td>
+      <td class="anl-td c-delta">${fn(r.dP,3)}</td>
+      <td class="anl-td c-delta">${fn(r.dT,3)}</td>
+      <td class="anl-td c-theta">${fn(r.theta,2)}</td>
+      <td class="anl-td c-vega">${fn(r.vega,2)}</td>
+    </tr>`).join('')||`<tr><td colspan="10" class="anl-empty">Sin datos</td></tr>`}</tbody></table></div>
+    <div class="anl-note">Compra: ganás con movimiento grande. Prima = pérdida máxima. Venta: cobrás prima, ganás en rango.</div>
+  </div>`;
+
+  const strangleHtml=`<div class="anl-card">
+    <div class="anl-card-hdr"><span class="anl-card-title">Strangle</span><span class="anl-card-sub">Call OTM + Put OTM · strikes distintos</span></div>
+    <div class="anl-tscroll"><table class="anl-table"><thead><tr>
+      <th class="anl-th l">K PUT</th><th class="anl-th l">K CALL</th>
+      <th class="anl-th">PRIMA PUT</th><th class="anl-th">PRIMA CALL</th><th class="anl-th">TOTAL</th>
+      <th class="anl-th">BE↑</th><th class="anl-th">BE↓</th><th class="anl-th c-delta">ΔTOTAL</th>
+    </tr></thead><tbody>${strgFiltered.map(r=>`<tr class="anl-tr">
+      <td class="anl-td l">${r.lblP}</td><td class="anl-td l">${r.lblC}</td>
+      <td class="anl-td">${fp(r.pp)}</td><td class="anl-td">${fp(r.cp)}</td>
+      <td class="anl-td">${fp(r.total)}</td>
+      <td class="anl-td c-win">${fp(r.beU)}</td><td class="anl-td c-costo">${fp(r.beD)}</td>
+      <td class="anl-td c-delta">${fn(r.dT,3)}</td>
+    </tr>`).join('')||`<tr><td colspan="8" class="anl-empty">Sin datos</td></tr>`}</tbody></table></div>
+    <div class="anl-note">ΔTotal ≈ 0 = posición más delta-neutral.</div>
+  </div>`;
+
+  const ccHtml=`<div class="anl-card">
+    <div class="anl-card-hdr"><span class="anl-card-title">Covered Call</span><span class="anl-card-sub">Acciones + Venta Call OTM · TNA sobre posición</span></div>
+    <table class="anl-table"><thead><tr>
+      <th class="anl-th l">STRIKE</th>
+      <th class="anl-th">PRIMA</th><th class="anl-th">TNA BRUTA</th>
+      <th class="anl-th">TNA NETA CF</th><th class="anl-th">COBERTURA%</th>
+    </tr></thead><tbody>${ccRows.map(r=>`<tr class="anl-tr">
+      <td class="anl-td l">${r.lbl}&nbsp;${r.atm?'<span class="anl-badge atm">ATM</span>':''}</td>
+      <td class="anl-td">${fp(r.prima)}</td>
+      <td class="anl-td c-win">${r.tnaL!=null?fn(r.tnaL,2)+'%':'—'}</td>
+      <td class="anl-td ${r.tnaN!=null?(r.tnaN>=0?'c-tna-pos':'c-tna-neg'):''}">${r.tnaN!=null?(r.tnaN>=0?'+':'')+fn(r.tnaN,2)+'%':'—'}</td>
+      <td class="anl-td">${fn(r.cob,2)}%</td>
+    </tr>`).join('')||`<tr><td colspan="5" class="anl-empty">Sin datos</td></tr>`}</tbody></table>
+    <div class="anl-note">TNA Neta CF: TNA Last – TLR (19,9%). Cobertura: prima/spot — protección a la baja.</div>
+  </div>`;
+
+  const collarHtml=`<div class="anl-card">
+    <div class="anl-card-hdr"><span class="anl-card-title">Collar</span><span class="anl-card-sub">Acciones + Long Put OTM + Short Call OTM</span></div>
+    <table class="anl-table"><thead><tr>
+      <th class="anl-th l">K PUT (PROT.)</th><th class="anl-th l">K CALL (CAP)</th>
+      <th class="anl-th">COSTO NETO</th><th class="anl-th">UPSIDE%</th><th class="anl-th">PROTECCIÓN%</th>
+    </tr></thead><tbody>${collarRows.map(r=>`<tr class="anl-tr">
+      <td class="anl-td l">${r.lblP}</td><td class="anl-td l">${r.lblC}</td>
+      <td class="anl-td ${r.neto<0?'c-win':r.neto>0?'c-costo':'c-neutral'}">${r.neto<0?fp(r.neto)+' (crédito)':fp(r.neto)+' (débito)'}</td>
+      <td class="anl-td">${fpct(r.upside)}</td>
+      <td class="anl-td">${fpct(r.prot)}</td>
+    </tr>`).join('')||`<tr><td colspan="5" class="anl-empty">Sin datos</td></tr>`}</tbody></table>
+    <div class="anl-note">Collar: protección + cap al upside. Crédito = la protección es gratuita o te pagan.</div>
+  </div>`;
+
+  return`<div class="anl-section">
+    <div class="anl-sec-hdr">ESTRATEGIAS COMBINADAS</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="anl-grid2">${straddleHtml}${strangleHtml}</div>
+      <div class="anl-grid2">${ccHtml}${collarHtml}</div>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECCIÓN 4 — MULTI-PATA
+// ══════════════════════════════════════════════════════════════
+function secMultiPata(calls,puts,T){
+  const otmC=calls.filter(r=>r.k>gSpot);
+  const otmP=puts.filter(r=>r.k<gSpot);
+
+  // ── Iron Condor ───────────────────────────────────────────
+  const icRows=[];
+  for(let ci=0;ci<Math.min(otmC.length-1,10);ci++){
+    for(let pi=0;pi<Math.min(otmP.length-1,10);pi++){
+      const bcS=otmC[ci],bcB=otmC[ci+1]; // bear call: sell bcS, buy bcB
+      const bpS=otmP[otmP.length-1-pi],bpB=otmP[otmP.length-2-pi]; // bull put: sell bpS, buy bpB
+      if(!bcS||!bcB||!bpS||!bpB)continue;
+      const bcP=px(bcS.c),bcBP=px(bcB.c),bpSP=px(bpS.p),bpBP=px(bpB.p);
+      if(bcP==null||bcBP==null||bpSP==null||bpBP==null)continue;
+      const creditCall=bcP-bcBP,creditPut=bpSP-bpBP;
+      if(creditCall<=0||creditPut<=0)continue;
+      const credit=creditCall+creditPut;
+      const wCall=bcB.k-bcS.k,wPut=bpS.k-bpB.k;
+      const minW=Math.min(wCall,wPut);
+      const maxLoss=minW-credit;if(maxLoss<=0)continue;
+      const beU=bcS.k+credit,beD=bpS.k-credit;
+      const probOk=pBetween(gSpot,bpS.k,bcS.k,T,gIV);
+      const ev=probOk!=null?credit*(probOk/100)-maxLoss*(1-probOk/100):null;
+      icRows.push({
+        bcS:fk(bcS.k),bcB:fk(bcB.k),bpS:fk(bpS.k),bpB:fk(bpB.k),
+        credit,maxLoss,br:credit/maxLoss,beU,beD,
+        pct:credit/minW*100,probOk,ev
+      });
+    }
+  }
+  icRows.sort((a,b)=>(b.ev??-999)-(a.ev??-999));
+  const icTop=icRows.slice(0,20);
+
+  // ── Jade Lizard ───────────────────────────────────────────
+  const jlRows=[];
+  for(let pi=0;pi<Math.min(otmP.length,8);pi++){
+    const rP=otmP[otmP.length-1-pi];
+    for(let ci=0;ci<Math.min(otmC.length-1,8);ci++){
+      const rCS=otmC[ci],rCB=otmC[ci+1];
+      const pp=px(rP.p),csp=px(rCS.c),cbp=px(rCB.c);
+      if(pp==null||csp==null||cbp==null)continue;
+      const callCredit=csp-cbp;if(callCredit<=0)continue;
+      const totalCredit=pp+callCredit;
+      const w=rCB.k-rCS.k;
+      if(totalCredit<w)continue; // condición Jade Lizard: sin riesgo al alza
+      const beD=rP.k-totalCredit;
+      const probOk=pAbove(gSpot,beD,T,rP.iv||gIV);
+      jlRows.push({lblP:fk(rP.k),lblCS:fk(rCS.k),lblCB:fk(rCB.k),credit:totalCredit,w,beD,probOk});
+    }
+  }
+  jlRows.sort((a,b)=>b.credit-a.credit);
+
+  const icHtml=`<div class="anl-card">
+    <div class="anl-card-hdr">
+      <span class="anl-card-title">Iron Condor</span>
+      <span class="anl-card-sub">Top 20 por EV · crédito neto · mercado lateral</span>
+    </div>
+    <div class="anl-tscroll"><table class="anl-table"><thead><tr>
+      <th class="anl-th l" colspan="2">ESTRUCTURA</th>
+      <th class="anl-th">CRÉDITO</th><th class="anl-th">MÁX PÉRD</th><th class="anl-th">BR</th>
+      <th class="anl-th">BE↑</th><th class="anl-th">BE↓</th>
+      <th class="anl-th">%LLENO</th><th class="anl-th">PROB OK</th>
+    </tr></thead><tbody>${icTop.map(r=>`<tr class="anl-tr">
+      <td class="anl-td l s"><span style="color:var(--red)">BEAR CALL</span> V C${r.bcS} / C ${r.bcB}</td>
+      <td class="anl-td l s"><span style="color:var(--green)">BULL PUT</span> &nbsp;P${r.bpS} / P ${r.bpB}</td>
+      <td class="anl-td c-win">${fp(r.credit)}</td>
+      <td class="anl-td c-costo">${fp(r.maxLoss)}</td>
+      <td class="anl-td c-rr">${fn(r.br,2)}</td>
+      <td class="anl-td">${fp(r.beU)}</td>
+      <td class="anl-td">${fp(r.beD)}</td>
+      <td class="anl-td">${fn(r.pct,1)}%</td>
+      <td class="anl-td ${r.probOk!=null?pc(100-r.probOk):''}">${r.probOk!=null?fn(r.probOk,1)+'%':'—'}</td>
+    </tr>`).join('')||`<tr><td colspan="9" class="anl-empty">Sin datos</td></tr>`}</tbody></table></div>
+    <div class="anl-note">% Lleno: crédito/ancho mínimo. Ordenado por Expected Value (EV).</div>
+  </div>`;
+
+  const jlHtml=`<div class="anl-card">
+    <div class="anl-card-hdr">
+      <span class="anl-card-title">Jade Lizard</span>
+      <span class="anl-card-sub">Short Put OTM + Short Call Spread · sin riesgo al alza</span>
+    </div>
+    <table class="anl-table"><thead><tr>
+      <th class="anl-th l">K PUT (V)</th><th class="anl-th l">K CALL (V)</th><th class="anl-th l">K CALL (C)</th>
+      <th class="anl-th">CRÉDITO</th><th class="anl-th">ANCHO</th><th class="anl-th">BE↓</th><th class="anl-th">PROB OK</th>
+    </tr></thead><tbody>${jlRows.slice(0,12).map(r=>`<tr class="anl-tr">
+      <td class="anl-td l">${r.lblP}</td><td class="anl-td l">${r.lblCS}</td><td class="anl-td l">${r.lblCB}</td>
+      <td class="anl-td c-win">${fp(r.credit)}</td>
+      <td class="anl-td">${fn(r.w,0)}</td>
+      <td class="anl-td c-costo">${fp(r.beD)}</td>
+      <td class="anl-td ${r.probOk!=null?pc(100-r.probOk):''}">${r.probOk!=null?fn(r.probOk,1)+'%':'—'}</td>
+    </tr>`).join('')||`<tr><td colspan="7" class="anl-empty">Sin combos válidos (crédito total ≥ ancho del spread)</td></tr>`}</tbody></table>
+    <div class="anl-note">Condición clave: crédito total ≥ ancho del call spread → no hay pérdida al alza. BE↓ = K put − crédito.</div>
+  </div>`;
+
+  return`<div class="anl-section">
+    <div class="anl-sec-hdr">ESTRATEGIAS MULTI-PATA</div>
+    ${icHtml}
+    <div style="margin-top:10px">${jlHtml}</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECCIÓN 5 — SINTÉTICOS
+// ══════════════════════════════════════════════════════════════
+function secSinteticos(rows,T,days){
+  const sRows=rows.filter(r=>r.c&&r.p).map(r=>{
+    const lc=px(r.c),lp=px(r.p);if(lc==null||lp==null)return null;
+    // TNA implícita: forward sintético = (C-P+K)/S - 1 = r*T
+    const tna=((lc-lp+r.k)/gSpot-1)*(365/days)*100;
+    const tnaN=tna-19.9;
+    const tipo=Math.abs(r.k-gSpot)/gSpot<0.025?'ATM':lc>lp?'Long Sint.':'Short Sint.';
+    return{lbl:fk(r.k),lc,lp,tna,tnaN,tipo,isAtm:Math.abs(r.k-gSpot)/gSpot<0.025};
+  }).filter(Boolean);
+
+  return`<div class="anl-section">
+    <div class="anl-sec-hdr">SINTÉTICOS — Paridad Put-Call · TNA Implícita</div>
+    <div class="anl-card">
+      <div class="anl-card-hdr">
+        <span class="anl-card-title">Synthetics</span>
+        <span class="anl-card-sub">Paridad Put-Call · TNA sintética vs Caución 1d mercado</span>
+      </div>
+      <table class="anl-table"><thead><tr>
+        <th class="anl-th l">STRIKE</th>
+        <th class="anl-th">LAST CALL</th><th class="anl-th">LAST PUT</th>
+        <th class="anl-th">TNA BRUTA</th><th class="anl-th">TNA NETA CF</th><th class="anl-th">TIPO</th>
+      </tr></thead><tbody>${sRows.map(r=>`<tr class="anl-tr">
+        <td class="anl-td l">${r.lbl}&nbsp;${r.isAtm?'<span class="anl-badge atm">ATM</span>':''}</td>
+        <td class="anl-td">${fp(r.lc)}</td><td class="anl-td">${fp(r.lp)}</td>
+        <td class="anl-td ${r.tna>0?'c-win':'c-costo'}">${fn(r.tna,2)}%</td>
+        <td class="anl-td ${r.tnaN>=0?'c-tna-pos':'c-tna-neg'}">${(r.tnaN>=0?'+':'')+fn(r.tnaN,2)}%</td>
+        <td class="anl-td" style="color:${r.tnaN>=0?'var(--green)':'var(--text3)'}">${r.tipo}</td>
+      </tr>`).join('')||`<tr><td colspan="6" class="anl-empty">Sin datos</td></tr>`}</tbody></table>
+      <div class="anl-note">TNA Neta CF: TNA Last – TLR (19,9%). Exceso sobre la caución. <b style="color:var(--green)">Long Sint.</b> = C&gt;P. <b style="color:var(--text2)">Short Sint.</b> = P&gt;C.</div>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECCIÓN 6 — RATIOS
+// ══════════════════════════════════════════════════════════════
+function secRatios(calls,puts,T){
+  // Call Ratio 1x2: compra 1 call K1, vende 2 calls K2
+  const rc12=[];
   for(let i=0;i<calls.length-1;i++){
     const r1=calls[i],r2=calls[i+1];
     const p1=px(r1.c),p2=px(r2.c);if(p1==null||p2==null)continue;
-    const costo=p1-p2;if(costo<=0)continue;
-    const w=r2.k-r1.k;if(w<=0)continue;
-    const maxWin=w-costo;if(maxWin<=0)continue;
-    const be=r1.k+costo,iv=r1.iv||gAtmIV;
-    const pa=probAbove(gSpot,r1.k,T,iv);
-    bs1.push({lbl:`${fk(r1.k)} / ${fk(r2.k)}`,costo,maxWin,be,pLoss:pa!=null?100-pa:50,rr:maxWin/costo,pctL:costo/w*100});
+    const neto=p1-2*p2; // negativo=crédito recibido, positivo=débito
+    const maxGain=(r2.k-r1.k)+Math.abs(neto)*(neto<0?1:0); // en K2
+    const maxGainK2=(r2.k-r1.k)-neto; // pnl at K2
+    const beU=neto<0?r2.k+(r2.k-r1.k)+neto:r2.k+(r2.k-r1.k)+neto; // riesgo al alza
+    const beD=neto>0?r1.k+neto:null; // riesgo a la baja si es débito
+    rc12.push({lbl:`${fk(r1.k)} / ${fk(r2.k)}×2`,neto,maxGainK2,beU,beD});
   }
 
-  // Bull Spread B1-B3
-  const bs2=[];
-  for(let i=0;i<calls.length-2;i++){
-    const r1=calls[i],r3=calls[i+2];
-    const p1=px(r1.c),p3=px(r3.c);if(p1==null||p3==null)continue;
-    const costo=p1-p3;if(costo<=0)continue;
-    const w=r3.k-r1.k;if(w<=0)continue;
-    const maxWin=w-costo;if(maxWin<=0)continue;
-    const be=r1.k+costo,iv=r1.iv||gAtmIV;
-    const pa=probAbove(gSpot,r1.k,T,iv);
-    bs2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,maxWin,be,pLoss:pa!=null?100-pa:50,rr:maxWin/costo,pctL:costo/w*100});
-  }
-
-  // Naked Put
-  const np=puts.map(r=>{
-    const tnaBid  =r.p.bid !=null?(r.p.bid /r.k)*(365/days)*100:null;
-    const tnaLast =r.p.last!=null?(r.p.last/r.k)*(365/days)*100:null;
-    const tnaOff  =r.p.ask !=null?(r.p.ask /r.k)*(365/days)*100:null;
-    const tnaNet  =tnaLast!=null?tnaLast-19.9:null;
-    const probOk  =probAbove(gSpot,r.k,T,r.iv||gAtmIV);
-    return{lbl:fk(r.k),tnaBid,tnaLast,tnaOff,tnaNet,cap:r.k*100,probOk};
-  });
-
-  // Bear Spread B2-B1
-  const br1=[];
-  for(let i=0;i<puts.length-1;i++){
-    const r1=puts[i],r2=puts[i+1];
+  // Put Ratio 1x2: compra 1 put K1, vende 2 puts K2 (K2<K1)
+  const rp12=[];
+  for(let i=1;i<puts.length;i++){
+    const r2=puts[i-1],r1=puts[i]; // r2.k < r1.k
     const p1=px(r1.p),p2=px(r2.p);if(p1==null||p2==null)continue;
-    const costo=p2-p1;if(costo<=0)continue;
-    const w=r2.k-r1.k;if(w<=0)continue;
-    const maxWin=w-costo;if(maxWin<=0)continue;
-    const be=r2.k-costo,iv=r2.iv||gAtmIV;
-    const pLoss=probAbove(gSpot,r2.k,T,iv)??50;
-    br1.push({lbl:`${fk(r1.k)} / ${fk(r2.k)}`,costo,maxWin,be,pLoss,rr:maxWin/costo,pctL:costo/w*100});
+    const neto=p1-2*p2;
+    const maxGainK2=(r1.k-r2.k)-neto;
+    const beD=neto<0?r2.k-(r1.k-r2.k)-neto:r2.k-(r1.k-r2.k)+neto;
+    const beU=neto>0?r1.k-neto:null;
+    rp12.push({lbl:`${fk(r1.k)} / ${fk(r2.k)}×2`,neto,maxGainK2,beD,beU});
   }
 
-  // Bear Spread B3-B1
-  const br2=[];
-  for(let i=0;i<puts.length-2;i++){
-    const r1=puts[i],r3=puts[i+2];
-    const p1=px(r1.p),p3=px(r3.p);if(p1==null||p3==null)continue;
-    const costo=p3-p1;if(costo<=0)continue;
-    const w=r3.k-r1.k;if(w<=0)continue;
-    const maxWin=w-costo;if(maxWin<=0)continue;
-    const be=r3.k-costo,iv=r3.iv||gAtmIV;
-    const pLoss=probAbove(gSpot,r3.k,T,iv)??50;
-    br2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,maxWin,be,pLoss,rr:maxWin/costo,pctL:costo/w*100});
+  // Call Back Spread (ratio invertido): vende 1 call K1, compra 2 calls K2
+  const rci=[];
+  for(let i=0;i<calls.length-1;i++){
+    const r1=calls[i],r2=calls[i+1];
+    const p1=px(r1.c),p2=px(r2.c);if(p1==null||p2==null)continue;
+    const neto=2*p2-p1; // generalmente débito
+    const maxLoss=neto>0?neto:(r2.k-r1.k)+neto; // pnl at K2 (worst case)
+    const beU=r2.k+(r2.k-r1.k)+neto; // arriba de esto ganas
+    rci.push({lbl:`×2 ${fk(r2.k)} / ${fk(r1.k)}`,neto,maxLoss,beU});
   }
 
-  body.innerHTML=`
-    <div class="anl-section">
-      <div class="anl-sec-hdr">ESTRATEGIAS CON CALLS</div>
-      <div class="anl-grid2">
-        ${mkSpread('Bull Spread','B1 – B2',bs1,'bull')}
-        ${mkSpread('Bull Spread +1','B1 – B3',bs2,'bull')}
-      </div>
+  // Put Back Spread (ratio invertido): vende 1 put K1, compra 2 puts K2 (K2<K1)
+  const rpi=[];
+  for(let i=1;i<puts.length;i++){
+    const r2=puts[i-1],r1=puts[i];
+    const p1=px(r1.p),p2=px(r2.p);if(p1==null||p2==null)continue;
+    const neto=2*p2-p1;
+    const maxLoss=neto>0?neto:(r1.k-r2.k)+neto;
+    const beD=r2.k-(r1.k-r2.k)-neto;
+    rpi.push({lbl:`×2 ${fk(r2.k)} / ${fk(r1.k)}`,neto,maxLoss,beD});
+  }
+
+  const mkRatio=(title,sub,rows,cols)=>`<div class="anl-card">
+    <div class="anl-card-hdr"><span class="anl-card-title">${title}</span><span class="anl-card-sub">${sub}</span></div>
+    <table class="anl-table"><thead><tr>
+      <th class="anl-th l">ESTRUCTURA</th>${cols.map(c=>`<th class="anl-th">${c}</th>`).join('')}
+    </tr></thead><tbody>${rows.map(r=>`<tr class="anl-tr">
+      <td class="anl-td l">${r.lbl}</td>
+      <td class="anl-td ${r.neto<0?'c-win':r.neto>0?'c-costo':'c-neutral'}">${fp(r.neto)}&nbsp;<span style="font-size:8px;color:var(--text3)">${r.neto<0?'(cred.)':r.neto>0?'(déb.)':''}
+      </span></td>
+      ${r.maxGainK2!=null?`<td class="anl-td c-win">${fp(r.maxGainK2)}</td>`:''}
+      ${r.maxLoss!=null?`<td class="anl-td c-costo">${fp(r.maxLoss)}</td>`:''}
+      ${r.beU!=null?`<td class="anl-td">${fp(r.beU)}</td>`:''}
+      ${r.beD!=null?`<td class="anl-td">${fp(r.beD)}</td>`:''}
+    </tr>`).join('')||`<tr><td colspan="${cols.length+1}" class="anl-empty">Sin datos</td></tr>`}
+    </tbody></table>
+  </div>`;
+
+  return`<div class="anl-section">
+    <div class="anl-sec-hdr">RATIOS Y BACK SPREADS</div>
+    <div class="anl-grid2">
+      ${mkRatio('Ratio Call 1×2','Compra 1 call K1 · Vende 2 calls K2',rc12,['NETO','MÁX GANANCIA (K2)','BE↑'])}
+      ${mkRatio('Ratio Put 1×2','Compra 1 put K1 · Vende 2 puts K2 (K2<K1)',rp12,['NETO','MÁX GANANCIA (K2)','BE↓'])}
     </div>
-    <div class="anl-section" style="margin-top:18px">
-      <div class="anl-sec-hdr">ESTRATEGIAS CON PUTS</div>
-      ${mkNakedPut(np,days)}
-      <div class="anl-grid2" style="margin-top:10px">
-        ${mkSpread('Bear Spread','B2 – B1',br1,'bear')}
-        ${mkSpread('Bear Spread +1','B3 – B1',br2,'bear')}
-      </div>
-    </div>`;
-};
+    <div class="anl-grid2" style="margin-top:10px">
+      ${mkRatio('Call Back Spread','Vende 1 call K1 · Compra 2 calls K2 (ratio invertido)',rci,['NETO','MÁX PÉRDIDA','BE↑ (break-even alza)'])}
+      ${mkRatio('Put Back Spread','Vende 1 put K1 · Compra 2 puts K2 (ratio invertido)',rpi,['NETO','MÁX PÉRDIDA','BE↓ (break-even baja)'])}
+    </div>
+    <div style="margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);padding:6px 0">
+      Ratio 1×2: beneficiás de movimiento moderado hacia K2. Back Spread: beneficiás de movimiento fuerte (gamma largo).
+    </div>
+  </div>`;
+}
 
-// ── Builders ──────────────────────────────────────────────────
-const pc=p=>p<20?'c-prob-lo':p<55?'c-prob-md':'c-prob-hi';
-
+// ══════════════════════════════════════════════════════════════
+// BUILDERS COMUNES
+// ══════════════════════════════════════════════════════════════
 function mkSpread(title,sub,rows,type){
   const note=type==='bull'
     ?'Costo = máx pérdida &nbsp;·&nbsp; BE: K1+costo &nbsp;·&nbsp; % Lleno bajo = mejor'
@@ -237,57 +591,43 @@ function mkSpread(title,sub,rows,type){
     ?rows.map(r=>`<tr class="anl-tr">
       <td class="anl-td l">${r.lbl}</td>
       <td class="anl-td c-costo">${fp(r.costo)}</td>
-      <td class="anl-td c-win">${fp(r.maxWin)}</td>
+      <td class="anl-td c-win">${fp(r.mw)}</td>
       <td class="anl-td c-be">${fp(r.be)}</td>
-      <td class="anl-td ${pc(r.pLoss)}">${fn(r.pLoss,1)}%</td>
+      <td class="anl-td ${pc(r.pL)}">${fn(r.pL,1)}%</td>
       <td class="anl-td c-rr">${fn(r.rr,2)}x</td>
-      <td class="anl-td">${fn(r.pctL,1)}%</td>
-    </tr>`).join('')
-    :`<tr><td colspan="7" class="anl-empty">Sin datos</td></tr>`;
+      <td class="anl-td">${fn(r.pct,1)}%</td>
+    </tr>`).join(''):`<tr><td colspan="7" class="anl-empty">Sin datos</td></tr>`;
   return`<div class="anl-card">
-    <div class="anl-card-hdr">
-      <span class="anl-card-title">${title}</span>
-      <span class="anl-card-sub">${sub}</span>
-    </div>
-    <table class="anl-table">
-      <thead><tr>
-        <th class="anl-th l">STRIKE</th>
-        <th class="anl-th">COSTO</th><th class="anl-th">MAX WIN</th>
-        <th class="anl-th">BE</th><th class="anl-th">PROB%</th>
-        <th class="anl-th">RR</th><th class="anl-th">% LLENO</th>
-      </tr></thead>
-      <tbody>${trs}</tbody>
-    </table>
+    <div class="anl-card-hdr"><span class="anl-card-title">${title}</span><span class="anl-card-sub">${sub}</span></div>
+    <table class="anl-table"><thead><tr>
+      <th class="anl-th l">STRIKE</th>
+      <th class="anl-th">COSTO</th><th class="anl-th">MAX WIN</th>
+      <th class="anl-th">BE</th><th class="anl-th">PROB%</th>
+      <th class="anl-th">RR</th><th class="anl-th">% LLENO</th>
+    </tr></thead><tbody>${trs}</tbody></table>
     <div class="anl-note">${note}</div>
   </div>`;
 }
 
-function mkNakedPut(rows,days){
+function mkNakedPut(rows){
   const trs=rows.length
     ?rows.map(r=>`<tr class="anl-tr">
       <td class="anl-td l">${r.lbl}</td>
       <td class="anl-td c-tna-bid">${r.tnaBid!=null?fn(r.tnaBid,2)+'%':'—'}</td>
       <td class="anl-td">${r.tnaLast!=null?fn(r.tnaLast,2)+'%':'—'}</td>
-      <td class="anl-td c-tna-offer">${r.tnaOff!=null?fn(r.tnaOff,2)+'%':'—'}</td>
+      <td class="anl-td c-tna-off">${r.tnaOff!=null?fn(r.tnaOff,2)+'%':'—'}</td>
       <td class="anl-td ${r.tnaNet!=null?(r.tnaNet>=0?'c-tna-pos':'c-tna-neg'):''}">${r.tnaNet!=null?(r.tnaNet>=0?'+':'')+fn(r.tnaNet,2)+'%':'—'}</td>
       <td class="anl-td">${r.cap?'$'+fn(r.cap,0):''}</td>
       <td class="anl-td ${r.probOk!=null?pc(100-r.probOk):''}">${r.probOk!=null?fn(r.probOk,1)+'%':'—'}</td>
-    </tr>`).join('')
-    :`<tr><td colspan="7" class="anl-empty">Sin datos</td></tr>`;
+    </tr>`).join(''):`<tr><td colspan="7" class="anl-empty">Sin datos</td></tr>`;
   return`<div class="anl-card">
-    <div class="anl-card-hdr">
-      <span class="anl-card-title">Naked Put — Venta de Put</span>
-      <span class="anl-card-sub">Short put · cobrás prima · obligación de comprar al strike si ejercen</span>
-    </div>
-    <table class="anl-table">
-      <thead><tr>
-        <th class="anl-th l">STRIKE</th>
-        <th class="anl-th">TNA BID</th><th class="anl-th">TNA LAST</th>
-        <th class="anl-th">TNA OFFER</th><th class="anl-th">TNA NETA CF</th>
-        <th class="anl-th">CAP. RIESGO</th><th class="anl-th">PROB OK</th>
-      </tr></thead>
-      <tbody>${trs}</tbody>
-    </table>
+    <div class="anl-card-hdr"><span class="anl-card-title">Naked Put — Venta de Put</span><span class="anl-card-sub">Short put · cobrás prima · obligación de comprar al strike si ejercen</span></div>
+    <table class="anl-table"><thead><tr>
+      <th class="anl-th l">STRIKE</th>
+      <th class="anl-th">TNA BID</th><th class="anl-th">TNA LAST</th>
+      <th class="anl-th">TNA OFFER</th><th class="anl-th">TNA NETA CF</th>
+      <th class="anl-th">CAP. RIESGO</th><th class="anl-th">PROB OK</th>
+    </tr></thead><tbody>${trs}</tbody></table>
     <div class="anl-note">TNA Neta CF: TNA Last – TLR (19,9%). <b style="color:var(--text2)">Prob OK</b>: prob BS de no ser ejercido.</div>
   </div>`;
 }
