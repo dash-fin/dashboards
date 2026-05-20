@@ -1,0 +1,197 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: PrecioCheck — Comparador de precios Argentina
+     Endpoints: Precios Claros (SEPA) via proxy
+══════════════════════════════════════════════════ -->
+
+<style>
+.pc-wrap{max-width:540px;margin:0 auto;padding:10px 0 40px}
+.pc-intro{text-align:center;margin-bottom:20px}
+.pc-intro h2{font-size:18px;margin-bottom:4px;font-weight:700}
+.pc-intro p{font-size:12px;color:var(--text3)}
+
+.pc-server-card{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:16px;margin-bottom:12px}
+.pc-server-card h3{font-size:13px;margin-bottom:6px;font-weight:600}
+.pc-server-card .url{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--blue);word-break:break-all;margin-bottom:5px}
+.pc-server-card .status{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 8px;border-radius:20px;background:rgba(0,200,83,.08);color:var(--green);border:1px solid rgba(0,200,83,.2)}
+.pc-server-card .status.offline{background:rgba(255,63,94,.08);color:var(--red);border-color:rgba(255,63,94,.2)}
+
+.pc-btn{display:block;width:100%;text-align:center;padding:11px 14px;border:none;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;transition:all .15s;font-family:inherit;background:linear-gradient(135deg,#10B981,#059669);color:#fff}
+.pc-btn:hover{filter:brightness(1.1)}
+.pc-btn:disabled{opacity:.3;cursor:not-allowed}
+.pc-btn.outline{background:transparent;border:1.5px solid var(--border2);color:var(--text);font-weight:600}
+.pc-btn.outline:hover{background:var(--bg-hover,rgba(255,255,255,.03))}
+
+.pc-steps{margin-top:14px}
+.pc-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;padding:10px;border-radius:8px;background:var(--bg3,rgba(255,255,255,.025));border:1px solid var(--border2);transition:all .2s}
+.pc-step-num{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;background:var(--bg4,rgba(255,255,255,.05))}
+.pc-step-num.done{background:rgba(0,200,83,.12);color:var(--green)}
+.pc-step-info{flex:1}
+.pc-step-info strong{font-size:12.5px}
+.pc-step-info span{font-size:11px;color:var(--text3);margin-top:2px;display:block}
+.pc-step .pc-link{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--blue);word-break:break-all;margin-top:4px;display:inline-block}
+
+.pc-endpoints{margin-top:10px}
+.pc-ep{background:var(--bg3,rgba(255,255,255,.025));border:1px solid var(--border2);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:11px}
+.pc-ep .ep-label{font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:5px}
+.pc-ep .ep-url{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);word-break:break-all;margin-bottom:3px}
+.pc-ep .ep-status{display:inline-flex;align-items:center;gap:4px;font-size:10px}
+.pc-ep .ep-btn{font-size:10px;color:var(--blue);cursor:pointer;background:none;border:none;font-family:inherit;text-decoration:underline}
+
+.pc-iframe-wrap{margin-top:14px;border-radius:10px;overflow:hidden;border:1px solid var(--border2);background:var(--bg)}
+.pc-iframe-wrap iframe{width:100%;height:700px;border:none;display:block}
+
+.pc-api-info{font-size:11px;color:var(--text3);padding:10px 12px;background:var(--bg3,rgba(255,255,255,.025));border:1px solid var(--border2);border-radius:8px;margin-top:10px;line-height:1.6}
+</style>
+
+<script>
+const PC = {
+  serverUrl: 'https://preciocheck.cristian.repl.co', // ← CAMBIAR cuando subas a Replit
+  isOnline: false
+};
+
+async function checkServer(){
+  const btn = document.getElementById('pc-check-btn');
+  const statusEl = document.getElementById('pc-server-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Verificando...';
+  try {
+    const r = await fetch(`${PC.serverUrl}/health`, { mode: 'cors', signal: AbortSignal.timeout(5000) });
+    const d = await r.json();
+    PC.isOnline = d.status === 'ok';
+    statusEl.className = 'status';
+    statusEl.textContent = '✅ Online — listo para usar';
+    document.getElementById('pc-open-btn').disabled = false;
+    document.getElementById('pc-open-btn').textContent = '🚀 Abrir PrecioCheck';
+  } catch(e) {
+    statusEl.className = 'status offline';
+    statusEl.textContent = '⛔️ Offline — el servidor no responde';
+    PC.isOnline = false;
+  }
+  btn.disabled = false;
+  btn.textContent = '🔄 Verificar de nuevo';
+}
+
+function openPrecioCheck(){
+  if(!PC.isOnline) return;
+  document.getElementById('pc-iframe').src = PC.serverUrl;
+  document.getElementById('pc-open-area').style.display = 'block';
+  document.getElementById('pc-open-area').scrollIntoView({behavior:'smooth'});
+}
+
+// Cargar al montar
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Mostrar info del proyecto
+  fetch('/Github/preciocheck/package.json')
+    .then(r=>r.json())
+    .then(d=>{
+      document.querySelector('.pc-wrap .pc-intro p').textContent = 
+        `${d.description} · v${d.version}`;
+    }).catch(()=>{});
+});
+</script>
+
+<div class="pc-wrap">
+  <div class="pc-intro">
+    <h2>PrecioCheck</h2>
+    <p>Comparador de precios en supermercados argentinos</p>
+  </div>
+
+  <div class="pc-server-card">
+    <h3>🔌 Estado del servidor</h3>
+    <div class="url" id="pc-server-url">https://preciocheck.cristian.repl.co</div>
+    <div id="pc-server-status" class="status offline">⏳ Sin verificar</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button id="pc-check-btn" class="pc-btn" onclick="checkServer()">🔄 Verificar servidor</button>
+      <button id="pc-open-btn" class="pc-btn outline" onclick="openPrecioCheck()" disabled>🚀 Abrir app</button>
+    </div>
+  </div>
+
+  <div id="pc-open-area" style="display:none">
+    <div class="pc-iframe-wrap">
+      <iframe id="pc-iframe" src="about:blank" allow="geolocation"></iframe>
+    </div>
+  </div>
+
+  <div class="pc-steps">
+    <div class="pc-step">
+      <div class="pc-step-num done">1</div>
+      <div class="pc-step-info">
+        <strong>Extraer ZIP</strong>
+        <span>Archivos extraídos en <code>/mnt/c/dashboard/Github/preciocheck/</code></span>
+        <a class="pc-link" href="#">server.js · index.html · package.json</a>
+      </div>
+    </div>
+    <div class="pc-step">
+      <div class="pc-step-num done">2</div>
+      <div class="pc-step-info">
+        <strong>Proxy Node.js corriendo</strong>
+        <span>Usa /proxy?url=... para consultar API de Precios Claros</span>
+        <a class="pc-link" href="#">Retry con fallback automático (2 endpoints CloudFront)</a>
+      </div>
+    </div>
+    <div class="pc-step">
+      <div class="pc-step-num" id="pc-step3-num">3</div>
+      <div class="pc-step-info">
+        <strong>Despliegue en Replit</strong>
+        <span>Subí la carpeta a Replit. El server arranca con <code>npm start</code>.</span>
+        <a class="pc-link" href="#">Puerto: 8080 (lectura de process.env.PORT)</a>
+        <button class="ep-btn" onclick="navigator.clipboard?.writeText('cd preciocheck && npm install && npm start')">📋 copiar comando</button>
+      </div>
+    </div>
+    <div class="pc-step">
+      <div class="pc-step-num" id="pc-step4-num">4</div>
+      <div class="pc-step-info">
+        <strong>API Precios Claros — SEPA</strong>
+        <span>Endpoints descubiertos:</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pc-endpoints">
+    <div class="pc-ep">
+      <div class="ep-label">📍 Sucursales</div>
+      <div class="ep-url">/prod/sucursales?lat=-34.6037&lng=-58.3816&limit=10</div>
+      <span class="ep-status">
+        <span id="ep1-status">⏳</span>
+        <button class="ep-btn" onclick="testEp(1)">probar</button>
+      </span>
+    </div>
+    <div class="pc-ep">
+      <div class="ep-label">🔎 Productos</div>
+      <div class="ep-url">/prod/productos?string=Coca+Cola&lat=-34.6037&lng=-58.3816&limit=5</div>
+      <span class="ep-status">
+        <span id="ep2-status">⏳</span>
+        <button class="ep-btn" onclick="testEp(2)">probar</button>
+      </span>
+    </div>
+    <div class="pc-ep">
+      <div class="ep-label">💰 Precios por sucursal</div>
+      <div class="ep-url">/prod/producto?id_producto=7790895001413&array_sucursales=ID1,ID2,ID3</div>
+      <span class="ep-status">
+        <span id="ep3-status">⏳</span>
+        <button class="ep-btn" onclick="testEp(3)">probar</button>
+      </span>
+    </div>
+    <div class="pc-ep">
+      <div class="ep-label">🔄 Fallback automático</div>
+      <div class="ep-url">d3e6htiiul5ek9 → d735s5r2zljbo</div>
+      <span class="ep-status">
+        <span style="color:var(--text3)">✅ Server.js con retry automático</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="pc-api-info">
+    <strong>📚 Estructura datos:</strong><br>
+    • <code>sucursales[].id</code> → formato "24-2-2" (comercio-bandera-sucursal)<br>
+    • <code>productos[].id</code> → código EAN (7790895001413)<br>
+    • <code>sucursales[].preciosProducto.precioLista</code> → precio real del producto<br>
+    • <code>sucursales[].banderaDescripcion</code> → nombre de la cadena<br>
+    • <code>sucursales[].actualizadoHoy</code> → boolean si tiene precio actualizado<br><br>
+    <strong>Flujo end-to-end:</strong><br>
+    1. Sucursales por lat/lng<br>
+    2. Producto por nombre + lat/lng<br>
+    3. Elegir producto → obtener precios en sucursales cercanas<br>
+    4. Resultados ordenados por precio (más barato primero)
+  </div>
+</div>

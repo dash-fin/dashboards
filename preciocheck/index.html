@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrecioCheck · Comparador</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,600;9..40,700;9..40,800&family=DM+Mono:wght@400;500&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#080E1A;font-family:'DM Sans',sans-serif;color:#F1F5F9;min-height:100vh;
+    background-image:radial-gradient(ellipse 70% 40% at 50% 0%,rgba(16,185,129,.1),transparent)}
+  .wrap{max-width:500px;margin:0 auto;padding:24px 16px 80px}
+  .logo{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+  .logo-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#10B981,#059669);
+    display:flex;align-items:center;justify-content:center;font-size:15px}
+  .logo-text{font-size:17px;font-weight:800;letter-spacing:-.4px}
+  .badge{font-size:10.5px;font-weight:700;color:#10B981;background:rgba(16,185,129,.1);
+    border:1px solid rgba(16,185,129,.2);border-radius:20px;padding:2px 7px}
+  .sub{font-size:12.5px;color:#475569;margin-bottom:20px;line-height:1.5}
+  .card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+    border-radius:12px;padding:13px 15px;margin-bottom:10px}
+  .card-label{font-size:11px;font-weight:700;color:#475569;letter-spacing:.07em;margin-bottom:9px}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{flex:1;min-width:120px;border:none;border-radius:9px;padding:9px 12px;
+    font-weight:700;font-size:12.5px;cursor:pointer;font-family:'DM Sans',sans-serif;
+    display:flex;align-items:center;gap:6px;justify-content:center;transition:all .15s}
+  .btn-green{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:#10B981}
+  .btn-gray{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:#94A3B8}
+  .loc-active{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#94A3B8;flex-wrap:wrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:#10B981;box-shadow:0 0 7px #10B98177;flex-shrink:0}
+  .btn-change{background:transparent;border:none;color:#475569;cursor:pointer;font-size:12px;margin-left:auto;font-family:'DM Sans',sans-serif}
+  .search-box{display:flex;gap:7px;background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.09);border-radius:9px;padding:2px 4px 2px 12px;align-items:center}
+  input{flex:1;background:transparent;border:none;color:#F1F5F9;font-size:13.5px;
+    font-family:'DM Sans',sans-serif;padding:9px 0;outline:none}
+  input::placeholder{color:#334155}
+  .btn-search{background:linear-gradient(135deg,#10B981,#059669);border:none;border-radius:7px;
+    padding:8px 14px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;
+    font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .btn-search:disabled{opacity:.35;cursor:not-allowed;background:rgba(16,185,129,.3)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .chip{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+    border-radius:20px;padding:4px 10px;color:#64748B;font-size:11.5px;
+    font-weight:600;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+  .chip.active{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.35);color:#10B981}
+  .steps{background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.12);
+    border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:7px}
+  .step{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;transition:all .3s}
+  .step-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:all .3s}
+  .error-box{padding:12px 14px;background:rgba(248,113,113,.07);
+    border:1px solid rgba(248,113,113,.18);border-radius:10px;
+    margin-bottom:10px;font-size:12.5px;color:#FCA5A5;line-height:1.6}
+  .debug{font-family:'DM Mono',monospace;font-size:10.5px;color:#475569;margin-top:6px;
+    background:rgba(0,0,0,.2);border-radius:6px;padding:8px;word-break:break-all}
+  .results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+  .results-count{font-size:12.5px;color:#94A3B8}
+  .results-count strong{color:#F1F5F9}
+  .savings{font-size:11.5px;color:#10B981;font-weight:700;background:rgba(16,185,129,.08);
+    border:1px solid rgba(16,185,129,.2);border-radius:20px;padding:2px 9px}
+  .result-card{background:rgba(255,255,255,.025);border:1.5px solid rgba(255,255,255,.07);
+    border-radius:12px;padding:13px 15px;cursor:pointer;position:relative;overflow:hidden;
+    animation:fadeUp .35s ease both;margin-bottom:7px;transition:background .15s}
+  .result-card.best{background:rgba(16,185,129,.07);border-color:rgba(16,185,129,.35)}
+  .best-badge{position:absolute;top:0;right:0;background:#10B981;color:#fff;
+    font-size:9.5px;font-weight:800;letter-spacing:.1em;padding:3px 10px;border-radius:0 12px 0 8px}
+  .result-row{display:flex;align-items:center;gap:10px}
+  .chain-icon{width:34px;height:34px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+  .result-info{flex:1;min-width:0}
+  .result-chain{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .result-name{font-size:11.5px;color:#64748B;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .result-price{text-align:right;flex-shrink:0}
+  .price-val{font-size:18px;font-weight:800;letter-spacing:-.5px}
+  .price-diff{font-size:11px;color:#F87171;font-weight:600}
+  .result-detail{margin-top:11px;padding-top:11px;border-top:1px solid rgba(255,255,255,.06);
+    font-size:12px;color:#94A3B8;display:flex;flex-direction:column;gap:5px;display:none}
+  .tag{background:rgba(255,255,255,.05);border-radius:6px;padding:2px 8px;font-size:11px;color:#94A3B8;display:inline-block}
+  .product-select{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap}
+  .product-opt{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:9px;
+    padding:8px 11px;cursor:pointer;flex:1;min-width:140px;transition:all .15s}
+  .product-opt:hover{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.2)}
+  .product-opt .po-name{font-size:12.5px;font-weight:700;color:#F1F5F9}
+  .product-opt .po-sub{font-size:10.5px;color:#64748B;margin-top:2px}
+  .footer-note{margin-top:14px;font-size:11px;color:#1E3A5F;text-align:center}
+  .empty{text-align:center;padding:36px 0 0;color:#475569}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spin{animation:spin .8s linear infinite;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-icon">🛒</div>
+    <span class="logo-text">PrecioCheck</span>
+    <span class="badge">PROTOTIPO</span>
+  </div>
+  <p class="sub">Precios en supermercados cerca tuyo · datos de SEPA / Precios Claros</p>
+
+  <div class="card">
+    <div class="card-label">📍 UBICACIÓN</div>
+    <div id="loc-idle" class="btn-row">
+      <button class="btn btn-green" onclick="getLocation()">📍 Mi ubicación</button>
+      <button class="btn btn-gray" onclick="setLoc(-34.6037,-58.3816,'Buenos Aires')">🗺 Buenos Aires</button>
+      <button class="btn btn-gray" onclick="setLoc(-31.4201,-64.1888,'Córdoba')">🗺 Córdoba</button>
+      <button class="btn btn-gray" onclick="setLoc(-32.8908,-68.8272,'Mendoza')">🗺 Mendoza</button>
+    </div>
+    <div id="loc-active" style="display:none">
+      <div class="loc-active">
+        <div class="dot"></div>
+        <span id="loc-text" style="font-family:'DM Mono',monospace;font-size:11px"></span>
+        <button class="btn-change" onclick="resetLoc()">cambiar</button>
+      </div>
+    </div>
+    <div id="loc-error" style="font-size:12px;color:#F87171;margin-top:8px;display:none"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">🔎 PRODUCTO</div>
+    <div class="search-box">
+      <input id="query" value="Coca Cola" placeholder="ej: Coca Cola, leche, arroz..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="btn-search" id="btn-search" onclick="doSearch()" disabled>🔍 Buscar</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="steps" id="steps" style="display:none">
+    <div class="step" id="s1"><div class="step-dot"></div><span>📍 Buscando sucursales cercanas...</span></div>
+    <div class="step" id="s2"><div class="step-dot"></div><span>🔎 Buscando productos...</span></div>
+    <div class="step" id="s3"><div class="step-dot"></div><span>💰 Obteniendo precios...</span></div>
+  </div>
+
+  <div class="error-box" id="error-box" style="display:none">
+    <span id="error-msg"></span>
+    <div class="debug" id="error-debug" style="display:none"></div>
+  </div>
+
+  <div id="results-wrap"></div>
+  <div id="empty" class="empty" style="display:none">
+    <div style="font-size:30px;margin-bottom:8px">🔍</div>
+    <div style="font-size:13px" id="empty-text"></div>
+  </div>
+  <div id="idle-msg" class="empty">
+    <div style="font-size:32px;margin-bottom:10px">🛒</div>
+    <div style="font-size:13px">Seleccioná tu ubicación para empezar</div>
+  </div>
+</div>
+
+<script>
+const PROXY = '/proxy';
+const SUGGESTIONS = ['Coca Cola','Pepsi','Sprite','Fanta','Agua','Leche','Pan','Arroz','Fideos','Aceite','Yogur'];
+const CHAIN_COLORS = {carrefour:'#004A9F',walmart:'#0071CE',jumbo:'#E30613',coto:'#E8000D',dia:'#E2001A','la anónima':'#006633',vea:'#FF6B00',changomas:'#004A9F',disco:'#FF0000',farmacity:'#E6007E'};
+
+let loc = null;
+let productChoices = [];
+let selectedProduct = null;
+
+// Chips
+const chipsEl = document.getElementById('chips');
+SUGGESTIONS.forEach(s => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (s === 'Coca Cola' ? ' active' : '');
+  b.textContent = s;
+  b.onclick = () => { document.getElementById('query').value = s; updateChips(); };
+  chipsEl.appendChild(b);
+});
+function updateChips() {
+  const q = document.getElementById('query').value;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.textContent === q));
+}
+document.getElementById('query').addEventListener('input', updateChips);
+
+function getChainColor(name=''){
+  const n=name.toLowerCase();
+  for(const[k,v]of Object.entries(CHAIN_COLORS))if(n.includes(k))return v;
+  return '#6366F1';
+}
+function formatPrice(p){
+  // Si es 0 o vacío, mostrar —
+  if(!p || p === 0) return '—';
+  return new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(p);
+}
+
+function getLocation(){
+  document.getElementById('loc-error').style.display='none';
+  if(!navigator.geolocation){showLocError('Tu browser no soporta geolocalización.');return;}
+  navigator.geolocation.getCurrentPosition(
+    pos=>setLoc(pos.coords.latitude,pos.coords.longitude,`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`),
+    ()=>showLocError('No se pudo obtener ubicación. Usá una ciudad.'),
+    {timeout:8000}
+  );
+}
+function setLoc(lat,lng,label){
+  loc={lat,lng};
+  document.getElementById('loc-idle').style.display='none';
+  document.getElementById('loc-active').style.display='block';
+  document.getElementById('loc-text').textContent=label;
+  document.getElementById('btn-search').disabled=false;
+  document.getElementById('idle-msg').style.display='none';
+}
+function resetLoc(){
+  loc=null; selectedProduct=null; productChoices=[];
+  document.getElementById('loc-idle').style.display='flex';
+  document.getElementById('loc-active').style.display='none';
+  document.getElementById('btn-search').disabled=true;
+  document.getElementById('idle-msg').style.display='block';
+  document.getElementById('results-wrap').innerHTML='';
+}
+function showLocError(msg){const e=document.getElementById('loc-error');e.textContent=msg;e.style.display='block';}
+
+function setStep(n){
+  [1,2,3].forEach(i=>{
+    const el=document.getElementById('s'+i);
+    const dot=el.querySelector('.step-dot');
+    const span=el.querySelector('span');
+    if(i<n){el.style.opacity='.4';dot.style.background='#10B981';span.style.color='#10B981';}
+    else if(i===n){el.style.opacity='1';dot.style.background='#F59E0B';dot.style.boxShadow='0 0 8px #F59E0B99';span.style.color='#FCD34D';}
+    else{el.style.opacity='.2';dot.style.background='#1E293B';span.style.color='#475569';}
+  });
+}
+
+function showError(msg, debug=''){
+  document.getElementById('steps').style.display='none';
+  const eb=document.getElementById('error-box');
+  document.getElementById('error-msg').textContent='⚠️ '+msg;
+  const dbg=document.getElementById('error-debug');
+  if(debug){dbg.textContent=debug;dbg.style.display='block';}else{dbg.style.display='none';}
+  eb.style.display='block';
+}
+
+async function proxyFetch(apiUrl){
+  const res = await fetch(`${PROXY}?url=${encodeURIComponent(apiUrl)}`);
+  const text = await res.text();
+  if(!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0,200)}`);
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error(`JSON inválido (status ${res.status}): ${text.slice(0,200)}`); }
+}
+
+async function doSearch(){
+  if(!loc) return;
+  const q = document.getElementById('query').value.trim();
+  if(!q) return;
+
+  document.getElementById('results-wrap').innerHTML='';
+  document.getElementById('error-box').style.display='none';
+  document.getElementById('empty').style.display='none';
+  document.getElementById('steps').style.display='flex';
+  document.getElementById('btn-search').disabled=true;
+  selectedProduct = null;
+  setStep(1);
+
+  try {
+    // 1. Sucursales cercanas
+    const sucData = await proxyFetch(
+      `https://d3e6htiiul5ek9.cloudfront.net/prod/sucursales?lat=${loc.lat}&lng=${loc.lng}&limit=15`
+    );
+    const branches = sucData.sucursales || [];
+    if(!branches.length) throw new Error('No hay sucursales cerca de tu ubicación.');
+    const branchMap = {};
+    branches.forEach(b => branchMap[b.id] = b);
+    const branchIds = branches.slice(0,15).map(s => s.id).join(',');
+
+    // 2. Productos
+    setStep(2);
+    const prodData = await proxyFetch(
+      `https://d3e6htiiul5ek9.cloudfront.net/prod/productos?string=${encodeURIComponent(q)}&lat=${loc.lat}&lng=${loc.lng}&limit=10&offset=0`
+    );
+    const productos = prodData.productos || [];
+    if(!productos.length) throw new Error(`No se encontró "${q}" en tu zona. Probá otra búsqueda.`);
+
+    // 3. Mostrar productos encontrados para que el usuario elija
+    productChoices = productos.slice(0,8);
+    let prodHtml = `<div class="card-label" style="margin-bottom:8px">PRODUCTOS ENCONTRADOS — elegí uno:</div>`;
+    prodHtml += `<div class="product-select">`;
+    productChoices.forEach((p, i) => {
+      const initial = p.marca ? p.marca.charAt(0) : '?';
+      prodHtml += `<div class="product-opt" onclick="fetchPrices('${p.id}', '${p.nombre.replace(/'/g,"\\'")}')">
+        <div class="po-name">${p.nombre}</div>
+        <div class="po-sub">${p.marca || ''} · ${p.presentacion || ''} · ${formatPrice(p.precioMin)}–${formatPrice(p.precioMax)}</div>
+      </div>`;
+    });
+    prodHtml += `</div>`;
+    document.getElementById('results-wrap').innerHTML = prodHtml;
+    document.getElementById('steps').style.display = 'none';
+    document.getElementById('btn-search').disabled = false;
+
+  } catch(e) {
+    showError(e.message);
+    document.getElementById('btn-search').disabled = false;
+    document.getElementById('steps').style.display = 'none';
+  }
+}
+
+async function fetchPrices(productoId, productoNombre){
+  document.getElementById('btn-search').disabled = true;
+  document.getElementById('steps').style.display = 'flex';
+  setStep(3);
+  selectedProduct = { id: productoId, nombre: productoNombre };
+
+  try {
+    // Re-obtener sucursales (necesitamos los IDs)
+    const sucData = await proxyFetch(
+      `https://d3e6htiiul5ek9.cloudfront.net/prod/sucursales?lat=${loc.lat}&lng=${loc.lng}&limit=15`
+    );
+    const branches = sucData.sucursales || [];
+    const branchIds = branches.slice(0,10).map(s => s.id).join(',');
+
+    const precioData = await proxyFetch(
+      `https://d3e6htiiul5ek9.cloudfront.net/prod/producto?limit=50&id_producto=${productoId}&array_sucursales=${branchIds}`
+    );
+
+    const sucursales = precioData.sucursales || [];
+    const items = [];
+
+    // Mapa de sucursales para datos extra
+    const branchMap = {};
+    // Normalizar IDs: los de /sucursales tienen formato "15-1-454", los de /producto tienen "454"
+    branches.forEach(b => {
+      const shortId = b.id.split('-').pop(); // ej: "24-2-2" → "2"
+      branchMap[shortId] = b;
+    });
+
+    sucursales.forEach(suc => {
+      const precio = suc.preciosProducto && suc.preciosProducto.precioLista;
+      if(precio && parseFloat(precio) > 0){
+        const branch = suc;
+        items.push({
+          banderaDescripcion: branch.banderaDescripcion || '—',
+          sucursalNombre: branch.sucursalNombre || '',
+          direccion: branch.direccion || '',
+          localidad: branch.localidad || '',
+          comercioRazonSocial: branch.comercioRazonSocial || '',
+          sucursalTipo: branch.sucursalTipo || '',
+          precio: parseFloat(precio),
+          actualizadoHoy: branch.actualizadoHoy
+        });
+      }
+    });
+
+    if(!items.length) throw new Error(`"${productoNombre}" sin precios en sucursales cercanas. Probá con otra ubicación.`);
+
+    const sorted = items.sort((a,b) => a.precio - b.precio);
+    renderResults(sorted, branches.length);
+
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    document.getElementById('btn-search').disabled = false;
+    document.getElementById('steps').style.display = 'none';
+  }
+}
+
+function renderResults(items, branchCount){
+  const minP = items[0].precio, maxP = items[items.length - 1].precio;
+  const wrap = document.getElementById('results-wrap');
+  let html = `<div class="card-label">PRECIOS — ${selectedProduct ? selectedProduct.nombre : ''}</div>
+    <div class="results-header">
+    <span class="results-count"><strong>${items.length}</strong> precio${items.length !== 1 ? 's' : ''} · ordenado por precio</span>
+    ${maxP > minP ? `<span class="savings">Ahorrás ${formatPrice(maxP - minP)}</span>` : ''}
+  </div>`;
+
+  items.forEach((item, i) => {
+    const isBest = item.precio === minP;
+    const diff = item.precio > minP ? ((item.precio - minP) / minP * 100).toFixed(0) : 0;
+    const cc = getChainColor(item.banderaDescripcion);
+    html += `<div class="result-card ${isBest ? 'best' : ''}" style="animation-delay:${Math.min(i * 50, 400)}ms" onclick="toggleDetail(this)">
+      ${isBest ? '<div class="best-badge">MÁS BARATO</div>' : ''}
+      <div class="result-row">
+        <div class="chain-icon" style="background:${cc}18;border:1.5px solid ${cc}44;color:${cc}">${(item.banderaDescripcion || '?').charAt(0)}</div>
+        <div class="result-info">
+          <div class="result-chain">${item.banderaDescripcion}</div>
+          <div class="result-name">${item.sucursalNombre || ''}</div>
+        </div>
+        <div class="result-price">
+          <div class="price-val" style="color:${isBest ? '#10B981' : '#F1F5F9'}">${formatPrice(item.precio)}</div>
+          ${diff > 0 ? `<div class="price-diff">+${diff}%</div>` : ''}
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:4px;flex-shrink:0;transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="result-detail">
+        ${item.direccion ? `<div>📍 ${item.direccion}${item.localidad ? ', ' + item.localidad : ''}</div>` : ''}
+        ${item.comercioRazonSocial ? `<div>🏢 ${item.comercioRazonSocial}</div>` : ''}
+        ${item.sucursalTipo ? `<div><span class="tag">${item.sucursalTipo}</span> ${item.actualizadoHoy ? '<span class="tag" style="color:#10B981">actualizado hoy</span>' : ''}</div>` : ''}
+      </div>
+    </div>`;
+  });
+
+  html += `<div class="footer-note">${branchCount} sucursales · SEPA / Precios Claros · ${new Date().toLocaleDateString('es-AR')}</div>`;
+  wrap.innerHTML = html;
+}
+
+function toggleDetail(card){
+  const d = card.querySelector('.result-detail');
+  const svg = card.querySelector('svg');
+  const open = d.style.display === 'flex';
+  d.style.display = open ? 'none' : 'flex';
+  svg.style.transform = open ? '' : 'rotate(180deg)';
+}
+</script>
+</body>
+</html>
