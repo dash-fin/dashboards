@@ -805,8 +805,9 @@
   </div>
 
   <div class="card" id="pfHistOpsSection" style="display:none;margin-top:0">
-    <div class="toolbar">
+    <div class="toolbar" style="justify-content:space-between">
       <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--amber);text-transform:uppercase;letter-spacing:1.5px">Estrategias de opciones cerradas</span>
+      <span id="pfHistOpsTotal" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"></span>
     </div>
     <div class="table-wrap">
       <table>
@@ -3892,32 +3893,30 @@ async function pfLoadHistorial() {
       const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
       return allClose ? s + calcPnl(op) : s;
     }, 0);
-    const totGan = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0) + opsPnL;
+    // tradesTotal en USD, opsPnL en ARS — nunca sumarlos juntos
+    const tradesTotal = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0);
     const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length + opsWins;
-    const totalCount = rows.length + (opsRows||[]).length;
-    const sGan   = totGan>=0?'+':'';
-    const color  = totGan>=0?'var(--green)':'var(--red)';
+    const opsCount = (opsRows||[]).length;
     if(statsEl) {
       const _priv = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
-      const opsCount = (opsRows||[]).length;
       const totalTrades = rows.length + opsCount;
       const winPct = totalTrades > 0 ? (wins / totalTrades * 100).toFixed(0) : '—';
-      const allPnls = [
-        ...rows.map(r => r.ganancia_usd||0),
-        ...(opsRows||[]).map(op => {
-          const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
-          return allClose ? calcPnl(op) : 0;
-        })
-      ].filter(v => v !== 0);
-      const maxDD = allPnls.length ? Math.min(...allPnls) : 0;
-      const sumGains = allPnls.filter(v => v > 0).reduce((s,v) => s+v, 0);
-      const sumLosses = allPnls.filter(v => v < 0).reduce((s,v) => s+Math.abs(v), 0);
+      // MDD y PF solo sobre trades en USD (no mezclar con ARS de opciones)
+      const tradePnls = rows.map(r => r.ganancia_usd||0).filter(v => v !== 0);
+      const maxDD = tradePnls.length ? Math.min(...tradePnls) : 0;
+      const sumGains  = tradePnls.filter(v => v > 0).reduce((s,v) => s+v, 0);
+      const sumLosses = tradePnls.filter(v => v < 0).reduce((s,v) => s+Math.abs(v), 0);
       const profitFactor = sumLosses > 0 ? (sumGains / sumLosses).toFixed(2) : '—';
+      const tColor = tradesTotal >= 0 ? 'var(--green)' : 'var(--red)';
+      const tSign  = tradesTotal >= 0 ? '+' : '';
+      const oColor = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
+      const oSign  = opsPnL >= 0 ? '+' : '';
       statsEl.innerHTML =
-        `${totalTrades} trades (${opsCount} opciones) · WR: ${winPct}% · `
+        `${rows.length} trades · ${opsCount} opciones · WR: ${winPct}% · `
         + `PF: ${profitFactor} · `
         + `MDD: <span style="color:var(--red)">U$S ${Math.abs(Math.round(maxDD)).toLocaleString('es-AR')}</span> · `
-        + `Total: <span id="pfHistTotalGanAmt" style="color:${color};font-weight:500;filter:${_priv?'blur(5px)':''}">${sGan}U$S ${Math.abs(Math.round(totGan)).toLocaleString('es-AR')}</span>`;
+        + `Trades: <span style="color:${tColor};font-weight:500;filter:${_priv?'blur(5px)':''}">${tSign}U$S ${Math.round(Math.abs(tradesTotal)).toLocaleString('es-AR')}</span>`
+        + (opsCount > 0 ? ` · Opciones: <span style="color:${oColor};font-weight:500;filter:${_priv?'blur(5px)':''}">${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS</span>` : '');
     }
     tbody.innerHTML = rows.map(r => {
       const gan = r.ganancia_usd||0, pct = r.ganancia_pct||0;
@@ -3935,13 +3934,31 @@ async function pfLoadHistorial() {
         <td style="color:${gc}">${gs}${Math.abs(pct).toFixed(1)}%</td>
         <td class="th-left" style="font-size:10px;color:var(--text3)">${r.notas||'—'}</td>
       </tr>`;
-    }).join('');
+    }).join('') + (() => {
+      const tColor = tradesTotal >= 0 ? 'var(--green)' : 'var(--red)';
+      const tSign  = tradesTotal >= 0 ? '+' : '';
+      const usdInvTotal = rows.reduce((s,r) => s+(r.usd_invertido||0), 0);
+      const usdRetTotal = rows.reduce((s,r) => s+(r.usd_retorno||0), 0);
+      return `<tr style="border-top:1px solid var(--border2);font-weight:600;font-size:10px;color:var(--text3)">
+        <td class="th-left" colspan="7" style="padding-top:8px;letter-spacing:0.5px;font-size:9px;text-transform:uppercase">Total trades</td>
+        <td style="padding-top:8px">U$S ${Math.round(usdInvTotal).toLocaleString('es-AR')}</td>
+        <td style="padding-top:8px">U$S ${Math.round(usdRetTotal).toLocaleString('es-AR')}</td>
+        <td style="padding-top:8px;color:${tColor};font-weight:700">${tSign}U$S ${Math.round(Math.abs(tradesTotal)).toLocaleString('es-AR')}</td>
+        <td colspan="2"></td>
+      </tr>`;
+    })();
   }
 
   // Sección de estrategias de opciones cerradas
   const opsEl = document.getElementById('pfHistOpsSection');
   if(opsEl && opsRows?.length) {
     opsEl.style.display = 'block';
+    const opsTotEl = document.getElementById('pfHistOpsTotal');
+    if(opsTotEl) {
+      const oColor = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
+      const oSign  = opsPnL >= 0 ? '+' : '';
+      opsTotEl.innerHTML = `Total: <span style="color:${oColor};font-weight:600">${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS</span>`;
+    }
     const opsTbody = document.getElementById('pfHistOpsTbody');
     if(opsTbody) {
       opsTbody.innerHTML = opsRows.map(op => {
@@ -3975,7 +3992,15 @@ async function pfLoadHistorial() {
           <td>${pnlStr}</td>
           <td><button onclick="pfDeleteOp('${op.id}')" title="Borrar estrategia" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text4);padding:0 4px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text4)'">✕</button></td>
         </tr>`;
-      }).join('');
+      }).join('') + (() => {
+        const oColor = opsPnL >= 0 ? 'var(--green)' : 'var(--red)';
+        const oSign  = opsPnL >= 0 ? '+' : '';
+        return `<tr style="border-top:1px solid var(--border2);font-weight:600;font-size:10px;color:var(--text3)">
+          <td class="th-left" colspan="7" style="padding-top:8px;letter-spacing:0.5px;font-size:9px;text-transform:uppercase">Total opciones</td>
+          <td style="padding-top:8px;color:${oColor};font-weight:700">${oSign}$${Math.round(Math.abs(opsPnL)).toLocaleString('es-AR')} ARS</td>
+          <td></td>
+        </tr>`;
+      })();
     }
   } else if(opsEl) {
     opsEl.style.display = 'none';
