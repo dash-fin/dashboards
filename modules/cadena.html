@@ -92,6 +92,7 @@
           style="width:44px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:3px;padding:2px 5px;font-family:'IBM Plex Mono',monospace;font-size:9px;text-align:right"
           oninput="gRate=parseFloat(this.value||0)/100;rtcRender()" title="Tasa libre de riesgo anual %">
         <span style="opacity:.6">% a.</span>
+        <span id="rtcRateDot" style="font-size:7px;color:var(--red)" title="Tasa hardcodeada — sin datos de cauciones">●</span>
       </label>
       <button class="rtc-btn" onclick="rtcLoad()">↻ Actualizar</button>
     </div>
@@ -181,7 +182,8 @@ const SBR='https://endymbpdayeidromxayb.supabase.co/rest/v1/';
 const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
 const sbF=(t,p)=>fetch(SBR+t+'?'+p,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}).then(r=>r.ok?r.json():[]);
 
-let gSpot=null, gOpts=[], gExp=null, gPrev={}, gTimer=null, gRate=0.30;
+let gSpot=null, gOpts=[], gExp=null, gPrev={}, gTimer=null, gRate=0.30, gRateLive=false;
+const rtcRateStyle=()=>{const inp=document.getElementById('rtcRateInput'),dot=document.getElementById('rtcRateDot');if(!inp)return;if(gRateLive){inp.style.borderColor='var(--border2)';inp.style.color='var(--text2)';if(dot){dot.textContent='●';dot.style.color='var(--green)';dot.title='Tasa desde cauciones RT';}}else{inp.style.borderColor='var(--red)';inp.style.color='var(--red)';if(dot){dot.textContent='●';dot.style.color='var(--red)';dot.title='Tasa hardcodeada — sin datos de cauciones';}}}
 
 // ── Load ──────────────────────────────────────────────────────
 window.rtcLoad=async()=>{
@@ -204,10 +206,12 @@ window.rtcLoad=async()=>{
       const tna=c.bid_rate!=null&&c.ask_rate!=null?(c.bid_rate+c.ask_rate)/2:c.ask_rate??c.bid_rate;
       if(tna!=null&&tna>0){
         gRate=tna/100;
+        gRateLive=true;
         const inp=document.getElementById('rtcRateInput');
         if(inp)inp.value=Math.round(tna);
       }
     }
+    rtcRateStyle();
     const opts=(Array.isArray(oR)?oR:[]).filter(o=>o.expiration>=today);
 
     // Flash detection: track bid, ask, last, operations per symbol
