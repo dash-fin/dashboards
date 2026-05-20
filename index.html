@@ -98,8 +98,8 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 /* ── Drawer ── */
 .drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;opacity:0;pointer-events:none;transition:opacity .2s}
 .drawer-overlay.open{opacity:1;pointer-events:all}
-.drawer{position:fixed;top:0;left:0;bottom:0;width:252px;background:#07090f;border-right:1px solid rgba(255,255,255,.08);z-index:901;display:flex;flex-direction:column;transform:translateX(calc(-100% - 2px));transition:transform .2s cubic-bezier(.4,0,.2,1);box-shadow:6px 0 32px rgba(0,0,0,.7)}
-.drawer.open{transform:translateX(0)}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:252px;background:#07090f;border-right:1px solid rgba(255,255,255,.08);z-index:901;display:flex;flex-direction:column;transform:translateX(calc(-100% - 2px));transition:transform .2s cubic-bezier(.4,0,.2,1)}
+.drawer.open{transform:translateX(0);box-shadow:6px 0 32px rgba(0,0,0,.7)}
 .drawer-head{display:flex;flex-direction:column;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0;position:relative}
 .drawer-head-banner{width:100%;height:58px;object-fit:cover;object-position:center 30%;display:block;opacity:.92}
 .drawer-head-close{position:absolute;top:8px;right:8px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:rgba(0,0,0,.45);border-radius:4px;color:rgba(255,255,255,.5);font-size:12px;transition:all .12s;backdrop-filter:blur(4px)}
@@ -1390,6 +1390,7 @@ async function loadStrip(){
 
 // ── Module loader ──
 let currentModule='home';
+let _moduleReady=Promise.resolve();
 window.moduleTimers={};
 
 // ── Drawer ────────────────────────────────────────────────────
@@ -1427,17 +1428,19 @@ window.dmodToggle=(el,mod)=>{
 };
 
 window.loadModule=async(name,btn)=>{
-  if(name===currentModule&&name!=='home')return;
+  if(name===currentModule&&name!=='home'){await _moduleReady;return;}
   Object.values(window.moduleTimers).forEach(t=>clearInterval(t));
   window.moduleTimers={};
   currentModule=name;
+  let _resolve;
+  _moduleReady=new Promise(r=>_resolve=r);
   document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
   if(btn)btn.classList.add('active');
   // Sync drawer active state
   document.querySelectorAll('.dmod').forEach(b=>b.classList.remove('active'));
   const dm=document.getElementById('dmod-'+name);if(dm)dm.classList.add('active');
   const container=document.getElementById('moduleContainer');
-  if(name==='home'){container.innerHTML='';renderHome();return;}
+  if(name==='home'){container.innerHTML='';renderHome();_resolve();return;}
   container.innerHTML=`<div class="module-loading"><div class="spinner"></div>Cargando ${name}...</div>`;
   try{
     const r=await fetch(`modules/${name}.html?v=${Date.now()}`);
@@ -1450,6 +1453,8 @@ window.loadModule=async(name,btn)=>{
     });
   }catch(e){
     container.innerHTML=`<div class="module-loading" style="color:var(--red)">Error: ${e.message}</div>`;
+  }finally{
+    _resolve();
   }
 };
 
