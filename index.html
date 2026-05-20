@@ -88,10 +88,8 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100vh;overflow-x:hidden}
 .header{position:sticky;top:0;z-index:200;background:var(--bg2)}
 .header-top{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 8px;border-bottom:1px solid var(--border)}
-.logo{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
-.logo-icon{width:28px;height:28px;flex-shrink:0}
-.logo-text{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--text)}
-.logo-text span{color:var(--green)}
+.logo{display:flex;align-items:center;cursor:pointer;user-select:none}
+.logo img{width:160px;height:38px;object-fit:cover;object-position:center 38%;border-radius:4px;display:block}
 .header-top-right{display:flex;align-items:center;gap:12px}
 /* ── Hamburger ── */
 .ham-btn{width:34px;height:34px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;border:none;background:transparent;padding:0;flex-shrink:0;border-radius:4px;transition:background .12s}
@@ -632,14 +630,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <span></span><span></span><span></span>
         </button>
         <div class="logo" onclick="drawerOpen()">
-          <svg class="logo-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="28" height="28" rx="6" fill="#0d1117"/>
-            <rect x="4" y="18" width="4" height="6" rx="1" fill="#10e898"/>
-            <rect x="10" y="13" width="4" height="11" rx="1" fill="#10e898"/>
-            <rect x="16" y="8"  width="4" height="16" rx="1" fill="#10e898"/>
-            <rect x="22" y="15" width="2" height="9"  rx="1" fill="#10e898" opacity=".45"/>
-          </svg>
-          <span class="logo-text">FIN<span>BOARD</span></span>
+          <img src="banner.jpg" alt="Finboard">
         </div>
       </div>
       <div class="header-top-right">
