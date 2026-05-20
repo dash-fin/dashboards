@@ -3025,29 +3025,35 @@ window.pfCloseModal = (id) => {
 
   document.getElementById('pfCloseTitle').textContent = `Cerrar — ${pos.ticker_ars}`;
   document.getElementById('pfcFecha').value = new Date().toISOString().slice(0,10);
-  document.getElementById('pfcPrecioSalida').value = '';
   document.getElementById('pfcPrecioAdrSalida').value = '';
   document.getElementById('pfcNotas').value = '';
-  document.getElementById('pfcCantidad').value = '';
-  document.getElementById('pfcCantHint').textContent = '';
   document.getElementById('pfcMsg').style.display = 'none';
-  document.getElementById('pfClosePreview').style.display = 'none';
 
   if(pfMep) {
     document.getElementById('pfcMepSalida').value = Math.round(pfMep);
     document.getElementById('pfcMepHint').textContent = `MEP actual: $${Math.round(pfMep).toLocaleString('es-AR')}`;
   }
 
+  // Pre-llenar cantidad completa
+  const qtyFull = Math.abs(pos.cantidad);
+  document.getElementById('pfcCantidad').value = qtyFull;
+  document.getElementById('pfcCantHint').textContent = `Total disponible: ${qtyFull.toLocaleString('es-AR')}`;
+
+  // Pre-llenar precio con el precio de mercado actual (si existe)
   const precioActual = pfPrices[pos.ticker_ars]?.last;
+  document.getElementById('pfcPrecioSalida').value = precioActual ? precioActual : '';
+
   document.getElementById('pfCloseSummary').innerHTML =
     `<b>${pos.ticker_ars}</b> · ${TIPO_LABEL[pos.tipo]||pos.tipo}<br>`
     + `Cant: ${Number(pos.cantidad).toLocaleString('es-AR')} · `
     + `Entrada: $${Number(pos.precio_compra_ars).toLocaleString('es-AR')} · `
     + `MEP entrada: $${Math.round(pos.mep_compra).toLocaleString('es-AR')}<br>`
     + `Invertido: U$S ${usdInv ? Math.round(usdInv).toLocaleString('es-AR') : '—'}`
-    + (precioActual ? ` · Precio actual: $${Number(precioActual).toLocaleString('es-AR')}` : '');
+    + (precioActual ? ` · <span style="color:var(--text2)">Precio actual: $${Number(precioActual).toLocaleString('es-AR')}</span>` : '');
 
   document.getElementById('pfCloseOverlay').style.display = 'flex';
+  // Mostrar preview P&L inmediatamente con precio y cantidad pre-llenados
+  pfCloseCalc();
 };
 
 window.pfCloseHide = () => {
@@ -3902,30 +3908,31 @@ async function pfLoadHistorial() {
   if(!tbody) return;
   const fmtD = d => d ? new Date(d+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
 
+  // Variables al scope de función para que sean accesibles en la sección de opciones
+  const optSz = op => (op.patas?.[0]?.option_size || 100);
+  const calcPnl = op => op.patas.reduce((s,l) => s + (l.action==='buy'?1:-1)*(l.prima_cierre - l.prima)*l.qty*optSz(op), 0);
+  const opsPnL = (opsRows||[]).reduce((s,op) => {
+    const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
+    return allClose ? s + calcPnl(op) : s;
+  }, 0);
+  const opsPnlsUSD = (opsRows||[]).map(op => {
+    const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
+    if(!allClose) return null;
+    return calcPnl(op) / getMep(op.fecha_cierre);
+  }).filter(v => v !== null);
+  const opsTotalUSD = opsPnlsUSD.reduce((s,v) => s+v, 0);
+  const opsCount = (opsRows||[]).length;
+
   if(!rows?.length) {
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--text3)">Sin operaciones cerradas aún</td></tr>';
     if(statsEl) statsEl.textContent = '';
   } else {
-    const optSz = op => (op.patas?.[0]?.option_size || 100);
-    const calcPnl = op => op.patas.reduce((s,l) => s + (l.action==='buy'?1:-1)*(l.prima_cierre - l.prima)*l.qty*optSz(op), 0);
     const opsWins = (opsRows||[]).filter(op => {
       const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
       return allClose && calcPnl(op) >= 0;
     }).length;
-    const opsPnL = (opsRows||[]).reduce((s,op) => {
-      const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
-      return allClose ? s + calcPnl(op) : s;
-    }, 0);
-    // Convertir P&L de cada opción a USD usando MEP del día de cierre
-    const opsPnlsUSD = (opsRows||[]).map(op => {
-      const allClose = (op.patas||[]).length > 0 && (op.patas||[]).every(l => l.prima_cierre != null);
-      if(!allClose) return null;
-      return calcPnl(op) / getMep(op.fecha_cierre);
-    }).filter(v => v !== null);
-    const opsTotalUSD = opsPnlsUSD.reduce((s,v) => s+v, 0);
     const tradesTotal = rows.reduce((s,r) => s+(r.ganancia_usd||0), 0);
     const wins   = rows.filter(r=>(r.ganancia_usd||0)>=0).length + opsWins;
-    const opsCount = (opsRows||[]).length;
     if(statsEl) {
       const _priv = document.getElementById('pfBenchPrivacy')?.dataset?.on === '1';
       const totalTrades = rows.length + opsCount;
