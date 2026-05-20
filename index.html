@@ -92,23 +92,57 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .logo img{height:32px;width:auto;object-fit:contain;filter:brightness(.95)}
 .header-top-right{display:flex;align-items:center;gap:12px}
 /* ── Hamburger ── */
-.ham-btn{width:36px;height:36px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;cursor:pointer;border:none;background:transparent;padding:0;flex-shrink:0}
-.ham-btn span{display:block;width:20px;height:2px;background:var(--text2);border-radius:2px;transition:all .2s}
+.ham-btn{width:34px;height:34px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;border:none;background:transparent;padding:0;flex-shrink:0;border-radius:4px;transition:background .12s}
+.ham-btn:hover{background:var(--bg3)}
+.ham-btn span{display:block;width:18px;height:1.5px;background:var(--text3);border-radius:2px;transition:all .2s}
 /* ── Drawer ── */
-.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:900;opacity:0;pointer-events:none;transition:opacity .22s}
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;opacity:0;pointer-events:none;transition:opacity .2s}
 .drawer-overlay.open{opacity:1;pointer-events:all}
-.drawer{position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--bg2);border-right:1px solid var(--border2);z-index:901;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .22s cubic-bezier(.4,0,.2,1)}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:252px;background:#07090f;border-right:1px solid rgba(255,255,255,.08);z-index:901;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .2s cubic-bezier(.4,0,.2,1);box-shadow:4px 0 24px rgba(0,0,0,.6)}
 .drawer.open{transform:translateX(0)}
-.drawer-head{height:50px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0}
-.drawer-head img{height:28px;width:auto;object-fit:contain}
-.drawer-body{flex:1;overflow-y:auto;padding:8px 0}
-.drawer-section{margin-bottom:4px}
-.drawer-section-label{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--text4);padding:10px 16px 4px;font-weight:600}
-.drawer-item{display:flex;align-items:center;gap:10px;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);cursor:pointer;transition:background .12s,color .12s;border:none;background:transparent;width:100%;text-align:left}
-.drawer-item:hover{background:var(--bg3);color:var(--text)}
-.drawer-item.active{color:var(--green);background:var(--greenDim)}
-.drawer-item-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
-.drawer-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.drawer-head{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid rgba(255,255,255,.06);flex-shrink:0}
+.drawer-head img{height:26px;width:auto;object-fit:contain;opacity:.9}
+.drawer-close{width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:rgba(255,255,255,.04);border-radius:4px;color:var(--text3);font-size:14px;transition:all .12s}
+.drawer-close:hover{background:rgba(255,255,255,.09);color:var(--text)}
+.drawer-body{flex:1;overflow-y:auto;padding:6px 0 10px}
+.drawer-body::-webkit-scrollbar{width:3px}.drawer-body::-webkit-scrollbar-track{background:transparent}.drawer-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:2px}
+/* Section header */
+.dsec-hdr{display:flex;align-items:center;gap:8px;padding:14px 14px 5px;position:relative}
+.dsec-pipe{width:2px;height:10px;border-radius:1px;flex-shrink:0}
+.dsec-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2.5px;text-transform:uppercase;font-weight:600}
+/* Module row (expandable) */
+.dmod{display:flex;align-items:center;gap:0;padding:0;border:none;background:transparent;width:100%;cursor:pointer;position:relative}
+.dmod-inner{display:flex;align-items:center;gap:9px;padding:8px 14px;width:100%;transition:background .1s}
+.dmod:hover .dmod-inner{background:rgba(255,255,255,.04)}
+.dmod.active .dmod-inner{background:rgba(255,255,255,.03)}
+.dmod-accent{position:absolute;left:0;top:4px;bottom:4px;width:2px;border-radius:0 1px 1px 0;opacity:0;transition:opacity .15s}
+.dmod.active .dmod-accent{opacity:1}
+.dmod-icon{font-size:13px;width:20px;text-align:center;flex-shrink:0;opacity:.8}
+.dmod-label{flex:1;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--text2);text-align:left;transition:color .1s;letter-spacing:.3px}
+.dmod.active .dmod-label{color:var(--text);font-weight:500}
+.dmod-chevron{font-size:7px;color:var(--text4);transition:transform .18s;flex-shrink:0}
+.dmod.open .dmod-chevron{transform:rotate(90deg)}
+/* Sub-items */
+.dsubs{overflow:hidden;max-height:0;transition:max-height .18s ease}
+.dsubs.open{max-height:240px}
+.dsub{display:flex;align-items:center;gap:8px;padding:6px 14px 6px 43px;cursor:pointer;border:none;background:transparent;width:100%;transition:background .1s;position:relative}
+.dsub::before{content:'';position:absolute;left:22px;top:0;bottom:0;width:1px;background:rgba(255,255,255,.06)}
+.dsub:hover{background:rgba(255,255,255,.04)}
+.dsub.active{background:rgba(255,255,255,.03)}
+.dsub-dot{width:4px;height:4px;border-radius:50%;background:var(--text4);flex-shrink:0;transition:background .1s}
+.dsub.active .dsub-dot,.dsub:hover .dsub-dot{background:var(--text2)}
+.dsub-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--text3);letter-spacing:.2px;transition:color .1s}
+.dsub:hover .dsub-label,.dsub.active .dsub-label{color:var(--text2)}
+/* Footer */
+.drawer-footer{padding:10px 14px 12px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:10px;flex-shrink:0}
+.drawer-theme-row{display:flex;align-items:center;gap:8px}
+.drawer-theme-label{font-family:'IBM Plex Mono',monospace;font-size:7.5px;color:var(--text4);letter-spacing:2px;text-transform:uppercase;flex-shrink:0}
+.drawer-theme-dots{display:flex;gap:5px}
+.dtheme-dot{width:16px;height:16px;border-radius:3px;cursor:pointer;border:1.5px solid transparent;transition:border-color .15s,transform .15s}
+.dtheme-dot:hover{transform:scale(1.15)}
+.dtheme-dot.active{border-color:rgba(255,255,255,.5)}
+.drawer-user-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:8px 10px;cursor:pointer;transition:background .12s}
+.drawer-user-row:hover{background:rgba(255,255,255,.06)}
 .clock{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);letter-spacing:1px}
 .mkt-badge{display:flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;padding:3px 9px;border-radius:3px;border:1px solid;text-transform:uppercase}
 .mkt-open{color:var(--green);border-color:rgba(0,229,168,.3);background:var(--greenDim)}
@@ -131,14 +165,6 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .mtab{display:flex;align-items:center;gap:7px;padding:0 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;font-weight:500;flex-shrink:0}
 .mtab:hover{color:var(--text2)}
 .mtab.active{color:var(--green);border-bottom-color:var(--green)}
-.qa-row{display:none;align-items:center;gap:8px;padding:4px 16px;border-bottom:1px solid var(--border)}
-.qa-row.show{display:flex}
-.qa-label{font-size:15px;opacity:.4}
-.qa-pills{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.qa-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;background:var(--bg3);border:1px solid var(--border2);border-radius:14px;color:var(--text2);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.2px;cursor:pointer;transition:all .12s;white-space:nowrap}
-.qa-pill:hover{background:var(--bg4);color:var(--text);border-color:var(--text3)}
-.qa-pill .qa-mod{color:var(--text3)}
-.qa-pill .qa-tab{color:var(--text);font-weight:500}
 .qa-empty{color:var(--text4);font-size:10px;font-family:'IBM Plex Mono',monospace}
 .mtab.disabled{opacity:.35;cursor:default;pointer-events:none}
 .mtab-dot{width:5px;height:5px;border-radius:50%;background:var(--green);opacity:.7}
@@ -474,47 +500,118 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
     <div class="drawer" id="drawer">
       <div class="drawer-head">
         <img src="banner.jpg" alt="Finboard">
+        <button class="drawer-close" onclick="drawerClose()">✕</button>
       </div>
       <div class="drawer-body">
-        <div class="drawer-section">
-          <div class="drawer-section-label">Argentina</div>
-          <button class="drawer-item active" id="ditem-home"       onclick="drawerGo('home',this)"><span class="drawer-item-icon">🏠</span>Inicio</button>
-          <button class="drawer-item"        id="ditem-opciones"   onclick="drawerGo('opciones',this)"><span class="drawer-item-icon">📊</span>Opciones GGAL</button>
-          <button class="drawer-item"        id="ditem-cedears"    onclick="drawerGo('cedears',this)"><span class="drawer-item-icon">🌐</span>CEDEARs</button>
-          <button class="drawer-item"        id="ditem-bonos"      onclick="drawerGo('bonos',this)"><span class="drawer-item-icon">📐</span>Renta Fija</button>
+
+        <!-- ── ARGENTINA ── -->
+        <div class="dsec-hdr"><div class="dsec-pipe" style="background:#f5a623"></div><span class="dsec-lbl" style="color:#f5a623">Argentina</span></div>
+
+        <button class="dmod active" id="dmod-home" onclick="dmodGo('home',this)">
+          <div class="dmod-accent" style="background:#f5a623"></div>
+          <div class="dmod-inner"><span class="dmod-icon">🏠</span><span class="dmod-label">Inicio</span></div>
+        </button>
+
+        <button class="dmod" id="dmod-opciones" onclick="dmodToggle(this,'opciones')">
+          <div class="dmod-accent" style="background:#f5a623"></div>
+          <div class="dmod-inner"><span class="dmod-icon">📊</span><span class="dmod-label">Opciones GGAL</span><span class="dmod-chevron">▶</span></div>
+        </button>
+        <div class="dsubs" id="dsubs-opciones">
+          <button class="dsub" onclick="drawerNav('opciones','opciones')"><span class="dsub-dot"></span><span class="dsub-label">Cadena RT</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','flow')"><span class="dsub-dot"></span><span class="dsub-label">Flow</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','earnings')"><span class="dsub-dot"></span><span class="dsub-label">Earnings</span></button>
         </div>
-        <div class="drawer-section">
-          <div class="drawer-section-label">USA</div>
-          <button class="drawer-item"        id="ditem-usa"        onclick="drawerGo('usa',this)"><span class="drawer-item-icon">🇺🇸</span>Mercado USA</button>
-          <button class="drawer-item"        id="ditem-af"         onclick="drawerGo('af',this)"><span class="drawer-item-icon">📈</span>Análisis Fundamental</button>
+
+        <button class="dmod" id="dmod-cedears" onclick="dmodToggle(this,'cedears')">
+          <div class="dmod-accent" style="background:#f5a623"></div>
+          <div class="dmod-inner"><span class="dmod-icon">🌐</span><span class="dmod-label">CEDEARs</span><span class="dmod-chevron">▶</span></div>
+        </button>
+        <div class="dsubs" id="dsubs-cedears">
+          <button class="dsub" onclick="drawerNav('cedears','cedears')"><span class="dsub-dot"></span><span class="dsub-label">CEDEARs</span></button>
+          <button class="dsub" onclick="drawerNav('cedears','arbitraje')"><span class="dsub-dot"></span><span class="dsub-label">Arbitraje</span></button>
         </div>
-        <div class="drawer-section">
-          <div class="drawer-section-label">Portafolio</div>
-          <button class="drawer-item"        id="ditem-portafolio" onclick="drawerGo('portafolio',this)"><span class="drawer-item-icon">💼</span>Mi Portafolio</button>
+
+        <button class="dmod" id="dmod-bonos" onclick="dmodToggle(this,'bonos')">
+          <div class="dmod-accent" style="background:#f5a623"></div>
+          <div class="dmod-inner"><span class="dmod-icon">📐</span><span class="dmod-label">Renta Fija</span><span class="dmod-chevron">▶</span></div>
+        </button>
+        <div class="dsubs" id="dsubs-bonos">
+          <button class="dsub" onclick="drawerNav('bonos','bonos')"><span class="dsub-dot"></span><span class="dsub-label">Bonos</span></button>
+          <button class="dsub" onclick="drawerNav('bonos','flujos')"><span class="dsub-dot"></span><span class="dsub-label">Flujos de fondos</span></button>
         </div>
-        <div class="drawer-section">
-          <div class="drawer-section-label">Alertas</div>
-          <button class="drawer-item"        id="ditem-alertas"    onclick="drawerGo('alertas',this)"><span class="drawer-item-icon">🔔</span>Mis Alertas</button>
+
+        <button class="dmod" id="dmod-analisis" onclick="dmodToggle(this,'analisis')">
+          <div class="dmod-accent" style="background:#f5a623"></div>
+          <div class="dmod-inner"><span class="dmod-icon">💡</span><span class="dmod-label">Análisis técnico</span><span class="dmod-chevron">▶</span></div>
+        </button>
+        <div class="dsubs" id="dsubs-analisis">
+          <button class="dsub" onclick="drawerNav('analisis','analisis')"><span class="dsub-dot"></span><span class="dsub-label">Análisis</span></button>
+          <button class="dsub" onclick="drawerNav('analisis','heatmap')"><span class="dsub-dot"></span><span class="dsub-label">Heatmap</span></button>
         </div>
+
+        <!-- ── USA ── -->
+        <div class="dsec-hdr" style="margin-top:4px"><div class="dsec-pipe" style="background:#4488ff"></div><span class="dsec-lbl" style="color:#4488ff">USA</span></div>
+
+        <button class="dmod" id="dmod-usa" onclick="dmodToggle(this,'usa')">
+          <div class="dmod-accent" style="background:#4488ff"></div>
+          <div class="dmod-inner"><span class="dmod-icon">🇺🇸</span><span class="dmod-label">Mercado USA</span><span class="dmod-chevron">▶</span></div>
+        </button>
+        <div class="dsubs" id="dsubs-usa">
+          <button class="dsub" onclick="drawerNav('usa','mercado')"><span class="dsub-dot"></span><span class="dsub-label">Mercado</span></button>
+          <button class="dsub" onclick="drawerNav('usa','sectores')"><span class="dsub-dot"></span><span class="dsub-label">Sectores</span></button>
+          <button class="dsub" onclick="drawerNav('usa','shortint')"><span class="dsub-dot"></span><span class="dsub-label">Short Data</span></button>
+          <button class="dsub" onclick="drawerNav('usa','gex')"><span class="dsub-dot"></span><span class="dsub-label">GEX</span></button>
+          <button class="dsub" onclick="drawerNav('usa','rrg')"><span class="dsub-dot"></span><span class="dsub-label">RRG</span></button>
+        </div>
+
+        <button class="dmod" id="dmod-af" onclick="dmodGo('af',this)">
+          <div class="dmod-accent" style="background:#4488ff"></div>
+          <div class="dmod-inner"><span class="dmod-icon">📈</span><span class="dmod-label">Análisis Fundamental</span></div>
+        </button>
+
+        <!-- ── PORTAFOLIO ── -->
+        <div class="dsec-hdr" style="margin-top:4px"><div class="dsec-pipe" style="background:#10e898"></div><span class="dsec-lbl" style="color:#10e898">Portafolio</span></div>
+
+        <button class="dmod" id="dmod-portafolio" onclick="dmodToggle(this,'portafolio')">
+          <div class="dmod-accent" style="background:#10e898"></div>
+          <div class="dmod-inner"><span class="dmod-icon">💼</span><span class="dmod-label">Mi Portafolio</span><span class="dmod-chevron">▶</span></div>
+        </button>
+        <div class="dsubs" id="dsubs-portafolio">
+          <button class="dsub" onclick="drawerNav('portafolio','home')"><span class="dsub-dot"></span><span class="dsub-label">Posiciones</span></button>
+          <button class="dsub" onclick="drawerNav('portafolio','historial')"><span class="dsub-dot"></span><span class="dsub-label">Historial</span></button>
+          <button class="dsub" onclick="drawerNav('portafolio','compras')"><span class="dsub-dot"></span><span class="dsub-label">Compras</span></button>
+        </div>
+
+        <!-- ── ALERTAS ── -->
+        <div class="dsec-hdr" style="margin-top:4px"><div class="dsec-pipe" style="background:#ff4060"></div><span class="dsec-lbl" style="color:#ff4060">Alertas</span></div>
+
+        <button class="dmod" id="dmod-alertas" onclick="dmodToggle(this,'alertas')">
+          <div class="dmod-accent" style="background:#ff4060"></div>
+          <div class="dmod-inner"><span class="dmod-icon">🔔</span><span class="dmod-label">Mis Alertas</span><span class="dmod-chevron">▶</span></div>
+        </button>
+        <div class="dsubs" id="dsubs-alertas">
+          <button class="dsub" onclick="drawerNav('alertas','mias')"><span class="dsub-dot"></span><span class="dsub-label">Ver alertas</span></button>
+          <button class="dsub" onclick="drawerNav('alertas','add')"><span class="dsub-dot"></span><span class="dsub-label">+ Nueva alerta</span></button>
+        </div>
+
       </div>
       <div class="drawer-footer">
-        <!-- Theme switcher compacto -->
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text4);letter-spacing:1.5px;text-transform:uppercase;flex-shrink:0">Tema</span>
-          <div style="display:flex;gap:4px">
-            <div onclick="setTheme('default');drawerClose()" title="Default" style="width:18px;height:18px;border-radius:4px;background:#10e898;cursor:pointer;border:2px solid transparent" class="drawer-theme-sw" data-t="default"></div>
-            <div onclick="setTheme('oscuro');drawerClose()"  title="Oscuro"  style="width:18px;height:18px;border-radius:4px;background:#222;cursor:pointer;border:2px solid transparent"   class="drawer-theme-sw" data-t="oscuro"></div>
-            <div onclick="setTheme('claro');drawerClose()"   title="Claro"   style="width:18px;height:18px;border-radius:4px;background:#e8f0ff;cursor:pointer;border:2px solid transparent" class="drawer-theme-sw" data-t="claro"></div>
-            <div onclick="setTheme('sepia');drawerClose()"   title="Sepia"   style="width:18px;height:18px;border-radius:4px;background:#c8a96e;cursor:pointer;border:2px solid transparent" class="drawer-theme-sw" data-t="sepia"></div>
+        <div class="drawer-theme-row">
+          <span class="drawer-theme-label">Tema</span>
+          <div class="drawer-theme-dots">
+            <div class="dtheme-dot" style="background:#10e898"  title="Default" onclick="setTheme('default')"></div>
+            <div class="dtheme-dot" style="background:#1a1f2e"  title="Oscuro"  onclick="setTheme('oscuro')"></div>
+            <div class="dtheme-dot" style="background:#dde6f5"  title="Claro"   onclick="setTheme('claro')"></div>
+            <div class="dtheme-dot" style="background:#c8a96e"  title="Sepia"   onclick="setTheme('sepia')"></div>
           </div>
         </div>
-        <!-- Login / user -->
-        <div id="drawerUserRow" style="display:flex;align-items:center;gap:8px">
-          <button id="drawerLoginBtn" onclick="openAuth();drawerClose()" style="flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);cursor:pointer;text-align:left;letter-spacing:.5px">Ingresar →</button>
-          <div id="drawerUserPill" style="display:none;flex:1;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:5px 10px;cursor:pointer" onclick="showUserMenu();drawerClose()">
-            <div style="width:18px;height:18px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000;flex-shrink:0" id="drawerAvatar">—</div>
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="drawerEmail">—</span>
-          </div>
+        <div id="drawerLoginBtn" class="drawer-user-row" onclick="openAuth();drawerClose()">
+          <span style="font-size:14px">→</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.3px">Ingresar</span>
+        </div>
+        <div id="drawerUserPill" class="drawer-user-row" style="display:none" onclick="showUserMenu();drawerClose()">
+          <div style="width:24px;height:24px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000;flex-shrink:0" id="drawerAvatar">—</div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" id="drawerEmail">—</span>
         </div>
       </div>
     </div>
@@ -576,12 +673,6 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
       <button class="mtab"        id="mtab-bonos"     onclick="loadModuleAuth('bonos',this)">📐 Renta Fija</button>
       <button class="mtab"        id="mtab-portafolio" onclick="loadModuleAuth('portafolio',this)">💼 Portafolio</button>
     </div>
-  </div>
-
-  <!-- Quick access -- top 3 tabs más usados (trackeado por clicks) -->
-  <div class="qa-row">
-    <span class="qa-label">⚡</span>
-    <div class="qa-pills" id="qaPills"></div>
   </div>
 
   <div class="content">
@@ -1089,99 +1180,21 @@ function updateUserUI() {
 
 // ── Auth-guarded module loader ──
 // ── Quick Access: trackeo de módulo+tab más usados ──
-const QA_LABELS = {
-  'portafolio:home':'Portafolio','portafolio:historial':'Historial','portafolio:compras':'Compras',
-  'usa:mercado':'Mercado','usa:sectores':'Sectores','usa:opciones':'Opciones','usa:shortint':'Short Data','usa:rrg':'RRG','usa:gex':'GEX','usa:topology':'Topology',
-  'alertas:mias':'Alertas','alertas:add':'+Alerta',
-  'analisis:analisis':'Análisis','analisis:heatmap':'Heatmap',
-  'opciones:opciones':'Opciones','opciones:flow':'Flow','opciones:earnings':'Earnings',
-  'cedears:cedears':'CEDEARs','cedears:arbitraje':'Arbitraje',
-  'bonos:bonos':'Bonos','bonos:flujos':'Flujos',
-  'vol:vol':'Volatilidad','vol:skew':'Skew',
-  'estrategias:estrategias':'Estrategias',
-  'stress_test_mock:stress_test_mock':'Stress Test'
+// Navegar a módulo + sub-tab desde el drawer
+window.drawerNav = (mod, tab) => {
+  const btn=document.getElementById('mtab-'+mod);
+  const isAuth=btn?.getAttribute('onclick')?.includes('Auth');
+  isAuth?loadModuleAuth(mod,btn):loadModule(mod,btn);
+  if(tab){
+    const check=setInterval(()=>{
+      const fn=window[mod+'Tab'];
+      if(typeof fn==='function'){clearInterval(check);fn(tab);}
+    },80);
+    setTimeout(()=>clearInterval(check),4000);
+  }
+  drawerClose();
 };
-const QA_ICONS = {
-  home:'🏠', portafolio:'💼', usa:'🇺🇸', alertas:'🔔', analisis:'💡',
-  opciones:'📊', cedears:'🌐', bonos:'📐', vol:'📈', estrategias:'🧩',
-  stress_test_mock:'🧪'
-};
-window.qaTrack = (module, tab) => {
-  try {
-    // Solo trackear si hay sub-tab específico, ignorar módulos raíz
-    if (!tab || tab === module) { window.qaRender(); return; }
-    const key = module + ':' + tab;
-    const storage = window._qa_storage || {};
-    storage[key] = (storage[key] || 0) + 1;
-    window._qa_storage = storage;
-    // Persistir en localStorage (si disponible)
-    try { localStorage.setItem('qa_clicks', JSON.stringify(storage)); } catch(e) {}
-    window.qaRender();
-  } catch(e) { console.log('qaTrack err:', e); }
-};
-// Inicializar desde localStorage al cargar
-window._qa_storage = {};
-try {
-  const saved = localStorage.getItem('qa_clicks');
-  if (saved) window._qa_storage = JSON.parse(saved);
-} catch(e) {}
-// Navegar a módulo + sub-tab desde quick access
-window.qaGo = (mod, tab) => {
-  loadModuleAuth(mod, null);
-  // Después de cargar, activar el sub-tab
-  const check = setInterval(() => {
-    const fn = window[mod + 'Tab'];
-    if (typeof fn === 'function') {
-      clearInterval(check);
-      fn(tab);
-    }
-  }, 100);
-  // Safety: clear after 5s
-  setTimeout(() => clearInterval(check), 5000);
-};
-
-window.qaRender = () => {
-  try {
-    const el = document.getElementById('qaPills');
-    if (!el) { console.log('qaPills not found'); return; }
-    const row = el.closest('.qa-row');
-    const clicks = window._qa_storage || {};
-    let top3 = Object.entries(clicks).sort((a,b) => b[1] - a[1]).slice(0,3);
-    if (top3.length === 0) {
-      el.innerHTML = '';
-      if (row) row.classList.remove('show');
-      return;
-    }
-    if (row) row.classList.add('show');
-    // Filtrar módulos raíz (sin sub-tab), solo mostrar tabs específicos
-    top3 = top3.filter(([key]) => { const [m,t] = key.split(':'); return t && t !== m; }).slice(0,3);
-    if (top3.length === 0) { el.innerHTML = ''; if (row) row.classList.remove('show'); return; }
-    el.innerHTML = top3.map(([key]) => {
-      const [mod, tab] = key.split(':');
-      const icon = QA_ICONS[mod] || '📌';
-      const label = QA_LABELS[key] || (tab ? tab.charAt(0).toUpperCase()+tab.slice(1) : mod);
-      const tabStr = tab || '';
-      return `<button class="qa-pill" onclick="qaGo('${mod}','${tabStr}')">${icon} <span class="qa-tab">${label}</span></button>`;
-    }).join('');
-  } catch(e) { console.log('qaRender err:', e); }
-};
-// Render on load + asegurar data de localStorage
-(function(){
-  try {
-    const saved = localStorage.getItem('qa_clicks');
-    if (saved) window._qa_storage = JSON.parse(saved);
-  } catch(e) {}
-  const fn = () => {
-    window.qaRender();
-    // Show immediately if there's data
-    const row = document.querySelector('.qa-row');
-    const clicks = window._qa_storage || {};
-    if (row && Object.keys(clicks).length > 0) row.classList.add('show');
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn);
-  } else { fn(); }
-})();
+window.qaTrack=()=>{};
 
 window.loadModuleAuth = (name, btn) => {
   if (!currentUser) {
@@ -1335,7 +1348,7 @@ setInterval(updateClock,1000); updateClock();
 async function loadStrip(){
   const [usaRows,arRows]=await Promise.all([
     sb('mercado_usa','symbol=in.("SPY","QQQ","GLD","USO","VIXY")&select=symbol,last,change_pct'),
-    sb('mercado','symbol=in.("AL30","AL30D","AL30C","GD30","MERVAL")&settlement=eq.24hs&select=symbol,last,change'),
+    sb('mercado','symbol=in.("AL30","AL30D","AL30C","GD30","MERVAL","GGAL")&settlement=eq.24hs&select=symbol,last,change'),
   ]);
   const u={};if(usaRows)usaRows.forEach(r=>{u[r.symbol]=r;});
   const a={};if(arRows)arRows.forEach(r=>{a[r.symbol]=r;});
@@ -1377,15 +1390,35 @@ window.moduleTimers={};
 // ── Drawer ────────────────────────────────────────────────────
 window.drawerOpen=()=>{document.getElementById('drawer').classList.add('open');document.getElementById('drawerOverlay').classList.add('open');};
 window.drawerClose=()=>{document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');};
-window.drawerGo=(mod,el)=>{
-  const mtab=document.getElementById('mtab-'+mod);
-  if(mtab&&!mtab.classList.contains('disabled')){
-    const isAuth=mtab.getAttribute('onclick')?.includes('Auth');
-    isAuth?loadModuleAuth(mod,mtab):loadModule(mod,mtab);
-  }
-  document.querySelectorAll('.drawer-item').forEach(i=>i.classList.remove('active'));
+
+// Módulo directo (sin sub-tabs)
+window.dmodGo=(mod,el)=>{
+  document.querySelectorAll('.dmod').forEach(b=>b.classList.remove('active'));
   if(el)el.classList.add('active');
-  drawerClose();
+  drawerNav(mod,null);
+};
+
+// Toggle acordeón + navegar al módulo
+window.dmodToggle=(el,mod)=>{
+  const subsId='dsubs-'+mod;
+  const subs=document.getElementById(subsId);
+  const isOpen=subs?.classList.contains('open');
+  // Colapsar todos los demás
+  document.querySelectorAll('.dsubs.open').forEach(s=>{if(s.id!==subsId)s.classList.remove('open');});
+  document.querySelectorAll('.dmod.open').forEach(b=>{if(b!==el)b.classList.remove('open');});
+  if(!isOpen){
+    subs?.classList.add('open');
+    el.classList.add('open');
+    // Cargar el módulo sin cerrar el drawer
+    const mtab=document.getElementById('mtab-'+mod);
+    const isAuth=mtab?.getAttribute('onclick')?.includes('Auth');
+    isAuth?loadModuleAuth(mod,mtab):loadModule(mod,mtab);
+    document.querySelectorAll('.dmod').forEach(b=>b.classList.remove('active'));
+    el.classList.add('active');
+  } else {
+    subs?.classList.remove('open');
+    el.classList.remove('open');
+  }
 };
 
 window.loadModule=async(name,btn)=>{
@@ -1396,8 +1429,8 @@ window.loadModule=async(name,btn)=>{
   document.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
   if(btn)btn.classList.add('active');
   // Sync drawer active state
-  document.querySelectorAll('.drawer-item').forEach(i=>i.classList.remove('active'));
-  const di=document.getElementById('ditem-'+name);if(di)di.classList.add('active');
+  document.querySelectorAll('.dmod').forEach(b=>b.classList.remove('active'));
+  const dm=document.getElementById('dmod-'+name);if(dm)dm.classList.add('active');
   const container=document.getElementById('moduleContainer');
   if(name==='home'){container.innerHTML='';renderHome();return;}
   container.innerHTML=`<div class="module-loading"><div class="spinner"></div>Cargando ${name}...</div>`;
