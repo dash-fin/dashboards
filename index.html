@@ -503,24 +503,33 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
       </div>
       <div class="drawer-body">
 
-        <!-- ── ARGENTINA ── -->
-        <div class="dsec-hdr"><div class="dsec-pipe" style="background:#f5a623"></div><span class="dsec-lbl" style="color:#f5a623">Argentina</span></div>
-
-        <button class="dmod active" id="dmod-home" onclick="dmodGo('home',this)">
-          <div class="dmod-accent" style="background:#f5a623"></div>
+        <!-- ── INICIO (arriba de todo, sin sección) ── -->
+        <button class="dmod active" id="dmod-home" onclick="dmodGo('home',this)" style="margin-bottom:6px">
+          <div class="dmod-accent" style="background:#10e898"></div>
           <div class="dmod-inner"><span class="dmod-icon">🏠</span><span class="dmod-label">Inicio</span></div>
         </button>
 
+        <!-- ── ARGENTINA ── -->
+        <div class="dsec-hdr"><div class="dsec-pipe" style="background:#f5a623"></div><span class="dsec-lbl" style="color:#f5a623">Argentina</span></div>
+
         <button class="dmod" id="dmod-opciones" onclick="dmodToggle(this,'opciones')">
           <div class="dmod-accent" style="background:#f5a623"></div>
-          <div class="dmod-inner"><span class="dmod-icon">📊</span><span class="dmod-label">Opciones GGAL</span><span class="dmod-chevron">▶</span></div>
+          <div class="dmod-inner"><span class="dmod-icon">📊</span><span class="dmod-label">Opciones</span><span class="dmod-chevron">▶</span></div>
         </button>
         <div class="dsubs" id="dsubs-opciones">
-          <button class="dsub" onclick="drawerNav('opciones','cadena')"><span class="dsub-dot"></span><span class="dsub-label">Cadena RT</span></button>
-          <button class="dsub" onclick="drawerNav('opciones','iamc')"><span class="dsub-dot"></span><span class="dsub-label">Distribución OI</span></button>
-          <button class="dsub" onclick="drawerNav('opciones','gex')"><span class="dsub-dot"></span><span class="dsub-label">Análisis Gamma</span></button>
-          <button class="dsub" onclick="drawerNav('opciones','tabla')"><span class="dsub-dot"></span><span class="dsub-label">Tabla detalle</span></button>
-          <button class="dsub" onclick="drawerNav('opciones','estrategias')"><span class="dsub-dot"></span><span class="dsub-label">Estrategias</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','cadena')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Cadena RT</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','iamc')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Distribución OI</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','gex')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Análisis Gamma</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','tabla')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Tabla detalle</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','hist')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Histórico OI</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','analisis')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Señales</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','estrategias')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Estrategias</span></button>
+          <div style="height:6px"></div>
+          <button class="dsub" onclick="drawerNav('opciones','ggalusa_iamc')"><span class="dsub-dot"></span><span class="dsub-label">GGAL USA · Distribución OI</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','ggalusa_gex')"><span class="dsub-dot"></span><span class="dsub-label">GGAL USA · Análisis Gamma</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','ggalusa_hist')"><span class="dsub-dot"></span><span class="dsub-label">GGAL USA · Histórico OI</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','ggalusa_tabla')"><span class="dsub-dot"></span><span class="dsub-label">GGAL USA · Tabla detalle</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','ggalusa_cadena')"><span class="dsub-dot"></span><span class="dsub-label">GGAL USA · Cadena RT</span></button>
         </div>
 
         <button class="dmod" id="dmod-cedears" onclick="dmodToggle(this,'cedears')">
@@ -548,28 +557,21 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <div class="dmod-inner"><span class="dmod-icon">💡</span><span class="dmod-label">Análisis técnico</span><span class="dmod-chevron">▶</span></div>
         </button>
         <div class="dsubs" id="dsubs-analisis">
-          <button class="dsub" onclick="drawerNav('analisis','analisis')"><span class="dsub-dot"></span><span class="dsub-label">Análisis</span></button>
           <button class="dsub" onclick="drawerNav('analisis','heatmap')"><span class="dsub-dot"></span><span class="dsub-label">Heatmap</span></button>
         </div>
 
         <!-- ── USA ── -->
         <div class="dsec-hdr" style="margin-top:4px"><div class="dsec-pipe" style="background:#4488ff"></div><span class="dsec-lbl" style="color:#4488ff">USA</span></div>
 
-        <button class="dmod" id="dmod-usa" onclick="dmodToggle(this,'usa')">
-          <div class="dmod-accent" style="background:#4488ff"></div>
-          <div class="dmod-inner"><span class="dmod-icon">🇺🇸</span><span class="dmod-label">Mercado USA</span><span class="dmod-chevron">▶</span></div>
-        </button>
-        <div class="dsubs" id="dsubs-usa">
-          <button class="dsub" onclick="drawerNav('usa','mercado')"><span class="dsub-dot"></span><span class="dsub-label">Mercado</span></button>
-          <button class="dsub" onclick="drawerNav('usa','sectores')"><span class="dsub-dot"></span><span class="dsub-label">Sectores</span></button>
-          <button class="dsub" onclick="drawerNav('usa','shortint')"><span class="dsub-dot"></span><span class="dsub-label">Short Data</span></button>
-          <button class="dsub" onclick="drawerNav('usa','gex')"><span class="dsub-dot"></span><span class="dsub-label">GEX</span></button>
-          <button class="dsub" onclick="drawerNav('usa','rrg')"><span class="dsub-dot"></span><span class="dsub-label">RRG</span></button>
-        </div>
+        <button class="dsub" onclick="drawerNav('usa','mercado')" style="padding-left:14px"><span class="dsub-dot"></span><span class="dsub-label">Mercado</span></button>
+        <button class="dsub" onclick="drawerNav('usa','sectores')" style="padding-left:14px"><span class="dsub-dot"></span><span class="dsub-label">Sectores</span></button>
+        <button class="dsub" onclick="drawerNav('usa','shortint')" style="padding-left:14px"><span class="dsub-dot"></span><span class="dsub-label">Short Data</span></button>
+        <button class="dsub" onclick="drawerNav('usa','gex')" style="padding-left:14px"><span class="dsub-dot"></span><span class="dsub-label">GEX</span></button>
+        <button class="dsub" onclick="drawerNav('usa','rrg')" style="padding-left:14px"><span class="dsub-dot"></span><span class="dsub-label">RRG</span></button>
 
         <button class="dmod" id="dmod-af" onclick="dmodGo('af',this)">
           <div class="dmod-accent" style="background:#4488ff"></div>
-          <div class="dmod-inner"><span class="dmod-icon">📈</span><span class="dmod-label">Análisis Fundamental</span></div>
+          <div class="dmod-inner"><span class="dmod-icon">📈</span><span class="dmod-label">AF vs AT</span></div>
         </button>
 
         <!-- ── PORTAFOLIO ── -->
@@ -677,7 +679,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
       <button class="mtab"        id="mtab-cedears"   onclick="loadModuleAuth('cedears',this)">🌐 CEDEARs</button>
       <button class="mtab"        id="mtab-alertas"   onclick="loadModuleAuth('alertas',this)">🔔 Alertas</button>
       <button class="mtab"        id="mtab-usa"       onclick="loadModuleAuth('usa',this)">🇺🇸 USA</button>
-      <button class="mtab"        id="mtab-af"        onclick="loadModuleAuth('af',this)">📈 AF</button>
+      <button class="mtab"        id="mtab-af"        onclick="loadModuleAuth('af',this)">📈 AF vs AT</button>
       <button class="mtab"        id="mtab-bonos"     onclick="loadModuleAuth('bonos',this)">📐 Renta Fija</button>
       <button class="mtab"        id="mtab-portafolio" onclick="loadModuleAuth('portafolio',this)">💼 Portafolio</button>
     </div>

@@ -1,17 +1,31 @@
 <div class="sub-tabs-row">
   <div class="sub-tabs">
-    <button class="stab active" id="ostab-iamc"       onclick="oSetTab('iamc',this)">Distribución OI</button>
-    <button class="stab"        id="ostab-gex"        onclick="oSetTab('gex',this)">Análisis Gamma</button>
-    <button class="stab"        id="ostab-tabla"      onclick="oSetTab('tabla',this)">Tabla Detalle</button>
-    <button class="stab"        id="ostab-hist"       onclick="oSetTab('hist',this)">Histórico OI</button>
-    <button class="stab"        id="ostab-estrategias" onclick="oSetTab('estrategias',this)">Estrategias</button>
-    <button class="stab"        id="ostab-analisis"   onclick="oSetTab('analisis',this)">Señales</button>
-    <button class="stab"        id="ostab-cadena"     onclick="oSetTab('cadena',this)">Cadena RT</button>
+    <button class="stab active" id="ostab-iamc"       onclick="oSetTab('iamc',this)">GGAL · OI</button>
+    <button class="stab"        id="ostab-gex"        onclick="oSetTab('gex',this)">GGAL · Gamma</button>
+    <button class="stab"        id="ostab-tabla"      onclick="oSetTab('tabla',this)">GGAL · Tabla</button>
+    <button class="stab"        id="ostab-hist"       onclick="oSetTab('hist',this)">GGAL · Hist OI</button>
+    <button class="stab"        id="ostab-estrategias" onclick="oSetTab('estrategias',this)">GGAL · Estrat</button>
+    <button class="stab"        id="ostab-cadena"     onclick="oSetTab('cadena',this)">GGAL · Cadena</button>
+  </div>
+  <div class="sub-tabs">
+    <button class="stab" id="ostab-ggalusa_iamc"   onclick="oSetTab('ggalusa_iamc',this)" style="color:var(--blue)">🇺🇸 USA · OI</button>
+    <button class="stab" id="ostab-ggalusa_gex"    onclick="oSetTab('ggalusa_gex',this)" style="color:var(--blue)">🇺🇸 USA · Gamma</button>
+    <button class="stab" id="ostab-ggalusa_hist"   onclick="oSetTab('ggalusa_hist',this)" style="color:var(--blue)">🇺🇸 USA · Hist OI</button>
+    <button class="stab" id="ostab-ggalusa_tabla"  onclick="oSetTab('ggalusa_tabla',this)" style="color:var(--blue)">🇺🇸 USA · Tabla</button>
+    <button class="stab" id="ostab-ggalusa_cadena" onclick="oSetTab('ggalusa_cadena',this)" style="color:var(--blue)">🇺🇸 USA · Cadena</button>
   </div>
   <div style="display:flex; gap:12px; align-items:center">
     <div class="filter-group">
       <label>Vencimiento:</label>
       <select id="oSelectVto" onchange="oApplyFilters()"></select>
+    </div>
+    <div class="filter-group" id="ggalUsaFilter" style="display:none">
+      <label>Ticker:</label>
+      <select id="ggalUsaTicker" onchange="ggalUsaApplyTicker()">
+        <option value="GGAL">GGAL</option>
+      </select>
+      <label>Vencimiento:</label>
+      <select id="ggalUsaVto" onchange="ggalUsaApplyTicker()"></select>
     </div>
     <div class="sub-tabs-meta" id="oDateMeta">—</div>
   </div>
@@ -276,6 +290,141 @@
 <!-- ── Panel 7: Cadena RT ──────────────────────────────── -->
 <div class="sub-panel" id="opanel-cadena" data-loaded="false">
   <div style="padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Cargando cadena RT...</div>
+</div>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<!-- ── GGAL USA PANELS ──────────────────────────────────────── -->
+<!-- ──────────────────────────────────────────────────────────── -->
+
+<!-- ── GGAL USA: Panel 1: Distribución OI ──────────────────── -->
+<div class="sub-panel" id="opanel-ggalusa_iamc">
+  <div class="charts-grid" style="grid-template-columns:1fr; gap:15px; margin-top:10px">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">CALLS: Interés Abierto</div>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#00e5a8"></div>Strike</div>
+        </div>
+      </div>
+      <div class="card-body"><div class="chart-wrap" style="height:250px"><canvas id="gucChartCalls"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">PUTS: Interés Abierto</div>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#ff3f5e"></div>Strike</div>
+        </div>
+      </div>
+      <div class="card-body"><div class="chart-wrap" style="height:250px"><canvas id="gucChartPuts"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── GGAL USA: Panel 2: Análisis Gamma ──────────────────── -->
+<div class="sub-panel" id="opanel-ggalusa_gex">
+  <div class="gamma-grid" style="grid-template-columns:repeat(4,1fr); margin-top:10px">
+    <div class="g-card" style="--c:var(--amber)">
+      <div class="g-lab">Spot GGAL ADR</div>
+      <div class="g-val" id="guk-spot">—</div>
+    </div>
+    <div class="g-card" style="--c:var(--text3)" id="guk-netgex-card">
+      <div class="g-lab">Net GEX Total</div>
+      <div class="g-val" id="guk-netgex">—</div>
+    </div>
+    <div class="g-card" style="--c:var(--text3)" id="guk-regime-card">
+      <div class="g-lab">Régimen Gamma</div>
+      <div class="g-val" id="guk-regime">—</div>
+    </div>
+    <div class="g-card" style="--c:var(--purple)">
+      <div class="g-lab">OI Total</div>
+      <div class="g-val" id="guk-oitotal">—</div>
+    </div>
+  </div>
+  <div class="gamma-grid" style="grid-template-columns:repeat(2,1fr); margin-top:8px">
+    <div class="g-card" style="--c:var(--green)">
+      <div class="g-lab">Call Wall</div>
+      <div class="g-val" id="guk-cwall">—</div>
+    </div>
+    <div class="g-card" style="--c:var(--red)">
+      <div class="g-lab">Put Wall</div>
+      <div class="g-val" id="guk-pwall">—</div>
+    </div>
+  </div>
+  <!-- Chart GGAL ADR -->
+  <div class="card" style="margin-top:12px">
+    <div class="card-head">
+      <div class="card-title">GGAL ADR — precio con niveles gamma</div>
+    </div>
+    <div class="card-body" style="padding-bottom:0">
+      <div id="gukChartAdr" style="height:300px; width:100%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── GGAL USA: Panel 3: Tabla Detalle ───────────────────── -->
+<div class="sub-panel" id="opanel-ggalusa_tabla">
+  <div class="card" style="margin-top:10px">
+    <div class="toolbar">
+      <input class="search-input" placeholder="Buscar strike..." id="guSearchQ" oninput="guApplyFilters()">
+      <span class="row-count" id="guRowCount">0 filas</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="th-left">Strike</th>
+          <th>Tipo</th>
+          <th>OI Total</th>
+          <th>Vol. Día</th>
+          <th>Gamma Est.</th>
+        </tr></thead>
+        <tbody id="guTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── GGAL USA: Panel 4: Histórico OI ────────────────────── -->
+<div class="sub-panel" id="opanel-ggalusa_hist">
+  <div class="gamma-grid" style="grid-template-columns:repeat(4,1fr); margin-top:10px" id="guh-kpi-row">
+    <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">OI Calls</div><div class="g-val" id="guh-calls">—</div></div>
+    <div class="g-card" style="--c:var(--red)"><div class="g-lab">OI Puts</div><div class="g-val" id="guh-puts">—</div></div>
+    <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Ratio C/P</div><div class="g-val" id="guh-ratio">—</div></div>
+    <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Max Exp.</div><div class="g-val" id="guh-vto">—</div></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-head">
+      <div class="card-title">Evolución OI Total — Calls vs Puts</div>
+    </div>
+    <div class="card-body"><div class="chart-wrap" style="height:190px"><canvas id="guhChartOI"></canvas></div></div>
+  </div>
+  <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="guhMeta">—</div>
+</div>
+
+<!-- ── GGAL USA: Panel 5: Cadena RT ────────────────────────── -->
+<div class="sub-panel" id="opanel-ggalusa_cadena">
+  <div class="card" style="margin-top:10px">
+    <div class="card-head">
+      <div class="card-title">Option Chain GGAL USA</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="row-count" id="gucChainCount">cargando...</span>
+      </div>
+    </div>
+    <div class="table-wrap" style="max-height:600px">
+      <table>
+        <thead><tr>
+          <th class="th-left">Strike</th>
+          <th>Call OI</th>
+          <th>Call Vol</th>
+          <th>Call Últ</th>
+          <th class="th-left">Tipo</th>
+          <th>Put OI</th>
+          <th>Put Vol</th>
+          <th>Put Últ</th>
+        </tr></thead>
+        <tbody id="gucChainTbody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -591,7 +740,17 @@ window.oSetTab = async (n,b)=>{
   document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('opanel-'+n).classList.add('active');
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
-  b.classList.add('active');
+  if(b) b.classList.add('active');
+  else {
+    const tabBtn = document.getElementById('ostab-'+n);
+    if(tabBtn) tabBtn.classList.add('active');
+  }
+
+  // Mostrar/ocultar filtros según tab
+  const isGgalUsa = n.startsWith('ggalusa_');
+  document.getElementById('oSelectVto').closest('.filter-group').style.display = isGgalUsa ? 'none' : '';
+  document.getElementById('ggalUsaFilter').style.display = isGgalUsa ? '' : 'none';
+
   if(n==='gex'){
     ['oChartArs','oChartAdr'].forEach(id=>{
       const el = document.getElementById(id);
@@ -599,6 +758,12 @@ window.oSetTab = async (n,b)=>{
     });
   }
   if(n==='hist' && !hLoaded) hLoadData();
+  // GGAL USA tabs
+  if(n==='ggalusa_iamc' && !gucLoaded) gucLoadData('iamc');
+  if(n==='ggalusa_gex' && !gucLoaded)  gucLoadData('gex');
+  if(n==='ggalusa_tabla' && !gucLoaded) gucLoadData('tabla');
+  if(n==='ggalusa_hist' && !guhLoaded) guhLoadData();
+  if(n==='ggalusa_cadena' && !gucLoaded) gucLoadData('cadena');
   // Lazy-load módulos externos
   for(const mod of ['estrategias','analisis','cadena']){
     if(n===mod){
@@ -1003,6 +1168,325 @@ function hRenderHeatmap() {
     tdA.style.cssText='color:var(--text4);font-size:8px;text-align:center;padding:3px 7px';
     tdA.textContent = fmtM(avg);
   });
+}
+
+// ── GGAL USA: yfinance data ──────────────────────────────────
+let gucLoaded = false, guhLoaded = false;
+let gucAllRows = [], gucCalls = [], gucPuts = [];
+let gucSpot = null, gucExpirations = [];
+let gucChartObjs = {};
+let guhChart = null;
+
+// Cargar datos desde tabla Supabase opciones_usa_rt
+async function gucFetchOptions() {
+  const ticker = document.getElementById('ggalUsaTicker')?.value || 'GGAL';
+  const expSel = document.getElementById('ggalUsaVto');
+  try {
+    // Obtener expiraciones desde la tabla (distinct)
+    const rows = await sb('opciones_usa_rt', `select=expiration&symbol=eq.${ticker}&order=expiration.asc`);
+    if(!rows?.length) {
+      // Fallback: hardcode expiraciones recientes GGAL
+      const d = new Date();
+      gucExpirations = [];
+      for(let i=0;i<8;i++){
+        const nd = new Date(d);
+        if(i===0) nd.setDate(nd.getDate() + (5-i)*7); else nd.setDate(nd.getDate() + i*30);
+        gucExpirations.push(nd.toISOString().slice(0,10));
+      }
+    } else {
+      gucExpirations = [...new Set(rows.map(r=>r.expiration))].sort();
+    }
+
+    // Llenar select
+    expSel.innerHTML = '';
+    gucExpirations.forEach(e => {
+      const o = document.createElement('option');
+      o.value = e; o.textContent = e;
+      expSel.appendChild(o);
+    });
+    expSel.onchange = () => gucLoadData(gucLoadedTab || 'iamc');
+    return gucExpirations;
+  } catch(e) { console.error('[ggalusa] fetch expirations:', e); return []; }
+}
+
+async function gucFetchChain(expiration) {
+  const ticker = document.getElementById('ggalUsaTicker')?.value || 'GGAL';
+  try {
+    // Leer desde Supabase
+    const rows = await sb('opciones_usa_rt',
+      `select=*&symbol=eq.${ticker}&expiration=eq.${expiration}`);
+    if(!rows?.length) return null;
+
+    const calls = rows.filter(r => r.kind === 'call');
+    const puts  = rows.filter(r => r.kind === 'put');
+
+    // Spot desde mercado_usa
+    const spotRow = await sb('mercado_usa', `select=last&symbol=eq.${ticker}&limit=1`);
+    if(spotRow?.length) gucSpot = Number(spotRow[0].last);
+
+    return { calls, puts };
+  } catch(e) {
+    console.error('[ggalusa] fetch chain:', e);
+    return null;
+  }
+}
+
+let gucLoadedTab = 'iamc';
+
+async function gucLoadData(tab) {
+  gucLoadedTab = tab;
+  gucLoaded = true;
+  try {
+    // Cargar expiraciones si no están
+    if(!gucExpirations.length) await gucFetchOptions();
+    const exp = document.getElementById('ggalUsaVto').value || gucExpirations[0] || '';
+    if(!exp) {
+      document.getElementById('gucChainCount').textContent = 'Sin vencimientos disponibles';
+      return;
+    }
+    const chain = await gucFetchChain(exp);
+    if(!chain) {
+      document.getElementById('gucChainCount').textContent = 'Error al cargar opciones';
+      return;
+    }
+
+    gucCalls = (chain.calls||[]).map(c => ({
+      strike: c.strike,
+      oi: c.open_interest || 0,
+      volume: c.volume || 0,
+      last: c.last_price || 0,
+      bid: c.bid || 0,
+      ask: c.ask || 0,
+      iv: c.implied_volatility || 0,
+      gamma: c.gamma || 0,
+    })).filter(c => c.strike > 0);
+
+    gucPuts = (chain.puts||[]).map(p => ({
+      strike: p.strike,
+      oi: p.open_interest || 0,
+      volume: p.volume || 0,
+      last: p.last_price || 0,
+      bid: p.bid || 0,
+      ask: p.ask || 0,
+      iv: p.implied_volatility || 0,
+      gamma: p.gamma || 0,
+    })).filter(p => p.strike > 0);
+
+    gucAllRows = [
+      ...gucCalls.map(c => ({...c, tipo:'call'})),
+      ...gucPuts.map(p => ({...p, tipo:'put'}))
+    ];
+
+    // Renderizar según tab
+    if(tab === 'iamc') gucRenderDistribution();
+    if(tab === 'gex')  gucRenderGamma();
+    if(tab === 'tabla') gucRenderTable();
+    if(tab === 'cadena') gucRenderChain();
+
+    document.getElementById('gucChainCount').textContent =
+      `Calls: ${gucCalls.length} · Puts: ${gucPuts.length} · ${exp}`;
+  } catch(e) {
+    console.error('[ggalusa] load:', e);
+    document.getElementById('gucChainCount').textContent = 'Error: '+e.message;
+  }
+}
+
+window.ggalUsaApplyTicker = () => {
+  gucLoaded = false;
+  gucLoadData(gucLoadedTab || 'iamc');
+};
+
+// ── GGAL USA: Distribución OI ─────────────────────────────
+function gucRenderDistribution() {
+  const calls = gucCalls.slice().sort((a,b) => a.strike - b.strike);
+  const puts  = gucPuts.slice().sort((a,b) => a.strike - b.strike);
+  const labelsC = calls.map(r => '$'+r.strike);
+  const labelsP = puts.map(r  => '$'+r.strike);
+
+  if(gucChartObjs.calls) { gucChartObjs.calls.destroy(); }
+  gucChartObjs.calls = new Chart(document.getElementById('gucChartCalls'), {
+    type:'bar',
+    data:{labels:labelsC, datasets:[{label:'OI Calls', data:calls.map(r=>r.oi), backgroundColor:'#00e5a8', borderRadius:2}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{x:{grid:{display:false}, ticks:{font:{size:9}, maxRotation:45}}, y:{grid:{color:'#1e2530'}, ticks:{font:{size:9}, callback:v=>fmtM(v)}}},
+      plugins:{legend:{display:false}}
+    }
+  });
+
+  if(gucChartObjs.puts) { gucChartObjs.puts.destroy(); }
+  gucChartObjs.puts = new Chart(document.getElementById('gucChartPuts'), {
+    type:'bar',
+    data:{labels:labelsP, datasets:[{label:'OI Puts', data:puts.map(r=>r.oi), backgroundColor:'#ff3f5e', borderRadius:2}]},
+    options:{responsive:true, maintainAspectRatio:false,
+      scales:{x:{grid:{display:false}, ticks:{font:{size:9}, maxRotation:45}}, y:{grid:{color:'#1e2530'}, ticks:{font:{size:9}, callback:v=>fmtM(v)}}},
+      plugins:{legend:{display:false}}
+    }
+  });
+}
+
+// ── GGAL USA: Análisis Gamma ──────────────────────────────
+function gucRenderGamma() {
+  const calls = gucCalls;
+  const puts  = gucPuts;
+  const bases  = [...new Set([...gucCalls, ...gucPuts].map(r=>r.strike))].sort((a,b)=>a-b);
+
+  // GEX = (call_oi - put_oi) * strike
+  const gexData = bases.map(b => {
+    const c = calls.find(r=>r.strike===b)?.oi || 0;
+    const p = puts.find(r=>r.strike===b)?.oi || 0;
+    return (c-p)*b;
+  });
+
+  const cw = calls.length ? calls.reduce((a,b)=>a.oi>b.oi?a:b) : null;
+  const pw = puts.length  ? puts.reduce((a,b)=>a.oi>b.oi?a:b) : null;
+  const netGex = gexData.reduce((a,b)=>a+b,0);
+  const isPos  = netGex >= 0;
+  const oiTotal = [...calls,...puts].reduce((s,r)=>s+r.oi,0);
+
+  // Spot
+  if(gucSpot) document.getElementById('guk-spot').textContent = '$'+gucSpot.toFixed(2);
+  document.getElementById('guk-netgex').textContent = fmtM(netGex);
+  document.getElementById('guk-regime').textContent = isPos ? 'POSITIVO' : 'NEGATIVO';
+  document.getElementById('guk-oitotal').textContent = fmtM(oiTotal);
+  document.getElementById('guk-cwall').textContent = cw ? '$'+cw.strike : '—';
+  document.getElementById('guk-pwall').textContent = pw ? '$'+pw.strike : '—';
+  document.getElementById('guk-regime-card').style.setProperty('--c', isPos?'var(--green)':'var(--red)');
+  document.getElementById('guk-netgex-card').style.setProperty('--c', isPos?'var(--green)':'var(--red)');
+
+  gucRenderPriceChart();
+}
+
+async function gucRenderPriceChart() {
+  // Cargar histórico de precios GGAL ADR desde yahoo-prices edge function
+  try {
+    const resp = await fetch(EDGE, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+SBKEY, 'apikey':SBKEY },
+      body: JSON.stringify({ mode:'price-history', symbols:['GGAL'], period:'1mo', interval:'1d' })
+    });
+    if(!resp.ok) return;
+    const data = await resp.json();
+    const hist = (data?.GGAL || data?.prices || []).filter(r=>r.close>0);
+    if(!hist.length) return;
+
+    // Construir chart con Lightweight Charts
+    await loadLWC();
+    const el = document.getElementById('gukChartAdr');
+    if(!el || !window.LightweightCharts) return;
+    if(el._lwChart) { try{el._lwChart.remove();}catch(_){} el._lwChart=null; }
+
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim() || '#131923';
+    const chart = LightweightCharts.createChart(el, {
+      width: el.clientWidth, height:300,
+      layout:{ background:{type:'solid', color:bg}, textColor:'#8899aa', fontSize:11 },
+      grid:{ vertLines:{color:'#1e2530'}, horzLines:{color:'#1e2530'} },
+      crosshair:{ mode: LightweightCharts.CrosshairMode.Normal },
+      timeScale:{ borderColor:'#2a3440' },
+      rightPriceScale:{ borderColor:'#2a3440' },
+    });
+    const series = chart.addCandlestickSeries({
+      upColor:'#00e5a8', downColor:'#ff3f5e',
+      borderVisible: false, wickUpColor:'#00e5a8', wickDownColor:'#ff3f5e',
+      priceLineVisible: false, lastValueVisible: false,
+    });
+    series.setData(hist.map(r=>({
+      time: r.date || r.fecha || r.timestamp,
+      open: r.open || r.close,
+      high: r.high || r.close,
+      low:  r.low  || r.close,
+      close: r.close,
+    })));
+
+    if(gucSpot) series.createPriceLine({ price:gucSpot, color:'#ffd700', lineWidth:2, lineStyle:2, axisLabelVisible:true, title:'SPOT' });
+
+    // Niveles gamma
+    const cw = gucCalls.length ? gucCalls.reduce((a,b)=>a.oi>b.oi?a:b) : null;
+    const pw = gucPuts.length  ? gucPuts.reduce((a,b)=>a.oi>b.oi?a:b) : null;
+    if(cw) series.createPriceLine({ price:cw.strike, color:'#00e5a8', lineWidth:1, lineStyle:2, axisLabelVisible:true, title:'CW' });
+    if(pw) series.createPriceLine({ price:pw.strike, color:'#ff3f5e', lineWidth:1, lineStyle:2, axisLabelVisible:true, title:'PW' });
+
+    chart.timeScale().fitContent();
+    if(!el._lwObs){
+      el._lwObs = new ResizeObserver(()=>{ if(el._lwChart) el._lwChart.applyOptions({width:el.clientWidth}); });
+      el._lwObs.observe(el);
+    }
+    el._lwChart = chart;
+  } catch(e) { console.error('[guc] price chart:', e); }
+}
+
+// ── GGAL USA: Tabla Detalle ───────────────────────────────
+function gucRenderTable() {
+  const q = (document.getElementById('guSearchQ')?.value||'').toLowerCase();
+  let rows = gucAllRows.filter(r => !q || String(r.strike).includes(q));
+  rows.sort((a,b) => a.strike - b.strike || a.tipo.localeCompare(b.tipo));
+
+  document.getElementById('guTbody').innerHTML = rows.map(r => `
+    <tr>
+      <td style="color:var(--amber);font-weight:bold">$${r.strike}</td>
+      <td><span class="badge ${r.tipo==='call'?'b-call':'b-put'}">${r.tipo}</span></td>
+      <td>${fmtM(r.oi)}</td>
+      <td style="color:${r.volume>0?'var(--green)':'var(--text3)'}">${fmtM(r.volume)}</td>
+      <td style="color:var(--text3)">${r.gamma ? r.gamma.toFixed(4) : '—'}</td>
+    </tr>`).join('');
+  document.getElementById('guRowCount').textContent = rows.length+' filas';
+}
+
+window.guApplyFilters = () => gucRenderTable();
+
+// ── GGAL USA: Histórico OI ────────────────────────────────
+async function guhLoadData() {
+  guhLoaded = true;
+  try {
+    // Simular datos históricos desde la última semana (yfinance no tiene histórico de OI)
+    // Mostramos datos actuales como instantánea
+    document.getElementById('guh-calls').textContent = fmtM(gucCalls.reduce((s,r)=>s+r.oi,0));
+    document.getElementById('guh-puts').textContent = fmtM(gucPuts.reduce((s,r)=>s+r.oi,0));
+    const c = gucCalls.reduce((s,r)=>s+r.oi,0);
+    const p = gucPuts.reduce((s,r)=>s+r.oi,0);
+    document.getElementById('guh-ratio').textContent = p>0 ? (c/p).toFixed(2) : '—';
+    document.getElementById('guh-vto').textContent = document.getElementById('ggalUsaVto')?.value?.slice(0,7) || '—';
+
+    // Gráfico simple con OI por strike actual
+    if(guhChart) guhChart.destroy();
+    const labels = gucCalls.map(r => '$'+r.strike);
+    const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+    guhChart = new Chart(document.getElementById('guhChartOI'), {
+      data:{labels, datasets:[
+        {type:'bar',label:'Calls',data:gucCalls.map(r=>r.oi),backgroundColor:'#38c8ff',stack:'a'},
+        {type:'bar',label:'Puts', data:gucPuts.map(r=>r.oi),backgroundColor:'#ff3f5e',stack:'a'},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>fmtM(v)}}},
+        plugins:{legend:{display:false}}
+      }
+    });
+    document.getElementById('guhMeta').textContent = 'Datos de Yahoo Finance · ' + new Date().toLocaleString('es-AR');
+  } catch(e){ console.error('[guh]', e); }
+}
+
+// ── GGAL USA: Cadena RT (option chain lado a lado) ────────
+function gucRenderChain() {
+  const allStrikes = [...new Set([...gucCalls, ...gucPuts].map(r=>r.strike))].sort((a,b)=>a-b);
+  const callMap = Object.fromEntries(gucCalls.map(r=>[r.strike, r]));
+  const putMap  = Object.fromEntries(gucPuts.map(r=>[r.strike, r]));
+
+  const fmtOI = v => v > 0 ? v.toLocaleString('en-US') : '—';
+  const fmtPx = v => v > 0 ? '$'+v.toFixed(2) : '—';
+
+  document.getElementById('gucChainTbody').innerHTML = allStrikes.map(s => {
+    const c = callMap[s] || {};
+    const p = putMap[s] || {};
+    return `<tr>
+      <td style="color:var(--amber);font-weight:bold">$${s}</td>
+      <td style="color:var(--cyan)">${fmtOI(c.oi)}</td>
+      <td>${fmtOI(c.volume)}</td>
+      <td>${fmtPx(c.last)}</td>
+      <td style="color:var(--text3)">${c.oi ? 'Call' : 'Put'}</td>
+      <td style="color:var(--red)">${fmtOI(p.oi)}</td>
+      <td>${fmtOI(p.volume)}</td>
+      <td>${fmtPx(p.last)}</td>
+    </tr>`;
+  }).join('');
 }
 
 oLoadData();
