@@ -17,7 +17,7 @@
 .af-kpi-val{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--text)}
 .af-chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;position:relative}
 .af-chart-lbl{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;padding:8px 12px 4px;position:absolute;top:0;left:0;z-index:10}
-#afPriceChart{height:320px}
+#afPriceChart{height:340px}
 .af-sub-svg{width:100%;display:block}
 .af-empty{text-align:center;padding:60px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
 .af-err{color:var(--red);font-size:10px;font-family:'IBM Plex Mono',monospace;padding:4px 0}
@@ -161,7 +161,7 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,dd,peData,kpis){
       <div class="af-kpi"><div class="af-kpi-lbl">Rev YoY</div><div class="af-kpi-val" style="color:${yoyColor}">${kpis.lastYoy!=null?(kpis.lastYoy>=0?'+':'')+fv(kpis.lastYoy,1)+'%':'—'}</div></div>
     </div>
     <div class="af-chart-card" style="margin-bottom:8px">
-      <div class="af-chart-lbl">Precio semanal · Revenue growth por trimestre</div>
+      <div class="af-chart-lbl">Precio semanal · Volumen · Revenue growth (área verde)</div>
       <div id="afPriceChart"></div>
     </div>
     <div class="af-chart-card" style="margin-bottom:8px">
@@ -178,7 +178,7 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,dd,peData,kpis){
   if(gChart){try{gChart.remove();}catch(e){} gChart=null;}
   const container=document.getElementById('afPriceChart');
   gChart=LightweightCharts.createChart(container,{
-    width:container.clientWidth, height:320,
+    width:container.clientWidth, height:340,
     layout:{background:{type:'solid',color:'transparent'},textColor:'rgba(200,218,240,.6)'},
     grid:{vertLines:{color:'rgba(255,255,255,.04)'},horzLines:{color:'rgba(255,255,255,.04)'}},
     timeScale:{timeVisible:false,borderColor:'rgba(255,255,255,.1)'},
@@ -187,7 +187,38 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,dd,peData,kpis){
     handleScroll:true, handleScale:true,
   });
 
-  // Candles
+  // Revenue step area (detrás de velas — layer 1)
+  if(revQ.length>=2){
+    const pMax=Math.max(...ohlcv.map(d=>d.h));
+    const revVals=revQ.map(q=>q.rev);
+    const rMin=Math.min(...revVals),rMax=Math.max(...revVals);
+    const scaleRev=r=>pMax*(0.04+(r-rMin)/(rMax-rMin||1)*0.68);
+    const revAreaSeries=gChart.addAreaSeries({
+      lineColor:'rgba(16,200,120,.9)',
+      topColor:'rgba(16,200,120,.22)',
+      bottomColor:'rgba(16,200,120,.02)',
+      lineWidth:2,
+      lineType:2,
+      priceLineVisible:false,
+      lastValueVisible:false,
+      crosshairMarkerVisible:false,
+    });
+    revAreaSeries.setData(revQ.map(q=>({time:Math.floor(q.date/1000),value:scaleRev(q.rev)})));
+  }
+
+  // Volumen (escala separada, 15% inferior del panel)
+  const volSeries=gChart.addHistogramSeries({
+    color:'rgba(100,130,160,.35)',
+    priceFormat:{type:'volume'},
+    priceScaleId:'vol',
+  });
+  gChart.priceScale('vol').applyOptions({scaleMargins:{top:.86,bottom:0},borderVisible:false});
+  volSeries.setData(ohlcv.map(d=>({
+    time:d.time, value:d.v||0,
+    color:d.c>=d.o?'rgba(16,200,120,.28)':'rgba(255,64,96,.28)'
+  })));
+
+  // Velas (layer superior)
   const series=gChart.addCandlestickSeries({
     upColor:'#10e898',downColor:'#ff4060',
     borderUpColor:'#10e898',borderDownColor:'#ff4060',
@@ -195,7 +226,8 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,dd,peData,kpis){
   });
   series.setData(ohlcv.map(d=>({time:d.time,open:d.o,high:d.h,low:d.l,close:d.c})));
 
-  // Earnings markers (revenue growth annotations)
+  // Markers con label de trimestre + YoY
+  const qLbl=ms=>{const d=new Date(ms);const q=Math.ceil((d.getMonth()+1)/3);return`Q${q}'${String(d.getFullYear()).slice(2)}`;};
   const markers=revQ.filter(q=>q.yoy!=null).map(q=>{
     const nearestBar=ohlcv.reduce((b,d)=>Math.abs(d.t*1000-q.date)<Math.abs(b.t*1000-q.date)?d:b,ohlcv[0]);
     const sign=q.yoy>=0?'+':'';
@@ -204,7 +236,7 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,dd,peData,kpis){
       position:'aboveBar',
       color:q.yoy>=20?'#10e898':q.yoy>=0?'rgba(16,232,152,.7)':'#ff4060',
       shape:'circle',
-      text:`${sign}${q.yoy.toFixed(1)}%`,
+      text:`${qLbl(q.date)} ${sign}${q.yoy.toFixed(1)}%`,
       size:0.6
     };
   });
