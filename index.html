@@ -560,7 +560,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <div class="dmod-inner"><span class="dmod-icon">📊</span><span class="dmod-label">Market</span><span class="dmod-chevron">▶</span></div>
         </button>
         <div class="dsubs" id="dsubs-market">
-          <button class="dsub" onclick="drawerNav('market','data')"><span class="dsub-dot"></span><span class="dsub-label">Market Data</span></button>
+          <button class="dsub" onclick="drawerNav('market','mercado')"><span class="dsub-dot"></span><span class="dsub-label">Market Data</span></button>
           <button class="dsub" onclick="drawerNav('market','sectores')"><span class="dsub-dot"></span><span class="dsub-label">Sectors</span></button>
           <button class="dsub" onclick="drawerNav('market','rrg')"><span class="dsub-dot"></span><span class="dsub-label">RRG</span></button>
           <button class="dsub" onclick="drawerNav('market','topology')"><span class="dsub-dot"></span><span class="dsub-label">Topology</span></button>
@@ -1205,7 +1205,9 @@ function updateUserUI() {
 // ── Auth-guarded module loader ──
 // ── Quick Access: trackeo de módulo+tab más usados ──
 // Mapa mod → función de tab interna
-const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',usa:'usTab',opciones:'oSetTab',market:'mkTab',analysis:'anTab',usaoptions:'uoTab'};
+const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',usa:'usTab',opciones:'oSetTab',market:'usTab',analysis:'anTab',usaoptions:'uoTab'};
+// Alias: nombre de módulo → archivo HTML a cargar
+const _moduleFile={market:'usa',usaoptions:'usa-options'};
 // Navegar a módulo + sub-tab desde el drawer
 window.drawerNav = async (mod, tab) => {
   drawerClose();
@@ -1459,7 +1461,7 @@ window.loadModule=async(name,btn)=>{
   if(name==='home'){container.innerHTML='';renderHome();_resolve();return;}
   container.innerHTML=`<div class="module-loading"><div class="spinner"></div>Cargando ${name}...</div>`;
   try{
-    const r=await fetch(`modules/${name}.html?v=${Date.now()}`);
+    const r=await fetch(`modules/${_moduleFile[name]||name}.html?v=${Date.now()}`);
     if(!r.ok)throw new Error('Módulo no encontrado');
     window.qaTrack(name, name); // track módulo home
     const html=await r.text();
