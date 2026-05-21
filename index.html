@@ -572,7 +572,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
         </button>
         <div class="dsubs" id="dsubs-analysis">
           <button class="dsub" onclick="drawerNav('analysis','shortint')"><span class="dsub-dot"></span><span class="dsub-label">Short Data</span></button>
-          <button class="dsub" onclick="drawerNav('analysis','af')"><span class="dsub-dot"></span><span class="dsub-label">AF vs AT</span></button>
+          <button class="dsub" onclick="drawerNav('af',null)"><span class="dsub-dot"></span><span class="dsub-label">AF vs AT</span></button>
           <button class="dsub" onclick="drawerNav('analysis','macro')"><span class="dsub-dot"></span><span class="dsub-label">Macro</span></button>
           <button class="dsub" onclick="drawerNav('analysis','insider')"><span class="dsub-dot"></span><span class="dsub-label">Insider</span></button>
           <button class="dsub" onclick="drawerNav('analysis','smartmoney')"><span class="dsub-dot"></span><span class="dsub-label">Smart Money</span></button>
@@ -1205,9 +1205,13 @@ function updateUserUI() {
 // ── Auth-guarded module loader ──
 // ── Quick Access: trackeo de módulo+tab más usados ──
 // Mapa mod → función de tab interna
-const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',usa:'usTab',opciones:'oSetTab',market:'usTab',analysis:'anTab',usaoptions:'uoTab'};
+const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',usa:'usTab',opciones:'oSetTab',market:'usTab',analysis:'usTab',usaoptions:'uoTab'};
 // Alias: nombre de módulo → archivo HTML a cargar
-const _moduleFile={market:'usa',usaoptions:'usa-options'};
+const _moduleFile={market:'usa',analysis:'usa',usaoptions:'usa-options'};
+// Tabs visibles por módulo (filtra los de usa.html)
+const _moduleTabs={market:['mercado','sectores','rrg','topology'],analysis:['shortint','macro','insider','smartmoney']};
+// Tab por defecto por módulo
+const _moduleDefaultTab={market:'mercado',analysis:'shortint'};
 // Navegar a módulo + sub-tab desde el drawer
 window.drawerNav = async (mod, tab) => {
   drawerClose();
@@ -1469,9 +1473,16 @@ window.loadModule=async(name,btn)=>{
     container.querySelectorAll('script').forEach(old=>{
       const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
     });
+    // Filtrar tabs visibles si el módulo es un alias de otro
+    if(_moduleTabs[name]){
+      const keep=_moduleTabs[name];
+      document.querySelectorAll('[id^="ustab-"]').forEach(btn=>{
+        btn.style.display=keep.includes(btn.id.replace('ustab-',''))?'':'none';
+      });
+    }
     // Auto-init: reemplaza DOMContentLoaded que no dispara en carga dinámica
     const initFn=window[_tabFn[name]];
-    if(typeof initFn==='function') initFn(null,null);
+    if(typeof initFn==='function') initFn(_moduleDefaultTab[name]||null,null);
   }catch(e){
     container.innerHTML=`<div class="module-loading" style="color:var(--red)">Error: ${e.message}</div>`;
   }finally{
