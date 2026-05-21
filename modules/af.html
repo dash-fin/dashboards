@@ -195,24 +195,34 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis){
     handleScroll:true, handleScale:true,
   });
 
-  // Revenue step area anual (detrás de velas — layer 1)
-  const revForArea=revAnn.length>=2?revAnn:revQ;
+  // Revenue step area — weekly fill para escalera real (no diagonal)
+  const revForArea=(revAnn.length>=2?revAnn:revQ).slice().sort((a,b)=>a.date-b.date);
   if(revForArea.length>=2){
     const pMax=Math.max(...ohlcv.map(d=>d.h));
     const revVals=revForArea.map(q=>q.rev);
     const rMin=Math.min(...revVals),rMax=Math.max(...revVals);
     const scaleRev=r=>pMax*(0.04+(r-rMin)/(rMax-rMin||1)*0.68);
-    const revAreaSeries=gChart.addAreaSeries({
-      lineColor:'rgba(16,200,120,.9)',
-      topColor:'rgba(16,200,120,.45)',
-      bottomColor:'rgba(16,200,120,.08)',
-      lineWidth:3,
-      lineType:2,
-      priceLineVisible:false,
-      lastValueVisible:false,
-      crosshairMarkerVisible:false,
+    // Asignar a cada vela semanal el revenue del año fiscal más reciente anterior
+    const weeklyStep=[];
+    ohlcv.forEach(bar=>{
+      const ms=bar.t*1000;
+      let rev=null;
+      for(let j=0;j<revForArea.length;j++){if(ms>=revForArea[j].date)rev=revForArea[j].rev;}
+      if(rev!==null)weeklyStep.push({time:bar.time,value:scaleRev(rev)});
     });
-    revAreaSeries.setData(revForArea.map(q=>({time:Math.floor(q.date/1000),value:scaleRev(q.rev)})));
+    if(weeklyStep.length){
+      const revAreaSeries=gChart.addAreaSeries({
+        lineColor:'rgba(16,200,120,.9)',
+        topColor:'rgba(16,200,120,.42)',
+        bottomColor:'rgba(16,200,120,.07)',
+        lineWidth:2,
+        lineType:0,
+        priceLineVisible:false,
+        lastValueVisible:false,
+        crosshairMarkerVisible:false,
+      });
+      revAreaSeries.setData(weeklyStep);
+    }
   }
 
   // Volumen (escala separada, 15% inferior del panel)
