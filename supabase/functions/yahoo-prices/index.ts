@@ -335,7 +335,7 @@ serve(async (req) => {
       const [chartResp, summaryResp] = await Promise.all([
         fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&range=${range}&includePrePost=false&crumb=${encodeURIComponent(crumb)}`,
           { headers: { "User-Agent": UA, "Cookie": cookie } }),
-        fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=incomeStatementHistoryQuarterly,defaultKeyStatistics,price&crumb=${encodeURIComponent(crumb)}`,
+        fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=incomeStatementHistoryQuarterly,incomeStatementHistory,defaultKeyStatistics,price&crumb=${encodeURIComponent(crumb)}`,
           { headers: { "User-Agent": UA, "Cookie": cookie } }),
       ]);
       const chart   = chartResp.ok   ? await chartResp.json()   : null;
