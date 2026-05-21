@@ -1467,6 +1467,9 @@ window.loadModule=async(name,btn)=>{
     container.querySelectorAll('script').forEach(old=>{
       const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
     });
+    // Auto-init: reemplaza DOMContentLoaded que no dispara en carga dinámica
+    const initFn=window[_tabFn[name]];
+    if(typeof initFn==='function') initFn(null,null);
   }catch(e){
     container.innerHTML=`<div class="module-loading" style="color:var(--red)">Error: ${e.message}</div>`;
   }finally{

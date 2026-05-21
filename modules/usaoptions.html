@@ -1,0 +1,43 @@
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="uostab-gex" onclick="uoTab('gex',this)">GEX SPY</button>
+    <button class="stab" id="uostab-opciones" onclick="uoTab('opciones',this)">Stock Options</button>
+  </div>
+  <div class="sub-tabs-meta" id="uoMeta">—</div>
+</div>
+<div id="uoContainer"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<script>
+window.uoTab = async function(n,b){
+  n=n||'gex';
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  if(b) b.classList.add('active');
+  const id = 'uopanel-'+n;
+  const existing = document.getElementById(id);
+  if(existing) {
+    document.querySelectorAll('.uo-panel').forEach(p=>p.classList.remove('active'));
+    existing.classList.add('active');
+    return;
+  }
+  const map = {gex:'gex', opciones:'opciones'};
+  const usId = map[n] || n;
+  const r = await fetch('modules/usa.html?v='+Date.now());
+  if(!r.ok) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = await r.text();
+  const srcPanel = tmp.querySelector('#uspanel-'+usId);
+  if(!srcPanel) return;
+  const container = document.getElementById('uoContainer');
+  const panel = document.createElement('div');
+  panel.id = id;
+  panel.className = 'sub-panel active uo-panel';
+  panel.innerHTML = srcPanel.innerHTML;
+  panel.querySelectorAll('script').forEach(old=>{
+    const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
+  });
+  document.querySelectorAll('.uo-panel').forEach(p=>p.classList.remove('active'));
+  container.appendChild(panel);
+  panel.classList.add('active');
+  document.getElementById('uoMeta').textContent = 'OK';
+};
+document.addEventListener('DOMContentLoaded', ()=>window.uoTab('gex',document.querySelector('#uostab-gex')));
+</script>

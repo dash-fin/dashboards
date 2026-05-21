@@ -10,6 +10,7 @@
 <div id="mkContainer"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
 <script>
 window.mkTab = async function(n,b){
+  n=n||'data';
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   if(b) b.classList.add('active');
   const id = 'mkpanel-'+n;

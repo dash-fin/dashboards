@@ -11,6 +11,7 @@
 <div id="anContainer"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
 <script>
 window.anTab = async function(n,b){
+  n=n||'shortint';
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   if(b) b.classList.add('active');
   const id = 'anpanel-'+n;
