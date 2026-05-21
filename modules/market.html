@@ -1,0 +1,57 @@
+<div class="sub-tabs-row">
+  <div class="sub-tabs">
+    <button class="stab active" id="mkstab-data" onclick="mkTab('data',this)">Market Data</button>
+    <button class="stab" id="mkstab-sectores" onclick="mkTab('sectores',this)">Sectors</button>
+    <button class="stab" id="mkstab-rrg" onclick="mkTab('rrg',this)">RRG</button>
+    <button class="stab" id="mkstab-topology" onclick="mkTab('topology',this)">Topology</button>
+  </div>
+  <div class="sub-tabs-meta" id="mkMeta">Cargando módulo de mercado...</div>
+</div>
+<div class="sub-panel active" id="mkpanel-data"><div class="module-loading"><div class="spinner"></div>Cargando Market Data...</div></div>
+<div class="sub-panel" id="mkpanel-sectores"><div class="module-loading"><div class="spinner"></div>Cargando Sectores...</div></div>
+<div class="sub-panel" id="mkpanel-rrg"><div class="module-loading"><div class="spinner"></div>Cargando RRG...</div></div>
+<div class="sub-panel" id="mkpanel-topology">
+  <div class="card" style="margin-top:10px">
+    <div class="card-head"><div class="card-title">Market Topology</div></div>
+    <div class="card-body"><div class="anl-empty">Market Topology — próximamente</div></div>
+  </div>
+</div>
+<script>
+(function(){
+// Cargar dinámicamente el módulo usa.html y mapear tabs
+let mkLoaded = false;
+window.mkTab = async (n, b) => {
+  document.querySelectorAll('#mkpanel-' + n).forEach(p => p.classList.add('active'));
+  document.getElementById('mkMeta').textContent = 'Cargando...';
+  if(!mkLoaded) {
+    mkLoaded = true;
+    const r = await fetch('modules/usa.html?v=' + Date.now());
+    if(!r.ok) { document.getElementById('mkMeta').textContent = 'Error'; return; }
+    const html = await r.text();
+    // Inyectar el contenido de usa.html en un contenedor temporal
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const container = document.getElementById('moduleContainer');
+    // Buscar los paneles que necesitamos: mercado, sectores, rrg
+    const panels = tmp.querySelectorAll('.sub-panel');
+    const panelMap = {};
+    panels.forEach(p => {
+      const id = p.id;
+      if(id === 'uspanel-mercado') panelMap.data = p.outerHTML;
+      else if(id === 'uspanel-sectores') panelMap.sectores = p.outerHTML;
+      else if(id === 'uspanel-rrg') panelMap.rrg = p.outerHTML;
+    });
+    // Renderizar
+    Object.entries(panelMap).forEach(([tabId, panelHtml]) => {
+      const target = document.getElementById('mkpanel-' + tabId);
+      if(target) target.innerHTML = panelHtml;
+    });
+    document.getElementById('mkMeta').textContent = 'Cargado desde módulo USA';
+  }
+  document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('mkpanel-' + n).classList.add('active');
+};
+// Cargar el primer tab
+document.addEventListener('DOMContentLoaded', () => window.mkTab('data', null));
+})();
+</script>
