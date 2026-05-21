@@ -195,8 +195,12 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis){
     handleScroll:true, handleScale:true,
   });
 
-  // Revenue step area — weekly fill para escalera real (no diagonal)
-  const revForArea=(revAnn.length>=2?revAnn:revQ).slice().sort((a,b)=>a.date-b.date);
+  // Revenue step area — combinado: annual para historia + quarterly anualizado para trimestres recientes
+  // revQ * 4 → annualización para igualar escala con revAnn (ambos en ingresos anualizados)
+  const revQAnn=revQ.map(q=>({...q,rev:q.rev*4}));
+  const qFirstDate=revQ.length?revQ[0].date:Infinity;
+  const revCombined=[...revAnn.filter(q=>q.date<qFirstDate),...revQAnn].sort((a,b)=>a.date-b.date);
+  const revForArea=(revCombined.length>=2?revCombined:(revAnn.length>=2?revAnn:revQ)).slice().sort((a,b)=>a.date-b.date);
   if(revForArea.length>=2){
     const pMax=Math.max(...ohlcv.map(d=>d.h));
     const revVals=revForArea.map(q=>q.rev);
