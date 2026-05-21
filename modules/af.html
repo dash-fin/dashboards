@@ -79,7 +79,7 @@ window.afLoad=async()=>{
     // ── Parse price data ──
     const res=chartData?.chart?.result?.[0];
     if(!res)throw new Error('Sin datos de precio para '+ticker);
-    const ts=res.timestamps;
+    const ts=res.timestamp;
     const q=res.indicators?.quote?.[0];
     const ohlcv=ts.map((t,i)=>({
       t:t, time:Math.floor(t), // unix timestamp
