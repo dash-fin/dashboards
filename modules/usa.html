@@ -849,6 +849,7 @@ let usPCSortDir = -1;
 
 // ── Tabs ──
 window.usTab = (name, btn) => {
+  name=name||'mercado';
   document.querySelectorAll('[id^="uspanel-"]').forEach(p=>p.classList.remove('active'));
   const panel = document.getElementById('uspanel-'+name);
   if (panel) panel.classList.add('active');
