@@ -5,53 +5,35 @@
     <button class="stab" id="mkstab-rrg" onclick="mkTab('rrg',this)">RRG</button>
     <button class="stab" id="mkstab-topology" onclick="mkTab('topology',this)">Topology</button>
   </div>
-  <div class="sub-tabs-meta" id="mkMeta">Cargando módulo de mercado...</div>
+  <div class="sub-tabs-meta" id="mkMeta">—</div>
 </div>
-<div class="sub-panel active" id="mkpanel-data"><div class="module-loading"><div class="spinner"></div>Cargando Market Data...</div></div>
-<div class="sub-panel" id="mkpanel-sectores"><div class="module-loading"><div class="spinner"></div>Cargando Sectores...</div></div>
-<div class="sub-panel" id="mkpanel-rrg"><div class="module-loading"><div class="spinner"></div>Cargando RRG...</div></div>
-<div class="sub-panel" id="mkpanel-topology">
-  <div class="card" style="margin-top:10px">
-    <div class="card-head"><div class="card-title">Market Topology</div></div>
-    <div class="card-body"><div class="anl-empty">Market Topology — próximamente</div></div>
-  </div>
-</div>
+<div class="sub-panel active" id="mkpanel-data"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="mkpanel-sectores"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="mkpanel-rrg"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="mkpanel-topology"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
 <script>
 (function(){
-// Cargar dinámicamente el módulo usa.html y mapear tabs
 let mkLoaded = false;
+const MAP = {data:'mercado', sectores:'sectores', rrg:'rrg', topology:'topology'};
 window.mkTab = async (n, b) => {
-  document.querySelectorAll('#mkpanel-' + n).forEach(p => p.classList.add('active'));
-  document.getElementById('mkMeta').textContent = 'Cargando...';
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  if(b) b.classList.add('active');
+  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('mkpanel-'+n).classList.add('active');
   if(!mkLoaded) {
     mkLoaded = true;
-    const r = await fetch('modules/usa.html?v=' + Date.now());
-    if(!r.ok) { document.getElementById('mkMeta').textContent = 'Error'; return; }
-    const html = await r.text();
-    // Inyectar el contenido de usa.html en un contenedor temporal
+    document.getElementById('mkMeta').textContent = 'Cargando...';
+    const r = await fetch('modules/usa.html?v='+Date.now());
+    if(!r.ok) return;
     const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const container = document.getElementById('moduleContainer');
-    // Buscar los paneles que necesitamos: mercado, sectores, rrg
-    const panels = tmp.querySelectorAll('.sub-panel');
-    const panelMap = {};
-    panels.forEach(p => {
-      const id = p.id;
-      if(id === 'uspanel-mercado') panelMap.data = p.outerHTML;
-      else if(id === 'uspanel-sectores') panelMap.sectores = p.outerHTML;
-      else if(id === 'uspanel-rrg') panelMap.rrg = p.outerHTML;
+    tmp.innerHTML = await r.text();
+    Object.entries(MAP).forEach(([key, usId]) => {
+      const el = tmp.querySelector('#uspanel-'+usId);
+      if(el) document.getElementById('mkpanel-'+key).innerHTML = el.outerHTML;
     });
-    // Renderizar
-    Object.entries(panelMap).forEach(([tabId, panelHtml]) => {
-      const target = document.getElementById('mkpanel-' + tabId);
-      if(target) target.innerHTML = panelHtml;
-    });
-    document.getElementById('mkMeta').textContent = 'Cargado desde módulo USA';
+    document.getElementById('mkMeta').textContent = 'OK';
   }
-  document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('mkpanel-' + n).classList.add('active');
 };
-// Cargar el primer tab
-document.addEventListener('DOMContentLoaded', () => window.mkTab('data', null));
+document.addEventListener('DOMContentLoaded', ()=>mkTab('data',document.querySelector('#mkstab-data')));
 })();
 </script>

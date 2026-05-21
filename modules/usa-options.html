@@ -1,36 +1,35 @@
 <div class="sub-tabs-row">
   <div class="sub-tabs">
     <button class="stab active" id="uostab-gex" onclick="uoTab('gex',this)">GEX SPY</button>
-    <button class="stab" id="uostab-stocks" onclick="uoTab('stocks',this)">Stock Options</button>
+    <button class="stab" id="uostab-opciones" onclick="uoTab('opciones',this)">Stock Options</button>
   </div>
-  <div class="sub-tabs-meta" id="uoMeta">Cargando opciones USA...</div>
+  <div class="sub-tabs-meta" id="uoMeta">—</div>
 </div>
-<div class="sub-panel active" id="uopanel-gex"><div class="module-loading"><div class="spinner"></div>Cargando GEX...</div></div>
-<div class="sub-panel" id="uopanel-stocks">
-  <div class="card" style="margin-top:10px">
-    <div class="card-head"><div class="card-title">Stock Options</div></div>
-    <div class="card-body"><div class="anl-empty">Option Chain por subyacente — próximamente</div></div>
-  </div>
-</div>
+<div class="sub-panel active" id="uopanel-gex"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="uopanel-opciones"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
 <script>
 (function(){
 let uoLoaded = false;
+const MAP = {gex:'gex', opciones:'opciones'};
 window.uoTab = async (n, b) => {
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  if(b) b.classList.add('active');
+  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('uopanel-'+n).classList.add('active');
   if(!uoLoaded) {
     uoLoaded = true;
     document.getElementById('uoMeta').textContent = 'Cargando...';
-    const r = await fetch('modules/usa.html?v=' + Date.now());
+    const r = await fetch('modules/usa.html?v='+Date.now());
     if(!r.ok) return;
-    const html = await r.text();
     const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const panel = tmp.querySelector('#uspanel-gex');
-    if(panel) document.getElementById('uopanel-gex').innerHTML = panel.outerHTML;
-    document.getElementById('uoMeta').textContent = 'Cargado desde módulo USA';
+    tmp.innerHTML = await r.text();
+    Object.entries(MAP).forEach(([key, usId]) => {
+      const el = tmp.querySelector('#uspanel-'+usId);
+      if(el) document.getElementById('uopanel-'+key).innerHTML = el.outerHTML;
+    });
+    document.getElementById('uoMeta').textContent = 'OK';
   }
-  document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('uopanel-' + n).classList.add('active');
 };
-document.addEventListener('DOMContentLoaded', () => window.uoTab('gex', null));
+document.addEventListener('DOMContentLoaded', ()=>uoTab('gex',document.querySelector('#uostab-gex')));
 })();
 </script>

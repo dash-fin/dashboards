@@ -6,52 +6,36 @@
     <button class="stab" id="anstab-insider" onclick="anTab('insider',this)">Insider</button>
     <button class="stab" id="anstab-smartmoney" onclick="anTab('smartmoney',this)">Smart Money</button>
   </div>
-  <div class="sub-tabs-meta" id="anMeta">Cargando módulo de análisis...</div>
+  <div class="sub-tabs-meta" id="anMeta">—</div>
 </div>
-<div class="sub-panel active" id="anpanel-shortint"><div class="module-loading"><div class="spinner"></div>Cargando Short Data...</div></div>
-<div class="sub-panel" id="anpanel-af"><div class="module-loading"><div class="spinner"></div>Cargando AF vs AT...</div></div>
-<div class="sub-panel" id="anpanel-macro"><div class="module-loading"><div class="spinner"></div>Cargando Macro...</div></div>
-<div class="sub-panel" id="anpanel-insider">
-  <div class="card" style="margin-top:10px">
-    <div class="card-head"><div class="card-title">Insider Trading</div></div>
-    <div class="card-body"><div class="anl-empty">Insider Transactions — próximamente</div></div>
-  </div>
-</div>
-<div class="sub-panel" id="anpanel-smartmoney">
-  <div class="card" style="margin-top:10px">
-    <div class="card-head"><div class="card-title">Smart Money</div></div>
-    <div class="card-body"><div class="anl-empty">Smart Money Flows — próximamente</div></div>
-  </div>
-</div>
+<div class="sub-panel active" id="anpanel-shortint"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="anpanel-af"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="anpanel-macro"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="anpanel-insider"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div class="sub-panel" id="anpanel-smartmoney"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
 <script>
 (function(){
 let anLoaded = false;
+const MAP = {shortint:'shortint', af:'af', macro:'macro', insider:'insider', smartmoney:'smartmoney'};
 window.anTab = async (n, b) => {
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  if(b) b.classList.add('active');
+  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('anpanel-'+n).classList.add('active');
   if(!anLoaded) {
     anLoaded = true;
     document.getElementById('anMeta').textContent = 'Cargando...';
-    const r = await fetch('modules/usa.html?v=' + Date.now());
+    const r = await fetch('modules/usa.html?v='+Date.now());
     if(!r.ok) return;
-    const html = await r.text();
     const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const panels = tmp.querySelectorAll('.sub-panel');
-    const panelMap = {};
-    panels.forEach(p => {
-      const id = p.id;
-      if(id === 'uspanel-shortint') panelMap.shortint = p.outerHTML;
-      else if(id === 'uspanel-af') panelMap.af = p.outerHTML;
-      else if(id === 'uspanel-macro') panelMap.macro = p.outerHTML;
+    tmp.innerHTML = await r.text();
+    Object.entries(MAP).forEach(([key, usId]) => {
+      const el = tmp.querySelector('#uspanel-'+usId);
+      if(el) document.getElementById('anpanel-'+key).innerHTML = el.outerHTML;
     });
-    Object.entries(panelMap).forEach(([tabId, panelHtml]) => {
-      const target = document.getElementById('anpanel-' + tabId);
-      if(target) target.innerHTML = panelHtml;
-    });
-    document.getElementById('anMeta').textContent = 'Cargado desde módulo USA';
+    document.getElementById('anMeta').textContent = 'OK';
   }
-  document.querySelectorAll('.sub-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('anpanel-' + n).classList.add('active');
 };
-document.addEventListener('DOMContentLoaded', () => window.anTab('shortint', null));
+document.addEventListener('DOMContentLoaded', ()=>anTab('shortint',document.querySelector('#anstab-shortint')));
 })();
 </script>
