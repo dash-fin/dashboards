@@ -264,7 +264,7 @@ function afDrawBars(id, data, fmtY, color){
     const v=vMin+(vMax-vMin)*p;
     const y=yS(v).toFixed(1);
     g+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="rgba(255,255,255,.05)" stroke-width="1"/>`;
-    g+=`<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-size:7px;fill:rgba(200,218,240,.4);font-family:'IBM Plex Mono',monospace">${fmtY(v.toFixed(0))}</text>`;
+    g+=`<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-size:7px;fill:rgba(200,218,240,.4);font-family:'IBM Plex Mono',monospace">${fmtY(v)}</text>`;
   });
 
   let bars='';
@@ -273,13 +273,13 @@ function afDrawBars(id, data, fmtY, color){
     const y=yS(Math.max(d.val,0)).toFixed(1);
     const barH=Math.abs(yS(d.val)-yS(0));
     if(barH>0) bars+=`<rect x="${x}" y="${d.val<0?y0:y}" width="${bw.toFixed(1)}" height="${barH.toFixed(1)}" fill="${color}">
-      <title>${fmtY(d.val.toFixed(1))}</title></rect>`;
+      <title>${fmtY(d.val)}</title></rect>`;
   });
 
   // Worst drawdown label
   const worst=Math.min(...vals);
   el.innerHTML=`${g}<line x1="${PL}" y1="${y0}" x2="${W-PR}" y2="${y0}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>${bars}
-  <text x="${W-PR-2}" y="${H-PB+14}" text-anchor="end" style="font-size:8px;fill:var(--red);font-family:'IBM Plex Mono',monospace">Máx: ${fmtY(worst.toFixed(1))}</text>`;
+  <text x="${W-PR-2}" y="${H-PB+14}" text-anchor="end" style="font-size:8px;fill:var(--red);font-family:'IBM Plex Mono',monospace">Máx: ${fmtY(worst)}</text>`;
 }
 
 // Responsive resize
