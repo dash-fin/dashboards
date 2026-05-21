@@ -8,34 +8,38 @@
   </div>
   <div class="sub-tabs-meta" id="anMeta">—</div>
 </div>
-<div class="sub-panel active" id="anpanel-shortint"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
-<div class="sub-panel" id="anpanel-af"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
-<div class="sub-panel" id="anpanel-macro"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
-<div class="sub-panel" id="anpanel-insider"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
-<div class="sub-panel" id="anpanel-smartmoney"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
+<div id="anContainer"><div class="module-loading"><div class="spinner"></div>Cargando...</div></div>
 <script>
-(function(){
-let anLoaded = false;
-const MAP = {shortint:'shortint', af:'af', macro:'macro', insider:'insider', smartmoney:'smartmoney'};
-window.anTab = async (n, b) => {
+window.anTab = async function(n,b){
   document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
   if(b) b.classList.add('active');
-  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
-  document.getElementById('anpanel-'+n).classList.add('active');
-  if(!anLoaded) {
-    anLoaded = true;
-    document.getElementById('anMeta').textContent = 'Cargando...';
-    const r = await fetch('modules/usa.html?v='+Date.now());
-    if(!r.ok) return;
-    const tmp = document.createElement('div');
-    tmp.innerHTML = await r.text();
-    Object.entries(MAP).forEach(([key, usId]) => {
-      const el = tmp.querySelector('#uspanel-'+usId);
-      if(el) document.getElementById('anpanel-'+key).innerHTML = el.outerHTML;
-    });
-    document.getElementById('anMeta').textContent = 'OK';
+  const id = 'anpanel-'+n;
+  const existing = document.getElementById(id);
+  if(existing) {
+    document.querySelectorAll('.an-panel').forEach(p=>p.classList.remove('active'));
+    existing.classList.add('active');
+    return;
   }
+  const map = {shortint:'shortint', af:'af', macro:'macro', insider:'insider', smartmoney:'smartmoney'};
+  const usId = map[n] || n;
+  const r = await fetch('modules/usa.html?v='+Date.now());
+  if(!r.ok) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = await r.text();
+  const srcPanel = tmp.querySelector('#uspanel-'+usId);
+  if(!srcPanel) return;
+  const container = document.getElementById('anContainer');
+  const panel = document.createElement('div');
+  panel.id = id;
+  panel.className = 'sub-panel active an-panel';
+  panel.innerHTML = srcPanel.innerHTML;
+  panel.querySelectorAll('script').forEach(old=>{
+    const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
+  });
+  document.querySelectorAll('.an-panel').forEach(p=>p.classList.remove('active'));
+  container.appendChild(panel);
+  panel.classList.add('active');
+  document.getElementById('anMeta').textContent = 'OK';
 };
-document.addEventListener('DOMContentLoaded', ()=>anTab('shortint',document.querySelector('#anstab-shortint')));
-})();
+document.addEventListener('DOMContentLoaded', ()=>window.anTab('shortint',document.querySelector('#anstab-shortint')));
 </script>
