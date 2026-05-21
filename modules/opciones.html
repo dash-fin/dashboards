@@ -393,9 +393,21 @@
   </div>
   <div class="card" style="margin-top:12px">
     <div class="card-head">
-      <div class="card-title">Evolución OI Total — Calls vs Puts</div>
+      <div class="card-title">Evolución OI Total — Calls vs Puts · Ratio C/P</div>
     </div>
     <div class="card-body"><div class="chart-wrap" style="height:190px"><canvas id="guhChartOI"></canvas></div></div>
+  </div>
+  <div class="card" style="margin-top:0">
+    <div class="card-head">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">Distribución OI por Strike — snapshot diario</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="guhSnapLbl" style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cyan);white-space:nowrap"></span>
+          <input type="range" id="guhSnapSlider" min="0" value="0" style="width:130px;accent-color:var(--cyan)">
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><div class="chart-wrap" style="height:200px"><canvas id="guhChartSnap"></canvas></div></div>
   </div>
   <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="guhMeta">—</div>
 </div>
@@ -758,12 +770,16 @@ window.oSetTab = async (n,b)=>{
     });
   }
   if(n==='hist' && !hLoaded) hLoadData();
-  // GGAL USA tabs
-  if(n==='ggalusa_iamc' && !gucLoaded) gucLoadData('iamc');
-  if(n==='ggalusa_gex' && !gucLoaded)  gucLoadData('gex');
-  if(n==='ggalusa_tabla' && !gucLoaded) gucLoadData('tabla');
-  if(n==='ggalusa_hist' && !guhLoaded) guhLoadData();
-  if(n==='ggalusa_cadena' && !gucLoaded) gucLoadData('cadena');
+  // GGAL USA tabs — si los datos ya están cargados, solo re-renderizar el tab activo
+  if(n.startsWith('ggalusa_') && n !== 'ggalusa_hist') {
+    const sub = n.replace('ggalusa_', '');
+    if(!gucLoaded) gucLoadData(sub);
+    else if(sub==='iamc')   gucRenderDistribution();
+    else if(sub==='gex')    gucRenderGamma();
+    else if(sub==='tabla')  gucRenderTable();
+    else if(sub==='cadena') gucRenderChain();
+  }
+  if(n==='ggalusa_hist') { if(!guhLoaded) guhLoadData(); }
   // Lazy-load módulos externos
   for(const mod of ['estrategias','analisis','cadena']){
     if(n===mod){
@@ -1434,34 +1450,125 @@ function gucRenderTable() {
 window.guApplyFilters = () => gucRenderTable();
 
 // ── GGAL USA: Histórico OI ────────────────────────────────
+let guhDates=[], guhByDate={}, guhByStrike={}, guhAllStrikes=[], guhSnapChart=null;
+
 async function guhLoadData() {
   guhLoaded = true;
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
   try {
-    // Simular datos históricos desde la última semana (yfinance no tiene histórico de OI)
-    // Mostramos datos actuales como instantánea
-    document.getElementById('guh-calls').textContent = fmtM(gucCalls.reduce((s,r)=>s+r.oi,0));
-    document.getElementById('guh-puts').textContent = fmtM(gucPuts.reduce((s,r)=>s+r.oi,0));
-    const c = gucCalls.reduce((s,r)=>s+r.oi,0);
-    const p = gucPuts.reduce((s,r)=>s+r.oi,0);
-    document.getElementById('guh-ratio').textContent = p>0 ? (c/p).toFixed(2) : '—';
+    const ticker = document.getElementById('ggalUsaTicker')?.value || 'GGAL';
+    const expSel = document.getElementById('ggalUsaVto')?.value || '';
+    // Traer histórico completo
+    const rows = await fetch(
+      SB_REST + `opciones_usa_historico?select=fecha_snapshot,expiration,strike,kind,open_interest&symbol=eq.${ticker}&order=fecha_snapshot&limit=10000`,
+      { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } }
+    ).then(r => r.ok ? r.json() : []);
+
+    // Si no hay histórico, usar snapshot actual
+    if(!rows?.length) {
+      // Fallback: datos actuales (gucCalls/gucPuts) como única fecha
+      const today = new Date().toISOString().slice(0,10);
+      guhDates = [today];
+      const allSt = [...new Set([...gucCalls,...gucPuts].map(r=>r.strike))].sort((a,b)=>a-b);
+      guhAllStrikes = allSt;
+      guhByDate = { [today]: {calls:gucCalls.reduce((s,r)=>s+r.oi,0), puts:gucPuts.reduce((s,r)=>s+r.oi,0)} };
+      guhByStrike = { [today]: Object.fromEntries(allSt.map(s=>([s,{
+        calls: gucCalls.find(r=>r.strike===s)?.oi||0,
+        puts:  gucPuts.find(r=>r.strike===s)?.oi||0,
+      }]))) };
+      document.getElementById('guhMeta').textContent = 'Sin histórico — mostrando snapshot actual';
+    } else {
+      // Elegir expiration con más datos futuros
+      const hoy = new Date().toISOString().slice(0,10);
+      const expCount = {};
+      rows.forEach(r => { if(r.expiration >= hoy) expCount[r.expiration] = (expCount[r.expiration]||0)+1; });
+      const futureExps = Object.entries(expCount).sort(([a],[b])=>a.localeCompare(b));
+      const activeExp = expSel || (futureExps.length ? futureExps[0][0] : rows[rows.length-1].expiration);
+      const filtered = rows.filter(r => r.expiration === activeExp);
+
+      guhDates = [...new Set(filtered.map(r => r.fecha_snapshot))].sort();
+      guhAllStrikes = [...new Set(filtered.map(r=>r.strike))].sort((a,b)=>a-b);
+
+      guhByDate = {};
+      guhByStrike = {};
+      guhDates.forEach(d => {
+        guhByDate[d] = {calls:0, puts:0};
+        guhByStrike[d] = Object.fromEntries(guhAllStrikes.map(s=>([s,{calls:0,puts:0}])));
+      });
+      filtered.forEach(r => {
+        if(!guhByDate[r.fecha_snapshot]) return;
+        if(r.kind==='call') {
+          guhByDate[r.fecha_snapshot].calls += (r.open_interest||0);
+          if(guhByStrike[r.fecha_snapshot]?.[r.strike]) guhByStrike[r.fecha_snapshot][r.strike].calls += (r.open_interest||0);
+        } else {
+          guhByDate[r.fecha_snapshot].puts += (r.open_interest||0);
+          if(guhByStrike[r.fecha_snapshot]?.[r.strike]) guhByStrike[r.fecha_snapshot][r.strike].puts += (r.open_interest||0);
+        }
+      });
+      document.getElementById('guhMeta').textContent =
+        `Vto ${activeExp} · ${guhDates.length} días · ${filtered.length} registros`;
+    }
+
+    // KPIs desde última fecha
+    const last = guhByDate[guhDates[guhDates.length-1]] || {calls:0, puts:0};
+    const prev7 = guhDates.length >= 8 ? guhByDate[guhDates[guhDates.length-8]] : null;
+    document.getElementById('guh-calls').textContent = fmtM(last.calls);
+    document.getElementById('guh-puts').textContent = fmtM(last.puts);
+    document.getElementById('guh-ratio').textContent = last.puts>0 ? (last.calls/last.puts).toFixed(2) : '—';
     document.getElementById('guh-vto').textContent = document.getElementById('ggalUsaVto')?.value?.slice(0,7) || '—';
 
-    // Gráfico simple con OI por strike actual
+    // Gráfico evolución temporal
     if(guhChart) guhChart.destroy();
-    const labels = gucCalls.map(r => '$'+r.strike);
-    const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
     guhChart = new Chart(document.getElementById('guhChartOI'), {
-      data:{labels, datasets:[
-        {type:'bar',label:'Calls',data:gucCalls.map(r=>r.oi),backgroundColor:'#38c8ff',stack:'a'},
-        {type:'bar',label:'Puts', data:gucPuts.map(r=>r.oi),backgroundColor:'#ff3f5e',stack:'a'},
+      data:{labels: guhDates.map(d=>d.slice(5)), datasets:[
+        {type:'bar',label:'Calls',data:guhDates.map(d=>guhByDate[d]?.calls||0),backgroundColor:'#38c8ff88',stack:'a'},
+        {type:'bar',label:'Puts', data:guhDates.map(d=>guhByDate[d]?.puts||0), backgroundColor:'#ff3f5e88',stack:'a'},
+        {type:'line',label:'C/P', data:guhDates.map(d=>{const b=guhByDate[d];return b?.puts>0?+(b.calls/b.puts).toFixed(2):null;}),
+         yAxisID:'r',borderColor:'#ffc84a',borderWidth:1.5,pointRadius:2,fill:false,tension:.3},
       ]},
       options:{responsive:true,maintainAspectRatio:false,
-        scales:{x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>fmtM(v)}}},
+        scales:{
+          x:{stacked:true,grid:GR,ticks:{...TK,maxTicksLimit:8}},
+          y:{stacked:true,grid:GR,ticks:{...TK,callback:v=>fmtM(v)}},
+          r:{position:'right',grid:{display:false},ticks:{...TK,callback:v=>v.toFixed(1)+'x'},
+             display: guhDates.length > 1}
+        },
         plugins:{legend:{display:false}}
       }
     });
-    document.getElementById('guhMeta').textContent = 'Datos de Yahoo Finance · ' + new Date().toLocaleString('es-AR');
-  } catch(e){ console.error('[guh]', e); }
+
+    // Slider snapshot
+    const slider = document.getElementById('guhSnapSlider');
+    if(slider) {
+      slider.max = guhDates.length - 1;
+      slider.value = guhDates.length - 1;
+      slider.oninput = () => guhRenderSnap(parseInt(slider.value));
+    }
+    guhRenderSnap(guhDates.length - 1);
+
+  } catch(e){ console.error('[guh]', e); document.getElementById('guhMeta').textContent='Error: '+e.message; }
+}
+
+function guhRenderSnap(idx) {
+  const date = guhDates[idx];
+  if(!date) return;
+  document.getElementById('guhSnapLbl').textContent = date;
+  const snap = guhByStrike[date] || {};
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  if(guhSnapChart) guhSnapChart.destroy();
+  guhSnapChart = new Chart(document.getElementById('guhChartSnap'), {
+    data:{labels: guhAllStrikes.map(s=>'$'+s), datasets:[
+      {type:'bar',label:'Calls',data:guhAllStrikes.map(s=> (snap[s]?.calls||0)), backgroundColor:'#38c8ff', stack:'a'},
+      {type:'bar',label:'Puts', data:guhAllStrikes.map(s=>-(snap[s]?.puts||0)),  backgroundColor:'#ff3f5e', stack:'a'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{
+        x:{grid:{display:false},ticks:{...TK,maxTicksLimit:12}},
+        y:{grid:GR,ticks:{...TK,callback:v=>fmtM(Math.abs(v))}}
+      },
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtM(Math.abs(c.raw))}`}}}
+    }
+  });
 }
 
 // ── GGAL USA: Cadena RT (option chain lado a lado) ────────
