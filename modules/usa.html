@@ -112,6 +112,7 @@
     <button class="stab"        id="ustab-macro"    onclick="usTab('macro',this)">Macro</button>
     <button class="stab"        id="ustab-smartmoney" onclick="usTab('smartmoney',this);if(!window._smLoaded)window.loadSmartMoney()">Smart Money</button>
     <button class="stab"        id="ustab-insider" onclick="usTab('insider',this)">Insider</button>
+    <button class="stab"        id="ustab-af"      onclick="usTab('af',this)">AF vs AT</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -832,6 +833,8 @@
   </div>
 </div>
 
+<div class="sub-panel" id="uspanel-af"></div>
+
 <script>
 (function(){
 
@@ -863,6 +866,19 @@ window.usTab = (name, btn) => {
   if(name==='macro')      { if(!window._macroLoaded) window.loadMacro(); }
   if(name==='smartmoney') { if(!window._smLoaded) window.loadSmartMoney(); }
   if(name==='insider') { if(!window._insLoaded) window.insLoad(); }
+  if(name==='af') {
+    const afPanel = document.getElementById('uspanel-af');
+    if (afPanel && !afPanel.dataset.loaded) {
+      afPanel.dataset.loaded = '1';
+      afPanel.innerHTML = '<div class="module-loading"><div class="spinner"></div>Cargando AF…</div>';
+      fetch('modules/af.html?v='+Date.now()).then(r=>r.text()).then(html=>{
+        afPanel.innerHTML = html;
+        afPanel.querySelectorAll('script').forEach(old=>{
+          const s=document.createElement('script');s.textContent=old.textContent;old.replaceWith(s);
+        });
+      }).catch(()=>{ afPanel.innerHTML='<div class="module-loading" style="color:var(--red)">Error al cargar AF</div>'; });
+    }
+  }
 };
 
 // ── Load ──

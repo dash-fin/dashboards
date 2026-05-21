@@ -572,7 +572,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
         </button>
         <div class="dsubs" id="dsubs-analysis">
           <button class="dsub" onclick="drawerNav('analysis','shortint')"><span class="dsub-dot"></span><span class="dsub-label">Short Data</span></button>
-          <button class="dsub" onclick="drawerNav('af',null)"><span class="dsub-dot"></span><span class="dsub-label">AF vs AT</span></button>
+          <button class="dsub" onclick="drawerNav('analysis','af')"><span class="dsub-dot"></span><span class="dsub-label">AF vs AT</span></button>
           <button class="dsub" onclick="drawerNav('analysis','macro')"><span class="dsub-dot"></span><span class="dsub-label">Macro</span></button>
           <button class="dsub" onclick="drawerNav('analysis','insider')"><span class="dsub-dot"></span><span class="dsub-label">Insider</span></button>
           <button class="dsub" onclick="drawerNav('analysis','smartmoney')"><span class="dsub-dot"></span><span class="dsub-label">Smart Money</span></button>
@@ -688,14 +688,14 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
     </div>
     <div class="module-tabs">
       <button class="mtab active" id="mtab-home"       onclick="loadModule('home',this)">🏠 Home</button>
-      <button class="mtab"        id="mtab-opciones"   onclick="loadModuleAuth('opciones',this)">📊 Options</button>
-      <button class="mtab"        id="mtab-cedears"    onclick="loadModuleAuth('cedears',this)">🌐 CEDEARs</button>
-      <button class="mtab"        id="mtab-alertas"    onclick="loadModuleAuth('alertas',this)">🔔 Alerts</button>
-      <button class="mtab"        id="mtab-market"     onclick="loadModuleAuth('market',this)">📊 Market</button>
-      <button class="mtab"        id="mtab-analysis"   onclick="loadModuleAuth('analysis',this)">🔍 Analysis</button>
-      <button class="mtab"        id="mtab-usaoptions" onclick="loadModuleAuth('usaoptions',this)">📈 Options</button>
-      <button class="mtab"        id="mtab-bonos"      onclick="loadModuleAuth('bonos',this)">📐 Fixed Income</button>
-      <button class="mtab"        id="mtab-portafolio" onclick="loadModuleAuth('portafolio',this)">💼 Portfolio</button>
+      <button class="mtab"        id="mtab-opciones"   onclick="drawerOpenFor('opciones')">📊 Options</button>
+      <button class="mtab"        id="mtab-cedears"    onclick="drawerOpenFor('cedears')">🌐 CEDEARs</button>
+      <button class="mtab"        id="mtab-alertas"    onclick="drawerOpenFor('alertas')">🔔 Alerts</button>
+      <button class="mtab"        id="mtab-market"     onclick="drawerOpenFor('market')">📊 Market</button>
+      <button class="mtab"        id="mtab-analysis"   onclick="drawerOpenFor('analysis')">🔍 Analysis</button>
+      <button class="mtab"        id="mtab-usaoptions" onclick="drawerOpenFor('usaoptions')">📈 Options</button>
+      <button class="mtab"        id="mtab-bonos"      onclick="drawerOpenFor('bonos')">📐 Fixed Income</button>
+      <button class="mtab"        id="mtab-portafolio" onclick="drawerOpenFor('portafolio')">💼 Portfolio</button>
     </div>
   </div>
 
@@ -1209,16 +1209,22 @@ const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',us
 // Alias: nombre de módulo → archivo HTML a cargar
 const _moduleFile={market:'usa',analysis:'usa',usaoptions:'usa-options'};
 // Tabs visibles por módulo (filtra los de usa.html)
-const _moduleTabs={market:['mercado','sectores','rrg','topology'],analysis:['shortint','macro','insider','smartmoney']};
+const _moduleTabs={market:['mercado','sectores','rrg','topology'],analysis:['shortint','macro','insider','smartmoney','af']};
 // Tab por defecto por módulo
 const _moduleDefaultTab={market:'mercado',analysis:'shortint'};
 // Navegar a módulo + sub-tab desde el drawer
 window.drawerNav = async (mod, tab) => {
   drawerClose();
-  await loadModule(mod, document.getElementById('mtab-'+mod));
+  const mtab=document.getElementById('mtab-'+mod);
+  if(!currentUser){
+    openAuth();
+    window._pendingModule={name:mod,btn:mtab,tab};
+    return;
+  }
+  await loadModule(mod, mtab);
   if(tab){
     const fn=window[_tabFn[mod]||mod+'Tab'];
-    if(typeof fn==='function') fn(tab, null);
+    if(typeof fn==='function') fn(tab,null);
   }
 };
 window.qaTrack=()=>{};
@@ -1236,9 +1242,12 @@ window.loadModuleAuth = (name, btn) => {
 // ── Redirect after login ──
 sbAuth.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && window._pendingModule) {
-    const { name, btn } = window._pendingModule;
+    const { name, btn, tab } = window._pendingModule;
     window._pendingModule = null;
-    setTimeout(() => loadModule(name, btn), 100);
+    setTimeout(async () => {
+      await loadModule(name, btn);
+      if(tab){ const fn=window[_tabFn[name]||name+'Tab']; if(typeof fn==='function') fn(tab,null); }
+    }, 100);
   }
 });
 
@@ -1418,6 +1427,16 @@ window.moduleTimers={};
 // ── Drawer ────────────────────────────────────────────────────
 window.drawerOpen=()=>{document.getElementById('drawer').classList.add('open');document.getElementById('drawerOverlay').classList.add('open');};
 window.drawerClose=()=>{document.getElementById('drawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');};
+window.drawerOpenFor=(mod)=>{
+  drawerOpen();
+  const subs=document.getElementById('dsubs-'+mod);
+  const dmodEl=document.getElementById('dmod-'+mod);
+  if(subs&&!subs.classList.contains('open')){
+    document.querySelectorAll('.dsubs.open').forEach(s=>s.classList.remove('open'));
+    document.querySelectorAll('.dmod.open').forEach(b=>b.classList.remove('open'));
+    subs.classList.add('open');dmodEl?.classList.add('open');
+  }
+};
 
 // Módulo directo (sin sub-tabs)
 window.dmodGo=(mod,el)=>{
@@ -1437,12 +1456,6 @@ window.dmodToggle=(el,mod)=>{
   if(!isOpen){
     subs?.classList.add('open');
     el.classList.add('open');
-    // Cargar el módulo sin cerrar el drawer
-    const mtab=document.getElementById('mtab-'+mod);
-    const isAuth=mtab?.getAttribute('onclick')?.includes('Auth');
-    isAuth?loadModuleAuth(mod,mtab):loadModule(mod,mtab);
-    document.querySelectorAll('.dmod').forEach(b=>b.classList.remove('active'));
-    el.classList.add('active');
   } else {
     subs?.classList.remove('open');
     el.classList.remove('open');
@@ -1480,9 +1493,10 @@ window.loadModule=async(name,btn)=>{
         btn.style.display=keep.includes(btn.id.replace('ustab-',''))?'':'none';
       });
     }
-    // Auto-init: reemplaza DOMContentLoaded que no dispara en carga dinámica
+    // Auto-init: solo si hay tab por defecto definido (evita pfTab(null)/alTab(null))
     const initFn=window[_tabFn[name]];
-    if(typeof initFn==='function') initFn(_moduleDefaultTab[name]||null,null);
+    const defaultTab=_moduleDefaultTab[name];
+    if(typeof initFn==='function' && defaultTab) initFn(defaultTab,null);
   }catch(e){
     container.innerHTML=`<div class="module-loading" style="color:var(--red)">Error: ${e.message}</div>`;
   }finally{
