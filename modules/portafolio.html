@@ -1255,6 +1255,38 @@ function pfPatchOpsKpis() {
     pfRenderBenchmark();
     pfRenderPeriodKPIs(); // ⚠ FIX (mayo-2026): re-renderizar YTD con pfOpsDailyUSD actualizado
   }
+  pfSaveResumen();
+}
+
+async function pfSaveResumen() {
+  if (!_calEmail) return;
+  const opsUsd      = isNaN(pfOpsUsdPnl)  ? 0 : pfOpsUsdPnl;
+  const opsDailyUsd = isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD;
+  const totAct      = pfBaseAct + opsUsd;
+  const ganTotal    = pfBaseGan + opsUsd + pfGanRealizada;
+  const dailyTotal  = pfBaseDailyUSD + opsDailyUsd;
+  const body = {
+    user_email:         _calEmail,
+    total_value_usd:    Math.round(totAct    * 100) / 100,
+    total_invested_usd: Math.round(pfBaseInv * 100) / 100,
+    pnl_total_usd:      Math.round(ganTotal  * 100) / 100,
+    pnl_total_pct:      pfBaseInv > 0 ? Math.round(ganTotal / pfBaseInv * 10000) / 100 : 0,
+    pnl_diario_usd:     Math.round(dailyTotal * 100) / 100,
+    pnl_diario_pct:     totAct > 0 ? Math.round(dailyTotal / totAct * 10000) / 100 : 0,
+    updated_at:         new Date().toISOString(),
+  };
+  try {
+    await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/portafolio_resumen', {
+      method: 'POST',
+      headers: {
+        apikey: CFG.SB_KEY,
+        Authorization: 'Bearer ' + CFG.SB_KEY,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch(e) {}
 }
 
 // ── Render principal ─────────────────────────────────────
