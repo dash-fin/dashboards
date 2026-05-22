@@ -1142,7 +1142,42 @@ window.pfLoadAll = async () => {
   window.__pfAdrPrices = pfAdrPrices;
   window.__pfOptPrices = pfOptPrices;
   window.__pfMep       = pfMep;
+  pfLoadResumenKpis();
 };
+
+async function pfLoadResumenKpis() {
+  if (!_pfEmail) return;
+  try {
+    const rows = await sb('portafolio_resumen', 'user_email=eq.' + encodeURIComponent(_pfEmail));
+    const r = (rows || [])[0];
+    if (!r) return;
+    const fmt = v => 'U$S ' + Math.round(Math.abs(v)).toLocaleString('es-AR');
+    const sign = v => v >= 0 ? '+' : '';
+
+    // Invertido / Valuacion
+    document.getElementById('pfk-invested').textContent = fmt(r.total_invested_usd);
+    document.getElementById('pfk-actual').textContent   = fmt(r.total_value_usd);
+
+    // Ganancia total
+    const g = r.pnl_total_usd;
+    document.getElementById('pfk-gain').textContent     = (sign(g)) + fmt(g);
+    document.getElementById('pfk-gain').style.color     = g >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('pfk-gain-pct').textContent = r.pnl_total_pct != null ? (sign(g) + Number(r.pnl_total_pct).toFixed(2) + '%') : '—';
+    document.getElementById('pfk-gain-box').style.setProperty('--accent', g >= 0 ? 'var(--green)' : 'var(--red)');
+
+    // PnL diario
+    const d = r.pnl_diario_usd;
+    document.getElementById('pfk-daily').textContent     = (sign(d)) + fmt(d);
+    document.getElementById('pfk-daily').style.color     = d >= 0 ? 'var(--green)' : 'var(--red)';
+    document.getElementById('pfk-daily-pct').textContent = r.pnl_diario_pct != null ? (sign(d) + Number(r.pnl_diario_pct).toFixed(2) + '%') : '—';
+    document.getElementById('pfk-daily-box').style.setProperty('--accent', d >= 0 ? 'var(--green)' : 'var(--red)');
+
+    // Badge con timestamp
+    const upd = r.updated_at ? new Date(r.updated_at).toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'}) : '';
+    const meta = document.getElementById('pfMeta');
+    if (meta && upd) meta.textContent = meta.textContent.replace(/ · KPIs.*$/, '') + ' · KPIs actualizados ' + upd;
+  } catch(e) { console.warn('[portafolio] pfLoadResumenKpis:', e); }
+}
 
 // ── Cálculo P&L por posición ─────────────────────────────
 function pfCalc(pos) {
@@ -1255,40 +1290,7 @@ function pfPatchOpsKpis() {
     pfRenderBenchmark();
     pfRenderPeriodKPIs(); // ⚠ FIX (mayo-2026): re-renderizar YTD con pfOpsDailyUSD actualizado
   }
-  pfSaveResumen();
 }
-
-async function pfSaveResumen() {
-  if (!_calEmail) return;
-  const opsUsd      = isNaN(pfOpsUsdPnl)  ? 0 : pfOpsUsdPnl;
-  const opsDailyUsd = isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD;
-  const totAct      = pfBaseAct + opsUsd;
-  const ganTotal    = pfBaseGan + opsUsd + pfGanRealizada;
-  const dailyTotal  = pfBaseDailyUSD + opsDailyUsd;
-  const body = {
-    user_email:         _calEmail,
-    total_value_usd:    Math.round(totAct    * 100) / 100,
-    total_invested_usd: Math.round(pfBaseInv * 100) / 100,
-    pnl_total_usd:      Math.round(ganTotal  * 100) / 100,
-    pnl_total_pct:      pfBaseInv > 0 ? Math.round(ganTotal / pfBaseInv * 10000) / 100 : 0,
-    pnl_diario_usd:     Math.round(dailyTotal * 100) / 100,
-    pnl_diario_pct:     totAct > 0 ? Math.round(dailyTotal / totAct * 10000) / 100 : 0,
-    updated_at:         new Date().toISOString(),
-  };
-  try {
-    await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/portafolio_resumen', {
-      method: 'POST',
-      headers: {
-        apikey: CFG.SB_KEY,
-        Authorization: 'Bearer ' + CFG.SB_KEY,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=minimal',
-      },
-      body: JSON.stringify(body),
-    });
-  } catch(e) {}
-}
-
 // ── Render principal ─────────────────────────────────────
 function pfRender() {
   pfAnimKPIs();
