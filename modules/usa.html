@@ -2101,13 +2101,23 @@ async function rrgGetSymbolList() {
   if (rrgAddCache) return rrgAddCache;
   const SBH  = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
   const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
-  const dr   = await fetch(`${base}?select=fecha&order=fecha.asc&limit=1`, {headers:SBH});
-  const minDate = dr.ok ? (await dr.json())[0]?.fecha : null;
-  if (!minDate) return [];
-  const r = await fetch(`${base}?select=symbol&fecha=eq.${minDate}&order=symbol.asc&limit=600`, {headers:SBH});
-  if (!r.ok) return [];
-  rrgAddCache = (await r.json()).map(x=>x.symbol).filter(s=>s && s!=='SPY');
-  return rrgAddCache;
+  // Buscar hacia atrás hasta encontrar una fecha con cobertura amplia (500+)
+  const dr = await fetch(`${base}?select=fecha&order=fecha.desc&limit=30`, {headers:SBH});
+  const dates = dr.ok ? [...new Set((await dr.json()).map(r=>r.fecha))] : [];
+  for (const d of dates) {
+    const r = await fetch(`${base}?select=symbol&fecha=eq.${d}&order=symbol.asc&limit=600`, {headers:SBH});
+    const rows = r.ok ? await r.json() : [];
+    if (rows.length >= 100) {
+      rrgAddCache = rows.map(x=>x.symbol).filter(s=>s && s!=='SPY');
+      return rrgAddCache;
+    }
+  }
+  // Fallback: usar cualquier fecha disponible
+  if (dates.length) {
+    const r = await fetch(`${base}?select=symbol&fecha=eq.${dates[0]}&order=symbol.asc&limit=600`, {headers:SBH});
+    if (r.ok) rrgAddCache = (await r.json()).map(x=>x.symbol).filter(s=>s && s!=='SPY');
+  }
+  return rrgAddCache || [];
 }
 
 window.rrgAddAutocomplete = async function(val) {
