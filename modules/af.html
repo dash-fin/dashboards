@@ -105,7 +105,7 @@ window.afLoad=async()=>{
     })).filter(q=>q.date&&q.rev);
     revQ.forEach((q,i)=>{if(i>=4)q.yoy=pct(q.rev,revQ[i-4].rev);});
 
-    // Revenue ANUAL (4-5 años) — para barras y step area
+    // Revenue ANUAL (4-5 años) — para step area en gráfico de precio
     const revAnn=[...incAnn].reverse().map(q=>({
       date:q.endDate?.raw*1000,
       rev:q.totalRevenue?.raw,
@@ -113,6 +113,15 @@ window.afLoad=async()=>{
       ni:q.netIncome?.raw
     })).filter(q=>q.date&&q.rev);
     revAnn.forEach((q,i)=>{if(i>=1)q.yoy=pct(q.rev,revAnn[i-1].rev);});
+
+    // Revenue TRIMESTRAL combinado: sintético desde anuales + actuals recientes
+    const qFirstMs=revQ.length?revQ[0].date:Infinity;
+    const synthQ=[];
+    revAnn.filter(yr=>yr.date<qFirstMs).forEach(yr=>{
+      for(let k=3;k>=0;k--){const d=new Date(yr.date);d.setMonth(d.getMonth()-k*3);synthQ.push({date:d.getTime(),rev:yr.rev/4,synth:true});}
+    });
+    const revQCombined=[...synthQ,...revQ].sort((a,b)=>a.date-b.date);
+    revQCombined.forEach((q,i)=>{if(i>=4)q.yoy=pct(q.rev,revQCombined[i-4].rev);});
 
     // ── Drawdown from ATH ──
     let ath=0;
@@ -139,7 +148,7 @@ window.afLoad=async()=>{
     const lastRevAnn=revAnn[revAnn.length-1];
     const lastYoy=lastRevAnn?.yoy;
 
-    afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,revAnn,dd,peData,{pe,mktCap,fwdPE,lastYoy});
+    afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,revAnn,dd,peData,{pe,mktCap,fwdPE,lastYoy},revQCombined);
   }catch(e){
     console.error('[af]',e);
     document.getElementById('afErr').textContent='Error: '+e.message;
@@ -147,7 +156,7 @@ window.afLoad=async()=>{
   }
 };
 
-function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis){
+function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCombined){
   const fv=(n,d=2)=>n!=null&&!isNaN(n)?fn2(n,d):'—';
 
   const yoyColor=kpis.lastYoy!=null?(kpis.lastYoy>0?'var(--green)':'var(--red)'):'var(--text3)';
@@ -169,12 +178,12 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis){
       <div id="afPriceChart"></div>
     </div>
     <div class="af-chart-card" style="margin-bottom:8px">
-      <div class="af-chart-lbl">Revenue anual · crecimiento YoY</div>
+      <div class="af-chart-lbl">Revenue trimestral · crecimiento YoY</div>
       <svg id="afRevSvg" class="af-sub-svg" height="130"></svg>
     </div>
     <div class="af-chart-card" style="margin-bottom:8px">
-      <div class="af-chart-lbl">P/E Trailing (estimado)</div>
-      <svg id="afPeSvg" class="af-sub-svg" height="90"></svg>
+      <div class="af-chart-lbl">P/E TRAILING — Evolución semanal (precio / EPS trailing 4Q)</div>
+      <svg id="afPeSvg" class="af-sub-svg" height="100"></svg>
     </div>
     <div class="af-chart-card">
       <div class="af-chart-lbl">Drawdown desde ATH</div>
@@ -268,8 +277,8 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis){
   gChart.timeScale().fitContent();
 
   // ── Sub panels SVG ──
-  afDrawRevBars('afRevSvg', revAnn.length>=2?revAnn:revQ);
-  afDrawLine('afPeSvg', peData, v=>v+'x', 'rgba(68,136,255,.85)', v=>v<20?'var(--green)':v>60?'var(--red)':'rgba(68,136,255,.85)');
+  afDrawRevBars('afRevSvg', revQCombined?.length>=4?revQCombined:(revAnn.length>=2?revAnn:revQ));
+  afDrawPeChart('afPeSvg', peData);
   afDrawBars('afDdSvg', dd, v=>v.toFixed(0)+'%', 'rgba(255,64,96,.7)');
 }
 
@@ -310,6 +319,56 @@ function afDrawRevBars(id, data){
   });
 
   el.innerHTML=`${g}${bars}`;
+}
+
+function afDrawPeChart(id, data){
+  const el=document.getElementById(id);if(!el||!data.length)return;
+  const W=el.clientWidth||900,H=100,PL=38,PR=42,PT=18,PB=20;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const vals=data.map(d=>d.val);
+  const vMin=Math.max(0,Math.min(...vals)*0.88),vMax=Math.max(...vals)*1.08;
+  const xS=i=>PL+(i/(data.length-1))*cW;
+  const yS=v=>PT+cH-((v-vMin)/(vMax-vMin||1))*cH;
+
+  // Reference lines at 20x and 35x
+  let g='';
+  [20,35].forEach(ref=>{
+    if(ref<=vMin||ref>=vMax)return;
+    const y=yS(ref).toFixed(1);
+    g+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="rgba(255,255,255,.07)" stroke-width="1" stroke-dasharray="3,4"/>`;
+    g+=`<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-size:7px;fill:rgba(200,218,240,.3);font-family:'IBM Plex Mono',monospace">${ref}x</text>`;
+  });
+
+  // Colored line segments
+  let segs='';
+  for(let i=0;i<data.length-1;i++){
+    const x1=xS(i).toFixed(1),y1=yS(data[i].val).toFixed(1);
+    const x2=xS(i+1).toFixed(1),y2=yS(data[i+1].val).toFixed(1);
+    const avg=(data[i].val+data[i+1].val)/2;
+    const c=avg<20?'rgba(16,200,120,.85)':avg<35?'rgba(68,136,255,.85)':'rgba(255,64,96,.85)';
+    segs+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="1.5"/>`;
+  }
+
+  // Labels at ~8 evenly spaced points
+  const step=Math.max(1,Math.floor(data.length/8));
+  let lbls='';
+  for(let i=step;i<data.length-step/2;i+=step){
+    const d=data[i],v=Math.round(d.val);
+    const cx=xS(i).toFixed(1),cy=yS(d.val).toFixed(1);
+    const c=v<20?'#10e898':v<35?'rgba(68,136,255,.9)':'#ff4060';
+    const ty=(parseFloat(cy)-7>PT+6?(parseFloat(cy)-7):(parseFloat(cy)+14)).toFixed(1);
+    lbls+=`<circle cx="${cx}" cy="${cy}" r="2.5" fill="${c}" opacity=".85"/>`;
+    lbls+=`<text x="${cx}" y="${ty}" text-anchor="middle" style="font-size:7px;fill:${c};font-weight:700;font-family:'IBM Plex Mono',monospace">${v}x</text>`;
+  }
+
+  // Last value badge
+  const last=data[data.length-1],lv=Math.round(last.val);
+  const lc=lv<20?'#10e898':lv<35?'rgba(68,136,255,.9)':'#ff4060';
+  const lx=(W-PR+3).toFixed(1),ly=yS(last.val).toFixed(1);
+  const badge=`<rect x="${lx}" y="${(parseFloat(ly)-8).toFixed(1)}" width="36" height="15" rx="2" fill="${lc}" opacity=".9"/>
+  <text x="${(parseFloat(lx)+18).toFixed(1)}" y="${(parseFloat(ly)+.5).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" style="font-size:7.5px;fill:#000;font-weight:700;font-family:'IBM Plex Mono',monospace">${lv}x</text>`;
+
+  el.innerHTML=`${g}${segs}${lbls}${badge}`;
 }
 
 function afDrawLine(id, data, fmtY, color, colorFn){
