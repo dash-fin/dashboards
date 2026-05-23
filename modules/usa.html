@@ -3952,14 +3952,14 @@ window.peEmaLoad = async function() {
   const post = (body) => fetch(FN,{method:'POST',headers:hdrs,body:JSON.stringify(body)}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
-  // Asegurar que usAllData esté cargado
-  if (!window.usAllData || !window.usAllData.length) {
+  // Asegurar que usAllData esté cargado (variable del closure, no window)
+  if (!usAllData.length) {
     progTxt.textContent = 'Cargando datos base...';
-    await window.usLoadAll();
+    await usLoadAll();
   }
 
   const etfCats = ['etf'];
-  const syms = (window.usAllData||[])
+  const syms = usAllData
     .filter(r => !etfCats.includes(r.market_cap_cat))
     .map(r => r.symbol).filter(Boolean);
 
