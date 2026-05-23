@@ -74,7 +74,7 @@ window.afLoad=async()=>{
   document.getElementById('afBody').innerHTML='<div class="af-empty">Cargando '+ticker+'…</div>';
 
   try{
-    const {chart:chartData, summary:summaryData, finnhub:fhData}=await afEfFetch({mode:'af-data',ticker,range:gRange});
+    const {chart:chartData, summary:summaryData, finnhub:fhData, saRevQ:saRevRaw}=await afEfFetch({mode:'af-data',ticker,range:gRange});
 
     // ── Parse price data ──
     const res=chartData?.chart?.result?.[0];
@@ -115,13 +115,21 @@ window.afLoad=async()=>{
     })).filter(q=>q.date&&q.rev);
     revAnn.forEach((q,i)=>{if(i>=1)q.yoy=pct(q.rev,revAnn[i-1].rev);});
 
-    // Revenue TRIMESTRAL combinado: sintético desde anuales + actuals recientes
-    const qFirstMs=revQ.length?revQ[0].date:Infinity;
-    const synthQ=[];
-    revAnn.filter(yr=>yr.date<qFirstMs).forEach(yr=>{
-      for(let k=3;k>=0;k--){const d=new Date(yr.date);d.setMonth(d.getMonth()-k*3);synthQ.push({date:d.getTime(),rev:yr.rev/4,eps:yr.eps!=null?yr.eps/4:null,ni:yr.ni!=null?yr.ni/4:null,synth:true});}
-    });
-    const revQCombined=[...synthQ,...revQ].sort((a,b)=>a.date-b.date);
+    // Revenue TRIMESTRAL: stockanalysis (20Q reales) → fallback Yahoo 4Q + sintético anual
+    let revQCombined=[];
+    if(saRevRaw?.length>=4){
+      // saRevQ viene newest-first → revertir
+      revQCombined=[...saRevRaw].reverse().map(q=>({
+        date:new Date(q.date).getTime(), rev:q.rev*1e6
+      }));
+    } else {
+      const qFirstMs=revQ.length?revQ[0].date:Infinity;
+      const synthQ=[];
+      revAnn.filter(yr=>yr.date<qFirstMs).forEach(yr=>{
+        for(let k=3;k>=0;k--){const d=new Date(yr.date);d.setMonth(d.getMonth()-k*3);synthQ.push({date:d.getTime(),rev:yr.rev/4,synth:true});}
+      });
+      revQCombined=[...synthQ,...revQ].sort((a,b)=>a.date-b.date);
+    }
     revQCombined.forEach((q,i)=>{if(i>=4)q.yoy=pct(q.rev,revQCombined[i-4].rev);});
 
     // ── Drawdown from ATH ──

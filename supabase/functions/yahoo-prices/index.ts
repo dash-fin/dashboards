@@ -337,7 +337,12 @@ serve(async (req) => {
             .then(r => r.ok ? r.json() : null).catch(() => null)
         : Promise.resolve(null);
       const { crumb, cookie } = await getYahooCrumb();
-      const [chartResp, summaryResp, fhEarnings, fhRec, fhTarget, fhMetrics] = await Promise.all([
+      const saFetch = fetch(
+        `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/financials/?p=quarterly`,
+        { headers: { "User-Agent": UA } }
+      ).then(r => r.ok ? r.text() : null).catch(() => null);
+
+      const [chartResp, summaryResp, fhEarnings, fhRec, fhTarget, fhMetrics, saHtml] = await Promise.all([
         fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&range=${range}&includePrePost=false&crumb=${encodeURIComponent(crumb)}`,
           { headers: { "User-Agent": UA, "Cookie": cookie } }),
         fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=incomeStatementHistoryQuarterly,incomeStatementHistory,defaultKeyStatistics,price&crumb=${encodeURIComponent(crumb)}`,
@@ -346,11 +351,34 @@ serve(async (req) => {
         fhGet(`/stock/recommendation?symbol=${ticker}`),
         fhGet(`/stock/price-target?symbol=${ticker}`),
         fhGet(`/stock/metric?symbol=${ticker}&metric=all`),
+        saFetch,
       ]);
       const chart   = chartResp.ok   ? await chartResp.json()   : null;
       const summary = summaryResp.ok ? await summaryResp.json() : null;
+
+      // Parse quarterly revenue from stockanalysis HTML
+      let saRevQ: Array<{date: string; rev: number}> = [];
+      if (saHtml) {
+        const dates: string[] = [];
+        const dateRe = /<th id="(\d{4}-\d{2}-\d{2})"/g;
+        let dm: RegExpExecArray | null;
+        while ((dm = dateRe.exec(saHtml)) !== null) dates.push(dm[1]);
+        const qDates = dates.slice(0, 20);
+        const tickerLow = ticker.toLowerCase();
+        const revHrefIdx = saHtml.indexOf(`href="/stocks/${tickerLow}/revenue/"`);
+        if (revHrefIdx > -1) {
+          const afterRev = saHtml.slice(revHrefIdx, revHrefIdx + 4000);
+          const vals: number[] = [];
+          const tdRe = /<td[^>]*class="bolded[^"]*"[^>]*>([\d,\.]+)<\/td>/g;
+          let tv: RegExpExecArray | null;
+          while ((tv = tdRe.exec(afterRev)) !== null && vals.length < 20)
+            vals.push(parseFloat(tv[1].replace(/,/g, "")));
+          saRevQ = qDates.map((d, i) => ({ date: d, rev: vals[i] ?? 0 })).filter(r => r.rev > 0);
+        }
+      }
+
       return new Response(JSON.stringify({
-        chart, summary,
+        chart, summary, saRevQ,
         finnhub: { earnings: fhEarnings, recommendations: fhRec, priceTarget: fhTarget, metrics: fhMetrics }
       }), { headers: { ...CORS, "Content-Type": "application/json" } });
     }
@@ -422,3 +450,4 @@ serve(async (req) => {
     });
   }
 });
+
