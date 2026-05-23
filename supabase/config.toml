@@ -16,3 +16,6 @@ verify_jwt = false
 
 [functions.preciocheck-proxy]
 verify_jwt = false
+
+[functions.update-portafolio-resumen]
+verify_jwt = false

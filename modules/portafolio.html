@@ -1179,6 +1179,15 @@ async function pfLoadResumenKpis() {
   } catch(e) { console.warn('[portafolio] pfLoadResumenKpis:', e); }
 }
 
+// Fire-and-forget: llama la edge function para recalcular KPIs tras una mutación
+function pfTriggerResumen() {
+  fetch(`${CFG.SB_URL}/functions/v1/update-portafolio-resumen`, {
+    method: 'POST',
+    headers: { 'apikey': CFG.SB_KEY, 'Content-Type': 'application/json' },
+    body: '{}',
+  }).catch(() => {});
+}
+
 // ── Cálculo P&L por posición ─────────────────────────────
 function pfCalc(pos) {
   if(pos.tipo === 'OPCION') {
@@ -1987,6 +1996,7 @@ window.pfDeleteOp = async function(id) {
     pfOpsUsdPnl = 0;
     pfPatchOpsKpis();
     await pfLoadAll();
+    pfTriggerResumen();
     if(document.getElementById('pfHistOpsSection')) await pfLoadHistorial();
   } catch(e) {
     alert('Error al eliminar: ' + e.message);
@@ -2044,6 +2054,7 @@ window.pfCloseOneLegSave = async () => {
     if(allClosed) await sbPatch('portafolio', `operacion_id=eq.${opId}`, { activo: false });
     pfCloseOneLegHide();
     await pfLoadAll();
+    pfTriggerResumen();
     if(document.getElementById('pfHistOpsSection')) await pfLoadHistorial();
   } catch(e) {
     alert('Error al cerrar pata: ' + e.message);
@@ -2733,6 +2744,7 @@ window.pfModalSave = async () => {
         }
         pfModalHide();
         await pfLoadAll();
+        pfTriggerResumen();
       } catch(e) {
         pfShowMsg('error', e.message || 'Error al guardar');
       } finally {
@@ -2792,6 +2804,7 @@ window.pfModalSave = async () => {
 
       pfModalHide();
       await pfLoadAll();
+      pfTriggerResumen();
     } catch(e) {
       pfShowMsg('error', e.message || 'Error al guardar');
     } finally {
@@ -2848,6 +2861,7 @@ window.pfModalSave = async () => {
     pfAutoCreateAlerts(body).catch(()=>{});
     pfModalHide();
     await pfLoadAll();
+    pfTriggerResumen();
   } catch(e) {
     pfShowMsg('error', e.message || 'Error al guardar');
   } finally {
@@ -3016,6 +3030,7 @@ window.pfCloseOpcionSave = async () => {
     ]);
     pfCloseOpcionHide();
     await pfLoadAll();
+    pfTriggerResumen();
     alLog?.('✅ Estrategia de ' + op.subyacente + ' cerrada (P&L: $' + Math.round(pnlARS).toLocaleString('es-AR') + ')', 'green');
   } catch(e) {
     pfcOpMsg('error', e.message || 'Error al guardar');
@@ -3040,6 +3055,7 @@ window.pfDelete = async (id, ticker) => {
   try {
     await sbPatch('portafolio', `id=eq.${id}`, { activo: false });
     await pfLoadAll();
+    pfTriggerResumen();
   } catch(e) {
     alert('Error al eliminar: ' + e.message);
   }
@@ -3197,6 +3213,7 @@ window.pfCloseSave = async () => {
     pfCloseHide();
     alLog?.('✅ ' + pos.ticker_ars + ' cerrado (P&L: U$S ' + Math.round(gan).toLocaleString('es-AR') + ')', 'green');
     await pfLoadAll();
+    pfTriggerResumen();
   } catch(e) {
     pfCloseMsgShow('error', e.message || 'Error al guardar');
     alLog?.('❌ Error al cerrar ' + pos.ticker_ars + ': ' + (e.message||'desconocido'), 'red');
