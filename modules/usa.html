@@ -98,6 +98,32 @@
 .ins-loading{display:flex;align-items:center;justify-content:center;height:120px;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
 .ins-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 @media(max-width:900px){.ins-grid-2{grid-template-columns:1fr}}
+
+/* ── Screener P/E × EMA200 ─────────────────────────────────── */
+.peema-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:900px){.peema-kpi-row{grid-template-columns:repeat(3,1fr)}}
+.peema-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.peema-buy    {background:rgba(0,229,168,.18);color:#00e5a8;border:1px solid rgba(0,229,168,.5)}
+.peema-zona   {background:rgba(68,136,255,.14);color:var(--blue);border:1px solid rgba(68,136,255,.4)}
+.peema-soporte{background:rgba(0,180,216,.12);color:#00b4d8;border:1px solid rgba(0,180,216,.3)}
+.peema-caro   {background:rgba(255,63,94,.12);color:var(--red);border:1px solid rgba(255,63,94,.3)}
+.peema-neutral{background:var(--bg3);color:var(--text3);border:1px solid var(--border2)}
+.peema-bar{height:3px;border-radius:2px;background:var(--bg3);margin-top:4px;overflow:hidden;width:100%}
+.peema-bar-fill{height:100%;border-radius:2px}
+.peema-filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.peema-suggestion{background:linear-gradient(135deg,rgba(0,229,168,.04) 0%,rgba(68,136,255,.04) 100%);border:1px solid rgba(0,229,168,.15);border-left:3px solid rgba(0,229,168,.5);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.peema-suggestion-title{font-size:11px;font-weight:700;color:var(--text);margin-bottom:10px;letter-spacing:.5px;text-transform:uppercase}
+.peema-suggestion-item{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.peema-suggestion-item:last-child{border-bottom:none;padding-bottom:0}
+.peema-s-ticker{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:800;color:var(--green);min-width:62px;line-height:1.2;cursor:pointer}
+.peema-s-ticker:hover{color:#fff;text-decoration:underline}
+.peema-s-info{font-size:10px;color:var(--text2);line-height:1.6;flex:1;min-width:0}
+.peema-s-price{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;min-width:72px}
+.peema-guide{background:rgba(68,136,255,.05);border:1px solid rgba(68,136,255,.12);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:10px;color:var(--text3);line-height:1.7}
+.peema-guide b{color:var(--blue)}
+.peema-guide-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
+@media(max-width:900px){.peema-guide-row{grid-template-columns:1fr 1fr}}
+.peema-guide-pill{border-radius:8px;padding:8px 10px;font-size:9px;text-align:center}
 </style>
 
 <div class="sub-tabs-row">
@@ -113,6 +139,7 @@
     <button class="stab"        id="ustab-smartmoney" onclick="usTab('smartmoney',this);if(!window._smLoaded)window.loadSmartMoney()">Smart Money</button>
     <button class="stab"        id="ustab-insider" onclick="usTab('insider',this)">Insider</button>
     <button class="stab"        id="ustab-af"      onclick="usTab('af',this)">AF vs AT</button>
+    <button class="stab"        id="ustab-screener" onclick="usTab('screener',this);if(!window._peEmaData)peEmaLoad()">P/E × EMA200</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -835,6 +862,136 @@
 
 <div class="sub-panel" id="uspanel-af"></div>
 
+<!-- ══ P/E × EMA200 SCREENER ══ -->
+<div class="sub-panel" id="uspanel-screener">
+
+  <!-- Action bar -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="btn btn-green" id="peema-scan-btn" onclick="peEmaLoad()" style="font-size:11px;padding:6px 18px;display:flex;align-items:center;gap:6px">
+      <span id="peema-scan-icon">⟳</span> Scan P/E × EMA200
+    </button>
+    <div id="peema-progress" style="display:none;align-items:center;gap:8px">
+      <div class="spinner" style="width:14px;height:14px;border-width:2px"></div>
+      <span id="peema-progress-text" style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace">Escaneando...</span>
+    </div>
+    <div id="peema-last-scan" style="font-size:9px;color:var(--text4);font-family:'IBM Plex Mono',monospace"></div>
+    <div style="margin-left:auto;font-size:9px;color:var(--text4)">~560 acciones · P/E bajo × soporte EMA200 semanal</div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="peema-kpi-row" id="peema-kpis" style="display:none">
+    <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Escaneadas</div><div class="kpi-val" id="pk-total">—</div><div class="kpi-sub">acciones</div></div>
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">P/E &lt; 15x</div><div class="kpi-val" id="pk-cheap">—</div><div class="kpi-sub">cotización barata</div></div>
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">En zona EMA</div><div class="kpi-val" id="pk-near">—</div><div class="kpi-sub">± 15% EMA200w</div></div>
+    <div class="kpi" style="--accent:#00e5a8"><div class="kpi-label">Oportunidades</div><div class="kpi-val" id="pk-opps">—</div><div class="kpi-sub">P/E ≤12x ±10% EMA</div></div>
+    <div class="kpi" style="--accent:#00b4d8"><div class="kpi-label">Bajo EMA</div><div class="kpi-val" id="pk-support">—</div><div class="kpi-sub">soporte potencial</div></div>
+  </div>
+
+  <!-- Guía -->
+  <div class="peema-guide" id="peema-guide" style="display:none">
+    <b>¿Cómo leer este screener?</b> Combina <b>valuación fundamental</b> (P/E trailing bajo) con <b>soporte técnico de largo plazo</b> (EMA de 200 semanas ≈ 4 años). La zona ideal: precio cerca de EMA200w + P/E históricamente bajo para el sector.
+    <div class="peema-guide-row">
+      <div class="peema-guide-pill" style="background:rgba(0,229,168,.12);border:1px solid rgba(0,229,168,.3)"><b style="color:#00e5a8">🟢 Oportunidad</b><br>P/E ≤12x + precio ±10% EMA200w</div>
+      <div class="peema-guide-pill" style="background:rgba(68,136,255,.1);border:1px solid rgba(68,136,255,.3)"><b style="color:var(--blue)">🔵 En zona</b><br>P/E ≤15x + precio ±15% EMA200w</div>
+      <div class="peema-guide-pill" style="background:rgba(0,180,216,.1);border:1px solid rgba(0,180,216,.3)"><b style="color:#00b4d8">⬇ Soporte</b><br>Precio &gt;10% bajo EMA (sin confirm. técnica)</div>
+      <div class="peema-guide-pill" style="background:rgba(255,63,94,.1);border:1px solid rgba(255,63,94,.3)"><b style="color:var(--red)">🔴 Elevado</b><br>Precio &gt;30% sobre EMA (recalentado)</div>
+    </div>
+    <div style="margin-top:6px;font-size:9px">💡 <b>PEG*</b>: P/E trailing ÷ crecimiento implícito (diferencia PE trailing vs fwd). PEG &lt;1 = potencialmente infravalorada respecto a su crecimiento.</div>
+  </div>
+
+  <!-- Top Picks -->
+  <div class="peema-suggestion" id="peema-suggestions" style="display:none">
+    <div class="peema-suggestion-title">🎯 Top Picks — P/E bajo + soporte EMA200 semanal</div>
+    <div id="peema-suggestions-body"></div>
+    <div style="font-size:8px;color:var(--text4);margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)">
+      ⚠ No es recomendación de inversión. Criterio automático: menor (P/E ÷ 15 + |% vs EMA| ÷ 15). Validar con contexto sectorial, deuda y perspectivas de resultados.
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="peema-filter-row" id="peema-filters" style="display:none">
+    <select class="sel" id="peema-pe-max" onchange="peEmaApplyFilters()" style="font-size:10px;padding:4px 8px">
+      <option value="10">P/E ≤ 10x</option>
+      <option value="12">P/E ≤ 12x</option>
+      <option value="15" selected>P/E ≤ 15x</option>
+      <option value="20">P/E ≤ 20x</option>
+      <option value="25">P/E ≤ 25x</option>
+      <option value="30">P/E ≤ 30x</option>
+    </select>
+    <select class="sel" id="peema-ema-range" onchange="peEmaApplyFilters()" style="font-size:10px;padding:4px 8px">
+      <option value="5">Zona ±5% EMA</option>
+      <option value="10">Zona ±10% EMA</option>
+      <option value="15" selected>Zona ±15% EMA</option>
+      <option value="20">Zona ±20% EMA</option>
+      <option value="30">Zona ±30% EMA</option>
+      <option value="999">Todos</option>
+    </select>
+    <select class="sel" id="peema-signal" onchange="peEmaApplyFilters()" style="font-size:10px;padding:4px 8px">
+      <option value="">Todas las señales</option>
+      <option value="oportunidad">🟢 Oportunidad</option>
+      <option value="zona">🔵 En zona</option>
+      <option value="soporte">⬇ Soporte</option>
+      <option value="neutral">⚪ Neutral</option>
+      <option value="caro">🔴 Elevado</option>
+    </select>
+    <input class="search-input" id="peema-search" placeholder="Buscar..." oninput="peEmaApplyFilters()" style="max-width:120px">
+    <button class="btn btn-outline" onclick="document.getElementById('peema-guide').style.display=document.getElementById('peema-guide').style.display==='none'?'block':'none'" style="font-size:10px;padding:3px 8px">📘 Guía</button>
+    <span id="peema-count" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);margin-left:auto"></span>
+  </div>
+
+  <!-- Table -->
+  <div class="card" id="peema-table-card" style="display:none">
+    <div class="table-wrap" style="max-height:560px">
+      <table>
+        <thead><tr>
+          <th class="th-left" onclick="peEmaSort('symbol')" style="cursor:pointer">Ticker</th>
+          <th class="th-left" style="min-width:140px">Nombre</th>
+          <th onclick="peEmaSort('pe')" style="cursor:pointer" class="sort-asc" title="P/E trailing (Yahoo)">P/E</th>
+          <th onclick="peEmaSort('fwdPE')" style="cursor:pointer" title="P/E forward (estimados analistas)">Fwd P/E</th>
+          <th onclick="peEmaSort('price')" style="cursor:pointer">Precio</th>
+          <th onclick="peEmaSort('ema200w')" style="cursor:pointer" title="EMA de 200 semanas (≈4 años)">EMA200w</th>
+          <th onclick="peEmaSort('pct')" style="cursor:pointer" title="% del precio respecto a la EMA200 semanal. 0% = en la media histórica">% vs EMA</th>
+          <th>Señal</th>
+          <th onclick="peEmaSort('peg')" style="cursor:pointer" title="PEG estimado = P/E ÷ crecimiento implícito fwd. &lt;1 = barata relativa a crecimiento">PEG*</th>
+        </tr></thead>
+        <tbody id="peema-tbody">
+          <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Iniciando scan...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:6px 14px;font-size:8px;color:var(--text4);border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
+      <span>* PEG estimado referencial · Click en fila → abre AF vs AT</span>
+      <span id="peema-table-footer"></span>
+    </div>
+  </div>
+
+  <!-- Empty state (inicial) -->
+  <div id="peema-empty" style="text-align:center;padding:60px 20px">
+    <div style="font-size:48px;margin-bottom:14px">📊</div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Screener P/E × EMA200 Semanal</div>
+    <div style="font-size:11px;color:var(--text3);max-width:400px;margin:0 auto;line-height:1.7">
+      Identifica acciones con <b style="color:var(--green)">valuación barata</b> (P/E trailing bajo) cuyo precio esté <b style="color:var(--blue)">cerca de su EMA de 200 semanas</b> — zona de soporte histórico de largo plazo. La combinación de ambos factores reduce el riesgo de comprar caro.
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:10px;color:var(--text3);max-width:160px">
+        <div style="font-size:18px;margin-bottom:4px">⏱</div>
+        El scan tarda ~1-2 min<br>y se cachea en la sesión
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:10px;color:var(--text3);max-width:160px">
+        <div style="font-size:18px;margin-bottom:4px">📡</div>
+        Datos en tiempo real<br>vía Yahoo Finance
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;font-size:10px;color:var(--text3);max-width:160px">
+        <div style="font-size:18px;margin-bottom:4px">🔍</div>
+        ~560 acciones<br>EMA200 de 4 años
+      </div>
+    </div>
+    <button class="btn btn-green" onclick="peEmaLoad()" style="margin-top:20px;font-size:12px;padding:10px 28px">
+      ⟳ Iniciar Scan
+    </button>
+  </div>
+</div>
+
 <script>
 (function(){
 
@@ -866,6 +1023,7 @@ window.usTab = (name, btn) => {
   if(name==='macro')      { if(!window._macroLoaded) window.loadMacro(); }
   if(name==='smartmoney') { if(!window._smLoaded) window.loadSmartMoney(); }
   if(name==='insider') { if(!window._insLoaded) window.insLoad(); }
+  if(name==='screener') { /* auto-load triggered from tab onclick */ }
   if(name==='af') {
     const afPanel = document.getElementById('uspanel-af');
     if (afPanel && !afPanel.dataset.loaded) {
@@ -3751,6 +3909,236 @@ window._smRenderMomentum = (data) => {
   });
   html += '</tbody></table>';
   el.innerHTML = html;
+};
+
+// ══════════════════════════════════════════════════════════════
+// SCREENER P/E × EMA200 SEMANAL
+// ══════════════════════════════════════════════════════════════
+window._peEmaData   = null;
+let _peEmaSortCol   = 'pct';
+let _peEmaSortDir   = 1;
+
+function peEmaSignal(pe, pct) {
+  if (pe <= 12 && Math.abs(pct) <= 10) return 'oportunidad';
+  if (pe <= 15 && Math.abs(pct) <= 15) return 'zona';
+  if (pct < -10)                        return 'soporte';
+  if (pct > 30)                         return 'caro';
+  return 'neutral';
+}
+
+function peEmaSignalLabel(sig) {
+  return {
+    oportunidad: ['🟢', 'Oportunidad', 'peema-badge peema-buy'],
+    zona:        ['🔵', 'En zona',     'peema-badge peema-zona'],
+    soporte:     ['⬇',  'Soporte',     'peema-badge peema-soporte'],
+    caro:        ['🔴', 'Elevado',     'peema-badge peema-caro'],
+    neutral:     ['⚪', 'Neutral',     'peema-badge peema-neutral'],
+  }[sig] || ['⚪', 'Neutral', 'peema-badge peema-neutral'];
+}
+
+window.peEmaLoad = async function() {
+  const btn     = document.getElementById('peema-scan-btn');
+  const prog    = document.getElementById('peema-progress');
+  const progTxt = document.getElementById('peema-progress-text');
+  const icon    = document.getElementById('peema-scan-icon');
+  if (!btn) return;
+  btn.disabled = true; icon.textContent = '⏳';
+  prog.style.display = 'flex';
+  document.getElementById('peema-empty').style.display = 'none';
+
+  const FN  = 'https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices';
+  const KEY = (window.CFG && CFG.SB_KEY) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+  const hdrs = {'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY};
+  const post = (body) => fetch(FN,{method:'POST',headers:hdrs,body:JSON.stringify(body)}).then(r=>r.ok?r.json():[]).catch(()=>[]);
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  // Asegurar que usAllData esté cargado
+  if (!window.usAllData || !window.usAllData.length) {
+    progTxt.textContent = 'Cargando datos base...';
+    await window.usLoadAll();
+  }
+
+  const etfCats = ['etf'];
+  const syms = (window.usAllData||[])
+    .filter(r => !etfCats.includes(r.market_cap_cat))
+    .map(r => r.symbol).filter(Boolean);
+
+  // FASE 1: screener-pe en batches de 100
+  const peRows = [], bsz = 100;
+  for (let i = 0; i < syms.length; i += bsz) {
+    const batch = syms.slice(i, i + bsz);
+    progTxt.textContent = `P/E scan… ${Math.min(i+bsz,syms.length)}/${syms.length}`;
+    const data = await post({mode:'screener-pe', symbols:batch});
+    for (const q of (Array.isArray(data)?data:[])) {
+      if (q.trailingPE > 3 && q.trailingPE < 35) {
+        peRows.push({
+          symbol: q.symbol,
+          name:   (q.shortName||'').substring(0,30),
+          price:  q.regularMarketPrice,
+          pe:     Math.round(q.trailingPE*10)/10,
+          fwdPE:  q.forwardPE ? Math.round(q.forwardPE*10)/10 : null,
+          mktCap: q.marketCap,
+        });
+      }
+    }
+    await sleep(150);
+  }
+
+  // FASE 2: screener-ema en batches de 25
+  const cheapSyms = peRows.map(r=>r.symbol);
+  const emaMap = {}, esz = 25;
+  for (let i = 0; i < cheapSyms.length; i += esz) {
+    const batch = cheapSyms.slice(i, i + esz);
+    progTxt.textContent = `EMA200w… ${Math.min(i+esz,cheapSyms.length)}/${cheapSyms.length}`;
+    const data = await post({mode:'screener-ema', symbols:batch});
+    for (const e of (Array.isArray(data)?data:[])) {
+      if (!e.error) emaMap[e.symbol] = {ema200w:e.ema200w, pct:e.pctFromEma200w};
+    }
+    await sleep(250);
+  }
+
+  // Merge
+  const rows = peRows.map(r => {
+    const em = emaMap[r.symbol];
+    const pct = em?.pct ?? null;
+    const pegGrowth = (r.fwdPE && r.pe > r.fwdPE && r.pe > 0)
+      ? ((r.pe - r.fwdPE) / r.pe) * 100 : null;
+    return {
+      ...r,
+      ema200w: em?.ema200w ?? null,
+      pct,
+      signal: pct != null ? peEmaSignal(r.pe, pct) : 'neutral',
+      peg: (pegGrowth && pegGrowth > 0) ? Math.round(r.pe / pegGrowth * 10) / 10 : null,
+    };
+  });
+
+  window._peEmaData = {rows, ts: new Date()};
+
+  // KPIs
+  const near    = rows.filter(r => r.pct != null && Math.abs(r.pct) <= 15).length;
+  const opps    = rows.filter(r => r.signal === 'oportunidad').length;
+  const support = rows.filter(r => r.signal === 'soporte').length;
+  document.getElementById('pk-total').textContent   = syms.length;
+  document.getElementById('pk-cheap').textContent   = rows.length;
+  document.getElementById('pk-near').textContent    = near;
+  document.getElementById('pk-opps').textContent    = opps;
+  document.getElementById('pk-support').textContent = support;
+  document.getElementById('peema-kpis').style.display  = '';
+  document.getElementById('peema-last-scan').textContent =
+    'Actualizado ' + new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+  prog.style.display = 'none';
+  btn.disabled = false; icon.textContent = '⟳';
+
+  peEmaRenderSuggestions(rows);
+  peEmaApplyFilters();
+};
+
+function peEmaRenderSuggestions(rows) {
+  const box  = document.getElementById('peema-suggestions');
+  const body = document.getElementById('peema-suggestions-body');
+  if (!box || !body) return;
+  const tops = rows
+    .filter(r => r.pct != null && r.pe <= 15)
+    .sort((a,b) => {
+      const sa = (a.pe/15) + Math.abs(a.pct)/15;
+      const sb = (b.pe/15) + Math.abs(b.pct)/15;
+      return sa - sb;
+    })
+    .slice(0, 6);
+  if (!tops.length) { box.style.display='none'; return; }
+
+  body.innerHTML = tops.map(r => {
+    const [ico, lbl, cls] = peEmaSignalLabel(r.signal);
+    const pctStr   = (r.pct>0?'+':'')+r.pct+'%';
+    const pctColor = r.pct < 0 ? 'var(--blue)' : Math.abs(r.pct)<=10 ? 'var(--green)' : 'var(--amber)';
+    const pegStr   = r.peg ? `<span style="font-size:9px;color:var(--text3);margin-left:8px">PEG ${r.peg}x</span>` : '';
+    const desc = r.signal==='oportunidad'
+      ? `P/E ${r.pe}x + precio al <b style="color:var(--green)">${pctStr}</b> de EMA200w — fundamental y técnico alineados`
+      : r.signal==='zona'
+      ? `P/E ${r.pe}x, dentro del rango EMA200w (${pctStr}). Zona de soporte + valuación razonable`
+      : `P/E ${r.pe}x, precio <b style="color:#00b4d8">${pctStr}</b> de EMA200w. Zona de valor, esperar confirmación técnica`;
+    return `<div class="peema-suggestion-item">
+      <div class="peema-s-ticker" onclick="if(window.afLoad){usTab('af',document.getElementById('ustab-af'));setTimeout(()=>afLoad('${r.symbol}'),300)}">${r.symbol}</div>
+      <div class="peema-s-info">
+        <span class="${cls}">${ico} ${lbl}</span>${pegStr}
+        <span style="margin-left:6px;font-size:9px;color:var(--text3)">${r.name}</span>
+        <div style="margin-top:4px;color:var(--text2);font-size:10px">${desc}</div>
+      </div>
+      <div class="peema-s-price">
+        <div style="color:var(--text)">$${r.price!=null?r.price.toFixed(2):'—'}</div>
+        <div style="font-size:9px;color:${pctColor}">${pctStr}</div>
+        <div style="font-size:8px;color:var(--text4)">${r.fwdPE?'Fwd '+r.fwdPE+'x':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+window.peEmaApplyFilters = function() {
+  const data = window._peEmaData;
+  if (!data) return;
+  const peMax    = parseFloat(document.getElementById('peema-pe-max')?.value    || 15);
+  const emaRange = parseFloat(document.getElementById('peema-ema-range')?.value || 15);
+  const sigFlt   = document.getElementById('peema-signal')?.value  || '';
+  const search   = (document.getElementById('peema-search')?.value || '').toUpperCase().trim();
+
+  let rows = data.rows.filter(r => {
+    if (r.pe > peMax)                                    return false;
+    if (r.pct == null)                                   return false;
+    if (emaRange < 999 && Math.abs(r.pct) > emaRange)   return false;
+    if (sigFlt && r.signal !== sigFlt)                   return false;
+    if (search && !r.symbol.includes(search) && !r.name.toUpperCase().includes(search)) return false;
+    return true;
+  });
+
+  rows = [...rows].sort((a,b) => {
+    const va = a[_peEmaSortCol] ?? Infinity;
+    const vb = b[_peEmaSortCol] ?? Infinity;
+    return _peEmaSortDir * (va < vb ? -1 : va > vb ? 1 : 0);
+  });
+
+  document.getElementById('peema-count').textContent   = rows.length + ' resultado' + (rows.length!==1?'s':'');
+  document.getElementById('peema-filters').style.display    = 'flex';
+  document.getElementById('peema-table-card').style.display = 'block';
+
+  const tbody = document.getElementById('peema-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Sin resultados — probá ampliar los filtros</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const [ico, lbl, cls]   = peEmaSignalLabel(r.signal);
+    const pctStr             = (r.pct>0?'+':'')+r.pct+'%';
+    const pctColor           = Math.abs(r.pct)<=10?'var(--green)':Math.abs(r.pct)<=20?'var(--amber)':'var(--text3)';
+    const peColor            = r.pe<=8?'var(--green)':r.pe<=12?'var(--amber)':'var(--text)';
+    const barPct             = Math.min(Math.max((r.pct+50)/100*100,0),100);
+    const barColor           = r.pct<0?'#00b4d8':r.pct<15?'#00e5a8':'#d4a400';
+    const pegTxt             = r.peg ? r.peg+'x' : '—';
+    const pegColor           = r.peg && r.peg<1 ? 'var(--green)' : r.peg && r.peg<2 ? 'var(--amber)' : 'var(--text3)';
+    return `<tr onclick="if(window.afLoad){usTab('af',document.getElementById('ustab-af'));setTimeout(()=>afLoad('${r.symbol}'),300)}" style="cursor:pointer" title="Ver análisis AF de ${r.symbol}">
+      <td class="th-left" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--blue)">${r.symbol}</td>
+      <td style="font-size:10px;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:${peColor}">${r.pe}x</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2)">${r.fwdPE!=null?r.fwdPE+'x':'—'}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px">$${r.price!=null?r.price.toFixed(2):'—'}</td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)">$${r.ema200w!=null?r.ema200w.toFixed(2):'—'}</td>
+      <td style="text-align:right;min-width:72px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:${pctColor}">${pctStr}</div>
+        <div class="peema-bar"><div class="peema-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
+      </td>
+      <td><span class="${cls}" style="white-space:nowrap">${ico} ${lbl}</span></td>
+      <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:10px;color:${pegColor}">${pegTxt}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('peema-table-footer').textContent =
+    `Scan: ${data.ts.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})} · ${rows.length} de ${data.rows.length} acciones`;
+};
+
+window.peEmaSort = function(col) {
+  if (_peEmaSortCol === col) { _peEmaSortDir *= -1; }
+  else { _peEmaSortCol = col; _peEmaSortDir = col==='pe'||col==='pct'||col==='peg' ? 1 : -1; }
+  peEmaApplyFilters();
 };
 
 })();

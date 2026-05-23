@@ -326,6 +326,44 @@ serve(async (req) => {
       });
     }
 
+
+    // ── Modo 8: screener PE + precio batch ────────────────────
+    if (mode === "screener-pe") {
+      const syms: string[] = (body as any).symbols || [];
+      if (!syms.length) throw new Error("symbols requerido");
+      const { crumb, cookie } = await getYahooCrumb();
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${syms.join(",")}&fields=symbol,trailingPE,forwardPE,regularMarketPrice,marketCap,shortName&crumb=${encodeURIComponent(crumb)}`;
+      const resp = await fetch(url, { headers: { "User-Agent": UA, "Cookie": cookie } });
+      const data = resp.ok ? await resp.json() : null;
+      const quotes = data?.quoteResponse?.result || [];
+      return new Response(JSON.stringify(quotes), { headers: { ...CORS, "Content-Type": "application/json" } });
+    }
+    // ── Modo 9: screener EMA200 semanal ──────────────────────
+    if (mode === "screener-ema") {
+      const syms: string[] = (body as any).symbols || [];
+      if (!syms.length) throw new Error("symbols requerido");
+      const { crumb, cookie } = await getYahooCrumb();
+      const results = await Promise.all(syms.map(async (sym) => {
+        try {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1wk&range=5y&crumb=${encodeURIComponent(crumb)}`;
+          const resp = await fetch(url, { headers: { "User-Agent": UA, "Cookie": cookie } });
+          if (!resp.ok) return { symbol: sym, error: resp.status };
+          const data = await resp.json();
+          const result = data?.chart?.result?.[0];
+          if (!result) return { symbol: sym, error: "no data" };
+          const closes = (result.indicators?.quote?.[0]?.close || []).filter((c: number|null) => c != null) as number[];
+          if (closes.length < 50) return { symbol: sym, error: "insuf", count: closes.length };
+          const k = 2 / (200 + 1);
+          let ema = closes[0];
+          for (let i = 1; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
+          const price = closes[closes.length - 1];
+          const pct = Math.round(((price - ema) / ema) * 1000) / 10;
+          return { symbol: sym, price: Math.round(price * 100) / 100, ema200w: Math.round(ema * 100) / 100, pctFromEma200w: pct };
+        } catch (e) { return { symbol: sym, error: String(e) }; }
+      }));
+      return new Response(JSON.stringify(results), { headers: { ...CORS, "Content-Type": "application/json" } });
+    }
+
     // ── Modo 7: datos AF (chart + fundamentals + Finnhub) ────
     if (mode === "af-data") {
       const ticker = (body as any).ticker as string;
@@ -450,4 +488,5 @@ serve(async (req) => {
     });
   }
 });
+
 
