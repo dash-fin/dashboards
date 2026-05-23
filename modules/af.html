@@ -248,6 +248,7 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
 
   // Revenue step area — usa revQCombined (sintético+real, ya distribuido en trimestres)
   // Step area: 1 punto anual para historia + trimestrales reales para período reciente
+  const qCutMs=revQ.length?revQ[0].date:Infinity;
   const revForArea=[
     ...revAnn.filter(yr=>yr.date<qCutMs).map(yr=>({...yr,rev:yr.rev/4})),
     ...revQ
@@ -321,7 +322,6 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
 
   // ── Sub panels SVG ──
   // Bar chart: 1 barra anual por año histórico (annual/4) + barras reales recientes
-  const qCutMs=revQ.length?revQ[0].date:Infinity;
   const revForBars=[
     ...revAnn.filter(yr=>yr.date<qCutMs).map(yr=>({...yr,rev:yr.rev/4,isAnn:true})),
     ...revQ
