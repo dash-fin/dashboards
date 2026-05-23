@@ -157,7 +157,8 @@ window.afLoad=async()=>{
     }).filter(Boolean);
 
     // ── Current KPIs ──
-    const pe=stats.trailingPE?.raw;
+    const peFromChart=peData.length?peData[peData.length-1].val:null;
+    const pe=stats.trailingPE?.raw||peFromChart;  // fallback to computed trailing P/E
     const mktCap=priceInfo.marketCap?.raw;
     const fwdPE=stats.forwardPE?.raw;
     const lastRevAnn=revAnn[revAnn.length-1];
@@ -165,11 +166,11 @@ window.afLoad=async()=>{
 
     // ── Finnhub fundamentals & price target ──
     const fhMet=fhData?.metrics?.metric||{};
-    const ptMean=fhData?.priceTarget?.targetMean;
-    const ptHigh=fhData?.priceTarget?.targetHigh;
-    const ptLow=fhData?.priceTarget?.targetLow;
-    const ptLastUpdated=fhData?.priceTarget?.lastUpdated;
-    const ptUpside=ptMean&&lastPrice?((ptMean-lastPrice)/lastPrice*100):null;
+    const ptMean=(fhData?.priceTarget?.targetMean||0)||null;   // 0 → null
+    const ptHigh=(fhData?.priceTarget?.targetHigh||0)||null;
+    const ptLow=(fhData?.priceTarget?.targetLow||0)||null;
+    const ptLastUpdated=fhData?.priceTarget?.lastUpdated||null;
+    const ptUpside=ptMean!=null&&lastPrice?((ptMean-lastPrice)/lastPrice*100):null;
     const fhRec=fhData?.recommendations;
 
     afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,revAnn,dd,peData,
