@@ -134,8 +134,9 @@ window.afLoad=async()=>{
     // ── P/E estimate per week (Finnhub-first, Yahoo fallback) ──
     const sharesOut=stats.sharesOutstanding?.raw||stats.impliedSharesOutstanding?.raw;
     let epsHistory=[];
-    if(fhData?.earnings?.data?.length){
-      epsHistory=fhData.earnings.data
+    const fhEarr=Array.isArray(fhData?.earnings)?fhData.earnings:(fhData?.earnings?.data||[]);
+    if(fhEarr.length){
+      epsHistory=fhEarr
         .filter(e=>e.actual!=null&&e.actual>0)
         .map(e=>({date:new Date(e.period).getTime(),eps:e.actual}))
         .sort((a,b)=>a.date-b.date);
@@ -171,7 +172,7 @@ window.afLoad=async()=>{
     const ptLow=(fhData?.priceTarget?.targetLow||0)||null;
     const ptLastUpdated=fhData?.priceTarget?.lastUpdated||null;
     const ptUpside=ptMean!=null&&lastPrice?((ptMean-lastPrice)/lastPrice*100):null;
-    const fhRec=fhData?.recommendations;
+    const fhRec=Array.isArray(fhData?.recommendations)?fhData.recommendations:[];
 
     afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,revAnn,dd,peData,
       {pe,mktCap,fwdPE,lastYoy,ptMean,ptHigh,ptLow,ptUpside,ptLastUpdated,
