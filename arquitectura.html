@@ -958,6 +958,31 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
     </div>
   </div>
 
+  <div style="background:#132236;border:1px solid rgba(0,229,168,.25);border-radius:12px;padding:18px;margin-bottom:14px">
+    <div style="font-weight:700;font-size:13px;color:#00e5a8;margin-bottom:12px">☁️ Supabase pg_cron (cloud, siempre activo)</div>
+    <table style="width:100%;border-collapse:collapse;font-size:10.5px">
+      <thead><tr style="color:#4a6e90;border-bottom:1px solid #1e3a5a">
+        <th style="text-align:left;padding:6px 8px">Job name</th>
+        <th style="text-align:left;padding:6px 8px">Schedule</th>
+        <th style="text-align:left;padding:6px 8px">Qué hace</th>
+        <th style="text-align:left;padding:6px 8px">ID</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td style="padding:8px"><code style="color:#00e5a8">update-portafolio-resumen</code></td>
+          <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * *</code><br>Cada 5 min (24/7)</td>
+          <td style="padding:8px;font-size:10px;color:#a0bcd8">HTTP POST a edge fn <code>update-portafolio-resumen</code><br>Recalcula portafolio_resumen + pnl_diario para todos los usuarios</td>
+          <td style="padding:8px;color:#4a6e90">4</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:10px;font-size:10px;color:#4a6e90;line-height:1.7">
+      📍 Ver jobs: <code>SELECT * FROM cron.job;</code><br>
+      📍 Cancelar: <code>SELECT cron.unschedule(4);</code><br>
+      📍 También se dispara on-demand desde web y app tras cada mutación de portafolio
+    </div>
+  </div>
+
   <div style="background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px">
     <div style="font-weight:700;font-size:13px;color:#00d8e8;margin-bottom:12px">🐧 WSL Cron (Roma)</div>
     <table style="width:100%;border-collapse:collapse;font-size:10.5px">
