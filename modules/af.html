@@ -246,13 +246,11 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
     handleScroll:true, handleScale:true,
   });
 
-  // Revenue step area — usa revQCombined (sintético+real, ya distribuido en trimestres)
-  // Step area: 1 punto anual para historia + trimestrales reales para período reciente
   const qCutMs=revQ.length?revQ[0].date:Infinity;
-  const revForArea=[
-    ...revAnn.filter(yr=>yr.date<qCutMs).map(yr=>({...yr,rev:yr.rev/4})),
-    ...revQ
-  ].sort((a,b)=>a.date-b.date);
+  // Step area: usa revQCombined (20Q reales de stockanalysis, o fallback sintético)
+  const revForArea=revQCombined.length>=2
+    ?revQCombined
+    :[...revAnn.filter(yr=>yr.date<qCutMs).map(yr=>({...yr,rev:yr.rev/4})),...revQ].sort((a,b)=>a.date-b.date);
   if(revForArea.length>=2){
     const pMax=Math.max(...ohlcv.map(d=>d.h));
     const revVals=revForArea.map(q=>q.rev);
@@ -444,7 +442,7 @@ function afDrawPeChart(id, data){
   const lc=lv<20?'#10e898':lv<35?'rgba(68,136,255,.9)':'#ff4060';
   const lx=(W-PR+3).toFixed(1),ly=yS(last.val).toFixed(1);
   const badge=`<rect x="${lx}" y="${(parseFloat(ly)-8).toFixed(1)}" width="36" height="15" rx="2" fill="${lc}" opacity=".9"/>
-  <text x="${(parseFloat(lx)+18).toFixed(1)}" y="${(parseFloat(ly)+.5).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" style="font-size:7.5px;fill:#000;font-weight:700;font-family:'IBM Plex Mono',monospace">${lv}x</text>`;
+  <text x="${(parseFloat(lx)+18).toFixed(1)}" y="${(parseFloat(ly)+.5).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" style="font-size:7.5px;fill:#fff;font-weight:700;font-family:'IBM Plex Mono',monospace">${lv}x</text>`;
 
   el.innerHTML=`${g}${segs}${lbls}${badge}`;
 }
