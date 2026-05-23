@@ -118,7 +118,7 @@ window.afLoad=async()=>{
     const qFirstMs=revQ.length?revQ[0].date:Infinity;
     const synthQ=[];
     revAnn.filter(yr=>yr.date<qFirstMs).forEach(yr=>{
-      for(let k=3;k>=0;k--){const d=new Date(yr.date);d.setMonth(d.getMonth()-k*3);synthQ.push({date:d.getTime(),rev:yr.rev/4,synth:true});}
+      for(let k=3;k>=0;k--){const d=new Date(yr.date);d.setMonth(d.getMonth()-k*3);synthQ.push({date:d.getTime(),rev:yr.rev/4,eps:yr.eps!=null?yr.eps/4:null,synth:true});}
     });
     const revQCombined=[...synthQ,...revQ].sort((a,b)=>a.date-b.date);
     revQCombined.forEach((q,i)=>{if(i>=4)q.yoy=pct(q.rev,revQCombined[i-4].rev);});
@@ -131,7 +131,8 @@ window.afLoad=async()=>{
     });
 
     // ── P/E estimate per week (price / trailing 4Q EPS) ──
-    const epsHistory=revQ.map(q=>({date:q.date,eps:q.eps})).filter(q=>q.eps!=null);
+    // Uses revQCombined so EPS history covers the full chart range
+    const epsHistory=revQCombined.map(q=>({date:q.date,eps:q.eps})).filter(q=>q.eps!=null);
     const peData=ohlcv.map(d=>{
       const ms=d.t*1000;
       const trailing=epsHistory.filter(e=>e.date<=ms).slice(-4);
@@ -349,17 +350,30 @@ function afDrawPeChart(id, data){
     segs+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="1.5"/>`;
   }
 
-  // Labels at ~8 evenly spaced points
-  const step=Math.max(1,Math.floor(data.length/8));
+  // Labels at local peaks & troughs (like TrendSpider)
+  const win=Math.max(8,Math.floor(data.length/18));
+  const extremes=[];
+  for(let i=win;i<data.length-win;i++){
+    let isPk=true,isTr=true;
+    for(let k=1;k<=win;k++){
+      if(data[i-k].val>=data[i].val||data[i+k].val>=data[i].val)isPk=false;
+      if(data[i-k].val<=data[i].val||data[i+k].val<=data[i].val)isTr=false;
+    }
+    if(isPk||isTr)extremes.push({i,pk:isPk});
+  }
+  // Keep at most 8, spread evenly if too many
+  const minGap=Math.floor(data.length/9);
+  const kept=[];
+  for(const e of extremes){if(!kept.length||e.i-kept[kept.length-1].i>=minGap)kept.push(e);}
   let lbls='';
-  for(let i=step;i<data.length-step/2;i+=step){
+  kept.forEach(({i,pk})=>{
     const d=data[i],v=Math.round(d.val);
     const cx=xS(i).toFixed(1),cy=yS(d.val).toFixed(1);
     const c=v<20?'#10e898':v<35?'rgba(68,136,255,.9)':'#ff4060';
-    const ty=(parseFloat(cy)-7>PT+6?(parseFloat(cy)-7):(parseFloat(cy)+14)).toFixed(1);
+    const ty=(pk?Math.max(PT+9,parseFloat(cy)-9):Math.min(H-PB-2,parseFloat(cy)+13)).toFixed(1);
     lbls+=`<circle cx="${cx}" cy="${cy}" r="2.5" fill="${c}" opacity=".85"/>`;
     lbls+=`<text x="${cx}" y="${ty}" text-anchor="middle" style="font-size:7px;fill:${c};font-weight:700;font-family:'IBM Plex Mono',monospace">${v}x</text>`;
-  }
+  });
 
   // Last value badge
   const last=data[data.length-1],lv=Math.round(last.val);
