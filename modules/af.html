@@ -319,13 +319,7 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
   gChart.timeScale().fitContent();
 
   // ── Sub panels SVG ──
-  // Bar chart: 1 barra anual por año histórico (annual/4) + barras reales recientes
-  const revForBars=[
-    ...revAnn.filter(yr=>yr.date<qCutMs).map(yr=>({...yr,rev:yr.rev/4,isAnn:true})),
-    ...revQ
-  ].sort((a,b)=>a.date-b.date);
-  revForBars.forEach((q,i)=>{if(i>=1&&!q.isAnn&&!revForBars[i-1].isAnn)q.yoy=pct(q.rev,revForBars[i-4]?.rev);});
-  afDrawRevBars('afRevSvg', revForBars.length>=2?revForBars:revQ);
+  afDrawRevBars('afRevSvg', revQCombined.length>=4?revQCombined:revQ);
   afDrawPeChart('afPeSvg', peData);
   afDrawBars('afDdSvg', dd, v=>v.toFixed(0)+'%', 'rgba(255,64,96,.7)');
 
