@@ -167,15 +167,10 @@ window.afLoad=async()=>{
 
     // ── Finnhub fundamentals & price target ──
     const fhMet=fhData?.metrics?.metric||{};
-    const ptMean=(fhData?.priceTarget?.targetMean||0)||null;   // 0 → null
-    const ptHigh=(fhData?.priceTarget?.targetHigh||0)||null;
-    const ptLow=(fhData?.priceTarget?.targetLow||0)||null;
-    const ptLastUpdated=fhData?.priceTarget?.lastUpdated||null;
-    const ptUpside=ptMean!=null&&lastPrice?((ptMean-lastPrice)/lastPrice*100):null;
     const fhRec=Array.isArray(fhData?.recommendations)?fhData.recommendations:[];
 
     afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,revAnn,dd,peData,
-      {pe,mktCap,fwdPE,lastYoy,ptMean,ptHigh,ptLow,ptUpside,ptLastUpdated,
+      {pe,mktCap,fwdPE,lastYoy,
        grossMargin:fhMet.grossMarginTTM, netMargin:fhMet.netProfitMarginTTM,
        roe:fhMet.roeTTM, revGrowth:fhMet.revenueGrowthTTMYoy,
        epsGrowth:fhMet.epsGrowthTTMYoy, de:fhMet['totalDebt/totalEquityAnnual']},
@@ -203,12 +198,6 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
       <div class="af-kpi"><div class="af-kpi-lbl">P/E Forward</div><div class="af-kpi-val">${kpis.fwdPE!=null?fv(kpis.fwdPE,0)+'x':'—'}</div></div>
       <div class="af-kpi"><div class="af-kpi-lbl">Mkt Cap</div><div class="af-kpi-val">${fmtB(kpis.mktCap)}</div></div>
       <div class="af-kpi"><div class="af-kpi-lbl">Rev YoY</div><div class="af-kpi-val" style="color:${yoyColor}">${kpis.lastYoy!=null?(kpis.lastYoy>=0?'+':'')+fv(kpis.lastYoy,1)+'%':'—'}</div></div>
-      <div class="af-kpi" style="min-width:120px">
-        <div class="af-kpi-lbl">Target consenso${kpis.ptLastUpdated?` · <span style="opacity:.6">${kpis.ptLastUpdated.slice(0,10)}</span>`:''}</div>
-        <div class="af-kpi-val">${kpis.ptMean!=null?fv(kpis.ptMean):'—'}</div>
-        ${kpis.ptLow!=null&&kpis.ptHigh!=null?`<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin-top:3px">${fv(kpis.ptLow)} — ${fv(kpis.ptHigh)}</div>`:''}
-      </div>
-      <div class="af-kpi"><div class="af-kpi-lbl">Upside</div><div class="af-kpi-val" style="color:${kpis.ptUpside>0?'var(--green)':kpis.ptUpside<0?'var(--red)':'var(--text3)'}">${kpis.ptUpside!=null?(kpis.ptUpside>=0?'+':'')+fv(kpis.ptUpside,1)+'%':'—'}</div></div>
     </div>
     <div class="af-chart-card" style="margin-bottom:8px">
       <div class="af-chart-lbl">Precio semanal · Volumen · Revenue growth (área verde)</div>
