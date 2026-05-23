@@ -1,4 +1,4 @@
-// ══════════════════════════════════════════════════════════════════
+﻿// ══════════════════════════════════════════════════════════════════
 // Supabase Edge Function: yahoo-prices
 // Proxy para Yahoo Finance con autenticación crumb automática
 // + Histórico local ARS vía Rava Bursátil
@@ -326,23 +326,33 @@ serve(async (req) => {
       });
     }
 
-    // ── Modo 7: datos AF (chart semanal + fundamentals) ────
+    // ── Modo 7: datos AF (chart + fundamentals + Finnhub) ────
     if (mode === "af-data") {
       const ticker = (body as any).ticker as string;
-      const range = (body as any).range || "5y";
+      const range  = (body as any).range || "5y";
       if (!ticker) throw new Error("ticker requerido");
+      const FINNHUB_KEY = Deno.env.get("FINNHUB_KEY") || "";
+      const fhGet = (path: string) => FINNHUB_KEY
+        ? fetch(`https://finnhub.io/api/v1${path}&token=${FINNHUB_KEY}`)
+            .then(r => r.ok ? r.json() : null).catch(() => null)
+        : Promise.resolve(null);
       const { crumb, cookie } = await getYahooCrumb();
-      const [chartResp, summaryResp] = await Promise.all([
+      const [chartResp, summaryResp, fhEarnings, fhRec, fhTarget, fhMetrics] = await Promise.all([
         fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&range=${range}&includePrePost=false&crumb=${encodeURIComponent(crumb)}`,
           { headers: { "User-Agent": UA, "Cookie": cookie } }),
         fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=incomeStatementHistoryQuarterly,incomeStatementHistory,defaultKeyStatistics,price&crumb=${encodeURIComponent(crumb)}`,
           { headers: { "User-Agent": UA, "Cookie": cookie } }),
+        fhGet(`/stock/earnings?symbol=${ticker}&limit=25`),
+        fhGet(`/stock/recommendation?symbol=${ticker}`),
+        fhGet(`/stock/price-target?symbol=${ticker}`),
+        fhGet(`/stock/metric?symbol=${ticker}&metric=all`),
       ]);
       const chart   = chartResp.ok   ? await chartResp.json()   : null;
       const summary = summaryResp.ok ? await summaryResp.json() : null;
-      return new Response(JSON.stringify({ chart, summary }), {
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({
+        chart, summary,
+        finnhub: { earnings: fhEarnings, recommendations: fhRec, priceTarget: fhTarget, metrics: fhMetrics }
+      }), { headers: { ...CORS, "Content-Type": "application/json" } });
     }
 
     // ── Modo 6: histórico Yahoo Finance (benchmark) ─────────

@@ -74,7 +74,7 @@ window.afLoad=async()=>{
   document.getElementById('afBody').innerHTML='<div class="af-empty">Cargando '+ticker+'…</div>';
 
   try{
-    const {chart:chartData, summary:summaryData}=await afEfFetch({mode:'af-data',ticker,range:gRange});
+    const {chart:chartData, summary:summaryData, finnhub:fhData}=await afEfFetch({mode:'af-data',ticker,range:gRange});
 
     // ── Parse price data ──
     const res=chartData?.chart?.result?.[0];
@@ -131,14 +131,22 @@ window.afLoad=async()=>{
       return{time:d.time, val:ath>0?(d.c-ath)/ath*100:0};
     });
 
-    // ── P/E estimate per week (price / trailing 4Q EPS) ──
+    // ── P/E estimate per week (Finnhub-first, Yahoo fallback) ──
     const sharesOut=stats.sharesOutstanding?.raw||stats.impliedSharesOutstanding?.raw;
-    const epsHistory=revQCombined.map(q=>{
-      // Prefer basicEPS, fall back to netIncome/shares
-      let eps=q.eps;
-      if(eps==null&&q.ni!=null&&sharesOut)eps=q.ni/sharesOut;
-      return{date:q.date,eps};
-    }).filter(q=>q.eps!=null&&q.eps>0);
+    let epsHistory=[];
+    if(fhData?.earnings?.data?.length){
+      epsHistory=fhData.earnings.data
+        .filter(e=>e.actual!=null&&e.actual>0)
+        .map(e=>({date:new Date(e.period).getTime(),eps:e.actual}))
+        .sort((a,b)=>a.date-b.date);
+    }
+    if(epsHistory.length<4){
+      epsHistory=revQCombined.map(q=>{
+        let eps=q.eps;
+        if(eps==null&&q.ni!=null&&sharesOut)eps=q.ni/sharesOut;
+        return{date:q.date,eps};
+      }).filter(q=>q.eps!=null&&q.eps>0);
+    }
     const peData=ohlcv.map(d=>{
       const ms=d.t*1000;
       const trailing=epsHistory.filter(e=>e.date<=ms).slice(-4);
@@ -155,7 +163,20 @@ window.afLoad=async()=>{
     const lastRevAnn=revAnn[revAnn.length-1];
     const lastYoy=lastRevAnn?.yoy;
 
-    afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,revAnn,dd,peData,{pe,mktCap,fwdPE,lastYoy},revQCombined);
+    // ── Finnhub fundamentals & price target ──
+    const fhMet=fhData?.metrics?.metric||{};
+    const ptMean=fhData?.priceTarget?.targetMean;
+    const ptHigh=fhData?.priceTarget?.targetHigh;
+    const ptLow=fhData?.priceTarget?.targetLow;
+    const ptUpside=ptMean&&lastPrice?((ptMean-lastPrice)/lastPrice*100):null;
+    const fhRec=fhData?.recommendations;
+
+    afRender(ticker,companyName,currency,lastPrice,ohlcv,revQ,revAnn,dd,peData,
+      {pe,mktCap,fwdPE,lastYoy,ptMean,ptHigh,ptLow,ptUpside,
+       grossMargin:fhMet.grossMarginTTM, netMargin:fhMet.netProfitMarginTTM,
+       roe:fhMet.roeTTM, revGrowth:fhMet.revenueGrowthTTMYoy,
+       epsGrowth:fhMet.epsGrowthTTMYoy, de:fhMet['totalDebt/totalEquityAnnual']},
+      revQCombined, fhRec);
   }catch(e){
     console.error('[af]',e);
     document.getElementById('afErr').textContent='Error: '+e.message;
@@ -163,7 +184,7 @@ window.afLoad=async()=>{
   }
 };
 
-function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCombined){
+function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCombined,fhRec){
   const fv=(n,d=2)=>n!=null&&!isNaN(n)?fn2(n,d):'—';
 
   const yoyColor=kpis.lastYoy!=null?(kpis.lastYoy>0?'var(--green)':'var(--red)'):'var(--text3)';
@@ -179,6 +200,8 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
       <div class="af-kpi"><div class="af-kpi-lbl">P/E Forward</div><div class="af-kpi-val">${kpis.fwdPE!=null?fv(kpis.fwdPE,0)+'x':'—'}</div></div>
       <div class="af-kpi"><div class="af-kpi-lbl">Mkt Cap</div><div class="af-kpi-val">${fmtB(kpis.mktCap)}</div></div>
       <div class="af-kpi"><div class="af-kpi-lbl">Rev YoY</div><div class="af-kpi-val" style="color:${yoyColor}">${kpis.lastYoy!=null?(kpis.lastYoy>=0?'+':'')+fv(kpis.lastYoy,1)+'%':'—'}</div></div>
+      <div class="af-kpi"><div class="af-kpi-lbl">Target</div><div class="af-kpi-val">${kpis.ptMean!=null?fv(kpis.ptMean):'—'}</div></div>
+      <div class="af-kpi"><div class="af-kpi-lbl">Upside</div><div class="af-kpi-val" style="color:${kpis.ptUpside>0?'var(--green)':kpis.ptUpside<0?'var(--red)':'var(--text3)'}">${kpis.ptUpside!=null?(kpis.ptUpside>=0?'+':'')+fv(kpis.ptUpside,1)+'%':'—'}</div></div>
     </div>
     <div class="af-chart-card" style="margin-bottom:8px">
       <div class="af-chart-lbl">Precio semanal · Volumen · Revenue growth (área verde)</div>
@@ -192,9 +215,17 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
       <div class="af-chart-lbl">P/E TRAILING — Evolución semanal (precio / EPS trailing 4Q)</div>
       <svg id="afPeSvg" class="af-sub-svg" height="100"></svg>
     </div>
-    <div class="af-chart-card">
+    <div class="af-chart-card" style="margin-bottom:8px">
       <div class="af-chart-lbl">Drawdown desde ATH</div>
       <svg id="afDdSvg" class="af-sub-svg" height="90"></svg>
+    </div>
+    <div class="af-chart-card" style="margin-bottom:8px">
+      <div class="af-chart-lbl">Fundamentals (TTM)</div>
+      <div id="afFundamentals" style="padding:12px 16px 16px;display:flex;gap:16px;flex-wrap:wrap"></div>
+    </div>
+    <div class="af-chart-card">
+      <div class="af-chart-lbl">Consenso analistas · últimos 12 meses</div>
+      <svg id="afConSvg" class="af-sub-svg" height="90"></svg>
     </div>
   `;
 
@@ -287,6 +318,22 @@ function afRender(ticker,name,curr,price,ohlcv,revQ,revAnn,dd,peData,kpis,revQCo
   afDrawRevBars('afRevSvg', revQCombined?.length>=4?revQCombined:(revAnn.length>=2?revAnn:revQ));
   afDrawPeChart('afPeSvg', peData);
   afDrawBars('afDdSvg', dd, v=>v.toFixed(0)+'%', 'rgba(255,64,96,.7)');
+
+  // ── Fundamentals card ──
+  const fmtPct=v=>v!=null&&!isNaN(v)?((v>=0?'+':'')+fn2(v,1)+'%'):'—';
+  const fmtR=v=>v!=null&&!isNaN(v)?fn2(v,2):'—';
+  const fundItems=[
+    {lbl:'Gross Margin',val:fmtPct(kpis.grossMargin)},
+    {lbl:'Net Margin',  val:fmtPct(kpis.netMargin)},
+    {lbl:'ROE',         val:fmtPct(kpis.roe)},
+    {lbl:'Rev Growth',  val:fmtPct(kpis.revGrowth)},
+    {lbl:'EPS Growth',  val:fmtPct(kpis.epsGrowth)},
+    {lbl:'D/E Ratio',   val:fmtR(kpis.de)},
+  ];
+  const fundEl=document.getElementById('afFundamentals');
+  if(fundEl)fundEl.innerHTML=fundItems.map(f=>`<div class="af-kpi"><div class="af-kpi-lbl">${f.lbl}</div><div class="af-kpi-val" style="font-size:13px">${f.val}</div></div>`).join('');
+
+  if(fhRec?.length)afDrawConsensus('afConSvg',fhRec);
 }
 
 function afDrawRevBars(id, data){
@@ -454,6 +501,47 @@ function afDrawBars(id, data, fmtY, color){
   const worst=Math.min(...vals);
   el.innerHTML=`${g}<line x1="${PL}" y1="${y0}" x2="${W-PR}" y2="${y0}" stroke="rgba(255,255,255,.12)" stroke-width="1"/>${bars}
   <text x="${W-PR-2}" y="${H-PB+14}" text-anchor="end" style="font-size:8px;fill:var(--red);font-family:'IBM Plex Mono',monospace">Máx: ${fmtY(worst)}</text>`;
+}
+
+function afDrawConsensus(id, data){
+  const el=document.getElementById(id);if(!el||!data.length)return;
+  const W=el.clientWidth||900,H=90,PL=8,PR=8,PT=16,PB=28;
+  const cW=W-PL-PR,cH=H-PT-PB;
+  const recent=data.slice().sort((a,b)=>new Date(a.period)-new Date(b.period)).slice(-12);
+  const n=recent.length;if(!n)return;
+  const gap=cW/n;
+  const bw=Math.max(4,gap*0.82);
+  const xS=i=>PL+i*gap+gap/2;
+  const totals=recent.map(r=>(r.strongBuy||0)+(r.buy||0)+(r.hold||0)+(r.sell||0)+(r.strongSell||0));
+  const maxT=Math.max(...totals,1);
+  let bars='';
+  recent.forEach((r,i)=>{
+    const x=(xS(i)-bw/2).toFixed(1);
+    const buys=(r.strongBuy||0)+(r.buy||0);
+    const holds=r.hold||0;
+    const sells=(r.sell||0)+(r.strongSell||0);
+    let yy=PT+cH;
+    const seg=(v,clr)=>{
+      if(!v)return'';
+      const h=((v/maxT)*cH).toFixed(1);
+      yy-=parseFloat(h);
+      return`<rect x="${x}" y="${yy.toFixed(1)}" width="${bw.toFixed(1)}" height="${h}" fill="${clr}" rx="1"/>`;
+    };
+    bars+=seg(sells,'rgba(255,64,96,.75)');
+    bars+=seg(holds,'rgba(200,218,240,.3)');
+    bars+=seg(buys,'rgba(16,200,120,.75)');
+    const d=new Date(r.period);
+    bars+=`<text x="${xS(i).toFixed(1)}" y="${H-8}" text-anchor="middle" style="font-size:6.5px;fill:rgba(200,218,240,.4);font-family:'IBM Plex Mono',monospace">${d.getMonth()+1}/${String(d.getFullYear()).slice(2)}</text>`;
+    if(i===n-1){
+      const total=buys+holds+sells;
+      if(total>0){
+        const pctBuy=Math.round(buys/total*100);
+        const yTop=PT+cH-((totals[i]/maxT)*cH)-6;
+        bars+=`<text x="${xS(i).toFixed(1)}" y="${yTop.toFixed(1)}" text-anchor="middle" style="font-size:7px;fill:rgba(16,200,120,.85);font-weight:700;font-family:'IBM Plex Mono',monospace">${pctBuy}%↑</text>`;
+      }
+    }
+  });
+  el.innerHTML=bars;
 }
 
 // Responsive resize
