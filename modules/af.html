@@ -97,11 +97,12 @@ window.afLoad=async()=>{
     const stats=qResult?.defaultKeyStatistics||{};
     const priceInfo=qResult?.price||{};
 
-    // Revenue trimestral (últimos 4 trimestres) — solo para P/E trailing
+    // Revenue trimestral (últimos 4 trimestres)
     const revQ=[...incQ].reverse().map(q=>({
       date:q.endDate?.raw*1000,
       rev:q.totalRevenue?.raw,
-      eps:q.basicEPS?.raw
+      eps:q.basicEPS?.raw,
+      ni:q.netIncome?.raw
     })).filter(q=>q.date&&q.rev);
     revQ.forEach((q,i)=>{if(i>=4)q.yoy=pct(q.rev,revQ[i-4].rev);});
 
@@ -118,7 +119,7 @@ window.afLoad=async()=>{
     const qFirstMs=revQ.length?revQ[0].date:Infinity;
     const synthQ=[];
     revAnn.filter(yr=>yr.date<qFirstMs).forEach(yr=>{
-      for(let k=3;k>=0;k--){const d=new Date(yr.date);d.setMonth(d.getMonth()-k*3);synthQ.push({date:d.getTime(),rev:yr.rev/4,eps:yr.eps!=null?yr.eps/4:null,synth:true});}
+      for(let k=3;k>=0;k--){const d=new Date(yr.date);d.setMonth(d.getMonth()-k*3);synthQ.push({date:d.getTime(),rev:yr.rev/4,eps:yr.eps!=null?yr.eps/4:null,ni:yr.ni!=null?yr.ni/4:null,synth:true});}
     });
     const revQCombined=[...synthQ,...revQ].sort((a,b)=>a.date-b.date);
     revQCombined.forEach((q,i)=>{if(i>=4)q.yoy=pct(q.rev,revQCombined[i-4].rev);});
@@ -131,8 +132,13 @@ window.afLoad=async()=>{
     });
 
     // ── P/E estimate per week (price / trailing 4Q EPS) ──
-    // Uses revQCombined so EPS history covers the full chart range
-    const epsHistory=revQCombined.map(q=>({date:q.date,eps:q.eps})).filter(q=>q.eps!=null);
+    const sharesOut=stats.sharesOutstanding?.raw||stats.impliedSharesOutstanding?.raw;
+    const epsHistory=revQCombined.map(q=>{
+      // Prefer basicEPS, fall back to netIncome/shares
+      let eps=q.eps;
+      if(eps==null&&q.ni!=null&&sharesOut)eps=q.ni/sharesOut;
+      return{date:q.date,eps};
+    }).filter(q=>q.eps!=null&&q.eps>0);
     const peData=ohlcv.map(d=>{
       const ms=d.t*1000;
       const trailing=epsHistory.filter(e=>e.date<=ms).slice(-4);
