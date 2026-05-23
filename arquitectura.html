@@ -133,15 +133,15 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
 <!-- ── HEADER ── -->
 <div class="page-header">
   <h1>📈 Dashboard Financiero — Arquitectura del Sistema</h1>
-  <p>Análisis de mercado ARS/USD · CEDEARs · Renta fija · Portafolio personal · Abril 2026</p>
+  <p>Análisis de mercado ARS/USD · CEDEARs · Renta fija · Portafolio personal · Mayo 2026</p>
   <div class="stats-bar">
-    <div class="stat-pill"><strong>8</strong> módulos</div>
-    <div class="stat-pill"><strong>5</strong> tablas DB</div>
-    <div class="stat-pill"><strong>1</strong> Edge Function</div>
+    <div class="stat-pill"><strong>11+</strong> módulos</div>
+    <div class="stat-pill"><strong>11+</strong> tablas DB</div>
+    <div class="stat-pill"><strong>11</strong> Edge Functions</div>
     <div class="stat-pill"><strong>2</strong> canales de alerta</div>
     <div class="stat-pill"><strong>4</strong> temas de color</div>
-      <div class="stat-pill"><strong>3</strong> fuentes externas de datos</div>
-    <div class="stat-pill"><strong>7</strong> módulos planificados</div>
+      <div class="stat-pill"><strong>4</strong> fuentes externas de datos</div>
+    <div class="stat-pill"><strong>2</strong> scripts Python (Windows tasks)</div>
   </div>
 </div>
 
@@ -217,6 +217,31 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         <div class="mod-icon">📉</div>
         <div class="mod-name" style="color:#ff6680">Short Interest</div>
         <div class="mod-sub">Posiciones cortas FINRA · Days to Cover · Evolución histórica x ticker</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🌍</div>
+        <div class="mod-name">AF / Acciones</div>
+        <div class="mod-sub">af.html · Acciones locales y extranjeras</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🔬</div>
+        <div class="mod-name">Análisis</div>
+        <div class="mod-sub">analisis.html · Análisis técnico y fundamental</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🔗</div>
+        <div class="mod-name">Cadena</div>
+        <div class="mod-sub">cadena.html · Cadena de opciones en tiempo real</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🏪</div>
+        <div class="mod-name">Market</div>
+        <div class="mod-sub">market.html · Vista general del mercado</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🇺🇸</div>
+        <div class="mod-name">USA Options</div>
+        <div class="mod-sub">usa-options.html · Opciones de acciones USA</div>
       </div>
     </div>
 
@@ -322,11 +347,11 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         <div class="sec-icon" style="font-size:22px">🐍</div>
         <div>
           <div style="font-size:13px;font-weight:800;color:#f0b020">Scripts Python</div>
-          <div style="font-size:10px;color:#7a9ec0">Actualización de precios ARS</div>
+          <div style="font-size:10px;color:#7a9ec0">Precios ARS + USD (Alpaca)</div>
         </div>
       </div>
       <div class="chips">
-        <span class="chip ch-amber">Ejecutado manualmente</span>
+        <span class="chip ch-amber">Windows Task Scheduler</span>
         <span class="chip ch-amber">supabase-py client</span>
         <span class="chip ch-amber">Claude AI (opciones)</span>
       </div>
@@ -365,7 +390,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
       <div class="b-col">
         <div class="b-col-icon">🗄️</div>
         <div class="b-col-name">PostgreSQL</div>
-        <div class="b-col-sub">5 tablas · Sin RLS crítico<br>Anon key en frontend<br>Service key en scripts</div>
+        <div class="b-col-sub">11+ tablas · RLS off en resumen<br>Anon key en frontend<br>Service key en scripts</div>
       </div>
       <div class="b-col">
         <div class="b-col-icon">⚡</div>
@@ -374,8 +399,8 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
       </div>
       <div class="b-col">
         <div class="b-col-icon">🔧</div>
-        <div class="b-col-name">Edge Function</div>
-        <div class="b-col-sub">Deno · <code style="background:rgba(0,0,0,.3);font-size:9px">yahoo-prices</code><br>JWT verification OFF<br>Proxy Yahoo + Rava histórico</div>
+        <div class="b-col-name">11 Edge Functions</div>
+        <div class="b-col-sub">Deno · JWT OFF · yahoo-prices<br>alertas-engine · fetch-fred<br>fetch-historical · finra-si<br>finra-short-volume · insider-*<br>preciocheck-proxy<br><strong>update-portafolio-resumen</strong></div>
       </div>
     </div>
   </div>
@@ -387,8 +412,8 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
     <div class="sec-row">
       <div class="sec-icon">🗄️</div>
       <div>
-        <div class="sec-title" style="color:#48aaff">Base de Datos — 5 Tablas</div>
-        <div class="sec-sub">PostgreSQL · Actualización de precios vía scripts Python · Lectura vía Supabase JS client</div>
+        <div class="sec-title" style="color:#48aaff">Base de Datos — 11+ Tablas</div>
+        <div class="sec-sub">PostgreSQL · Python via Task Scheduler · Edge Function update-portafolio-resumen via pg_cron</div>
       </div>
     </div>
     <div class="db-grid">
@@ -450,6 +475,36 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         <div class="db-note">Log de notificaciones<br>enviadas</div>
       </div>
 
+      <div class="db-table">
+        <div class="db-table-name">📈 opciones_rt</div>
+        <div class="db-table-cols">symbol · kind (CALL/PUT)<br>last · bid · ask · strike<br>previous_close<br>underlying_asset · expiration</div>
+        <div class="db-note">Precios RT de opciones IAMC</div>
+      </div>
+      <div class="db-table">
+        <div class="db-table-name">⚙️ operaciones</div>
+        <div class="db-table-cols">id · user_id · nombre<br>subyacente · fecha · estado<br>patas (JSON) · pnl_realizado</div>
+        <div class="db-note">Estrategias de opciones<br>patas = array de legs</div>
+      </div>
+      <div class="db-table">
+        <div class="db-table-name">💸 trades</div>
+        <div class="db-table-cols">id · user_email · ticker_ars<br>cantidad · precio_compra_ars<br>precio_venta_ars · ganancia_usd</div>
+        <div class="db-note">Cierres → ganancia realizada</div>
+      </div>
+      <div class="db-table">
+        <div class="db-table-name">🔢 cedear_ratios</div>
+        <div class="db-table-cols">symbol · ratio · updated_at</div>
+        <div class="db-note">Ratio conversión CEDEAR → ADR</div>
+      </div>
+      <div class="db-table" style="border-color:rgba(0,229,168,.3)">
+        <div class="db-table-name" style="color:#00e5a8">📊 portafolio_resumen</div>
+        <div class="db-table-cols">user_email<br>total_value_usd · total_invested_usd<br>pnl_total_usd/pct<br>pnl_diario_usd/pct · updated_at</div>
+        <div class="db-note">Escrito por edge fn (pg_cron 5min)<br>+ trigger tras cada mutación</div>
+      </div>
+      <div class="db-table" style="border-color:rgba(0,229,168,.3)">
+        <div class="db-table-name" style="color:#00e5a8">📅 pnl_diario</div>
+        <div class="db-table-cols">user_email · fecha<br>valor_usd · pnl_usd · pnl_pct</div>
+        <div class="db-note">Serie histórica → calendario<br>+ sparkline de rendimiento</div>
+      </div>
     </div>
 
     <div style="margin-top:14px;font-size:10px;font-weight:700;text-transform:uppercase;color:#4a6e90;margin-bottom:8px;letter-spacing:.6px">Nota especial — Factor /100</div>
