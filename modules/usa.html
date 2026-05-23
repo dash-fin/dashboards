@@ -139,7 +139,7 @@
     <button class="stab"        id="ustab-smartmoney" onclick="usTab('smartmoney',this);if(!window._smLoaded)window.loadSmartMoney()">Smart Money</button>
     <button class="stab"        id="ustab-insider" onclick="usTab('insider',this)">Insider</button>
     <button class="stab"        id="ustab-af"      onclick="usTab('af',this)">AF vs AT</button>
-    <button class="stab"        id="ustab-screener" onclick="usTab('screener',this);if(!window._peEmaData)peEmaLoad()">P/E × EMA200</button>
+    <button class="stab"        id="ustab-screener" onclick="usTab('screener',this)">P/E × EMA200</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="sub-tabs-meta" id="usLastUpdate">—</div>
@@ -1023,7 +1023,7 @@ window.usTab = (name, btn) => {
   if(name==='macro')      { if(!window._macroLoaded) window.loadMacro(); }
   if(name==='smartmoney') { if(!window._smLoaded) window.loadSmartMoney(); }
   if(name==='insider') { if(!window._insLoaded) window.insLoad(); }
-  if(name==='screener') { /* auto-load triggered from tab onclick */ }
+  if(name==='screener') { if(!window._peEmaData && typeof window.peEmaLoad==='function') window.peEmaLoad(); }
   if(name==='af') {
     const afPanel = document.getElementById('uspanel-af');
     if (afPanel && !afPanel.dataset.loaded) {

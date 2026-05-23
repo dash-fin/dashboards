@@ -576,6 +576,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <button class="dsub" onclick="drawerNav('analysis','macro')"><span class="dsub-dot"></span><span class="dsub-label">Macro</span></button>
           <button class="dsub" onclick="drawerNav('analysis','insider')"><span class="dsub-dot"></span><span class="dsub-label">Insider</span></button>
           <button class="dsub" onclick="drawerNav('analysis','smartmoney')"><span class="dsub-dot"></span><span class="dsub-label">Smart Money</span></button>
+          <button class="dsub" onclick="drawerNav('analysis','screener')"><span class="dsub-dot"></span><span class="dsub-label">P/E × EMA200</span></button>
         </div>
 
         <button class="dmod" id="dmod-usaoptions" onclick="dmodToggle(this,'usaoptions')">
@@ -1209,7 +1210,7 @@ const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',us
 // Alias: nombre de módulo → archivo HTML a cargar
 const _moduleFile={market:'usa',analysis:'usa',usaoptions:'usa-options'};
 // Tabs visibles por módulo (filtra los de usa.html)
-const _moduleTabs={market:['mercado','sectores','rrg','topology'],analysis:['shortint','macro','insider','smartmoney','af']};
+const _moduleTabs={market:['mercado','sectores','rrg','topology'],analysis:['shortint','macro','insider','smartmoney','af','screener']};
 // Tab por defecto por módulo
 const _moduleDefaultTab={market:'mercado',analysis:'shortint'};
 // Navegar a módulo + sub-tab desde el drawer
