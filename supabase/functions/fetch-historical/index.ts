@@ -6,10 +6,11 @@
 // Proxy de yahoo-history para cuando se necesita un rango específico
 // que no está en historico_precios (datos pre-2025-05-15)
 //
-// POST { symbols: ["AAPL","GGAL"], from: "2024-01-01", to: "2025-05-14" }
+// POST { symbols: ["AAPL","GGAL"], from: "2024-01-01", to: "2025-05-14", persist: true }
 //   → { "AAPL": [{fecha, close}], "GGAL": [...] }
 //
 // Si los datos están en price_cache, los sirve de ahí sin pegarle a Yahoo.
+// Con persist:true también upsertea a historico_precios (PK: symbol+fecha).
 // ══════════════════════════════════════════════════════════════════
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -78,7 +79,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { symbols, from, to } = await req.json();
+    const { symbols, from, to, persist } = await req.json();
     if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
       return new Response(JSON.stringify({ error: "symbols[] requerido" }), {
         status: 400, headers: { ...CORS, "Content-Type": "application/json" },
@@ -146,6 +147,30 @@ serve(async (req) => {
       }
     }
 
+    // Persistir a historico_precios si fue solicitado (PK: symbol+fecha)
+    let persistInfo: any = null;
+    if (persist) {
+      // Service role para bypass RLS en upserts
+      const srKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const sbSR = createClient('https://endymbpdayeidromxayb.supabase.co', srKey);
+      const rows: { symbol: string; fecha: string; close: number }[] = [];
+      for (const sym of symbols) {
+        const arr = result[sym] || [];
+        for (const r of arr) rows.push({ symbol: sym, fecha: r.fecha, close: r.close });
+      }
+      const CHUNK = 1000;
+      let inserted = 0;
+      const errs: string[] = [];
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const { error } = await sbSR.from('historico_precios').upsert(
+          rows.slice(i, i + CHUNK),
+          { onConflict: 'symbol,fecha' }
+        );
+        if (error) errs.push(error.message); else inserted += Math.min(CHUNK, rows.length - i);
+      }
+      persistInfo = { total: rows.length, inserted, errors: errs };
+    }
+
     // FILTRAR POR RANGO EXACTO: las APIs de Yahoo devuelven más datos del rango
     for (const sym of symbols) {
       if (result[sym] && result[sym].length > 0) {
@@ -155,7 +180,9 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify(result), {
+    const responseBody: any = result;
+    if (persistInfo) responseBody._persist = persistInfo;
+    return new Response(JSON.stringify(responseBody), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (err) {

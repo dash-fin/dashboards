@@ -1993,24 +1993,48 @@ function rrgSma(arr, p) {
     let s = 0; for (let j=i-p+1; j<=i; j++) s += arr[j]; return s/p;
   });
 }
+function rrgRollMean(arr, p) {
+  const r = []; let s = 0;
+  for (let i=0; i<arr.length; i++) {
+    s += arr[i];
+    if (i >= p) s -= arr[i-p];
+    r.push(i >= p-1 ? s/p : null);
+  }
+  return r;
+}
+function rrgRollStd(arr, p, means) {
+  return arr.map((_,i) => {
+    if (i < p-1 || means[i] == null) return null;
+    let s = 0; const m = means[i];
+    for (let j=i-p+1; j<=i; j++) { const d = arr[j]-m; s += d*d; }
+    return Math.sqrt(s / (p-1));
+  });
+}
 function rrgDailyMap(series) {
   const m = new Map();
   series.forEach(({date,close}) => m.set(date, Number(close)));
   return m;
 }
-// JdK Enhanced daily: EMA5 -> ratio vs SMA5 -> ROC5 -> EMA5 -> momentum
+// JdK Z-score daily: window=10, ROC base 21 days
 function rrgCalcSymbolDaily(dayMap, spyMap) {
   const days = [...spyMap.keys()].filter(k => dayMap.has(k)).sort();
-  if (days.length < 25) return null;
-  const rawRS  = days.map(k => dayMap.get(k) / spyMap.get(k) * 100);
-  const emaRS  = rrgEma(rawRS, 5);
-  const smaER  = rrgSma(emaRS, 5);
-  const ratio  = emaRS.map((v,i) => smaER[i] ? v/smaER[i]*100 : 100);
-  const roc    = ratio.map((v,i) => i>=5 ? (v-ratio[i-5])/ratio[i-5] : 0);
-  const emaRoc = rrgEma(roc, 5);
-  const mom    = emaRoc.map(v => 100 + 100*v);
-  const n = ratio.length, tail = RRG_TAIL_D+1;
-  return ratio.slice(-tail).map((r,i) => [r, mom[n-tail+i]]);
+  const W = 10, P = 21;
+  if (days.length < W + P + RRG_TAIL_D + 5) return null;
+  const rs    = days.map(k => dayMap.get(k) / spyMap.get(k) * 100);
+  const rsM   = rrgRollMean(rs, W);
+  const rsS   = rrgRollStd(rs, W, rsM);
+  const ratio = rs.map((v,i) => (rsM[i]!=null && rsS[i]) ? (v - rsM[i])/rsS[i] + 100 : null);
+  const roc   = ratio.map((v,i) => (v!=null && i>=P && ratio[i-P]) ? (v/ratio[i-P]-1)*100 : null);
+  const rocV  = roc.map(v => v ?? 0);
+  const rocM  = rrgRollMean(rocV, W);
+  const rocS  = rrgRollStd(rocV, W, rocM);
+  const mom   = roc.map((v,i) => (v!=null && rocM[i]!=null && rocS[i]) ? (v - rocM[i])/rocS[i] + 100 : null);
+  const pairs = [];
+  for (let i=0; i<ratio.length; i++) {
+    if (ratio[i] != null && mom[i] != null) pairs.push([ratio[i], mom[i]]);
+  }
+  if (pairs.length < 2) return null;
+  return pairs.slice(-(RRG_TAIL_D+1));
 }
 function rrgWeeklyMap(series) {
   const m = new Map();
@@ -2023,25 +2047,32 @@ function rrgWeeklyMap(series) {
   });
   return m;
 }
-// JdK Enhanced weekly: EMA14 -> ratio vs SMA14 -> ROC10 -> EMA14 -> momentum
+// JdK Z-score weekly (RRG-Lite): window=14, ROC base 52 weeks
 function rrgCalcSymbol(weekMap, spyMap) {
   const weeks = [...spyMap.keys()].filter(k => weekMap.has(k)).sort();
-  if (weeks.length < 52) return null;
-  const rawRS  = weeks.map(k => weekMap.get(k) / spyMap.get(k) * 100);
-  const emaRS  = rrgEma(rawRS, 14);
-  const smaER  = rrgSma(emaRS, 14);
-  const ratio  = emaRS.map((v,i) => smaER[i] ? v/smaER[i]*100 : 100);
-  const roc    = ratio.map((v,i) => i>=10 ? (v-ratio[i-10])/ratio[i-10] : 0);
-  const emaRoc = rrgEma(roc, 14);
-  const mom    = emaRoc.map(v => 100 + 100*v);
-  const n = ratio.length, tail = RRG_TAIL+1;
-  return ratio.slice(-tail).map((r,i) => [r, mom[n-tail+i]]);
+  const W = 14, P = 52;
+  if (weeks.length < W + P + RRG_TAIL + 5) return null;
+  const rs    = weeks.map(k => weekMap.get(k) / spyMap.get(k) * 100);
+  const rsM   = rrgRollMean(rs, W);
+  const rsS   = rrgRollStd(rs, W, rsM);
+  const ratio = rs.map((v,i) => (rsM[i]!=null && rsS[i]) ? (v - rsM[i])/rsS[i] + 100 : null);
+  const roc   = ratio.map((v,i) => (v!=null && i>=P && ratio[i-P]) ? (v/ratio[i-P]-1)*100 : null);
+  const rocV  = roc.map(v => v ?? 0);
+  const rocM  = rrgRollMean(rocV, W);
+  const rocS  = rrgRollStd(rocV, W, rocM);
+  const mom   = roc.map((v,i) => (v!=null && rocM[i]!=null && rocS[i]) ? (v - rocM[i])/rocS[i] + 100 : null);
+  const pairs = [];
+  for (let i=0; i<ratio.length; i++) {
+    if (ratio[i] != null && mom[i] != null) pairs.push([ratio[i], mom[i]]);
+  }
+  if (pairs.length < 2) return null;
+  return pairs.slice(-(RRG_TAIL+1));
 }
 
 async function rrgLoad() {
   rrgLoaded = true;
   const allSyms = ['SPY', ...RRG_SECTORS, ...RRG_ACCIONES];
-  const since = new Date(); since.setDate(since.getDate()-560);
+  const since = new Date(); since.setDate(since.getDate()-1500);
   const sinceStr = since.toISOString().slice(0,10);
   document.getElementById('rrg-meta').textContent = 'Cargando datos…';
   try {
@@ -2049,7 +2080,7 @@ async function rrgLoad() {
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
     const results = await Promise.all(
       allSyms.map(sym =>
-        fetch(`${base}?select=symbol,fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=600`, {headers:SBH})
+        fetch(`${base}?select=symbol,fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=1500`, {headers:SBH})
           .then(r => r.ok ? r.json() : [])
       )
     );
@@ -2329,14 +2360,29 @@ window.rrgAddSymbol = async function() {
   try {
     const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
-    const since = new Date(); since.setDate(since.getDate()-420);
+    const since = new Date(); since.setDate(since.getDate()-1500);
     const sinceStr = since.toISOString().slice(0,10);
-    const [symRows, spyRows] = await Promise.all([
-      fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
-      fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
+    let [symRows, spyRows] = await Promise.all([
+      fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=1500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
+      fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=1500`,{headers:SBH}).then(r=>r.ok?r.json():[]),
     ]);
+    // On-demand fallback: si <350 días en DB, bajar de Yahoo + persistir (Z-score necesita ~74 semanas warmup)
+    if (symRows.length < 350) {
+      meta.textContent = `${sym}: bajando histórico de Yahoo…`;
+      try {
+        const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/fetch-historical', {
+          method:'POST',
+          headers:{'Content-Type':'application/json',...SBH},
+          body: JSON.stringify({symbols:[sym], from:sinceStr, to: new Date().toISOString().slice(0,10), persist:true})
+        });
+        const data = await r.json();
+        if (data[sym] && data[sym].length) {
+          symRows = data[sym].map(d => ({fecha:d.fecha, close:d.close}));
+        }
+      } catch(_) {}
+    }
     if (!symRows.length) {
-      meta.textContent = `${sym}: no encontrado en historico_precios`;
+      meta.textContent = `${sym}: no se pudo obtener data`;
       setTimeout(()=>meta.textContent=prevMeta, 2500);
       return;
     }
@@ -2401,7 +2447,7 @@ window.rrgScanSP500 = async function(){
     const allSyms = await rrgGetSymbolList();
     if (!allSyms.length) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en historico_precios</div>'; return; }
     meta.textContent = `${allSyms.length} símbolos · cargando histórico…`;
-    const since = new Date(); since.setDate(since.getDate()-420);
+    const since = new Date(); since.setDate(since.getDate()-1500);
     const sinceStr = since.toISOString().slice(0,10);
     const spyResp = await fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=600`, {headers:SBH});
     const spyRows = spyResp.ok ? await spyResp.json() : [];
