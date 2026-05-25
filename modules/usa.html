@@ -2026,13 +2026,13 @@ function rrgWeeklyMap(series) {
 // JdK Enhanced weekly: EMA14 -> ratio vs SMA14 -> ROC10 -> EMA14 -> momentum
 function rrgCalcSymbol(weekMap, spyMap) {
   const weeks = [...spyMap.keys()].filter(k => weekMap.has(k)).sort();
-  if (weeks.length < 52) return null;
+  if (weeks.length < 40) return null;
   const rawRS  = weeks.map(k => weekMap.get(k) / spyMap.get(k) * 100);
   const emaRS  = rrgEma(rawRS, 14);
   const smaER  = rrgSma(emaRS, 14);
   const ratio  = emaRS.map((v,i) => smaER[i] ? v/smaER[i]*100 : 100);
-  const roc    = ratio.map((v,i) => i>=10 ? (v-ratio[i-10])/ratio[i-10] : 0);
-  const emaRoc = rrgEma(roc, 14);
+  const roc    = ratio.map((v,i) => i>=4 ? (v-ratio[i-4])/ratio[i-4] : 0);
+  const emaRoc = rrgEma(roc, 10);
   const mom    = emaRoc.map(v => 100 + 100*v);
   const n = ratio.length, tail = RRG_TAIL+1;
   return ratio.slice(-tail).map((r,i) => [r, mom[n-tail+i]]);
