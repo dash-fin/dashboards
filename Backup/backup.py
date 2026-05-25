@@ -184,52 +184,60 @@ def backup_schedulers(base_dir: Path) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     count = 0
 
-    # 1) Windows Task Scheduler — listado completo
+    # 1) Windows Task Scheduler — listado solo dashboard
+    DASHBOARD_TASKS_L = [
+        "\\Dashboard", "\\Dashboard USA", "\\Dash",
+        "\\Backup Dashboard Financiero", "\\Backup Ortopedia Caseros",
+        "\\Monitor Bateria Telegram",
+    ]
     try:
-        r = subprocess.run(
-            ["schtasks.exe", "/query", "/fo", "LIST", "/v"],
-            capture_output=True, text=True, encoding="cp1252", errors="replace", timeout=30
-        )
-        if r.returncode == 0 and r.stdout:
-            (out_dir / "windows-tasks.txt").write_text(r.stdout, encoding="utf-8")
-            print(f"     📋 windows-tasks.txt        {len(r.stdout)//1024} KB")
+        chunks = []
+        for tn in DASHBOARD_TASKS_L:
+            r = subprocess.run(
+                ["schtasks.exe", "/query", "/tn", tn, "/fo", "LIST", "/v"],
+                capture_output=True, text=True, encoding="cp1252", errors="replace", timeout=15
+            )
+            if r.returncode == 0 and r.stdout:
+                chunks.append(f"\n{'='*60}\n{tn}\n{'='*60}\n{r.stdout}")
+        if chunks:
+            content = "".join(chunks)
+            (out_dir / "windows-tasks.txt").write_text(content, encoding="utf-8")
+            print(f"     📋 windows-tasks.txt        {len(content)//1024} KB (dashboard only)")
             count += 1
     except Exception as e:
         print(f"     ⚠ windows-tasks: {e}")
 
-    # 2) Windows tasks — XML completo de cada task del usuario (restore-ready)
+    # 2) Windows tasks — XML completo SOLO de tasks del dashboard (restore-ready)
+    DASHBOARD_TASKS = [
+        "\\Dashboard",
+        "\\Dashboard USA",
+        "\\Dash",
+        "\\Backup Dashboard Financiero",
+        "\\Backup Ortopedia Caseros",
+        "\\Monitor Bateria Telegram",
+    ]
     try:
-        r = subprocess.run(
-            ["schtasks.exe", "/query", "/fo", "csv"],
-            capture_output=True, text=True, encoding="cp1252", errors="replace", timeout=30
-        )
-        if r.returncode == 0:
-            xml_dir = out_dir / "windows-tasks-xml"
-            xml_dir.mkdir(exist_ok=True)
-            # Parse task names from CSV (first column)
-            tasks = set()
-            for line in r.stdout.splitlines()[1:]:
-                if not line.strip(): continue
-                name = line.split(",", 1)[0].strip('"')
-                # Only top-level user tasks (no system tasks under \Microsoft\…)
-                if name.startswith("\\") and not name.startswith("\\Microsoft"):
-                    tasks.add(name)
-            for tn in tasks:
-                try:
-                    rx = subprocess.run(
-                        ["schtasks.exe", "/query", "/tn", tn, "/xml"],
-                        capture_output=True, text=True, encoding="utf-16-le",
-                        errors="replace", timeout=15
-                    )
-                    if rx.returncode == 0 and rx.stdout:
-                        safe = tn.lstrip("\\").replace("\\", "_").replace(" ", "_") + ".xml"
-                        (xml_dir / safe).write_text(rx.stdout, encoding="utf-8")
-                except Exception:
-                    pass
-            n = len(list(xml_dir.glob("*.xml")))
-            if n:
-                print(f"     📄 windows-tasks-xml/       {n} tasks")
-                count += n
+        xml_dir = out_dir / "windows-tasks-xml"
+        xml_dir.mkdir(exist_ok=True)
+        # Clean previous (might have system tasks from old runs)
+        for old in xml_dir.glob("*.xml"):
+            old.unlink()
+        for tn in DASHBOARD_TASKS:
+            try:
+                rx = subprocess.run(
+                    ["schtasks.exe", "/query", "/tn", tn, "/xml"],
+                    capture_output=True, text=True, encoding="utf-16-le",
+                    errors="replace", timeout=15
+                )
+                if rx.returncode == 0 and rx.stdout.strip():
+                    safe = tn.lstrip("\\").replace("\\", "_").replace(" ", "_") + ".xml"
+                    (xml_dir / safe).write_text(rx.stdout, encoding="utf-8")
+            except Exception:
+                pass
+        n = len(list(xml_dir.glob("*.xml")))
+        if n:
+            print(f"     📄 windows-tasks-xml/       {n} tasks (dashboard only)")
+            count += n
     except Exception as e:
         print(f"     ⚠ windows-tasks-xml: {e}")
 
