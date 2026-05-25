@@ -18,19 +18,37 @@ Datos críticos: portafolio, alertas.
 Datos reconstituibles: mercado, mercado_usa (via scripts Python).
 """
 
+import os
 import json
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# Cargar .env.monitor automáticamente (mismo archivo que usan monitor_*.sh)
+def _load_env_file():
+    for p in [Path("/mnt/c/dashboard/Github/.env.monitor"),
+              Path(__file__).parent.parent / ".env.monitor",
+              Path("C:/Dashboard/Github/.env.monitor")]:
+        try:
+            if p.exists():
+                for line in p.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+                return
+        except Exception:
+            pass
+_load_env_file()
+
 # ── Configuración ────────────────────────────────────────────────────
-SB_URL       = "https://endymbpdayeidromxayb.supabase.co"
-SB_KEY       = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk"
-import os
-SB_MGMT_TOKEN = os.environ.get("SB_MGMT_TOKEN", "")  # set via env var (Supabase Management API PAT)
-PROJECT_NAME = "Dashboard Financiero"
-PROJECT_REF  = "endymbpdayeidromxayb"
+SB_URL        = "https://endymbpdayeidromxayb.supabase.co"
+SB_KEY        = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk"
+SB_MGMT_TOKEN = os.environ.get("SB_MGMT_TOKEN", "")  # via .env.monitor
+PROJECT_NAME  = "Dashboard Financiero"
+PROJECT_REF   = "endymbpdayeidromxayb"
 
 # Orden INSERT: padres antes que hijos
 TABLES_INSERT_ORDER = [
