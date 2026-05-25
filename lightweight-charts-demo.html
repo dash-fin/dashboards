@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo - Lightweight Charts</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 20px;
+    }
+    .chart-container {
+      background: #16162a;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .chart-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .chart-box {
+      flex: 1;
+      min-width: 350px;
+      background: #16162a;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .chart-box h2 {
+      font-size: 14px;
+      color: #aaa;
+      margin-bottom: 10px;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .info-card {
+      background: #1e1e38;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+    .info-card .label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .info-card .value {
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .info-card .value.up { color: #26a69a; }
+    .info-card .value.down { color: #ef5350; }
+    .info-card .value.neutral { color: #ffb74d; }
+    .footer {
+      margin-top: 20px;
+      padding: 16px;
+      background: #1e1e38;
+      border-radius: 10px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.6;
+    }
+    .footer code {
+      background: #2a2a48;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #7c7cf0;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📊 Lightweight Charts — Demo</h1>
+<p class="subtitle">Librería de 45KB del equipo de TradingView. Corriendo en vivo acá.</p>
+
+<div class="chart-container">
+  <div id="chart-1"></div>
+</div>
+
+<div class="chart-row">
+  <div class="chart-box">
+    <h2>📈 RSI (14)</h2>
+    <div id="chart-rsi"></div>
+  </div>
+  <div class="chart-box">
+    <h2>📊 Volumen</h2>
+    <div id="chart-vol"></div>
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-card">
+    <div class="label">Último</div>
+    <div class="value up" id="last-price">$7,425.50</div>
+  </div>
+  <div class="info-card">
+    <div class="label">Variación</div>
+    <div class="value up" id="change">+2.34%</div>
+  </div>
+  <div class="info-card">
+    <div class="label">Máximo</div>
+    <div class="value neutral" id="high">$7,450.00</div>
+  </div>
+  <div class="info-card">
+    <div class="label">Mínimo</div>
+    <div class="value" id="low">$7,210.00</div>
+  </div>
+  <div class="info-card">
+    <div class="label">Volumen</div>
+    <div class="value" id="volume">1.2M</div>
+  </div>
+  <div class="info-card">
+    <div class="label">SMA 20</div>
+    <div class="value neutral" id="sma20">$7,335.00</div>
+  </div>
+</div>
+
+<div class="footer">
+  <strong>🔧 Cómo funciona:</strong><br>
+  • <code>&lt;script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"&gt;&lt;/script&gt;</code><br>
+  • Creás el chart con <code>createChart(document.getElementById('chart'), { width, height })</code><br>
+  • Agregás series con <code>chart.addCandlestickSeries()</code> o <code>chart.addLineSeries()</code><br>
+  • Seteás datos con <code>series.setData([...])</code><br>
+  • 45KB. Sin dependencias. Sin watermark. Sin límites.<br>
+  • Lo mismo que usa TradingView internamente.
+</div>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+// ============================================================
+// DATOS FICTICIOS (simulando YPF últimos ~60 días hábiles)
+// ============================================================
+const startDate = new Date('2026-02-16');
+const daysCount = 60;
+const data = [];
+let price = 7100;
+
+for (let i = 0; i < daysCount; i++) {
+  const d = new Date(startDate);
+  d.setDate(d.getDate() + i);
+  if (d.getDay() === 0 || d.getDay() === 6) continue; // skip weekends
+
+  const volatility = 30 + Math.random() * 50;
+  const trend = Math.sin(i / 12) * 80 + (i * 2.5);
+  const open = price;
+  const close = open + trend * 0.3 + (Math.random() - 0.5) * volatility;
+  const high = Math.max(open, close) + Math.random() * volatility * 0.6;
+  const low = Math.min(open, close) - Math.random() * volatility * 0.6;
+  price = close;
+
+  data.push({
+    time: d.toISOString().split('T')[0],
+    open: Math.round(open * 100) / 100,
+    high: Math.round(high * 100) / 100,
+    low: Math.round(low * 100) / 100,
+    close: Math.round(close * 100) / 100,
+  });
+}
+
+// ============================================================
+// CHART PRINCIPAL — Velas
+// ============================================================
+const chart1 = LightweightCharts.createChart(document.getElementById('chart-1'), {
+  layout: {
+    background: { color: '#16162a' },
+    textColor: '#888',
+  },
+  grid: {
+    vertLines: { color: '#1e1e38' },
+    horzLines: { color: '#1e1e38' },
+  },
+  crosshair: {
+    mode: LightweightCharts.CrosshairMode.Normal,
+  },
+  rightPriceScale: {
+    borderColor: '#2a2a48',
+  },
+  timeScale: {
+    borderColor: '#2a2a48',
+    timeVisible: true,
+  },
+  width: document.getElementById('chart-1').clientWidth || 700,
+  height: 400,
+});
+
+const candlestickSeries = chart1.addCandlestickSeries({
+  upColor: '#26a69a',
+  downColor: '#ef5350',
+  borderDownColor: '#ef5350',
+  borderUpColor: '#26a69a',
+  wickDownColor: '#ef5350',
+  wickUpColor: '#26a69a',
+});
+
+candlestickSeries.setData(data);
+
+// SMA 20 overlay
+const smaData = [];
+const period = 20;
+for (let i = period - 1; i < data.length; i++) {
+  let sum = 0;
+  for (let j = 0; j < period; j++) sum += data[i - j].close;
+  smaData.push({ time: data[i].time, value: Math.round(sum / period * 100) / 100 });
+}
+
+const smaSeries = chart1.addLineSeries({
+  color: '#7c7cf0',
+  lineWidth: 1,
+  lastValueVisible: false,
+  crosshairMarkerVisible: false,
+  priceLineVisible: false,
+});
+smaSeries.setData(smaData);
+
+// ============================================================
+// RSI
+// ============================================================
+function calcRSI(data, period) {
+  const rsi = [];
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const diff = data[i].close - data[i - 1].close;
+    if (diff >= 0) gains += diff; else losses -= diff;
+  }
+  let avgGain = gains / period;
+  let avgLoss = losses / period;
+  rsi.push({ time: data[period].time, value: avgLoss === 0 ? 100 : Math.round(100 - 100 / (1 + avgGain / avgLoss)) });
+
+  for (let i = period + 1; i < data.length; i++) {
+    const diff = data[i].close - data[i - 1].close;
+    const gain = diff >= 0 ? diff : 0;
+    const loss = diff < 0 ? -diff : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    const rs = avgGain / avgLoss;
+    rsi.push({ time: data[i].time, value: Math.round(100 - 100 / (1 + rs)) });
+  }
+  return rsi;
+}
+
+const rsiData = calcRSI(data, 14);
+
+const chartRSI = LightweightCharts.createChart(document.getElementById('chart-rsi'), {
+  layout: { background: { color: '#16162a' }, textColor: '#888' },
+  grid: { vertLines: { color: '#1e1e38' }, horzLines: { color: '#1e1e38' } },
+  rightPriceScale: { borderColor: '#2a2a48', scaleMargins: { top: 0.05, bottom: 0.1 } },
+  timeScale: { borderColor: '#2a2a48', visible: false },
+  width: document.getElementById('chart-rsi').clientWidth || 340,
+  height: 180,
+});
+
+const rsiOverbought = chartRSI.addLineSeries({
+  color: '#ef535055',
+  lineWidth: 1,
+  lineStyle: LightweightCharts.LineStyle.Dashed,
+  lastValueVisible: false,
+  priceLineVisible: false,
+  crosshairMarkerVisible: false,
+});
+rsiOverbought.setData(rsiData.map(d => ({ time: d.time, value: 70 })));
+
+const rsiOversold = chartRSI.addLineSeries({
+  color: '#26a69a55',
+  lineWidth: 1,
+  lineStyle: LightweightCharts.LineStyle.Dashed,
+  lastValueVisible: false,
+  priceLineVisible: false,
+  crosshairMarkerVisible: false,
+});
+rsiOversold.setData(rsiData.map(d => ({ time: d.time, value: 30 })));
+
+const rsiSeries = chartRSI.addLineSeries({
+  color: '#ce93d8',
+  lineWidth: 2,
+  lastValueVisible: true,
+  priceLineVisible: false,
+});
+rsiSeries.setData(rsiData);
+
+// ============================================================
+// VOLUMEN — Histograma
+// ============================================================
+const chartVol = LightweightCharts.createChart(document.getElementById('chart-vol'), {
+  layout: { background: { color: '#16162a' }, textColor: '#888' },
+  grid: { vertLines: { color: '#1e1e38' }, horzLines: { color: '#1e1e38' } },
+  rightPriceScale: { borderColor: '#2a2a48', scaleMargins: { top: 0.1, bottom: 0.05 } },
+  timeScale: { borderColor: '#2a2a48', visible: false },
+  width: document.getElementById('chart-vol').clientWidth || 340,
+  height: 180,
+});
+
+const volumeData = data.map((d, i) => ({
+  time: d.time,
+  value: Math.round(500000 + Math.random() * 1500000 + (i % 5 === 0 ? 800000 : 0)),
+  color: d.close >= d.open ? '#26a69a44' : '#ef535044',
+}));
+
+const volSeries = chartVol.addHistogramSeries({
+  priceFormat: { type: 'volume' },
+  priceScaleId: '',
+});
+volSeries.setData(volumeData);
+
+// ============================================================
+// INFO CARDS
+// ============================================================
+const last = data[data.length - 1];
+const prev = data[data.length - 2];
+const changePct = ((last.close - prev.close) / prev.close * 100);
+document.getElementById('last-price').textContent = '$' + last.close.toLocaleString('es-AR', { minimumFractionDigits: 2 });
+document.getElementById('change').textContent = (changePct >= 0 ? '+' : '') + changePct.toFixed(2) + '%';
+document.getElementById('high').textContent = '$' + last.high.toLocaleString('es-AR', { minimumFractionDigits: 2 });
+document.getElementById('low').textContent = '$' + last.low.toLocaleString('es-AR', { minimumFractionDigits: 2 });
+const totalVol = volumeData.reduce((s, d) => s + d.value, 0);
+document.getElementById('volume').textContent = (totalVol / 1000000).toFixed(1) + 'M';
+document.getElementById('sma20').textContent = '$' + smaData[smaData.length - 1].value.toLocaleString('es-AR', { minimumFractionDigits: 2 });
+
+// Responsive resize
+window.addEventListener('resize', () => {
+  const w1 = document.getElementById('chart-1').clientWidth;
+  const w2 = document.getElementById('chart-rsi').clientWidth;
+  const w3 = document.getElementById('chart-vol').clientWidth;
+  if (w1) chart1.resize(w1, 400);
+  if (w2) chartRSI.resize(w2, 180);
+  if (w3) chartVol.resize(w3, 180);
+});
+</script>
+</body>
+</html>

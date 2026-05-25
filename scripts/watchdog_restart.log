@@ -1,0 +1,171 @@
+[2026-05-25 11:55:01] ARS stale 240962s — restart
+[2026-05-25 11:55:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 11:55:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:00:01] ARS stale 241262s — restart
+[2026-05-25 12:00:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:00:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:05:02] ARS stale 241563s — restart
+[2026-05-25 12:05:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:05:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:10:01] ARS stale 241862s — restart
+[2026-05-25 12:10:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:10:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:15:01] ARS stale 242162s — restart
+[2026-05-25 12:15:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:15:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:20:02] ARS stale 242463s — restart
+[2026-05-25 12:20:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:20:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:25:01] ARS stale 242762s — restart
+[2026-05-25 12:25:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:25:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:30:01] ARS stale 243062s — restart
+[2026-05-25 12:30:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:30:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:35:02] ARS stale 243363s — restart
+[2026-05-25 12:35:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:35:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:40:01] ARS stale 243662s — restart
+[2026-05-25 12:40:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:40:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:45:01] ARS stale 243962s — restart
+[2026-05-25 12:45:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:45:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:50:02] ARS stale 244263s — restart
+[2026-05-25 12:50:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:50:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 12:55:01] ARS stale 244562s — restart
+[2026-05-25 12:55:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 12:55:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:00:01] ARS stale 244862s — restart
+[2026-05-25 13:00:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:00:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:05:02] ARS stale 245163s — restart
+[2026-05-25 13:05:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:05:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:10:02] ARS stale 245463s — restart
+[2026-05-25 13:10:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:10:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:15:02] ARS stale 245763s — restart
+[2026-05-25 13:15:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:15:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:20:01] ARS stale 246062s — restart
+[2026-05-25 13:20:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:20:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:25:01] ARS stale 246362s — restart
+[2026-05-25 13:25:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:25:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:30:01] ARS stale 246662s — restart
+[2026-05-25 13:30:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:30:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:35:02] ARS stale 246963s — restart
+[2026-05-25 13:35:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:35:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:40:01] ARS stale 247262s — restart
+[2026-05-25 13:40:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:40:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:45:01] ARS stale 247562s — restart
+[2026-05-25 13:45:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:45:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:50:01] ARS stale 247862s — restart
+[2026-05-25 13:50:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:50:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 13:55:02] ARS stale 248163s — restart
+[2026-05-25 13:55:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 13:55:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:00:02] ARS stale 248463s — restart
+[2026-05-25 14:00:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:00:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:05:02] ARS stale 248763s — restart
+[2026-05-25 14:05:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:05:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:10:02] ARS stale 249063s — restart
+[2026-05-25 14:10:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:10:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:15:02] ARS stale 249363s — restart
+[2026-05-25 14:15:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:15:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:20:02] ARS stale 249663s — restart
+[2026-05-25 14:20:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:20:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:25:01] ARS stale 249962s — restart
+[2026-05-25 14:25:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:25:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:30:01] ARS stale 250262s — restart
+[2026-05-25 14:30:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:30:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:35:01] ARS stale 250562s — restart
+[2026-05-25 14:35:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:35:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:40:01] ARS stale 250862s — restart
+[2026-05-25 14:40:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:40:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:45:02] ARS stale 251163s — restart
+[2026-05-25 14:45:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:45:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:50:01] ARS stale 251462s — restart
+[2026-05-25 14:50:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:50:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 14:55:01] ARS stale 251762s — restart
+[2026-05-25 14:55:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 14:55:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:00:01] ARS stale 252062s — restart
+[2026-05-25 15:00:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:00:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:05:02] ARS stale 252363s — restart
+[2026-05-25 15:05:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:05:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:10:02] ARS stale 252663s — restart
+[2026-05-25 15:10:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:10:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:15:02] ARS stale 252963s — restart
+[2026-05-25 15:15:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:15:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:20:02] ARS stale 253263s — restart
+[2026-05-25 15:20:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:20:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:25:02] ARS stale 253563s — restart
+[2026-05-25 15:25:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:25:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:30:01] ARS stale 253862s — restart
+[2026-05-25 15:30:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:30:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:35:01] ARS stale 254162s — restart
+[2026-05-25 15:35:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:35:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:40:01] ARS stale 254462s — restart
+[2026-05-25 15:40:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:40:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:45:02] ARS stale 254763s — restart
+[2026-05-25 15:45:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:45:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:50:01] ARS stale 255062s — restart
+[2026-05-25 15:50:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:50:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 15:55:01] ARS stale 255362s — restart
+[2026-05-25 15:55:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 15:55:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:00:02] ARS stale 255663s — restart
+[2026-05-25 16:00:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:00:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:05:01] ARS stale 255962s — restart
+[2026-05-25 16:05:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:05:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:10:02] ARS stale 256263s — restart
+[2026-05-25 16:10:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:10:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:15:01] ARS stale 256562s — restart
+[2026-05-25 16:15:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:15:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:20:02] ARS stale 256863s — restart
+[2026-05-25 16:20:02] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:20:05] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:25:03] ARS stale 257164s — restart
+[2026-05-25 16:25:03] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:25:06] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:30:01] ARS stale 257462s — restart
+[2026-05-25 16:30:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:30:04] RESTART: 'Dashboard' lanzada
+[2026-05-25 16:35:01] ARS stale 257762s — restart
+[2026-05-25 16:35:01] RESTART: matando python de 'monitor_rt.py' y reiniciando 'Dashboard'
+[2026-05-25 16:35:04] RESTART: 'Dashboard' lanzada

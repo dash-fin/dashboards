@@ -1,0 +1,204 @@
+
+============================================================
+\Dashboard
+============================================================
+
+Carpeta: \
+Nombre de host:                                        ROMA
+Nombre de tarea:                                       \Dashboard
+Hora pr¢xima ejecuci¢n:                                26/5/2026 10:29:00
+Estado:                                                En ejecuci¢n
+Modo de inicio de sesi¢n:                              Solo interactivo
+Ultimo tiempo de ejecuci¢n:                            25/5/2026 10:42:33
+Ultimo resultado:                                      267009
+Autor:                                                 ROMA\crist
+Tarea que se ejecutar :                                powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command "& 'C:\Users\crist\anaconda3\python.exe' 'C:\Users\Crist\python\monitor_rt.py' *>> 'C:\Dashboard\Scripts\logs\monitor_rt.log'"
+Iniciar en:                                            N/A
+Comentario:                                            N/A
+Estado de tarea programada:                            Habilitado
+Tiempo de inactividad:                                 Deshabilitado
+Administraci¢n de energ¡a:                             
+Ejecutar como usuario:                                 crist
+Eliminar tarea si no se vuelve a programar:            Deshabilitado
+Eliminar tarea si ejecuta durante X horas y X minutos: 72:00:00
+Programaci¢n:                                          Datos de programaci¢n no disponibles en este formato.
+Tipo de programaci¢n:                                  Diariamente
+Hora de inicio:                                        10:29:00
+Fecha de inicio:                                       17/3/2026
+Fecha final:                                           N/A
+D¡as:                                                  Cada 1 d¡a(s)
+Meses:                                                 N/A
+Repetir: cada:                                         Deshabilitado
+Repetir: hasta: hora:                                  Deshabilitado
+Repetir: hasta: duraci¢n:                              Deshabilitado
+Repetir: detener si a£n se ejecuta:                    Deshabilitado
+
+============================================================
+\Dashboard USA
+============================================================
+
+Carpeta: \
+Nombre de host:                                        ROMA
+Nombre de tarea:                                       \Dashboard USA
+Hora pr¢xima ejecuci¢n:                                26/5/2026 10:29:00
+Estado:                                                En ejecuci¢n
+Modo de inicio de sesi¢n:                              Solo interactivo
+Ultimo tiempo de ejecuci¢n:                            25/5/2026 10:29:01
+Ultimo resultado:                                      -2147020576
+Autor:                                                 ROMA\crist
+Tarea que se ejecutar :                                powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -Command "& 'C:\Users\crist\anaconda3\python.exe' -u 'C:\Users\Crist\python\alpaca_usa.py' *>> 'C:\Dashboard\Scripts\logs\alpaca_usa.log'"
+Iniciar en:                                            N/A
+Comentario:                                            N/A
+Estado de tarea programada:                            Habilitado
+Tiempo de inactividad:                                 Deshabilitado
+Administraci¢n de energ¡a:                             
+Ejecutar como usuario:                                 crist
+Eliminar tarea si no se vuelve a programar:            Deshabilitado
+Eliminar tarea si ejecuta durante X horas y X minutos: 72:00:00
+Programaci¢n:                                          Datos de programaci¢n no disponibles en este formato.
+Tipo de programaci¢n:                                  Diariamente
+Hora de inicio:                                        10:29:00
+Fecha de inicio:                                       17/3/2026
+Fecha final:                                           N/A
+D¡as:                                                  Cada 1 d¡a(s)
+Meses:                                                 N/A
+Repetir: cada:                                         Deshabilitado
+Repetir: hasta: hora:                                  Deshabilitado
+Repetir: hasta: duraci¢n:                              Deshabilitado
+Repetir: detener si a£n se ejecuta:                    Deshabilitado
+
+============================================================
+\Dash
+============================================================
+
+Carpeta: \
+Nombre de host:                                        ROMA
+Nombre de tarea:                                       \Dash
+Hora pr¢xima ejecuci¢n:                                26/5/2026 09:56:04
+Estado:                                                Listo
+Modo de inicio de sesi¢n:                              Solo interactivo
+Ultimo tiempo de ejecuci¢n:                            25/5/2026 09:56:05
+Ultimo resultado:                                      2
+Autor:                                                 ROMA\crist
+Tarea que se ejecutar :                                C:\Users\crist\anaconda3\python.exe C:\Dashboard\Dashboard\sitio.py
+Iniciar en:                                            N/A
+Comentario:                                            N/A
+Estado de tarea programada:                            Habilitado
+Tiempo de inactividad:                                 Deshabilitado
+Administraci¢n de energ¡a:                             Detener en modo Bater¡a, No iniciar en Bater¡a
+Ejecutar como usuario:                                 crist
+Eliminar tarea si no se vuelve a programar:            Deshabilitado
+Eliminar tarea si ejecuta durante X horas y X minutos: 72:00:00
+Programaci¢n:                                          Datos de programaci¢n no disponibles en este formato.
+Tipo de programaci¢n:                                  Diariamente
+Hora de inicio:                                        09:56:04
+Fecha de inicio:                                       20/3/2026
+Fecha final:                                           N/A
+D¡as:                                                  Cada 1 d¡a(s)
+Meses:                                                 N/A
+Repetir: cada:                                         Deshabilitado
+Repetir: hasta: hora:                                  Deshabilitado
+Repetir: hasta: duraci¢n:                              Deshabilitado
+Repetir: detener si a£n se ejecuta:                    Deshabilitado
+
+============================================================
+\Backup Dashboard Financiero
+============================================================
+
+Carpeta: \
+Nombre de host:                                        ROMA
+Nombre de tarea:                                       \Backup Dashboard Financiero
+Hora pr¢xima ejecuci¢n:                                29/5/2026 21:00:00
+Estado:                                                Listo
+Modo de inicio de sesi¢n:                              Solo interactivo
+Ultimo tiempo de ejecuci¢n:                            22/5/2026 21:00:00
+Ultimo resultado:                                      0
+Autor:                                                 N/A
+Tarea que se ejecutar :                                wsl.exe python3 /mnt/c/Dashboard/Github/Backup/backup.py
+Iniciar en:                                            N/A
+Comentario:                                            N/A
+Estado de tarea programada:                            Habilitado
+Tiempo de inactividad:                                 Deshabilitado
+Administraci¢n de energ¡a:                             Detener en modo Bater¡a, No iniciar en Bater¡a
+Ejecutar como usuario:                                 crist
+Eliminar tarea si no se vuelve a programar:            Deshabilitado
+Eliminar tarea si ejecuta durante X horas y X minutos: 00:10:00
+Programaci¢n:                                          Datos de programaci¢n no disponibles en este formato.
+Tipo de programaci¢n:                                  Semanal
+Hora de inicio:                                        21:00:00
+Fecha de inicio:                                       17/4/2026
+Fecha final:                                           N/A
+D¡as:                                                  FRI
+Meses:                                                 Cada 1 semana(s)
+Repetir: cada:                                         Deshabilitado
+Repetir: hasta: hora:                                  Deshabilitado
+Repetir: hasta: duraci¢n:                              Deshabilitado
+Repetir: detener si a£n se ejecuta:                    Deshabilitado
+
+============================================================
+\Backup Ortopedia Caseros
+============================================================
+
+Carpeta: \
+Nombre de host:                                        ROMA
+Nombre de tarea:                                       \Backup Ortopedia Caseros
+Hora pr¢xima ejecuci¢n:                                25/5/2026 20:00:00
+Estado:                                                Listo
+Modo de inicio de sesi¢n:                              Solo interactivo
+Ultimo tiempo de ejecuci¢n:                            24/5/2026 20:00:01
+Ultimo resultado:                                      0
+Autor:                                                 N/A
+Tarea que se ejecutar :                                wsl.exe python3 /mnt/c/Dashboard/Ortopedia/Backup/backup.py
+Iniciar en:                                            N/A
+Comentario:                                            N/A
+Estado de tarea programada:                            Habilitado
+Tiempo de inactividad:                                 Deshabilitado
+Administraci¢n de energ¡a:                             Detener en modo Bater¡a, No iniciar en Bater¡a
+Ejecutar como usuario:                                 crist
+Eliminar tarea si no se vuelve a programar:            Deshabilitado
+Eliminar tarea si ejecuta durante X horas y X minutos: 00:10:00
+Programaci¢n:                                          Datos de programaci¢n no disponibles en este formato.
+Tipo de programaci¢n:                                  Diariamente
+Hora de inicio:                                        20:00:00
+Fecha de inicio:                                       17/4/2026
+Fecha final:                                           N/A
+D¡as:                                                  Cada 1 d¡a(s)
+Meses:                                                 N/A
+Repetir: cada:                                         Deshabilitado
+Repetir: hasta: hora:                                  Deshabilitado
+Repetir: hasta: duraci¢n:                              Deshabilitado
+Repetir: detener si a£n se ejecuta:                    Deshabilitado
+
+============================================================
+\Monitor Bateria Telegram
+============================================================
+
+Carpeta: \
+Nombre de host:                                        ROMA
+Nombre de tarea:                                       \Monitor Bateria Telegram
+Hora pr¢xima ejecuci¢n:                                25/5/2026 12:12:27
+Estado:                                                Listo
+Modo de inicio de sesi¢n:                              Solo interactivo
+Ultimo tiempo de ejecuci¢n:                            25/5/2026 12:07:28
+Ultimo resultado:                                      0
+Autor:                                                 N/A
+Tarea que se ejecutar :                                powershell.exe -ExecutionPolicy Bypass -WindowStyle Hidden -File C:\Dashboard\Scripts\monitor_dashboard.ps1
+Iniciar en:                                            N/A
+Comentario:                                            N/A
+Estado de tarea programada:                            Habilitado
+Tiempo de inactividad:                                 Deshabilitado
+Administraci¢n de energ¡a:                             
+Ejecutar como usuario:                                 crist
+Eliminar tarea si no se vuelve a programar:            Deshabilitado
+Eliminar tarea si ejecuta durante X horas y X minutos: 00:05:00
+Programaci¢n:                                          Datos de programaci¢n no disponibles en este formato.
+Tipo de programaci¢n:                                  Solo una vez, Minuto
+Hora de inicio:                                        00:02:27
+Fecha de inicio:                                       18/4/2026
+Fecha final:                                           N/A
+D¡as:                                                  N/A
+Meses:                                                 N/A
+Repetir: cada:                                         0 hora(s), 5 minuto(s)
+Repetir: hasta: hora:                                  Ninguno
+Repetir: hasta: duraci¢n:                              Deshabilitado
+Repetir: detener si a£n se ejecuta:                    Deshabilitado

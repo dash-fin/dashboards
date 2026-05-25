@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FINBOARD · Cambiar contraseña</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #090f16;
+    --card:    #0e1820;
+    --accent:  #00e5a8;
+    --red:     #ff4560;
+    --t1:      #c8daf0;
+    --t2:      #7a8fa0;
+    --t3:      #3a5060;
+    --border:  rgba(0,229,168,0.18);
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: 'Inter', sans-serif;
+    color: var(--t1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-x: hidden;
+  }
+
+  /* Ambient grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,168,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,168,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 420px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Brand */
+  .brand {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .brand-name {
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: var(--t1);
+  }
+  .brand-name span { color: var(--accent); }
+  .brand-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--t3);
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    box-shadow: 0 0 40px rgba(0,229,168,0.04), 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--t1);
+    margin-bottom: 6px;
+  }
+  .card-sub {
+    font-size: 12px;
+    color: var(--t2);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  /* Field */
+  .field { margin-bottom: 16px; }
+  .flbl {
+    display: block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: var(--t2);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .input-wrap {
+    position: relative;
+    border: 1px solid rgba(0,229,168,0.25);
+    border-radius: 6px;
+    background: rgba(10,18,26,0.8);
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .input-wrap:focus-within {
+    border-color: rgba(0,229,168,0.6);
+    box-shadow: 0 0 0 2px rgba(0,229,168,0.08);
+  }
+  .input-wrap input {
+    width: 100%;
+    height: 46px;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0 44px 0 14px;
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--t1);
+  }
+  .input-wrap input::placeholder { color: var(--t3); }
+  .eye-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--t3);
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+  .eye-btn:hover { color: var(--t2); }
+
+  /* Strength indicator */
+  .strength {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    height: 3px;
+  }
+  .strength-bar {
+    flex: 1;
+    height: 100%;
+    border-radius: 2px;
+    background: var(--t3);
+    transition: background 0.3s;
+  }
+
+  /* Button */
+  .btn {
+    position: relative;
+    width: 100%;
+    height: 48px;
+    margin-top: 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #fff;
+    background: linear-gradient(135deg, #007a5e 0%, #00e5a8 50%, #007a5e 100%);
+    background-size: 200% 100%;
+    transition: background-position 0.4s, opacity 0.2s;
+    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    overflow: hidden;
+  }
+  .btn:hover { background-position: 100% 0; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-glow {
+    position: absolute;
+    inset: 2px 8px -8px;
+    border-radius: 4px;
+    background: rgba(0,229,168,0.35);
+    filter: blur(14px);
+    z-index: -1;
+    animation: glowPulse 2.5s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%,100% { opacity: 0.4; }
+    50%      { opacity: 0.9; }
+  }
+
+  /* States */
+  .state { display: none; }
+  .state.active { display: block; }
+
+  /* Error banner */
+  .err-banner {
+    background: rgba(255,69,96,0.1);
+    border: 1px solid rgba(255,69,96,0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #ff4560;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .err-banner.show { display: block; }
+
+  /* Success state */
+  .success-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: rgba(0,229,168,0.1);
+    border: 2px solid rgba(0,229,168,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    animation: popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275) both;
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
+  }
+  .success-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .success-msg {
+    font-size: 13px;
+    color: var(--t2);
+    text-align: center;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .back-btn {
+    display: block;
+    text-align: center;
+    padding: 12px;
+    background: rgba(0,229,168,0.08);
+    border: 1px solid rgba(0,229,168,0.2);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .back-btn:hover { background: rgba(0,229,168,0.14); }
+
+  /* Invalid state */
+  .invalid-icon { font-size: 36px; text-align: center; margin-bottom: 16px; }
+  .invalid-title { font-size: 16px; font-weight: 800; color: var(--red); text-align: center; margin-bottom: 8px; }
+  .invalid-msg { font-size: 12px; color: var(--t2); text-align: center; line-height: 1.6; }
+
+  /* Footer */
+  .footer {
+    margin-top: 24px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--t3);
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="brand-name">FIN<span>BOARD</span></div>
+    <div class="brand-sub">[ SECURE PASSWORD RESET ]</div>
+  </div>
+
+  <div class="card">
+    <!-- Form state -->
+    <div id="stateForm" class="state active">
+      <div class="card-title">Nueva contraseña</div>
+      <div class="card-sub">Ingresá tu nueva contraseña para acceder a FINBOARD.</div>
+
+      <div id="errBanner" class="err-banner"></div>
+
+      <div class="field">
+        <label class="flbl">Nueva contraseña</label>
+        <div class="input-wrap">
+          <input type="password" id="pw1" placeholder="Mínimo 8 caracteres" oninput="checkStrength()" autocomplete="new-password">
+          <button class="eye-btn" onclick="toggleEye('pw1','eye1')" type="button" id="eye1">👁</button>
+        </div>
+        <div class="strength" id="strengthBars">
+          <div class="strength-bar" id="s1"></div>
+          <div class="strength-bar" id="s2"></div>
+          <div class="strength-bar" id="s3"></div>
+          <div class="strength-bar" id="s4"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="flbl">Confirmar contraseña</label>
+        <div class="input-wrap">
+          <input type="password" id="pw2" placeholder="Repetir contraseña" autocomplete="new-password">
+          <button class="eye-btn" onclick="toggleEye('pw2','eye2')" type="button" id="eye2">👁</button>
+        </div>
+      </div>
+
+      <button class="btn" id="submitBtn" onclick="doReset()" disabled>
+        <div class="btn-glow"></div>
+        <span>CAMBIAR CONTRASEÑA</span>
+      </button>
+    </div>
+
+    <!-- Success state -->
+    <div id="stateOk" class="state">
+      <div class="success-icon">✓</div>
+      <div class="success-title">Contraseña actualizada</div>
+      <div class="success-msg">Tu contraseña fue cambiada correctamente.<br>Volvé a la app FINBOARD y logueate con tu nueva contraseña.</div>
+      <a class="back-btn" href="javascript:void(0)" onclick="this.style.opacity=0.5;this.textContent='LISTO'">ABRIR FINBOARD</a>
+    </div>
+
+    <!-- Invalid token state -->
+    <div id="stateInvalid" class="state">
+      <div class="invalid-icon">⚠️</div>
+      <div class="invalid-title">Link inválido o expirado</div>
+      <div class="invalid-msg">Este link de recuperación ya fue usado o expiró.<br>Pedí uno nuevo desde la pantalla de login de FINBOARD.</div>
+    </div>
+  </div>
+
+  <div class="footer">FINBOARD · ACCESO CON INVITACIÓN</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SUPA_URL = 'https://endymbpdayeidromxayb.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+let sessionReady = false;
+
+function show(id) {
+  ['stateForm','stateOk','stateInvalid'].forEach(s => {
+    document.getElementById(s).classList.toggle('active', s === id);
+  });
+}
+
+function showErr(msg) {
+  const el = document.getElementById('errBanner');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideErr() {
+  document.getElementById('errBanner').classList.remove('show');
+}
+
+function toggleEye(inputId, btnId) {
+  const inp = document.getElementById(inputId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  document.getElementById(btnId).textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function checkStrength() {
+  const pw = document.getElementById('pw1').value;
+  let score = 0;
+  if (pw.length >= 8)                     score++;
+  if (/[A-Z]/.test(pw))                   score++;
+  if (/[0-9]/.test(pw))                   score++;
+  if (/[^A-Za-z0-9]/.test(pw))            score++;
+  const colors = ['#ff4560','#f59e0b','#0ea5e9','#00e5a8'];
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('s'+i).style.background = i <= score ? colors[score-1] : 'var(--t3)';
+  }
+  validateForm();
+}
+
+function validateForm() {
+  const pw1 = document.getElementById('pw1').value;
+  const pw2 = document.getElementById('pw2').value;
+  const ok  = sessionReady && pw1.length >= 6 && pw1 === pw2;
+  document.getElementById('submitBtn').disabled = !ok;
+}
+
+document.getElementById('pw2').addEventListener('input', validateForm);
+
+async function doReset() {
+  const pw = document.getElementById('pw1').value;
+  hideErr();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.querySelector('span').textContent = 'PROCESANDO...';
+
+  const { error } = await sb.auth.updateUser({ password: pw });
+
+  if (error) {
+    showErr(error.message || 'Error al cambiar la contraseña. Intentá de nuevo.');
+    btn.disabled = false;
+    btn.querySelector('span').textContent = 'CAMBIAR CONTRASEÑA';
+  } else {
+    show('stateOk');
+  }
+}
+
+// Init: parse hash and set session
+(async () => {
+  const hash = window.location.hash.substring(1);
+  const params = {};
+  hash.split('&').forEach(p => {
+    const [k, v] = p.split('=');
+    if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
+  });
+
+  const token = params['access_token'];
+  const type  = params['type'];
+
+  if (!token || type !== 'recovery') {
+    show('stateInvalid');
+    return;
+  }
+
+  // Exchange the recovery token for a session
+  const { error } = await sb.auth.setSession({
+    access_token:  token,
+    refresh_token: params['refresh_token'] || '',
+  });
+
+  if (error) {
+    show('stateInvalid');
+    return;
+  }
+
+  sessionReady = true;
+  validateForm();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RRG — Relative Rotation Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--bg2:#111827;--bg3:#1a2235;
+  --border:#1e2a38;--border2:#253347;
+  --text:#e2eaf4;--text2:#a8bdd0;--text3:#6e8090;--text4:#3d5166;
+  --cyan:#38c8ff;--green:#00e5a8;--red:#ff3f5e;--amber:#ffc84a;--purple:#a855f7;
+}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;min-height:100vh;padding:24px 20px}
+
+.page-header{margin-bottom:24px}
+.page-label{font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:3px;color:var(--text4);margin-bottom:6px}
+.page-title{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.5px}
+.page-title em{color:var(--cyan);font-style:normal}
+.page-sub{font-size:10px;color:var(--text4);margin-top:4px}
+
+.tabs{display:flex;gap:2px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:3px;width:fit-content;margin-bottom:16px}
+.tab-btn{background:none;border:none;color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;padding:6px 18px;cursor:pointer;border-radius:4px;transition:all .18s}
+.tab-btn.active{background:var(--bg3);color:var(--cyan);border:1px solid var(--border2)}
+.tab-btn:hover:not(.active){color:var(--text2)}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.card-title{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.3px}
+.card-meta{font-size:9px;color:var(--text4)}
+.canvas-wrap{padding:16px 16px 8px}
+canvas{display:block;width:100%}
+
+.legend-wrap{display:flex;flex-wrap:wrap;gap:8px 14px;padding:10px 16px;border-top:1px solid var(--border)}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);cursor:default}
+.legend-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.legend-q{font-size:8px;margin-left:1px}
+
+.q-legend{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;padding:10px 16px;border-top:1px solid var(--border)}
+.q-item{display:flex;align-items:center;gap:7px;font-size:8px;color:var(--text4);text-transform:uppercase;letter-spacing:.6px}
+.q-swatch{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+
+.tooltip{position:fixed;background:#0f1822;border:1px solid var(--border2);border-radius:6px;padding:9px 13px;font-size:10px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .12s;z-index:100;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.tooltip.visible{opacity:1}
+.tt-sym{font-weight:700;font-size:13px;margin-bottom:5px}
+.tt-row{color:var(--text3);line-height:1.8}
+.tt-row b{color:var(--text);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-label">Análisis Técnico Relativo · USA</div>
+  <div class="page-title">Relative <em>Rotation</em> Graph</div>
+  <div class="page-sub">Rotación relativa de sectores y acciones respecto al S&amp;P 500</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('sectores',this)">Sectores</button>
+  <button class="tab-btn" onclick="switchTab('acciones',this)">Acciones</button>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <div class="card-title" id="cardTitle">ETFs de Sectores — S&amp;P 500</div>
+    <div class="card-meta" id="cardMeta">Benchmark: SPY · Cola de 5 semanas</div>
+  </div>
+  <div class="canvas-wrap"><canvas id="rrg"></canvas></div>
+  <div class="legend-wrap" id="symLegend"></div>
+  <div class="q-legend">
+    <div class="q-item"><div class="q-swatch" style="background:rgba(0,229,168,.45)"></div>Leading — RS fuerte y acelerando</div>
+    <div class="q-item"><div class="q-swatch" style="background:rgba(56,200,255,.45)"></div>Improving — RS débil pero mejorando</div>
+    <div class="q-item"><div class="q-swatch" style="background:rgba(255,200,74,.45)"></div>Weakening — RS fuerte pero desacelerando</div>
+    <div class="q-item"><div class="q-swatch" style="background:rgba(255,63,94,.45)"></div>Lagging — RS débil y deteriorando</div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-sym" id="ttSym"></div>
+  <div class="tt-row">RS-Ratio &nbsp;&nbsp;: <b id="ttR"></b></div>
+  <div class="tt-row">RS-Momentum: <b id="ttM"></b></div>
+  <div class="tt-row">Cuadrante &nbsp;: <b id="ttQ"></b></div>
+</div>
+
+<script>
+// ── Palette ──────────────────────────────────────────────────
+const PAL = ['#38c8ff','#00e5a8','#ffc84a','#ff3f5e','#a855f7','#fb923c','#f472b6','#34d399','#60a5fa','#facc15','#e879f9'];
+
+// ── Simulated data — each array is [ratio, momentum] oldest→newest ──
+const DATA = {
+  sectores: [
+    {s:'XLK', c:PAL[0],  p:[[101.2,101.8],[101.8,102.3],[102.5,102.1],[103.1,101.5],[103.5,100.8],[103.8,100.2]]},
+    {s:'XLF', c:PAL[1],  p:[[98.2,99.5],[98.8,100.3],[99.6,101.1],[100.3,101.7],[101.1,101.9],[101.9,102.2]]},
+    {s:'XLE', c:PAL[2],  p:[[102.8,101.2],[102.3,100.5],[101.7,99.7],[101.0,98.9],[100.3,98.3],[99.6,97.9]]},
+    {s:'XLV', c:PAL[3],  p:[[98.3,97.6],[98.0,98.1],[97.9,98.8],[98.2,99.6],[98.9,100.2],[99.6,100.6]]},
+    {s:'XLY', c:PAL[4],  p:[[99.8,97.4],[99.1,97.0],[98.4,96.7],[97.9,96.9],[97.5,97.3],[97.2,97.6]]},
+    {s:'XLP', c:PAL[5],  p:[[97.3,101.5],[97.7,101.7],[98.2,101.9],[98.8,101.6],[99.3,101.2],[99.9,100.8]]},
+    {s:'XLI', c:PAL[7],  p:[[100.3,100.6],[100.9,101.1],[101.5,101.7],[102.1,102.2],[102.6,102.6],[102.9,102.3]]},
+    {s:'XLB', c:PAL[8],  p:[[99.2,98.7],[98.9,98.2],[98.6,97.7],[98.2,97.3],[97.9,97.1],[97.5,96.9]]},
+    {s:'XLRE',c:PAL[9],  p:[[97.1,98.0],[97.4,98.7],[97.9,99.4],[98.5,100.1],[99.1,100.7],[99.6,101.2]]},
+    {s:'XLU', c:'#818cf8',p:[[98.5,99.4],[98.3,100.0],[97.9,100.6],[97.6,101.1],[97.2,101.6],[96.9,102.1]]},
+    {s:'XLC', c:PAL[10], p:[[101.5,102.6],[102.0,102.9],[102.7,102.7],[103.2,102.1],[103.6,101.4],[103.9,100.7]]},
+  ],
+  acciones: [
+    {s:'NVDA', c:PAL[0], p:[[102.3,103.0],[103.0,103.7],[103.7,104.1],[104.2,103.9],[104.6,103.4],[104.9,102.7]]},
+    {s:'META', c:PAL[1], p:[[101.3,102.0],[101.9,102.6],[102.7,103.1],[103.1,103.4],[103.7,103.1],[104.1,102.7]]},
+    {s:'MSFT', c:PAL[2], p:[[103.1,101.8],[102.7,101.1],[102.2,100.4],[101.6,99.7],[101.1,99.1],[100.6,98.6]]},
+    {s:'AAPL', c:PAL[3], p:[[101.5,100.5],[101.2,99.8],[100.9,99.1],[100.6,98.4],[100.3,98.0],[99.9,97.7]]},
+    {s:'GOOGL',c:PAL[4], p:[[98.3,99.0],[98.7,99.7],[99.4,100.4],[100.1,101.1],[100.7,101.7],[101.4,102.1]]},
+    {s:'AMZN', c:PAL[5], p:[[98.0,99.3],[98.6,100.0],[99.3,100.6],[99.9,101.1],[100.4,101.4],[100.9,101.7]]},
+    {s:'TSLA', c:PAL[7], p:[[99.1,97.8],[98.4,97.1],[97.7,96.5],[97.0,96.0],[96.4,95.7],[95.9,95.3]]},
+    {s:'JPM',  c:PAL[8], p:[[101.2,101.6],[101.8,102.0],[102.4,102.6],[102.9,102.9],[103.1,102.4],[103.4,101.9]]},
+    {s:'V',    c:PAL[9], p:[[102.5,101.1],[102.2,100.4],[101.7,99.7],[101.1,99.2],[100.6,98.7],[100.1,98.3]]},
+    {s:'UNH',  c:'#818cf8',p:[[97.7,97.5],[97.4,97.1],[97.0,96.7],[96.6,96.3],[96.3,96.1],[95.9,95.8]]},
+  ]
+};
+
+// ── Canvas setup ─────────────────────────────────────────────
+const canvas = document.getElementById('rrg');
+const ctx    = canvas.getContext('2d');
+const PAD    = {top:36,right:44,bottom:46,left:52};
+const RMIN   = 95.2, RMAX = 106.0, CENTER = 100;
+
+let currentTab = 'sectores';
+
+function toXY(ratio, mom, W, H) {
+  const pw = W - PAD.left - PAD.right;
+  const ph = H - PAD.top  - PAD.bottom;
+  return [
+    PAD.left + (ratio - RMIN) / (RMAX - RMIN) * pw,
+    PAD.top  + (RMAX - mom)   / (RMAX - RMIN) * ph
+  ];
+}
+
+function hex2rgb(h){ const n=parseInt(h.slice(1),16); return `${n>>16},${(n>>8)&255},${n&255}`; }
+
+function quadrant(r,m){
+  if(r>=CENTER && m>=CENTER) return {name:'Leading',   color:'#00e5a8'};
+  if(r< CENTER && m>=CENTER) return {name:'Improving', color:'#38c8ff'};
+  if(r< CENTER && m< CENTER) return {name:'Lagging',   color:'#ff3f5e'};
+  return                            {name:'Weakening', color:'#ffc84a'};
+}
+
+function drawArrow(x1,y1,x2,y2,fill,sz=6){
+  const a = Math.atan2(y2-y1,x2-x1);
+  ctx.save();
+  ctx.fillStyle = fill;
+  ctx.translate(x2,y2);
+  ctx.rotate(a);
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.lineTo(-sz,-sz*.5);
+  ctx.lineTo(-sz, sz*.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function draw(){
+  const dpr = window.devicePixelRatio||1;
+  const cssW = canvas.parentElement.clientWidth - 32;
+  const cssH = Math.min(cssW * .70, 540);
+  canvas.style.width  = cssW+'px';
+  canvas.style.height = cssH+'px';
+  canvas.width  = cssW*dpr;
+  canvas.height = cssH*dpr;
+  ctx.scale(dpr,dpr);
+  const W=cssW, H=cssH;
+  ctx.clearRect(0,0,W,H);
+
+  const [cx,cy] = toXY(CENTER,CENTER,W,H);
+  const pw = W-PAD.left-PAD.right;
+  const ph = H-PAD.top-PAD.bottom;
+
+  // Quadrant fills
+  ctx.fillStyle='rgba(0,229,168,.08)';    ctx.fillRect(cx,PAD.top,W-PAD.right-cx,cy-PAD.top);
+  ctx.fillStyle='rgba(56,200,255,.08)';   ctx.fillRect(PAD.left,PAD.top,cx-PAD.left,cy-PAD.top);
+  ctx.fillStyle='rgba(255,63,94,.08)';    ctx.fillRect(PAD.left,cy,cx-PAD.left,H-PAD.bottom-cy);
+  ctx.fillStyle='rgba(255,200,74,.08)';   ctx.fillRect(cx,cy,W-PAD.right-cx,H-PAD.bottom-cy);
+
+  // Subtle inner grid
+  ctx.strokeStyle='rgba(255,255,255,.03)'; ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    const x=PAD.left+pw/10*i, y=PAD.top+ph/10*i;
+    ctx.beginPath(); ctx.moveTo(x,PAD.top);    ctx.lineTo(x,H-PAD.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD.left,y);   ctx.lineTo(W-PAD.right,y);  ctx.stroke();
+  }
+
+  // Center axes
+  ctx.setLineDash([6,5]); ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(cx,PAD.top);   ctx.lineTo(cx,H-PAD.bottom); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(PAD.left,cy);  ctx.lineTo(W-PAD.right,cy);  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Plot border
+  ctx.strokeStyle='#1e2a38'; ctx.lineWidth=1;
+  ctx.strokeRect(PAD.left,PAD.top,pw,ph);
+
+  // Quadrant labels
+  const qfs = Math.max(9, Math.round(pw/26));
+  ctx.font=`700 ${qfs}px 'IBM Plex Mono',monospace`;
+  ctx.textAlign='center';
+  const qp=16;
+  const QL=[
+    ['LEADING',   cx+(W-PAD.right-cx)/2,  PAD.top+qp+6,    'rgba(0,229,168,.16)'],
+    ['IMPROVING', PAD.left+(cx-PAD.left)/2,PAD.top+qp+6,    'rgba(56,200,255,.16)'],
+    ['LAGGING',   PAD.left+(cx-PAD.left)/2,H-PAD.bottom-qp, 'rgba(255,63,94,.16)'],
+    ['WEAKENING', cx+(W-PAD.right-cx)/2,  H-PAD.bottom-qp,  'rgba(255,200,74,.16)'],
+  ];
+  QL.forEach(([t,x,y,c])=>{ ctx.fillStyle=c; ctx.fillText(t,x,y); });
+
+  // Axis ticks & labels
+  ctx.fillStyle='#3d5166'; ctx.font=`400 8px 'IBM Plex Mono',monospace`;
+  const TICKS=5, TSTEP=(RMAX-RMIN)/TICKS;
+  for(let i=0;i<=TICKS;i++){
+    const v=(RMIN+TSTEP*i).toFixed(1);
+    const [px]=toXY(RMIN+TSTEP*i,CENTER,W,H);
+    const [,py]=toXY(CENTER,RMIN+TSTEP*i,W,H);
+    ctx.textAlign='center'; ctx.fillText(v,px,H-PAD.bottom+13);
+    ctx.textAlign='right';  ctx.fillText(v,PAD.left-5,py+3);
+  }
+
+  // Axis titles
+  ctx.fillStyle='#4a6070'; ctx.font=`500 9px 'IBM Plex Mono',monospace`;
+  ctx.textAlign='center';
+  ctx.fillText('RS-Ratio →',PAD.left+pw/2,H-8);
+  ctx.save(); ctx.translate(13,PAD.top+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('RS-Momentum →',0,0); ctx.restore();
+
+  // ── Symbols ──
+  const data = DATA[currentTab];
+  data.forEach(({s,c,p})=>{
+    const rgb=hex2rgb(c), n=p.length;
+
+    // Tail segments
+    for(let i=0;i<n-1;i++){
+      const alpha=((i+1)/(n-1))*.8;
+      const [x1,y1]=toXY(p[i][0],p[i][1],W,H);
+      const [x2,y2]=toXY(p[i+1][0],p[i+1][1],W,H);
+      ctx.beginPath();
+      ctx.strokeStyle=`rgba(${rgb},${alpha})`;
+      ctx.lineWidth=1+((i/(n-2))*1.5);
+      ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      if(i<n-2){
+        ctx.beginPath();
+        ctx.fillStyle=`rgba(${rgb},${alpha*.55})`;
+        ctx.arc(x1,y1,1.5+(i/(n-2))*2,0,Math.PI*2); ctx.fill();
+      }
+    }
+
+    // Arrow (last two points)
+    if(n>=2){
+      const [x1,y1]=toXY(p[n-2][0],p[n-2][1],W,H);
+      const [x2,y2]=toXY(p[n-1][0],p[n-1][1],W,H);
+      drawArrow(x1,y1,x2,y2,c,7);
+    }
+
+    // Current dot
+    const [dx,dy]=toXY(p[n-1][0],p[n-1][1],W,H);
+    ctx.beginPath(); ctx.fillStyle=`rgba(${rgb},.15)`;
+    ctx.arc(dx,dy,12,0,Math.PI*2); ctx.fill();
+
+    ctx.beginPath(); ctx.strokeStyle=`rgba(${rgb},.45)`;
+    ctx.lineWidth=1.5; ctx.arc(dx,dy,9,0,Math.PI*2); ctx.stroke();
+
+    ctx.beginPath(); ctx.fillStyle=c;
+    ctx.arc(dx,dy,4.5,0,Math.PI*2); ctx.fill();
+
+    // Label
+    ctx.fillStyle=c; ctx.font=`600 9.5px 'IBM Plex Mono',monospace`;
+    ctx.textAlign='left'; ctx.fillText(s,dx+12,dy+4);
+  });
+}
+
+// ── Legend ───────────────────────────────────────────────────
+function buildLegend(){
+  const el=document.getElementById('symLegend');
+  el.innerHTML='';
+  const qcol={Leading:'#00e5a8',Improving:'#38c8ff',Lagging:'#ff3f5e',Weakening:'#ffc84a'};
+  DATA[currentTab].forEach(({s,c,p})=>{
+    const n=p.length;
+    const {name}=quadrant(p[n-1][0],p[n-1][1]);
+    el.innerHTML+=`<div class="legend-item">
+      <div class="legend-dot" style="background:${c}"></div>
+      <span style="color:#a8bdd0">${s}</span>
+      <span class="legend-q" style="color:${qcol[name]}">${name}</span>
+    </div>`;
+  });
+}
+
+// ── Tooltip ──────────────────────────────────────────────────
+const tip=document.getElementById('tooltip');
+canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  const W=parseFloat(canvas.style.width), H=parseFloat(canvas.style.height);
+  let hit=null;
+  for(const d of DATA[currentTab]){
+    const n=d.p.length;
+    const [dx,dy]=toXY(d.p[n-1][0],d.p[n-1][1],W,H);
+    if(Math.hypot(mx-dx,my-dy)<14){hit=d;break;}
+  }
+  if(hit){
+    const n=hit.p.length, [rv,mv]=hit.p[n-1];
+    const {name,color}=quadrant(rv,mv);
+    document.getElementById('ttSym').textContent=hit.s;
+    document.getElementById('ttSym').style.color=hit.c;
+    document.getElementById('ttR').textContent=rv.toFixed(2);
+    document.getElementById('ttM').textContent=mv.toFixed(2);
+    document.getElementById('ttQ').textContent=name;
+    document.getElementById('ttQ').style.color=color;
+    tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-8)+'px';
+    tip.classList.add('visible');
+  } else tip.classList.remove('visible');
+});
+canvas.addEventListener('mouseleave',()=>tip.classList.remove('visible'));
+
+// ── Tab switch ───────────────────────────────────────────────
+const TITLES={
+  sectores:['ETFs de Sectores — S&P 500','Benchmark: SPY · Cola de 5 semanas'],
+  acciones:['Acciones Individuales — S&P 500','Benchmark: SPY · Cola de 5 semanas']
+};
+function switchTab(tab,btn){
+  currentTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('cardTitle').textContent=TITLES[tab][0];
+  document.getElementById('cardMeta').textContent =TITLES[tab][1];
+  draw(); buildLegend();
+}
+
+window.addEventListener('resize',draw);
+draw(); buildLegend();
+</script>
+</body>
+</html>

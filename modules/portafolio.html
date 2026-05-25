@@ -3302,7 +3302,7 @@ async function pfRenderResumenCalendar() {
     const _calEmail = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
     let allRows = [];
     try {
-      allRows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${combinedStart}&fecha=lte.${combinedEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd`) || [];
+      allRows = await sb('pnl_diario', `user_email=eq.${_calEmail}&fecha=gte.${combinedStart}&fecha=lte.${combinedEnd}&order=fecha.asc&select=fecha,pnl_usd,pnl_pct,valor_usd,pnl_bruto_usd,pnl_neto_usd,pnl_realizado_usd,equity_usd,leverage_ratio,roe_diario,deuda_usd,mep_usado,source`) || [];
     } catch(e) { console.warn('[pnl-resumen-cal]', e); }
 
     // Separar rows por mes y cachear (SIN hoy — se inyecta siempre abajo, fuera del cache)
@@ -3383,8 +3383,11 @@ async function pfRenderResumenCalendar() {
       const intensity = Math.min(Math.abs(pnl)/maxAbs, 1)*0.65+0.12;
       const bg = pnl >= 0 ? `rgba(0,229,168,${intensity.toFixed(2)})` : `rgba(255,63,94,${intensity.toFixed(2)})`;
       const liveBorder = row._live ? ';outline:1px dashed rgba(255,255,255,0.55);outline-offset:-1px' : '';
-      const tip = `${key}${row._live ? ' (en curso)' : ''}\nP&L: U\$S ${fmtPnl(pnl)} (${fmtPct(row.pnl_pct||0)})\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}`;
-      return `<div title="${tip}" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:default;line-height:1.2;gap:0;overflow:hidden${liveBorder}">
+      const leverageLine = row.leverage_ratio > 1 ? `\nLev: ${row.leverage_ratio.toFixed(2)}x  equity: U$S ${Math.round(row.equity_usd||0).toLocaleString('es-AR')}` : '';
+      const roeLine = row.roe_diario != null ? `  ROE: ${row.roe_diario>=0?'+':''}${row.roe_diario.toFixed(2)}%` : '';
+      const srcLine = row.source && row.source !== 'cron' ? `\n[${row.source}]` : '';
+      const tip = `${key}${row._live ? ' (en curso)' : ''}\nP&L bruto: U\$S ${fmtPnl(row.pnl_bruto_usd??pnl)} (${fmtPct(row.pnl_pct||0)})${roeLine}\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}${leverageLine}${srcLine}\nShift+click para recalcular`;
+      return `<div title="${tip}" data-fecha="${key}" onclick="pfRecalcDay(event,'${key}')" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:pointer;line-height:1.2;gap:0;overflow:hidden${liveBorder}">
         <span style="font-size:8px;font-weight:600;text-align:center">${d}</span>
         ${!privacy ? `<span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>` : ''}
         <span style="font-size:7px;opacity:0.85;white-space:nowrap;text-align:center">${fmtPct(row.pnl_pct||0)}${row._live ? ' ●' : ''}</span>
@@ -3814,18 +3817,26 @@ async function pfBackfillPnL(opts = {}) {
       if(realizedOpsGains[date]) {
         pnlUsd += realizedOpsGains[date] / mep;
       }
+      const rD = (intradayGains[date]||0) + (realizedGains[date]||0) + (realizedOpsGains[date] ? realizedOpsGains[date]/mep : 0);
       toInsert.push({
-        fecha:date, valor_usd:Math.round(totalUsd*100)/100,
+        fecha:date, valor_usd:Math.round(totalUsd*100)/100, mep_usado:mep,
         _pnl:Math.round(pnlUsd*100)/100, _base:Math.round(basePnl*100)/100,
+        _rD:Math.round(rD*100)/100,
       });
       prevDate = date;
     }
 
-    // 5. Armar filas finales
+    // 5. Armar filas finales con todas las columnas v2
     const finalRows = toInsert.map(row=>({
       fecha: row.fecha, user_email: email, valor_usd: row.valor_usd,
-      pnl_usd: row._base>0 ? row._pnl : null,
-      pnl_pct: row._base>0 ? Math.round(row._pnl/row._base*100*10000)/10000 : null,
+      pnl_usd:         row._base>0 ? row._pnl : null,
+      pnl_pct:         row._base>0 ? Math.round(row._pnl/row._base*100*10000)/10000 : null,
+      pnl_bruto_usd:   row._base>0 ? row._pnl : null,
+      pnl_neto_usd:    row._base>0 ? row._pnl : null,   // sin cauciones en backfill histórico
+      pnl_realizado_usd: row._rD || null,
+      mep_usado:       row.mep_usado,
+      equity_usd:      row.valor_usd,   // sin deuda en backfill histórico
+      source:          'backfill',
     }));
 
     // 6. Upsert en lotes de 100
@@ -3891,25 +3902,22 @@ window.pfBackfillPnLBtn = async function pfBackfillPnLBtn() {
   }
 }
 
-// ── Guardar snapshot de hoy manualmente ─────────────────────────────
+// ── Guardar snapshot de hoy manualmente (delega a edge function pnl-snapshot v2) ──
 window.pfSaveDay = async () => {
   const btn = document.querySelector('button[onclick*="pfSaveDay"]');
-  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '📸 guardando…'; }
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '📸 calculando…'; }
   try {
-    const pnl_usd  = +(pfBaseDailyUSD + (isNaN(pfOpsDailyUSD) ? 0 : pfOpsDailyUSD)).toFixed(2);
-    const valor_usd = pfBaseAct;
-    const pnl_pct   = valor_usd > 0 ? +((pnl_usd / valor_usd) * 100).toFixed(4) : 0;
-    const fecha    = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
+    const fecha      = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
     const user_email = _pfEmail || window.currentUser?.email || '';
     if (!user_email) { alert('No hay sesión — no se puede guardar.'); return; }
 
-    const body = { user_email, fecha, valor_usd, pnl_usd, pnl_pct };
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/pnl_diario`, {
+    const r = await fetch(`${CFG.SB_URL}/functions/v1/monitor-cron`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${CFG.SB_KEY}` },
+      body: JSON.stringify({ task: 'pnl-snapshot', user_email, fecha, source: 'manual' }),
     });
-    if (!r.ok) { const e = await r.text(); throw new Error(e); }
+    const data = await r.json();
+    if (!r.ok || data.error) throw new Error(data.error || data.msg || 'Edge function error');
     if (btn) { btn.textContent = '✅ guardado'; }
     window.pfCalCache = {};
     window.pfPnlCache = null;
@@ -3921,6 +3929,25 @@ window.pfSaveDay = async () => {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '❌ error'; }
     alert('Error al guardar: ' + e.message);
   }
+};
+
+// ── Recalcular día específico (Shift+click en celda del calendario) ──
+window.pfRecalcDay = async (e, fecha) => {
+  if (!e.shiftKey) return;
+  const user_email = _pfEmail || window.currentUser?.email || '';
+  if (!user_email) return;
+  if (!confirm(`¿Recalcular PnL del ${fecha}?\n(Usa precios actuales de mercado y MEP histórico de ese día)`)) return;
+  try {
+    const r = await fetch(`${CFG.SB_URL}/functions/v1/monitor-cron`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${CFG.SB_KEY}` },
+      body: JSON.stringify({ task: 'pnl-snapshot', user_email, fecha, source: 'manual' }),
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.error || 'Error en recálculo');
+    window.pfCalCache = {};
+    await pfRenderResumenCalendar();
+  } catch(err) { alert('Error al recalcular: ' + err.message); }
 };
 
 // ── Historial de trades ───────────────────────────────────────────

@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="default">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home APEX+Motion — Mock v2</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* ══ TEMAS ══ */
+:root,[data-theme="default"]{
+  --bg:#080b12;--bg2:#0d1117;--bg3:#111722;--bg4:#161e2e;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);
+  --text:#f0f4ff;--text2:#8892aa;--text3:#4a5568;--text4:#2d3748;
+  --green:#10e898;--green2:#00c47a;--greenG:linear-gradient(135deg,#10e898,#00c47a);
+  --red:#ff4060;--redG:linear-gradient(135deg,#ff4060,#cc2244);
+  --amber:#f5a623;--amberG:linear-gradient(135deg,#f5a623,#e08010);
+  --blue:#4488ff;--blueG:linear-gradient(135deg,#4488ff,#2255dd);
+  --purple:#9966ff;--cyan:#00ccff;
+  --sw:#1a2e48;--sw-b:#4488ff;
+}
+[data-theme="oscuro"]{
+  --bg:#07090c;--bg2:#0d1117;--bg3:#131820;--bg4:#1a2030;
+  --border:rgba(255,255,255,.05);--border2:rgba(255,255,255,.10);
+  --text:#eef2f8;--text2:#b8c8dc;--text3:#6e88a8;--text4:#3a4a62;
+  --green:#00e5a8;--green2:#00b884;--greenG:linear-gradient(135deg,#00e5a8,#00b884);
+  --red:#ff3f5e;--amber:#f0a500;--blue:#4da6ff;--purple:#b39dff;--cyan:#00d4e8;
+  --sw:#131820;--sw-b:#323d50;
+}
+[data-theme="claro"]{
+  --bg:#f0f4f8;--bg2:#ffffff;--bg3:#e8edf5;--bg4:#dde3ee;
+  --border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.14);
+  --text:#0a1520;--text2:#2a3a50;--text3:#5a7090;--text4:#90a8c0;
+  --green:#006e48;--green2:#005a3a;--greenG:linear-gradient(135deg,#006e48,#005a3a);
+  --red:#b80020;--amber:#8a5200;--blue:#1048a8;--purple:#4a28a8;--cyan:#005870;
+  --sw:#ffffff;--sw-b:#b8c2d8;
+}
+[data-theme="sepia"]{
+  --bg:#18130e;--bg2:#211810;--bg3:#2a2015;--bg4:#33281c;
+  --border:rgba(255,220,160,.05);--border2:rgba(255,220,160,.10);
+  --text:#f2e8d5;--text2:#d5b888;--text3:#906848;--text4:#584030;
+  --green:#4ec870;--green2:#3aaa58;--greenG:linear-gradient(135deg,#4ec870,#3aaa58);
+  --red:#e05848;--amber:#e8a820;--blue:#78b0e8;--purple:#c898e8;--cyan:#48c8b8;
+  --sw:#2a2015;--sw-b:#5a4835;
+}
+
+body{background:var(--bg);color:var(--text);font-family:"Inter",sans-serif;font-size:13px;line-height:1.5;min-height:100vh;overflow-x:hidden;transition:background .2s,color .2s}
+body::after{content:"";position:fixed;top:0;left:0;right:0;height:260px;background:radial-gradient(ellipse 80% 60% at 50% -20%,rgba(68,136,255,.07),transparent);pointer-events:none;z-index:0}
+.mono{font-family:"IBM Plex Mono",monospace}
+.up{color:var(--green)}.dn{color:var(--red)}.neu{color:var(--text3)}.amb{color:var(--amber)}
+
+/* ══ HEADER ROW 1 ══ */
+.header{position:sticky;top:0;z-index:200;background:rgba(var(--bg-raw,8,11,18),.96);backdrop-filter:blur(14px)}
+.header-top{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border)}
+.logo{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--text);display:flex;align-items:center;gap:8px}
+.logo-mark{width:26px;height:26px;background:var(--greenG);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#000}
+.hright{display:flex;align-items:center;gap:10px}
+.last-upd{font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--text3);white-space:nowrap}
+
+/* ticker search */
+.tsearch-wrap{position:relative}
+.tsearch-box{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;overflow:hidden;transition:border-color .15s}
+.tsearch-box:focus-within{border-color:var(--green)}
+.tsearch-icon{padding:0 8px;font-size:11px;color:var(--text3)}
+.tsearch-input{background:transparent;border:none;outline:none;padding:5px 8px 5px 0;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--text);width:130px}
+.tsearch-input::placeholder{color:var(--text3)}
+.tsearch-results{display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;z-index:400;min-width:300px;max-height:300px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.tsearch-results.open{display:block}
+.tsr-item{display:grid;grid-template-columns:52px 1fr auto auto;align-items:center;gap:6px;padding:8px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.tsr-item:last-child{border-bottom:none}
+.tsr-item:hover{background:rgba(255,255,255,.03)}
+.tsr-sym{font-size:12px;font-weight:700;font-family:"IBM Plex Mono",monospace;color:var(--text)}
+.tsr-name{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tsr-price{font-size:11px;font-family:"IBM Plex Mono",monospace;color:var(--text2);text-align:right}
+.tsr-chg{font-size:11px;font-weight:600;font-family:"IBM Plex Mono",monospace;text-align:right;width:52px}
+
+/* theme dropdown */
+.theme-wrap{position:relative}
+.theme-btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--text2);letter-spacing:.5px;text-transform:uppercase;transition:all .15s;white-space:nowrap;border:none}
+.theme-btn:hover{color:var(--text)}
+.theme-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--sw);border:1px solid var(--sw-b)}
+.theme-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;overflow:hidden;z-index:500;min-width:140px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.theme-menu.open{display:block}
+.theme-item{display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text2);letter-spacing:.4px;transition:background .1s;white-space:nowrap}
+.theme-item:hover{background:var(--bg3);color:var(--text)}
+.theme-item.on{color:var(--green)}
+.sw-d{background:#1a2e48;border:1px solid #4488ff}
+.sw-o{background:#131820;border:1px solid #323d50}
+.sw-c{background:#ffffff;border:1px solid #b8c2d8}
+.sw-s{background:#2a2015;border:1px solid #5a4835}
+
+/* user / login */
+.user-pill{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:3px 12px 3px 6px;cursor:pointer;transition:border-color .15s}
+.user-pill:hover{border-color:var(--border2)}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--greenG);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000}
+.user-email{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text2)}
+.login-btn{background:transparent;border:1px solid var(--border2);border-radius:6px;padding:4px 12px;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--text2);cursor:pointer;transition:all .15s;letter-spacing:.5px;text-transform:uppercase}
+.login-btn:hover{border-color:var(--green);color:var(--green)}
+
+/* market badge */
+.mkt-badge{display:flex;align-items:center;gap:5px;font-family:"IBM Plex Mono",monospace;font-size:9px;letter-spacing:.8px;padding:3px 9px;border-radius:20px;border:1px solid;text-transform:uppercase;white-space:nowrap}
+.mkt-open{color:var(--green);border-color:rgba(16,232,152,.3);background:rgba(16,232,152,.08)}
+.mkt-closed{color:var(--text3);border-color:var(--border);background:var(--bg3)}
+.mkt-dot{width:5px;height:5px;border-radius:50%}
+.mkt-open .mkt-dot{background:var(--green);animation:pulse 2s infinite}
+.mkt-closed .mkt-dot{background:var(--text4)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.clk{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--text2)}
+
+/* ══ HEADER ROW 2 — INDICES STRIP ══ */
+.indices-strip{height:34px;display:flex;align-items:center;padding:0 24px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--bg2)}
+.indices-strip::-webkit-scrollbar{height:0}
+.si{display:flex;align-items:center;gap:7px;padding:0 14px;border-right:1px solid var(--border);height:34px;white-space:nowrap;flex-shrink:0}
+.si:first-child{padding-left:0}
+.si-s{font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:500;color:var(--text3)}
+.si-v{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--text);font-weight:500}
+.si-c{font-family:"IBM Plex Mono",monospace;font-size:10px}
+
+/* ══ NAV TABS ══ */
+.nav{height:44px;display:flex;align-items:stretch;padding:0 16px;border-bottom:1px solid var(--border);overflow-x:auto;gap:2px;background:var(--bg2)}
+.nav::-webkit-scrollbar{height:0}
+.ntab{display:flex;align-items:center;gap:7px;padding:0 16px;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);cursor:pointer;border:none;background:transparent;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;font-weight:500;flex-shrink:0}
+.ntab:hover{color:var(--text2)}
+.ntab.on{color:var(--green);border-bottom-color:var(--green)}
+.ntab-dot{width:5px;height:5px;border-radius:50%;background:var(--green);opacity:.8;flex-shrink:0}
+.ntab-dot-blue{background:var(--blue)}
+
+/* ══ CONTENT ══ */
+.content{padding:18px 24px;display:flex;flex-direction:column;gap:14px;position:relative;z-index:1;max-width:1700px;width:100%;margin:0 auto}
+
+/* ══ CARDS ══ */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s}
+.card:hover{border-color:var(--border2)}
+.card-head{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.card-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+
+/* ══ KPI STRIP — MERCADO ══ */
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s}
+.kpi:hover{border-color:var(--border2);transform:translateY(-1px)}
+.kpi-glow{position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
+.kpi-label{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.kpi-val{font-size:24px;font-weight:700;letter-spacing:-1.5px;font-family:"IBM Plex Mono",monospace;line-height:1}
+.kpi-val span{font-size:15px;font-weight:400;opacity:.6}
+.kpi-sub{font-size:11px;font-weight:500;margin-top:6px;font-family:"IBM Plex Mono",monospace;color:var(--text3)}
+
+/* ══ KPI STRIP — PORTAFOLIO ══ */
+.port-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.pkpi{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;display:flex;align-items:center;gap:14px;transition:border-color .2s}
+.pkpi:hover{border-color:var(--border2)}
+.pkpi-accent{position:absolute;top:0;left:0;right:0;height:2px;border-radius:12px 12px 0 0}
+.pkpi-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.pkpi-info{flex:1;min-width:0}
+.pkpi-label{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.pkpi-val{font-size:20px;font-weight:700;font-family:"IBM Plex Mono",monospace;letter-spacing:-0.5px;line-height:1}
+.pkpi-sub{font-size:10px;font-family:"IBM Plex Mono",monospace;margin-top:4px}
+
+/* ══ GRILLA ══ */
+.main-row{display:grid;gap:12px}
+.cols-3{grid-template-columns:260px 1fr 1fr}
+.cols-4{grid-template-columns:180px 1fr 1fr 1fr}
+.cols-2{grid-template-columns:1fr 1fr}
+
+/* ══ DÓLAR ══ */
+.dl-row{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border)}
+.dl-row:last-child{border-bottom:none}
+.dl-name{font-size:12px;color:var(--text2)}
+.dl-right{display:flex;align-items:center;gap:10px}
+.dl-val{font-size:13px;font-weight:600;font-family:"IBM Plex Mono",monospace;color:var(--text)}
+.dl-chg{font-size:10px;font-family:"IBM Plex Mono",monospace;width:42px;text-align:right}
+.dl-mep .dl-name{color:var(--green)}.dl-mep .dl-val{color:var(--green)}
+
+/* ══ BREADTH ══ */
+.b-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+.b-cell{background:var(--bg2);padding:11px 14px}
+.bl{font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.bv{font-size:21px;font-weight:700;font-family:"IBM Plex Mono",monospace;letter-spacing:-1px}
+.bs{font-size:10px;color:var(--text3);margin-top:2px}
+.brow{display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border)}
+.brow:last-child{border-bottom:none}
+.blbl{font-size:11px;color:var(--text3);width:88px;flex-shrink:0}
+.btrack{flex:1;height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden}
+.bfill{height:100%;border-radius:2px;width:0;transition:width 1.1s cubic-bezier(.4,0,.2,1)}
+.bnum{font-size:11px;font-weight:600;font-family:"IBM Plex Mono",monospace;width:36px;text-align:right}
+
+/* ══ SECTORES ══ */
+.sec-item{display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border)}
+.sec-item:last-child{border-bottom:none}
+.sec-sym{font-size:11px;font-weight:600;font-family:"IBM Plex Mono",monospace;color:var(--text2);width:38px;flex-shrink:0}
+.sec-name{font-size:10px;color:var(--text3);width:70px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sec-bar-w{flex:1;height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden}
+.sec-bar{height:100%;border-radius:2px;width:0;transition:width 1.1s cubic-bezier(.4,0,.2,1)}
+.sec-pct{font-size:12px;font-weight:600;font-family:"IBM Plex Mono",monospace;width:54px;text-align:right;flex-shrink:0}
+.sec-sep{border-top:1px solid var(--border);margin:4px 0}
+
+/* ══ REGIME ══ */
+.regime{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase}
+.r-bull{background:rgba(16,232,152,.1);color:var(--green);border:1px solid rgba(16,232,152,.25)}
+.r-caut{background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.25)}
+.r-bear{background:rgba(255,64,96,.1);color:var(--red);border:1px solid rgba(255,64,96,.25)}
+
+/* ══ MOVERS ══ */
+.mover{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);opacity:0;transform:translateY(6px);transition:opacity .28s,transform .28s,background .12s}
+.mover:last-child{border-bottom:none}
+.mover:hover{background:rgba(255,255,255,.02)}
+.mover.show{opacity:1;transform:translateY(0)}
+.mv-sym{font-size:12px;font-weight:700;color:var(--text);font-family:"IBM Plex Mono",monospace;width:52px;flex-shrink:0}
+.mv-name{font-size:10px;color:var(--text3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mv-price{font-size:11px;font-family:"IBM Plex Mono",monospace;color:var(--text2);text-align:right;white-space:nowrap;flex-shrink:0}
+.mv-chg{font-size:12px;font-weight:600;font-family:"IBM Plex Mono",monospace;width:58px;text-align:right;flex-shrink:0}
+
+/* ══ TABS ══ */
+.tab-bar{display:flex;gap:2px;padding:2px;background:rgba(255,255,255,.04);border-radius:8px;width:fit-content}
+.tab{padding:4px 12px;border-radius:6px;font-size:11px;font-weight:500;color:var(--text3);cursor:pointer;border:none;background:transparent;transition:all .18s;white-space:nowrap}
+.tab:hover{color:var(--text2)}
+.tab.on{background:var(--bg3);color:var(--text);border:1px solid var(--border2)}
+.tab-sm{padding:3px 10px;font-size:10px}
+
+/* ══ CATEGORY PILLS ══ */
+.cpill{padding:2px 9px;border-radius:4px;font-size:9px;font-weight:600;color:var(--text3);cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap;letter-spacing:.3px;text-transform:uppercase;background:transparent}
+.cpill:hover{color:var(--text2);border-color:var(--border)}
+.cpill.on{color:var(--text);background:rgba(255,255,255,.07);border-color:var(--border2)}
+
+/* ══ INSTRUMENT ROWS ══ */
+.ins-row{display:grid;grid-template-columns:64px 1fr auto 60px;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);opacity:0;transform:translateY(4px);transition:opacity .28s,transform .28s,background .12s}
+.ins-row:last-child{border-bottom:none}
+.ins-row:hover{background:rgba(255,255,255,.02)}
+.ins-row.show{opacity:1;transform:translateY(0)}
+.ins-sym{font-size:11px;font-weight:700;font-family:"IBM Plex Mono",monospace;color:var(--text)}
+.ins-name{font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ins-price{font-size:11px;font-family:"IBM Plex Mono",monospace;color:var(--text2);text-align:right;white-space:nowrap}
+.ins-chg{font-size:12px;font-weight:700;font-family:"IBM Plex Mono",monospace;text-align:right}
+
+/* ══ USA ROWS ══ */
+.usa-row{display:grid;grid-template-columns:52px 1fr auto 62px;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);opacity:0;transform:translateY(4px);transition:opacity .28s,transform .28s,background .12s}
+.usa-row:last-child{border-bottom:none}
+.usa-row:hover{background:rgba(255,255,255,.02)}
+.usa-row.show{opacity:1;transform:translateY(0)}
+
+/* ══ NEWS ══ */
+.news-search-wrap{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0;background:var(--bg3);transition:background .2s}
+.news-search-icon{font-size:11px;color:var(--text3);padding:0 8px}
+.news-search-input{background:transparent;border:none;outline:none;flex:1;font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--text);padding:3px 0}
+.news-search-input::placeholder{color:var(--text4)}
+.news-count{font-family:"IBM Plex Mono",monospace;font-size:9px;color:var(--text4);white-space:nowrap}
+.news-item{display:flex;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border);transition:background .12s}
+.news-item:last-child{border-bottom:none}
+.news-item:hover{background:rgba(255,255,255,.02)}
+.news-t{font-size:10px;font-family:"IBM Plex Mono",monospace;color:var(--amber);flex-shrink:0;min-width:28px;padding-top:2px}
+.news-x{font-size:12px;color:var(--text2);line-height:1.5;flex:1}
+.news-src{font-size:9px;color:var(--text4);margin-top:2px}
+.news-src .src-tag{display:inline-flex;align-items:center;gap:3px;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:600;letter-spacing:.4px;border:1px solid}
+.src-deltaone{color:var(--amber);border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.08)}
+.src-reuters{color:var(--blue);border-color:rgba(68,136,255,.3);background:rgba(68,136,255,.08)}
+.src-bloomberg{color:#f0f4ff;border-color:rgba(240,244,255,.2);background:rgba(240,244,255,.05)}
+.src-cnbc{color:var(--red);border-color:rgba(255,64,96,.3);background:rgba(255,64,96,.08)}
+.src-infobae{color:var(--text2);border-color:var(--border);background:var(--bg3)}
+
+/* ══ SEC LABEL ══ */
+.sec-label{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;display:flex;align-items:center;gap:10px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ══ PANEL HEAD ══ */
+.panel-head{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.panel-title{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+
+/* ══ TABLE HEADERS ══ */
+.th-row{display:grid;gap:8px;padding:6px 16px;border-bottom:1px solid var(--border)}
+.th{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px}
+
+/* ══ MORPH ANIMATIONS ══ */
+@keyframes flashG{0%{color:var(--green);text-shadow:0 0 8px rgba(16,232,152,.5)}100%{text-shadow:none}}
+@keyframes flashR{0%{color:var(--red);text-shadow:0 0 8px rgba(255,64,96,.5)}100%{text-shadow:none}}
+.flash-g{animation:flashG .7s ease-out forwards}
+.flash-r{animation:flashR .7s ease-out forwards}
+
+/* ══ FOOTER ══ */
+.footer{padding:9px 24px;border-top:1px solid var(--border);font-size:9px;color:var(--text4);font-family:"IBM Plex Mono",monospace;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;background:var(--bg2)}
+.footer-status{display:flex;align-items:center;gap:14px}
+.fstatus{display:flex;align-items:center;gap:5px}
+.fsdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.fsdot-ok{background:var(--green);animation:pulse 2s infinite}
+.fsdot-err{background:var(--red)}
+.fsdot-unk{background:var(--text4)}
+.fs-label{font-size:9px;color:var(--text3)}
+.fs-ts{color:var(--text3)}
+.fvbar{color:var(--border2);margin:0 2px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     HEADER
+══════════════════════════════════════ -->
+<div class="header">
+
+  <!-- ROW 1 -->
+  <div class="header-top">
+    <div class="logo">
+      <div class="logo-mark">F</div>
+      Finboard
+    </div>
+    <div class="hright">
+      <div class="last-upd">Act: <span id="lastUpd">14:31:08</span></div>
+
+      <!-- Buscador ticker -->
+      <div class="tsearch-wrap">
+        <div class="tsearch-box">
+          <span class="tsearch-icon">🔍</span>
+          <input class="tsearch-input" id="tsInput" placeholder="Buscar ticker..." autocomplete="off"
+            oninput="doTickerSearch(this.value)"
+            onfocus="if(this.value.length>0)document.getElementById('tsResults').classList.add('open')"
+            onblur="setTimeout(()=>document.getElementById('tsResults').classList.remove('open'),200)">
+        </div>
+        <div class="tsearch-results" id="tsResults"></div>
+      </div>
+
+      <!-- Tema -->
+      <div class="theme-wrap">
+        <button class="theme-btn" onclick="toggleTheme()">
+          <span class="theme-swatch" id="thSwatch"></span>
+          <span id="thLabel">Default</span>
+          <span style="opacity:.5;font-size:8px">▾</span>
+        </button>
+        <div class="theme-menu" id="thMenu">
+          <div class="theme-item on" onclick="setTheme('default')"><span class="theme-swatch sw-d"></span>Default</div>
+          <div class="theme-item" onclick="setTheme('oscuro')"><span class="theme-swatch sw-o"></span>Oscuro</div>
+          <div class="theme-item" onclick="setTheme('claro')"><span class="theme-swatch sw-c"></span>Claro</div>
+          <div class="theme-item" onclick="setTheme('sepia')"><span class="theme-swatch sw-s"></span>Sepia</div>
+        </div>
+      </div>
+
+      <!-- Login / user (demo: ambos visibles para el mock) -->
+      <div class="user-pill" style="display:none" id="userPill">
+        <div class="user-avatar" id="userAv">C</div>
+        <span class="user-email" id="userEm">elyagui@gmail.com</span>
+      </div>
+      <button class="login-btn" id="loginBtn" onclick="mockLogin()">Ingresar</button>
+
+      <div class="mkt-open mkt-badge"><div class="mkt-dot"></div><span>Rueda abierta</span></div>
+      <div class="clk" id="clock">14:32:08</div>
+    </div>
+  </div>
+
+  <!-- ROW 2: Indices strip -->
+  <div class="indices-strip">
+    <div class="si"><span class="si-s">SPY</span><span class="si-v">589.40</span><span class="si-c up">+0.82%</span></div>
+    <div class="si"><span class="si-s">QQQ</span><span class="si-v">499.20</span><span class="si-c up">+1.14%</span></div>
+    <div class="si"><span class="si-s">VIX</span><span class="si-v">18.4</span><span class="si-c dn">-3.2%</span></div>
+    <div class="si"><span class="si-s">MERVAL</span><span class="si-v">2,184,300</span><span class="si-c up">+1.8%</span></div>
+    <div class="si"><span class="si-s">MEP</span><span class="si-v" style="color:var(--green)">$1,218</span><span class="si-c up">+0.3%</span></div>
+    <div class="si"><span class="si-s">CCL</span><span class="si-v" style="color:var(--green)">$1,230</span><span class="si-c up">+0.5%</span></div>
+    <div class="si"><span class="si-s">AL30</span><span class="si-v">69.40</span><span class="si-c up">+1.2%</span></div>
+    <div class="si"><span class="si-s">GD30</span><span class="si-v">72.10</span><span class="si-c up">+0.9%</span></div>
+    <div class="si"><span class="si-s">GLD</span><span class="si-v">224.80</span><span class="si-c amb">+1.4%</span></div>
+    <div class="si"><span class="si-s">WTI</span><span class="si-v">62.40</span><span class="si-c dn">-0.8%</span></div>
+    <div class="si"><span class="si-s">BTC</span><span class="si-v">97,420</span><span class="si-c up">+2.1%</span></div>
+  </div>
+
+  <!-- ROW 3: Módulos -->
+  <div class="nav">
+    <button class="ntab on">🏠 Inicio</button>
+    <button class="ntab">📊 Opciones</button>
+    <button class="ntab">🌐 CEDEARs</button>
+    <button class="ntab">🔔 Alertas</button>
+    <button class="ntab">🇺🇸 USA</button>
+    <button class="ntab">📐 Renta Fija</button>
+    <button class="ntab">💼 Portafolio</button>
+  </div>
+
+</div><!-- /header -->
+
+<!-- ══════════════════════════════════════
+     CONTENT
+══════════════════════════════════════ -->
+<div class="content">
+
+  <!-- ── ROW 1: KPI Mercado ── -->
+  <div>
+    <div class="sec-label" style="margin-bottom:10px">Pulso de mercado</div>
+    <div class="kpi-strip">
+      <div class="kpi">
+        <div class="kpi-glow" style="background:var(--greenG)"></div>
+        <div class="kpi-label">SPY</div>
+        <div class="kpi-val up" id="k-spy">+0.82<span>%</span></div>
+        <div class="kpi-sub">$589.40</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-glow" style="background:var(--greenG)"></div>
+        <div class="kpi-label">QQQ</div>
+        <div class="kpi-val up" id="k-qqq">+1.14<span>%</span></div>
+        <div class="kpi-sub">$499.20</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-glow" style="background:linear-gradient(135deg,var(--cyan),var(--blue))"></div>
+        <div class="kpi-label">VIX</div>
+        <div class="kpi-val" style="color:var(--cyan)" id="k-vix">18.4</div>
+        <div class="kpi-sub dn">−3.2% hoy</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-glow" style="background:var(--amberG)"></div>
+        <div class="kpi-label">Fear &amp; Greed</div>
+        <div class="kpi-val amb" id="k-fg">44</div>
+        <div class="kpi-sub amb">Fear</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-glow" style="background:var(--greenG)"></div>
+        <div class="kpi-label">Merval USD <span style="font-size:8px;opacity:.5">ARS/CCL</span></div>
+        <div class="kpi-val up" id="k-merval">1,776<span>pts</span></div>
+        <div class="kpi-sub up">+1.3% hoy</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-glow" style="background:linear-gradient(135deg,var(--green),var(--cyan))"></div>
+        <div class="kpi-label">MEP / CCL <span style="font-size:8px;opacity:.5">spread</span></div>
+        <div class="kpi-val" style="color:var(--green)" id="k-mep">$1.218</div>
+        <div class="kpi-sub" style="color:var(--text3)">Spread CCL: <span class="amb">+0.98%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 2: KPI Portafolio ── -->
+  <div>
+    <div class="sec-label" style="margin-bottom:10px">Mi portafolio — hoy</div>
+    <div class="port-strip">
+      <div class="pkpi">
+        <div class="pkpi-accent" style="background:var(--greenG)"></div>
+        <div class="pkpi-icon" style="background:rgba(16,232,152,.1)">📈</div>
+        <div class="pkpi-info">
+          <div class="pkpi-label">P&amp;L del día</div>
+          <div class="pkpi-val up" id="pnl-ars">+$142.500</div>
+          <div class="pkpi-sub">
+            <span class="up" id="pnl-pct">+2.31%</span>
+            <span style="color:var(--text3);margin-left:8px">≈ USD <span class="up">+116</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="pkpi">
+        <div class="pkpi-accent" style="background:var(--greenG)"></div>
+        <div class="pkpi-icon" style="background:rgba(16,232,152,.1)">▲</div>
+        <div class="pkpi-info">
+          <div class="pkpi-label">Mayor suba portafolio</div>
+          <div class="pkpi-val up">GGAL</div>
+          <div class="pkpi-sub"><span class="up">+4.2%</span><span style="color:var(--text3);margin-left:8px">$3,412 · 120 acc</span></div>
+        </div>
+      </div>
+      <div class="pkpi">
+        <div class="pkpi-accent" style="background:var(--redG)"></div>
+        <div class="pkpi-icon" style="background:rgba(255,64,96,.1)">▼</div>
+        <div class="pkpi-info">
+          <div class="pkpi-label">Mayor baja portafolio</div>
+          <div class="pkpi-val dn">TXAR</div>
+          <div class="pkpi-sub"><span class="dn">−1.8%</span><span style="color:var(--text3);margin-left:8px">$890 · 500 acc</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 3: Grilla 3 columnas ── -->
+  <div>
+    <div class="sec-label" style="margin-bottom:10px">Mercado en tiempo real</div>
+    <div class="main-row cols-4">
+
+      <!-- Col 1: Dólar + Breadth -->
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card">
+          <div class="card-head"><div class="card-title">Tipo de cambio</div></div>
+          <div class="dl-row"><span class="dl-name">Oficial</span><div class="dl-right"><span class="dl-val">$1,095</span><span class="dl-chg neu">0.0%</span></div></div>
+          <div class="dl-row"><span class="dl-name">Blue</span><div class="dl-right"><span class="dl-val">$1,255</span><span class="dl-chg up">+0.4%</span></div></div>
+          <div class="dl-row"><span class="dl-name">Cripto</span><div class="dl-right"><span class="dl-val">$1,241</span><span class="dl-chg dn">-0.2%</span></div></div>
+          <div class="dl-row dl-mep"><span class="dl-name">MEP (AL30)</span><div class="dl-right"><span class="dl-val">$1,218</span><span class="dl-chg up">+0.3%</span></div></div>
+          <div class="dl-row dl-mep"><span class="dl-name">CCL (AL30)</span><div class="dl-right"><span class="dl-val">$1,230</span><span class="dl-chg up">+0.5%</span></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Breadth S&amp;P 500</div>
+            <span class="regime r-caut">⚠ Cautious</span>
+          </div>
+          <div style="padding:6px 0">
+            <div class="brow"><div class="blbl">SMA 200</div><div class="btrack"><div class="bfill up" data-w="61" style="background:var(--green)"></div></div><div class="bnum up">61%</div></div>
+            <div class="brow"><div class="blbl">SMA 50</div><div class="btrack"><div class="bfill" data-w="54" style="background:var(--green)"></div></div><div class="bnum up">54%</div></div>
+            <div class="brow"><div class="blbl">Avanzando</div><div class="btrack"><div class="bfill" data-w="58" style="background:var(--cyan)"></div></div><div class="bnum" style="color:var(--cyan)">58%</div></div>
+            <div class="brow"><div class="blbl">RSI &gt;70</div><div class="btrack"><div class="bfill" data-w="8" style="background:var(--amber)"></div></div><div class="bnum amb">8%</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 2: Sectores USA -->
+      <div class="card">
+        <div class="card-head"><div class="card-title">Sectores USA</div><span style="font-size:10px;color:var(--text3)">retorno hoy</span></div>
+        <div class="sec-item"><span class="sec-sym">XLK</span><span class="sec-name">Technology</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,var(--green2),var(--green))" data-w="82"></div></div><span class="sec-pct up">+1.84%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLY</span><span class="sec-name">Cons. Disc.</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,var(--green2),var(--green))" data-w="60"></div></div><span class="sec-pct up">+1.31%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLC</span><span class="sec-name">Comm. Svcs.</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,var(--green2),var(--green))" data-w="52"></div></div><span class="sec-pct up">+1.12%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLF</span><span class="sec-name">Financials</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,var(--green2),var(--green))" data-w="40"></div></div><span class="sec-pct up">+0.88%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLI</span><span class="sec-name">Industrials</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,var(--green2),var(--green))" data-w="22"></div></div><span class="sec-pct up">+0.52%</span></div>
+        <div class="sec-item"><span class="sec-sym" style="color:var(--text3)">XLV</span><span class="sec-name">Health Care</span><div class="sec-bar-w"><div class="sec-bar" style="background:rgba(100,140,200,.3)" data-w="3"></div></div><span class="sec-pct neu">+0.04%</span></div>
+        <div class="sec-sep"></div>
+        <div class="sec-item"><span class="sec-sym">XLP</span><span class="sec-name">Cons. Staples</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,#cc2244,var(--red))" data-w="18"></div></div><span class="sec-pct dn">-0.22%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLB</span><span class="sec-name">Materials</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,#cc2244,var(--red))" data-w="30"></div></div><span class="sec-pct dn">-0.41%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLU</span><span class="sec-name">Utilities</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,#cc2244,var(--red))" data-w="38"></div></div><span class="sec-pct dn">-0.68%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLE</span><span class="sec-name">Energy</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,#cc2244,var(--red))" data-w="52"></div></div><span class="sec-pct dn">-1.02%</span></div>
+        <div class="sec-item"><span class="sec-sym">XLRE</span><span class="sec-name">Real Estate</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,#cc2244,var(--red))" data-w="64"></div></div><span class="sec-pct dn">-1.24%</span></div>
+        <div class="sec-sep"></div>
+        <div class="sec-item"><span class="sec-sym" style="color:var(--amber)">GLD</span><span class="sec-name">Gold</span><div class="sec-bar-w"><div class="sec-bar" style="background:var(--amberG)" data-w="70"></div></div><span class="sec-pct amb">+1.40%</span></div>
+        <div class="sec-item"><span class="sec-sym" style="color:var(--text2)">SLV</span><span class="sec-name">Silver</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,#aaa,#ddd)" data-w="55"></div></div><span class="sec-pct" style="color:#ccc">+0.92%</span></div>
+        <div class="sec-item"><span class="sec-sym" style="color:var(--text3)">USO</span><span class="sec-name">Oil</span><div class="sec-bar-w"><div class="sec-bar" style="background:linear-gradient(90deg,#cc2244,var(--red))" data-w="36"></div></div><span class="sec-pct dn">-0.80%</span></div>
+      </div>
+
+      <!-- Col 3: Mercado USA -->
+      <div class="card">
+        <div class="panel-head">
+          <div class="panel-title">Mercado USA</div>
+          <div class="tab-bar">
+            <button class="tab tab-sm on" onclick="switchUSA('subas',this)">Subas</button>
+            <button class="tab tab-sm" onclick="switchUSA('bajas',this)">Bajas</button>
+          </div>
+        </div>
+        <div class="th-row" style="grid-template-columns:52px 1fr auto 62px">
+          <span class="th">Ticker</span><span class="th">Empresa</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span>
+        </div>
+        <div id="usa-subas">
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">NVDA</span><span style="font-size:10px;color:var(--text3)">Nvidia Corp.</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$905.40</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+4.82%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">META</span><span style="font-size:10px;color:var(--text3)">Meta Platforms</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$512.80</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+3.21%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">TSLA</span><span style="font-size:10px;color:var(--text3)">Tesla Inc.</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$258.10</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+2.94%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">AAPL</span><span style="font-size:10px;color:var(--text3)">Apple Inc.</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$198.40</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+1.72%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">AMZN</span><span style="font-size:10px;color:var(--text3)">Amazon.com</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$192.80</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+1.48%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">MSFT</span><span style="font-size:10px;color:var(--text3)">Microsoft</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$415.20</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+1.22%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">GOOGL</span><span style="font-size:10px;color:var(--text3)">Alphabet</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$172.40</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+0.94%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">JPM</span><span style="font-size:10px;color:var(--text3)">JPMorgan Chase</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$218.60</span><span class="mono up" style="font-size:12px;font-weight:700;text-align:right">+0.71%</span></div>
+        </div>
+        <div id="usa-bajas" style="display:none">
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">XOM</span><span style="font-size:10px;color:var(--text3)">Exxon Mobil</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$108.20</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-2.14%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">CVX</span><span style="font-size:10px;color:var(--text3)">Chevron</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$154.80</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-1.82%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">VZ</span><span style="font-size:10px;color:var(--text3)">Verizon</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$40.20</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-1.40%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">NEE</span><span style="font-size:10px;color:var(--text3)">NextEra Energy</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$64.80</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-1.20%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">KO</span><span style="font-size:10px;color:var(--text3)">Coca-Cola</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$68.40</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-0.90%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">MCD</span><span style="font-size:10px;color:var(--text3)">McDonald's</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$296.40</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-0.72%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">WMT</span><span style="font-size:10px;color:var(--text3)">Walmart</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$94.20</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-0.48%</span></div>
+          <div class="usa-row"><span class="mono" style="font-size:12px;font-weight:700;color:var(--text)">T</span><span style="font-size:10px;color:var(--text3)">AT&amp;T</span><span class="mono" style="font-size:12px;color:var(--text2);text-align:right">$19.80</span><span class="mono dn" style="font-size:12px;font-weight:700;text-align:right">-0.31%</span></div>
+        </div>
+      </div>
+
+      <!-- Col 4: Renta Fija AR -->
+      <div class="card">
+        <div class="panel-head">
+          <div class="panel-title">Renta Fija AR</div>
+          <div class="tab-bar">
+            <button class="tab tab-sm on" onclick="switchRF('suba',this)">Subas</button>
+            <button class="tab tab-sm" onclick="switchRF('baja',this)">Bajas</button>
+          </div>
+        </div>
+        <div style="padding:7px 16px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-wrap:wrap">
+          <button class="cpill on" data-cat="todos">Todos</button>
+          <button class="cpill" data-cat="bonos">Bonos Sob.</button>
+          <button class="cpill" data-cat="duales">Duales</button>
+          <button class="cpill" data-cat="linked">Linked</button>
+          <button class="cpill" data-cat="cer">CER</button>
+          <button class="cpill" data-cat="letras">Letras</button>
+        </div>
+        <div class="th-row" style="grid-template-columns:64px 1fr auto 62px">
+          <span class="th">Ticker</span><span class="th">Instrumento</span><span class="th" style="text-align:right">Precio</span><span class="th" style="text-align:right">%Día</span>
+        </div>
+        <div id="rf-list" style="max-height:340px;overflow-y:auto">
+          <!-- Bonos soberanos USD — subas -->
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">AL30</span><span class="ins-name">Bono USD 2030 Ley Arg.</span><span class="ins-price">$69.40</span><span class="ins-chg up">+1.84%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">GD30</span><span class="ins-name">Bono Global USD 2030</span><span class="ins-price">$72.10</span><span class="ins-chg up">+1.62%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">AL35</span><span class="ins-name">Bono USD 2035 Ley Arg.</span><span class="ins-price">$58.80</span><span class="ins-chg up">+1.22%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">GD35</span><span class="ins-name">Bono Global USD 2035</span><span class="ins-price">$60.20</span><span class="ins-chg up">+0.98%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">AE38</span><span class="ins-name">Bono USD 2038 Ley Arg.</span><span class="ins-price">$52.40</span><span class="ins-chg up">+0.84%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">GD38</span><span class="ins-name">Bono Global USD 2038</span><span class="ins-price">$54.80</span><span class="ins-chg up">+0.72%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">AL41</span><span class="ins-name">Bono USD 2041 Ley Arg.</span><span class="ins-price">$48.20</span><span class="ins-chg up">+0.60%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="suba"><span class="ins-sym">GD41</span><span class="ins-name">Bono Global USD 2041</span><span class="ins-price">$50.10</span><span class="ins-chg up">+0.52%</span></div>
+          <!-- Duales — subas -->
+          <div class="ins-row" data-cat="duales" data-dir="suba"><span class="ins-sym">TDJ25</span><span class="ins-name">Dual Jul-2025</span><span class="ins-price">$103.20</span><span class="ins-chg up">+1.40%</span></div>
+          <div class="ins-row" data-cat="duales" data-dir="suba"><span class="ins-sym">TDG25</span><span class="ins-name">Dual Ago-2025</span><span class="ins-price">$101.80</span><span class="ins-chg up">+1.10%</span></div>
+          <div class="ins-row" data-cat="duales" data-dir="suba"><span class="ins-sym">TDE25</span><span class="ins-name">Dual Sep-2025</span><span class="ins-price">$100.90</span><span class="ins-chg up">+0.82%</span></div>
+          <div class="ins-row" data-cat="duales" data-dir="suba"><span class="ins-sym">TDN25</span><span class="ins-name">Dual Nov-2025</span><span class="ins-price">$99.60</span><span class="ins-chg up">+0.54%</span></div>
+          <!-- Linked — subas -->
+          <div class="ins-row" data-cat="linked" data-dir="suba"><span class="ins-sym">TV25</span><span class="ins-name">Dólar-Linked Jun-2025</span><span class="ins-price">$100.80</span><span class="ins-chg up">+1.10%</span></div>
+          <div class="ins-row" data-cat="linked" data-dir="suba"><span class="ins-sym">TZV25</span><span class="ins-name">Dólar-Linked Dic-2025</span><span class="ins-price">$99.40</span><span class="ins-chg up">+0.72%</span></div>
+          <div class="ins-row" data-cat="linked" data-dir="suba"><span class="ins-sym">TZV26</span><span class="ins-name">Dólar-Linked 2026</span><span class="ins-price">$97.20</span><span class="ins-chg up">+0.48%</span></div>
+          <!-- CER — subas -->
+          <div class="ins-row" data-cat="cer" data-dir="suba"><span class="ins-sym">TX26</span><span class="ins-name">BONCER Feb-2026</span><span class="ins-price">$148.40</span><span class="ins-chg up">+0.94%</span></div>
+          <div class="ins-row" data-cat="cer" data-dir="suba"><span class="ins-sym">TX28</span><span class="ins-name">BONCER Ago-2028</span><span class="ins-price">$162.80</span><span class="ins-chg up">+0.68%</span></div>
+          <div class="ins-row" data-cat="cer" data-dir="suba"><span class="ins-sym">TC26</span><span class="ins-name">BONCER Jun-2026</span><span class="ins-price">$138.20</span><span class="ins-chg up">+0.50%</span></div>
+          <!-- Letras — subas -->
+          <div class="ins-row" data-cat="letras" data-dir="suba"><span class="ins-sym">S31E5</span><span class="ins-name">LEDE Ene-2025</span><span class="ins-price">$99.42</span><span class="ins-chg up">+0.48%</span></div>
+          <div class="ins-row" data-cat="letras" data-dir="suba"><span class="ins-sym">S28F5</span><span class="ins-name">LEDE Feb-2025</span><span class="ins-price">$98.90</span><span class="ins-chg up">+0.32%</span></div>
+          <div class="ins-row" data-cat="letras" data-dir="suba"><span class="ins-sym">T17A5</span><span class="ins-name">LECAP Abr-2025</span><span class="ins-price">$99.10</span><span class="ins-chg up">+0.22%</span></div>
+          <!-- Bonos soberanos — bajas -->
+          <div class="ins-row" data-cat="bonos" data-dir="baja" style="display:none"><span class="ins-sym">GD46</span><span class="ins-name">Bono Global USD 2046</span><span class="ins-price">$42.10</span><span class="ins-chg dn">-1.40%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="baja" style="display:none"><span class="ins-sym">GD48</span><span class="ins-name">Bono Global USD 2048</span><span class="ins-price">$40.80</span><span class="ins-chg dn">-1.20%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="baja" style="display:none"><span class="ins-sym">AL29</span><span class="ins-name">Bono USD 2029 Ley Arg.</span><span class="ins-price">$62.40</span><span class="ins-chg dn">-0.88%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="baja" style="display:none"><span class="ins-sym">GD29</span><span class="ins-name">Bono Global USD 2029</span><span class="ins-price">$65.20</span><span class="ins-chg dn">-0.72%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="baja" style="display:none"><span class="ins-sym">DICA</span><span class="ins-name">Discount Ley Arg.</span><span class="ins-price">$84.60</span><span class="ins-chg dn">-0.58%</span></div>
+          <div class="ins-row" data-cat="bonos" data-dir="baja" style="display:none"><span class="ins-sym">DICY</span><span class="ins-name">Discount Ley NY</span><span class="ins-price">$87.20</span><span class="ins-chg dn">-0.44%</span></div>
+          <!-- Duales — bajas -->
+          <div class="ins-row" data-cat="duales" data-dir="baja" style="display:none"><span class="ins-sym">TDO25</span><span class="ins-name">Dual Oct-2025</span><span class="ins-price">$98.40</span><span class="ins-chg dn">-0.80%</span></div>
+          <div class="ins-row" data-cat="duales" data-dir="baja" style="display:none"><span class="ins-sym">TDE26</span><span class="ins-name">Dual Ene-2026</span><span class="ins-price">$96.80</span><span class="ins-chg dn">-0.60%</span></div>
+          <!-- Linked — bajas -->
+          <div class="ins-row" data-cat="linked" data-dir="baja" style="display:none"><span class="ins-sym">TVY26</span><span class="ins-name">Dólar-Linked May-2026</span><span class="ins-price">$95.20</span><span class="ins-chg dn">-0.70%</span></div>
+          <!-- CER — bajas -->
+          <div class="ins-row" data-cat="cer" data-dir="baja" style="display:none"><span class="ins-sym">DICP</span><span class="ins-name">Discount CER</span><span class="ins-price">$62.80</span><span class="ins-chg dn">-1.12%</span></div>
+          <div class="ins-row" data-cat="cer" data-dir="baja" style="display:none"><span class="ins-sym">TC25</span><span class="ins-name">BONCER Jun-2025</span><span class="ins-price">$122.80</span><span class="ins-chg dn">-0.60%</span></div>
+          <div class="ins-row" data-cat="cer" data-dir="baja" style="display:none"><span class="ins-sym">TC27</span><span class="ins-name">BONCER Mar-2027</span><span class="ins-price">$155.40</span><span class="ins-chg dn">-0.40%</span></div>
+          <!-- Letras — bajas -->
+          <div class="ins-row" data-cat="letras" data-dir="baja" style="display:none"><span class="ins-sym">S30J5</span><span class="ins-name">LECER Jun-2025</span><span class="ins-price">$97.80</span><span class="ins-chg dn">-0.44%</span></div>
+          <div class="ins-row" data-cat="letras" data-dir="baja" style="display:none"><span class="ins-sym">T30S5</span><span class="ins-name">LECAP Sep-2025</span><span class="ins-price">$96.40</span><span class="ins-chg dn">-0.28%</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── ROW 4: Noticias ── -->
+  <div>
+    <div class="sec-label" style="margin-bottom:10px">Noticias — @DeltaOne y otras fuentes</div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Breaking &amp; Market News</div>
+        <span style="font-size:10px;color:var(--text3)" id="newsCount">14 noticias</span>
+      </div>
+      <div class="news-search-wrap">
+        <span class="news-search-icon">🔍</span>
+        <input class="news-search-input" id="newsSearch" placeholder="Filtrar por palabra clave..." oninput="filterNews(this.value)">
+        <span class="news-count" id="newsVisible">mostrando 14</span>
+      </div>
+      <div id="newsList">
+        <div class="news-item" data-text="fed rate cuts inflation market"><div class="news-t">14:28</div><div><div class="news-x">Fed officials signal caution on rate cuts amid sticky inflation data; market prices in 2 cuts for 2025</div><div class="news-src"><span class="src-tag src-reuters">Reuters</span></div></div></div>
+        <div class="news-item" data-text="nvidia earnings q1 revenue datacenter ai"><div class="news-t">14:22</div><div><div class="news-x">NVIDIA beats Q1 earnings, guides Q2 revenue above $28B on datacenter demand surge</div><div class="news-src"><span class="src-tag src-cnbc">CNBC</span></div></div></div>
+        <div class="news-item" data-text="argentina trade surplus march record"><div class="news-t">14:15</div><div><div class="news-x">Argentina's trade surplus hits $1.8B in March, beating estimates for 4th consecutive month</div><div class="news-src"><span class="src-tag src-bloomberg">Bloomberg</span></div></div></div>
+        <div class="news-item" data-text="deltaone spy rally tech sector rotation"><div class="news-t">14:09</div><div><div class="news-x">SPY pushing to session highs, tech rotation accelerating — XLK +1.9% leads broad rally</div><div class="news-src"><span class="src-tag src-deltaone">@DeltaOne</span></div></div></div>
+        <div class="news-item" data-text="milei fmi acuerdo reservas dolar"><div class="news-t">14:02</div><div><div class="news-x">Milei confirma que Argentina cerrará acuerdo FMI por USD 20.000M en próximas semanas</div><div class="news-src"><span class="src-tag src-infobae">Infobae</span></div></div></div>
+        <div class="news-item" data-text="deltaone vix falling put call ratio options"><div class="news-t">13:58</div><div><div class="news-x">VIX sub-18, P/C SPY dropping — options market pricing in continued squeeze into month-end</div><div class="news-src"><span class="src-tag src-deltaone">@DeltaOne</span></div></div></div>
+        <div class="news-item" data-text="jpmorgan sp500 target earnings ai capex"><div class="news-t">13:48</div><div><div class="news-x">JPMorgan raises S&amp;P 500 year-end target to 6,500 citing AI capex cycle and earnings resilience</div><div class="news-src"><span class="src-tag src-bloomberg">Bloomberg</span></div></div></div>
+        <div class="news-item" data-text="oil opec output production wti crude"><div class="news-t">13:40</div><div><div class="news-x">Oil falls 0.8% as OPEC+ signals potential output increase at June meeting; WTI sub $63</div><div class="news-src"><span class="src-tag src-reuters">Reuters</span></div></div></div>
+        <div class="news-item" data-text="deltaone ggal galicia merval bancos financieros"><div class="news-t">13:32</div><div><div class="news-x">Bancos argentinos (+3.5%) liderando el Merval — GGAL y BMA rompen resistencias clave en volumen inusual</div><div class="news-src"><span class="src-tag src-deltaone">@DeltaOne</span></div></div></div>
+        <div class="news-item" data-text="gold silver record all time high metals"><div class="news-t">13:21</div><div><div class="news-x">Gold holds near all-time highs, Silver adds 0.9% — precious metals outperform as dollar weakens</div><div class="news-src"><span class="src-tag src-bloomberg">Bloomberg</span></div></div></div>
+        <div class="news-item" data-text="deltaone al30 gd30 bonos soberanos rally"><div class="news-t">13:15</div><div><div class="news-x">AL30 +1.8% · GD30 +1.6% — soberanos en USD con el mejor arranque semanal desde ene-25; riesgo país bajo 700bps</div><div class="news-src"><span class="src-tag src-deltaone">@DeltaOne</span></div></div></div>
+        <div class="news-item" data-text="meta alphabet google advertising revenue beat"><div class="news-t">13:08</div><div><div class="news-x">Meta and Alphabet both beat ad revenue estimates — digital advertising recovery strengthens</div><div class="news-src"><span class="src-tag src-cnbc">CNBC</span></div></div></div>
+        <div class="news-item" data-text="dolar blue ccl mep spread brecha cambiaria"><div class="news-t">12:55</div><div><div class="news-x">Brecha cambiaria se amplía al 14%: CCL $1,230 vs oficial $1,095 — dólar blue estable en $1,255</div><div class="news-src"><span class="src-tag src-infobae">Infobae</span></div></div></div>
+        <div class="news-item" data-text="deltaone nvda meta tech earnings season"><div class="news-t">12:44</div><div><div class="news-x">Earnings season accelerating bullish momentum — NVDA +4.8% META +3.2% driving SPY above 590</div><div class="news-src"><span class="src-tag src-deltaone">@DeltaOne</span></div></div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- ══════════════════════════════════════
+     FOOTER
+══════════════════════════════════════ -->
+<div class="footer">
+  <span>⚠ Contenido meramente informativo. No responsable por errores u omisiones.</span>
+  <div class="footer-status">
+    <div class="fstatus">
+      <span class="fsdot fsdot-ok" id="dot-local"></span>
+      <span class="fs-label">Mercado local: <span class="fs-ts" id="ts-local">14:31:08</span></span>
+    </div>
+    <span class="fvbar">|</span>
+    <div class="fstatus">
+      <span class="fsdot fsdot-ok" id="dot-usa"></span>
+      <span class="fs-label">Mercado USA: <span class="fs-ts" id="ts-usa">14:31:02</span></span>
+    </div>
+    <span class="fvbar">|</span>
+    <span class="fs-label">Act: <span class="fs-ts" id="ts-act">14:32:08</span></span>
+  </div>
+</div>
+
+<script>
+// ══ RELOJ ══
+function updateClock(){
+  const n=new Date();
+  const s=[n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+  document.getElementById('clock').textContent=s;
+  document.getElementById('ts-act').textContent=s;
+}
+setInterval(updateClock,1000);
+
+// ══ TEMA ══
+const themes={
+  default:{label:'Default',sw:'sw-d'},
+  oscuro:{label:'Oscuro',sw:'sw-o'},
+  claro:{label:'Claro',sw:'sw-c'},
+  sepia:{label:'Sepia',sw:'sw-s'}
+};
+let currentTheme='default';
+
+function toggleTheme(){
+  document.getElementById('thMenu').classList.toggle('open');
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.theme-wrap')) document.getElementById('thMenu').classList.remove('open');
+});
+
+function setTheme(t){
+  currentTheme=t;
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('thLabel').textContent=themes[t].label;
+  document.getElementById('thMenu').classList.remove('open');
+  document.querySelectorAll('.theme-item').forEach((el,i)=>{
+    el.classList.toggle('on',Object.keys(themes)[i]===t);
+  });
+  localStorage.setItem('apex-theme',t);
+}
+
+// ══ LOGIN MOCK ══
+let logged=false;
+function mockLogin(){
+  logged=!logged;
+  document.getElementById('loginBtn').style.display=logged?'none':'';
+  document.getElementById('userPill').style.display=logged?'flex':'none';
+}
+
+// ══ TICKER SEARCH ══
+const tickerDB=[
+  {sym:'GGAL',name:'Grupo Galicia',price:'$3,412',chg:'+4.20%',up:true},
+  {sym:'YPF',name:'YPF SA',price:'$52,100',chg:'+1.80%',up:true},
+  {sym:'BMA',name:'Banco Macro',price:'$6,840',chg:'+3.10%',up:true},
+  {sym:'NVDA',name:'Nvidia Corp.',price:'$905.40',chg:'+4.82%',up:true},
+  {sym:'AAPL',name:'Apple Inc.',price:'$198.40',chg:'+1.72%',up:true},
+  {sym:'AL30',name:'Bono USD 2030 Arg.',price:'$69.40',chg:'+1.84%',up:true},
+  {sym:'GD30',name:'Bono Global USD 2030',price:'$72.10',chg:'+1.62%',up:true},
+  {sym:'TX26',name:'BONCER Feb-2026',price:'$148.40',chg:'+0.94%',up:true},
+  {sym:'PAMP',name:'Pampa Energía',price:'$4,210',chg:'+2.40%',up:true},
+  {sym:'TXAR',name:'Ternium Arg.',price:'$890',chg:'-1.80%',up:false},
+  {sym:'MSFT',name:'Microsoft',price:'$415.20',chg:'+1.22%',up:true},
+  {sym:'META',name:'Meta Platforms',price:'$512.80',chg:'+3.21%',up:true},
+];
+function doTickerSearch(q){
+  const box=document.getElementById('tsResults');
+  if(!q||q.length<1){box.classList.remove('open');box.innerHTML='';return;}
+  const q2=q.toUpperCase();
+  const hits=tickerDB.filter(t=>t.sym.includes(q2)||t.name.toUpperCase().includes(q2)).slice(0,6);
+  if(!hits.length){box.classList.remove('open');return;}
+  box.innerHTML=hits.map(t=>`
+    <div class="tsr-item">
+      <span class="tsr-sym">${t.sym}</span>
+      <span class="tsr-name">${t.name}</span>
+      <span class="tsr-price">${t.price}</span>
+      <span class="tsr-chg ${t.up?'up':'dn'}">${t.chg}</span>
+    </div>`).join('');
+  box.classList.add('open');
+}
+
+// ══ USA TABS ══
+function switchUSA(dir,btn){
+  document.getElementById('usa-subas').style.display=dir==='subas'?'':'none';
+  document.getElementById('usa-bajas').style.display=dir==='bajas'?'':'none';
+  btn.closest('.tab-bar').querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===(dir==='subas'?0:1)));
+  staggerMovers(document.querySelectorAll('#usa-'+dir+' .usa-row'));
+}
+
+// ══ RF FILTER ══
+let rfDir='suba', rfCat='todos';
+function switchRF(dir,btn){
+  rfDir=dir;
+  btn.closest('.tab-bar').querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===(dir==='suba'?0:1)));
+  applyRF();
+}
+document.querySelectorAll('.cpill').forEach(p=>{
+  p.addEventListener('click',()=>{
+    rfCat=p.dataset.cat;
+    document.querySelectorAll('.cpill').forEach(x=>x.classList.toggle('on',x===p));
+    applyRF();
+  });
+});
+function applyRF(){
+  let idx=0;
+  document.querySelectorAll('#rf-list .ins-row').forEach(r=>{
+    const show=(rfCat==='todos'||r.dataset.cat===rfCat)&&r.dataset.dir===rfDir;
+    r.style.display=show?'':'none';
+    r.classList.remove('show');
+    if(show){const i=idx++;setTimeout(()=>r.classList.add('show'),i*40);}
+  });
+}
+
+// ══ NEWS FILTER ══
+function filterNews(q){
+  const items=document.querySelectorAll('#newsList .news-item');
+  const q2=q.toLowerCase().trim();
+  let shown=0;
+  items.forEach(it=>{
+    const match=!q2||it.dataset.text.includes(q2)||it.querySelector('.news-x').textContent.toLowerCase().includes(q2);
+    it.style.display=match?'':'none';
+    if(match)shown++;
+  });
+  document.getElementById('newsVisible').textContent='mostrando '+shown;
+}
+
+// ══ STAGGER ══
+function staggerMovers(els){
+  els.forEach((el,i)=>{el.classList.remove('show');setTimeout(()=>el.classList.add('show'),i*55);});
+}
+
+// ══ SECTOR BARS ══
+function animateBars(){
+  document.querySelectorAll('[data-w]').forEach((el,i)=>{
+    setTimeout(()=>{el.style.width=el.dataset.w+'%';},150+i*30);
+  });
+}
+
+// ══ NUMBER MORPH ══
+function morph(el,target,dec=2,pre='',suf='',dur=900){
+  const start=performance.now();
+  function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+  function tick(now){
+    const t=Math.min((now-start)/dur,1);
+    const cur=target*ease(t);
+    const sign=target>0?'+':target<0?'':'+';
+    el.innerHTML=(target>0?'+':'')+cur.toFixed(dec)+(suf?`<span>${suf}</span>`:'');
+    if(t<1)requestAnimationFrame(tick);
+    else el.innerHTML=pre+(target>0?'+':'')+target.toFixed(dec)+(suf?`<span>${suf}</span>`:'');
+  }
+  requestAnimationFrame(tick);
+}
+
+// ══ P&L MORPH ══
+function morphPNL(){
+  const pnl=document.getElementById('pnl-ars');
+  const pct=document.getElementById('pnl-pct');
+  const dur=1100,start=performance.now(),tg=142500,tgP=2.31;
+  function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+  function tick(now){
+    const t=Math.min((now-start)/dur,1);
+    const e=ease(t);
+    pnl.textContent='+$'+Math.round(tg*e).toLocaleString('es-AR');
+    pct.textContent='+'+(tgP*e).toFixed(2)+'%';
+    if(t<1)requestAnimationFrame(tick);
+    else{pnl.textContent='+$142.500';pct.textContent='+2.31%';}
+  }
+  requestAnimationFrame(tick);
+}
+
+// ══ INIT ══
+document.addEventListener('DOMContentLoaded',()=>{
+  // inicializar tema guardado
+  const saved=localStorage.getItem('apex-theme');
+  if(saved&&themes[saved])setTheme(saved);
+
+  // stagger movers
+  staggerMovers(document.querySelectorAll('#usa-subas .usa-row'));
+
+  // renta fija inicial
+  applyRF();
+
+  // barras animadas
+  animateBars();
+
+  // morph
+  setTimeout(()=>morphPNL(),350);
+  setTimeout(()=>{
+    morph(document.getElementById('k-spy'),0.82,2,'',''800);
+    morph(document.getElementById('k-qqq'),1.14,2,'',''800);
+    morph(document.getElementById('k-merval'),1776,0,'','pts',900);
+  },200);
+
+  // noticias fade-in
+  setTimeout(()=>{
+    document.querySelectorAll('.news-item').forEach((n,i)=>{
+      n.style.opacity=0;n.style.transform='translateY(5px)';n.style.transition='opacity .25s,transform .25s';
+      setTimeout(()=>{n.style.opacity=1;n.style.transform='translateY(0)'},i*60);
+    });
+  },500);
+});
+</script>
+</body>
+</html>

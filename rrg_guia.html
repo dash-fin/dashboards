@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RRG — Guía de Interpretación</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--bg2:#111827;--bg3:#1a2235;--border:#1e2a38;--border2:#253347;
+--text:#e2eaf4;--text2:#a8bdd0;--text3:#6e8090;--text4:#3d5166;
+--cyan:#38c8ff;--green:#00e5a8;--red:#ff3f5e;--amber:#ffc84a;--purple:#a855f7}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;padding:28px 22px;max-width:860px;margin:0 auto;font-size:13px;line-height:1.7}
+
+h1{font-size:18px;font-weight:700;margin-bottom:4px}
+h1 span{color:var(--cyan)}
+.subtitle{font-size:10px;color:var(--text4);text-transform:uppercase;letter-spacing:2px;margin-bottom:28px}
+h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--text3);margin:28px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+p{color:var(--text2);margin-bottom:10px;font-size:12px}
+b{color:var(--text);font-weight:600}
+em{color:var(--cyan);font-style:normal}
+
+/* Quadrant grid */
+.q-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:14px 0}
+.q-cell{padding:16px 18px;position:relative}
+.q-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.q-title{font-size:15px;font-weight:700;margin-bottom:6px}
+.q-desc{font-size:11px;color:var(--text3);line-height:1.6}
+.q-num{position:absolute;top:12px;right:14px;font-size:22px;font-weight:700;opacity:.12}
+
+.q-leading  {background:rgba(0,229,168,.07);border-right:2px solid rgba(0,229,168,.2)}
+.q-improving{background:rgba(56,200,255,.07)}
+.q-weakening{background:rgba(255,200,74,.07);border-right:2px solid rgba(255,200,74,.2)}
+.q-lagging  {background:rgba(255,63,94,.07)}
+
+.q-leading   .q-label{color:#00e5a8}
+.q-improving .q-label{color:#38c8ff}
+.q-weakening .q-label{color:#ffc84a}
+.q-lagging   .q-label{color:#ff3f5e}
+.q-leading   .q-num{color:#00e5a8}
+.q-improving .q-num{color:#38c8ff}
+.q-weakening .q-num{color:#ffc84a}
+.q-lagging   .q-num{color:#ff3f5e}
+
+.q-order{text-align:center;font-size:9px;color:var(--text4);margin:8px 0 14px;letter-spacing:.8px;text-transform:uppercase}
+.q-arrow{display:inline-block;margin:0 4px;color:var(--amber);font-size:12px}
+
+/* Axis explainer */
+.axis-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.axis-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px 16px}
+.axis-name{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.axis-name.x{color:var(--cyan)} .axis-name.y{color:var(--amber)}
+.axis-formula{font-size:10px;color:var(--text4);background:var(--bg3);border-radius:4px;padding:6px 10px;margin:8px 0;line-height:1.8}
+
+/* Signals table */
+.signals{width:100%;border-collapse:collapse;margin:12px 0;font-size:11px}
+.signals th{text-align:left;padding:7px 10px;background:var(--bg2);color:var(--text4);font-weight:500;font-size:9px;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border)}
+.signals td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2);vertical-align:top}
+.signals tr:last-child td{border:none}
+.tag{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9px;font-weight:700;text-transform:uppercase}
+.tag-green{background:rgba(0,229,168,.15);color:#00e5a8}
+.tag-cyan {background:rgba(56,200,255,.15);color:#38c8ff}
+.tag-amber{background:rgba(255,200,74,.15);color:#ffc84a}
+.tag-red  {background:rgba(255,63,94,.15);color:#ff3f5e}
+
+/* Tips */
+.tips{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.tip{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:13px 15px}
+.tip-icon{font-size:18px;margin-bottom:6px}
+.tip-title{font-size:10px;font-weight:700;color:var(--text);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.tip-body{font-size:11px;color:var(--text3);line-height:1.6}
+
+.warn{background:rgba(255,200,74,.06);border:1px solid rgba(255,200,74,.2);border-radius:6px;padding:12px 15px;font-size:11px;color:var(--text3);margin:14px 0}
+.warn b{color:var(--amber)}
+
+.footer{margin-top:32px;padding-top:16px;border-top:1px solid var(--border);font-size:9px;color:var(--text4);text-align:center;letter-spacing:.8px}
+</style>
+</head>
+<body>
+
+<div class="subtitle">Dashboard Financiero · USA</div>
+<h1>Relative <span>Rotation</span> Graph</h1>
+<p style="color:var(--text4);font-size:11px;margin-bottom:0">Guía rápida de interpretación · JdK RS-Ratio / RS-Momentum</p>
+
+<h2>¿Qué muestra el gráfico?</h2>
+<p>El RRG es un gráfico de dispersión que compara la <b>fuerza relativa</b> de cada activo contra el benchmark (SPY). Cada punto es una semana; la cola muestra las últimas <b>8 semanas</b> de rotación. La flecha indica la dirección actual del movimiento.</p>
+<p>El eje horizontal mide <em>qué tan fuerte</em> es el activo vs SPY. El eje vertical mide <em>si esa fuerza está acelerando o desacelerando</em>. Centro en 100 = igual al benchmark.</p>
+
+<h2>Los cuatro cuadrantes</h2>
+<div class="q-grid">
+  <div class="q-cell q-improving" style="border-bottom:2px solid rgba(56,200,255,.2)">
+    <div class="q-num">2</div>
+    <div class="q-label">② Improving</div>
+    <div class="q-title" style="color:#38c8ff">Mejorando</div>
+    <div class="q-desc">RS débil pero el momentum es positivo. El activo está ganando fuerza relativa. <b>Zona de acumulación anticipada.</b> Si la cola sigue hacia la derecha, próximamente Leading.</div>
+  </div>
+  <div class="q-cell q-leading" style="border-bottom:2px solid rgba(0,229,168,.2)">
+    <div class="q-num">1</div>
+    <div class="q-label">① Leading</div>
+    <div class="q-title" style="color:#00e5a8">Liderando</div>
+    <div class="q-desc">RS fuerte <b>y</b> momentum positivo. El activo supera al índice. <b>Zona de mayor rendimiento relativo.</b> Seguir la tendencia mientras permanezca aquí.</div>
+  </div>
+  <div class="q-cell q-lagging">
+    <div class="q-num">3</div>
+    <div class="q-label">③ Lagging</div>
+    <div class="q-title" style="color:#ff3f5e">Rezagado</div>
+    <div class="q-desc">RS débil y momentum negativo. El activo pierde fuerza vs el índice. <b>Zona de menor rendimiento relativo.</b> Evitar o reducir exposición.</div>
+  </div>
+  <div class="q-cell q-weakening">
+    <div class="q-num">4</div>
+    <div class="q-label">④ Weakening</div>
+    <div class="q-title" style="color:#ffc84a">Debilitando</div>
+    <div class="q-desc">RS fuerte pero el momentum empieza a caer. El activo todavía supera al índice pero está perdiendo velocidad. <b>Zona de distribución / salida gradual.</b></div>
+  </div>
+</div>
+
+<div class="q-order">
+  Rotación teórica en sentido horario
+  <span class="q-arrow">①</span> Leading
+  <span class="q-arrow">→</span>
+  <span class="q-arrow">④</span> Weakening
+  <span class="q-arrow">→</span>
+  <span class="q-arrow">③</span> Lagging
+  <span class="q-arrow">→</span>
+  <span class="q-arrow">②</span> Improving
+  <span class="q-arrow">→</span>
+  <span class="q-arrow">①</span> Leading
+</div>
+
+<h2>Cómo se calculan los ejes</h2>
+<div class="axis-row">
+  <div class="axis-card">
+    <div class="axis-name x">Eje X — RS-Ratio</div>
+    <p style="font-size:11px;margin-bottom:6px;color:var(--text3)">Mide la fuerza relativa <b>suavizada</b> del activo vs benchmark.</p>
+    <div class="axis-formula">
+      RS cruda = precio_sym / precio_SPY<br>
+      EMA10 y EMA26 sobre RS semanal<br>
+      RS-Ratio = (EMA10 / EMA26 − 1) × 100 + 100
+    </div>
+    <p style="font-size:11px;color:var(--text4)">Valor &gt;100 = supera a SPY · &lt;100 = queda atrás</p>
+  </div>
+  <div class="axis-card">
+    <div class="axis-name y">Eje Y — RS-Momentum</div>
+    <p style="font-size:11px;margin-bottom:6px;color:var(--text3)">Mide la <b>velocidad de cambio</b> del RS-Ratio semana a semana.</p>
+    <div class="axis-formula">
+      RS-Momentum = (RS-Ratio_hoy / RS-Ratio_sem-anterior − 1) × 100 + 100
+    </div>
+    <p style="font-size:11px;color:var(--text4)">Valor &gt;100 = ganando fuerza · &lt;100 = perdiendo fuerza</p>
+  </div>
+</div>
+
+<h2>Señales concretas a buscar</h2>
+<table class="signals">
+  <thead><tr><th>Patrón</th><th>Señal</th><th>Cuadrante</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Cola entrando a Leading desde Improving</b></td>
+      <td>El activo cruzó el eje X = 100 hacia arriba. Fuerza relativa activada. Momento de entrada.</td>
+      <td><span class="tag tag-cyan">Improving</span> → <span class="tag tag-green">Leading</span></td>
+    </tr>
+    <tr>
+      <td><b>Cola en Leading con flecha apuntando al centro</b></td>
+      <td>Todavía líder pero desacelerando. Revisar para reducción gradual de posición.</td>
+      <td><span class="tag tag-green">Leading</span> ↘</td>
+    </tr>
+    <tr>
+      <td><b>Cola cruzando a Weakening</b></td>
+      <td>Perdió el momentum. Señal de distribución. Probable rotación hacia otro sector.</td>
+      <td><span class="tag tag-green">Leading</span> → <span class="tag tag-amber">Weakening</span></td>
+    </tr>
+    <tr>
+      <td><b>Cola cruzando de Lagging a Improving</b></td>
+      <td>Inicio de recuperación de fuerza relativa. Vigilar si confirma o revierte.</td>
+      <td><span class="tag tag-red">Lagging</span> → <span class="tag tag-cyan">Improving</span></td>
+    </tr>
+    <tr>
+      <td><b>Cola muy larga en sentido horario</b></td>
+      <td>Rotación clara y consistente. Alta convicción en la dirección del movimiento.</td>
+      <td>Cualquiera</td>
+    </tr>
+    <tr>
+      <td><b>Cola corta o errática (zigzag)</b></td>
+      <td>Sin tendencia clara. El activo oscila sin dirección definida vs el índice. Evitar.</td>
+      <td>Cualquiera</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Tips de uso</h2>
+<div class="tips">
+  <div class="tip">
+    <div class="tip-icon">🔵</div>
+    <div class="tip-title">Sectores primero</div>
+    <div class="tip-body">Usá el tab de <b>Sectores</b> para ver qué parte del mercado está liderando. Luego entrá al tab de <b>Acciones</b> para buscar las mejores acciones dentro de ese sector líder.</div>
+  </div>
+  <div class="tip">
+    <div class="tip-icon">↗</div>
+    <div class="tip-title">Dirección importa más que posición</div>
+    <div class="tip-body">Un activo en Lagging pero con flecha apuntando hacia Improving puede ser más interesante que uno en Leading con flecha apuntando al centro (señal de salida).</div>
+  </div>
+  <div class="tip">
+    <div class="tip-icon">⏱</div>
+    <div class="tip-title">Es semanal, no diario</div>
+    <div class="tip-body">Cada punto de la cola es <b>una semana</b>. El RRG refleja tendencias de mediano plazo (4–12 semanas). No usarlo para operaciones de corto plazo.</div>
+  </div>
+  <div class="tip">
+    <div class="tip-icon">📐</div>
+    <div class="tip-title">Velocidad de la cola</div>
+    <div class="tip-body">Cola larga = movimiento rápido y fuerte. Cola corta = activo estancado o en transición. Una cola muy larga en Leading o Lagging indica <b>tendencia madura</b>.</div>
+  </div>
+</div>
+
+<div class="warn">
+  <b>Limitación importante:</b> El RRG no predice el precio absoluto, solo la <b>fuerza relativa</b> vs SPY. Un activo en Lagging puede igualmente subir en precio si el mercado sube fuerte. Se usa para seleccionar <b>cuál sector o acción va a superar al índice</b>, no para timing de mercado en general.
+</div>
+
+<div class="footer">Dashboard Financiero · Cristian · 2026</div>
+
+</body>
+</html>

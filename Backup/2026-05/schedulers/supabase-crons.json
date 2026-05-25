@@ -1,0 +1,93 @@
+[
+  {
+    "jobid": 1,
+    "jobname": "alertas-engine-every-30s",
+    "schedule": "30 seconds",
+    "command": "SELECT net.http_post(\n    url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/alertas-engine',\n    headers:='{\"Content-Type\": \"application/json\"}'::jsonb\n  ) AS request_id;",
+    "active": true
+  },
+  {
+    "jobid": 2,
+    "jobname": "finra-short-volume-refresh",
+    "schedule": "20 0 * * 1-5",
+    "command": " SELECT net.http_post( url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/finra-short-volume' , headers:='{\"Content-Type\": \"application/json\", \"apikey\": \"sb_secret_y8LUbP3IQ6md47Mxm3fz6g_PmV6ssX_\", \"Authorization\": \"Bearer sb_secret_y8LUbP3IQ6md47Mxm3fz6g_PmV6ssX_\"}'::jsonb , body:='{\"action\": \"refresh\"}'::jsonb ) AS request_id; ",
+    "active": true
+  },
+  {
+    "jobid": 3,
+    "jobname": "fetch-fred-refresh",
+    "schedule": "0 21 * * 1-5",
+    "command": "\n  SELECT net.http_post(\n    url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/fetch-fred',\n    headers:='{\"Content-Type\": \"application/json\"}'::jsonb,\n    body:='{\"mode\":\"refresh\"}'::jsonb\n  ) AS request_id;\n",
+    "active": true
+  },
+  {
+    "jobid": 4,
+    "jobname": "update-portafolio-resumen",
+    "schedule": "*/5 * * * *",
+    "command": "SELECT net.http_post(url := 'https://endymbpdayeidromxayb.supabase.co/functions/v1/update-portafolio-resumen', headers := '{\"Content-Type\":\"application/json\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk\"}'::jsonb, body := '{}'::jsonb) AS request_id",
+    "active": true
+  },
+  {
+    "jobid": 5,
+    "jobname": "monitor-cron-watchdog-ars",
+    "schedule": "*/10 13-20 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"watchdog-ars\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 6,
+    "jobname": "monitor-cron-watchdog-usa",
+    "schedule": "*/10 11-23 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"watchdog-usa\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 7,
+    "jobname": "monitor-cron-dolar",
+    "schedule": "5 20 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"dolar-snapshot\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 8,
+    "jobname": "monitor-cron-pnl",
+    "schedule": "15 20 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"pnl-snapshot\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 9,
+    "jobname": "monitor-cron-resumen",
+    "schedule": "25 20 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"resumen-telegram\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 10,
+    "jobname": "monitor-cron-earnings-am",
+    "schedule": "30 12 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"earnings-watch\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 11,
+    "jobname": "monitor-cron-earnings-pm",
+    "schedule": "0 15,19 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"earnings-watch\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 12,
+    "jobname": "monitor-cron-health",
+    "schedule": "15 11-23 * * 1-5",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"health-check\"}'::jsonb)",
+    "active": true
+  },
+  {
+    "jobid": 13,
+    "jobname": "monitor-cron-historico",
+    "schedule": "0 1 * * 2-6",
+    "command": "SELECT net.http_post(url:='https://endymbpdayeidromxayb.supabase.co/functions/v1/monitor-cron',headers:='{\"Content-Type\":\"application/json\",\"Authorization\":\"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\",\"apikey\":\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzUzNTg1MCwiZXhwIjoyMDg5MTExODUwfQ.gvdEDz-4YPM8zvgR94EUv6JBpTNdR8u5G4EM3j3NSpI\"}'::jsonb,body:='{\"task\":\"historico-refresh\"}'::jsonb)",
+    "active": true
+  }
+]
