@@ -9,3 +9,8 @@ ElliottWave/
 node_modules/
 package-lock.json
 package.json
+
+# Security: never commit backups or scheduler configs with keys
+Backup/
+*.json.backup
+supabase-crons.json
