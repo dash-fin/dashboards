@@ -2449,7 +2449,7 @@ window.rrgScanSP500 = async function(){
     meta.textContent = `${allSyms.length} símbolos · cargando histórico…`;
     const since = new Date(); since.setDate(since.getDate()-1500);
     const sinceStr = since.toISOString().slice(0,10);
-    const spyResp = await fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=600`, {headers:SBH});
+    const spyResp = await fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=1500`, {headers:SBH});
     const spyRows = spyResp.ok ? await spyResp.json() : [];
     const spyMap = rrgWeeklyMap(spyRows.map(r=>({date:r.fecha,close:r.close})));
     if (spyMap.size < 30) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Insuficientes datos SPY</div>'; return; }
@@ -2461,7 +2461,7 @@ window.rrgScanSP500 = async function(){
       meta.textContent = `${pct}% — procesando ${i}/${allSyms.length} símbolos…`;
       const fetches = await Promise.all(
         batch.map(sym =>
-          fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=500`, {headers:SBH})
+          fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=1500`, {headers:SBH})
             .then(r => r.ok ? r.json().then(rows => ({sym, rows})) : {sym, rows:[]})
         )
       );
@@ -2476,17 +2476,27 @@ window.rrgScanSP500 = async function(){
       const last = pts[pts.length-1];
       const {name, color} = rrgQ(last[0], last[1]);
       const prev = pts[pts.length-2];
-      scanResults.push({sym, name, color, ratio:last[0], mom:last[1], dR:last[0]-prev[0], dM:last[1]-prev[1]});
+      // Detector de cruce Lagging -> Improving (last 4 weeks)
+      let crossLagToImp = false, crossWeeksAgo = -1;
+      if (last[0] < 100 && last[1] >= 100) {
+        // Currently in Improving. Look back to find if was in Lagging recently.
+        const lookback = Math.min(4, pts.length - 1);
+        for (let k = 1; k <= lookback; k++) {
+          const p = pts[pts.length - 1 - k];
+          if (p[0] < 100 && p[1] < 100) { crossLagToImp = true; crossWeeksAgo = k; break; }
+        }
+      }
+      scanResults.push({sym, name, color, ratio:last[0], mom:last[1], dR:last[0]-prev[0], dM:last[1]-prev[1], crossLagToImp, crossWeeksAgo});
     }
     const qOrder = {Improving:0,Leading:1,Weakening:2,Lagging:3};
     const filtered = filterVal === 'all' ? scanResults : scanResults.filter(r => r.name.toLowerCase() === filterVal);
-    filtered.sort((a,b) => { const qd=(qOrder[a.name]??4)-(qOrder[b.name]??4); return qd!==0?qd:b.ratio-a.ratio; });
+    filtered.sort((a,b) => { if (a.crossLagToImp !== b.crossLagToImp) return a.crossLagToImp ? -1 : 1; const qd=(qOrder[a.name]??4)-(qOrder[b.name]??4); return qd!==0?qd:b.ratio-a.ratio; });
     meta.textContent = `${filtered.length} símbolos en ${qLabel[filterVal]||'todos'} de ${allSyms.length} escaneados`;
     if (!filtered.length) { body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en este cuadrante</div>'; return; }
     const arrowR = v => v>0?`<span style="color:#00e5a8">▲</span>`:`<span style="color:#ff3f5e">▼</span>`;
     body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">
-      ${filtered.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;gap:6px">
-        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text)">${r.sym}</div><div style="font-size:8px;color:${r.color};margin-top:2px">${r.name}</div></div>
+      ${filtered.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border:${r.crossLagToImp?'1px solid #00e5a8':'1px solid var(--border)'};border-radius:5px;gap:6px;${r.crossLagToImp?'box-shadow:0 0 8px rgba(0,229,168,.25);':''}">
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:4px">${r.sym}${r.crossLagToImp?`<span title="Cruzó de Lagging a Improving hace ${r.crossWeeksAgo} ${r.crossWeeksAgo===1?'semana':'semanas'}" style="font-size:9px">🎯</span>`:''}</div><div style="font-size:8px;color:${r.color};margin-top:2px">${r.name}${r.crossLagToImp?` · cruce ${r.crossWeeksAgo}w atrás`:''}</div></div>
         <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"><div>${r.ratio.toFixed(1)} ${arrowR(r.dR)}</div><div>${r.mom.toFixed(1)} ${arrowR(r.dM)}</div></div>
       </div>`).join('')}
     </div>`;
