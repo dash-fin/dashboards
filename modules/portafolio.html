@@ -985,7 +985,7 @@ window.pfTab = (name, btn) => {
 
 // ── Yahoo Finance fallback (via Edge Function) ───────────
 async function pfFetchYahoo(symbols) {
-  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+  const SB_KEY = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
   const session = await window.sbAuth?.auth?.getSession();
   const token   = session?.data?.session?.access_token || SB_KEY;
   const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {
@@ -3498,7 +3498,7 @@ window.pfRenderBenchmark = __pfRB;
   // SPY histórico vía edge function con caché
   let spyHistory = pfSpyCache;
   if (!spyHistory) {
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    const SB_KEY = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
     try {
       const sess = await window.supabase?.auth?.getSession?.();
       const tok  = sess?.data?.session?.access_token || SB_KEY;
@@ -3688,7 +3688,7 @@ async function pfBackfillPnL(opts = {}) {
     // 3. Precios históricos Yahoo Finance (.BA) + Rava fallback + MEP histórico
     upd('buscando precios Yahoo…');
     const tickers = [...new Set(allPos.map(p=>p.ticker))];
-    const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    const SB_KEY  = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
     const SB_URL  = 'https://endymbpdayeidromxayb.supabase.co';
     const sess    = await window.sbAuth?.auth?.getSession?.();
     const tok     = sess?.data?.session?.access_token || SB_KEY;
@@ -4176,7 +4176,7 @@ async function pfLoadHistory() {
 
   const now      = new Date();
   const ytdStart = `${now.getFullYear()}-01-01`;
-  const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+  const SB_KEY = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
 
   const setHistErr = (msg) => {
     ['wtd','ytd'].forEach(pfx => {
@@ -4793,7 +4793,7 @@ async function buildLwcChart(pos, entryPrice) {
 
   try {
     console.log('[LWC] Fetching Yahoo for', yahooSymbol, '(ADR:', esUsd_, ')');
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+    const SB_KEY = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
     const session = await window.sbAuth?.auth?.getSession();
     const token   = session?.data?.session?.access_token || SB_KEY;
     const res = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices', {

@@ -103,7 +103,7 @@ const pc=p=>p<20?'c-prob-lo':p<55?'c-prob-md':'c-prob-hi';
 
 // ── Config ────────────────────────────────────────────────────
 const SBR='https://endymbpdayeidromxayb.supabase.co/rest/v1/';
-const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+const KEY='sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
 const sbF=(t,p)=>fetch(SBR+t+'?'+p,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}).then(r=>r.ok?r.json():[]);
 
 let gSpot=null,gOpts=[],gMode='last',gIV=0.4,gTimer=null;

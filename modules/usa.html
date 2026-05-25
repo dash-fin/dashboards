@@ -4015,7 +4015,7 @@ window.peEmaLoad = async function() {
   document.getElementById('peema-empty').style.display = 'none';
 
   const FN  = 'https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices';
-  const KEY = (window.CFG && CFG.SB_KEY) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVuZHltYnBkYXllaWRyb214YXliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1MzU4NTAsImV4cCI6MjA4OTExMTg1MH0.BCZRvE9F1g_w2ffwj6NA6vyCYab2XcHDgmZir3CkeOk';
+  const KEY = (window.CFG && CFG.SB_KEY) || 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
   const hdrs = {'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+KEY};
   const post = (body) => fetch(FN,{method:'POST',headers:hdrs,body:JSON.stringify(body)}).then(r=>r.ok?r.json():[]).catch(()=>[]);
   const sleep = ms => new Promise(r=>setTimeout(r,ms));
