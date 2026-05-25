@@ -820,39 +820,46 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
 
 <!-- ── MONITOREO AUTOMATIZADO ── -->
 <div class="flows-section" style="margin-top:28px">
-  <div class="flows-title">🕒 Monitoreo automatizado (WSL crontab)</div>
+  <div class="flows-title">🕒 Monitoreo automatizado (Supabase + WSL híbrido)</div>
   <div class="rules-grid">
     <div class="rule-card">
-      <div class="rule-title" style="color:#ff4455">📋 Migración: Windows → WSL (Mayo 2026)</div>
+      <div class="rule-title" style="color:#ff4455">📋 Migración: WSL → Supabase pg_cron (Mayo 2026)</div>
       <div class="rule-body">
-        <strong>Antes:</strong> Windows Task Scheduler → <code>monitor_dashboard.ps1</code> (monitor + USA en un script).
+        <strong>Antes:</strong> WSL crontab → <code>monitor_local.sh</code> + <code>monitor_usa.sh</code> (dólar, PnL, earnings, watchdogs corrían en la PC).
         <br><br>
-        <strong>Ahora:</strong> WSL crontab en host <strong>Roma</strong> → scripts separados + Python.
+        <strong>Ahora:</strong> Edge function <code>monitor-cron</code> con 8 tasks invocados por 9 cron jobs de Supabase. Independiente de la PC.
         <br><br>
-        <strong>Para desactivar el monitoreo en Windows:</strong>
-        <pre style="background:rgba(0,0,0,.3);padding:6px 10px;border-radius:4px;font-size:10px;margin:6px 0 0 0">Unregister-ScheduledTask -TaskName "monitor_dashboard" -Confirm:\$false</pre>
+        <strong>Excepción local</strong>: <code>watchdog_restart.sh</code> queda en WSL porque <code>schtasks</code> solo se ejecuta localmente.
+        <br><br>
+        <strong>Restore</strong>: backup semanal en <code>Backup/&lt;mes&gt;/schedulers/</code> con XML de Windows tasks, crontab WSL y JSON de pg_cron.
       </div>
     </div>
-    <div class="rule-card" style="border-left-color:#00d084">
-      <div class="rule-title" style="color:#00d084">🇦🇷 monitor_local.sh</div>
+    <div class="rule-card" style="border-left-color:#00e5a8">
+      <div class="rule-title" style="color:#00e5a8">☁️ monitor-cron (edge function)</div>
       <div class="rule-body">
-        Mercado argentino — cada 5 min (lun-vie, 10:40-18:00 ART):
+        Una function con 8 tasks dispatched por <code>{ task }</code>:
         <ul style="margin:6px 0 0 14px;font-size:10.5px;color:#a0bcd8;line-height:1.7">
-          <li><strong>Watchdog</strong>: verifica que la tabla <code>mercado</code> tenga precios frescos (&lt;7 min)</li>
-          <li><strong>Dólar (17:01-17:59)</strong>: MEP vía AL30/AL30D, oficial vía ArgentinaDatos, CCL vía AL30/AL30C. Guarda en <code>mep_historico</code></li>
-          <li><strong>PnL (17:06-17:59)</strong>: snapshot de valor portafolio + PnL vs día anterior, usando precios de cierre. Guarda en <code>pnl_diario</code></li>
+          <li><code>watchdog-ars</code> — alerta Telegram si <code>mercado</code> stale &gt;8min</li>
+          <li><code>watchdog-usa</code> — idem para <code>mercado_usa</code></li>
+          <li><code>dolar-snapshot</code> — MEP (AL30/AL30D), CCL (AL30C), Oficial/Blue/Mayorista (dolarapi)</li>
+          <li><code>pnl-snapshot</code> — calcula PnL por usuario → <code>pnl_diario</code></li>
+          <li><code>resumen-telegram</code> — resumen diario MEP/CCL/Oficial</li>
+          <li><code>earnings-watch</code> — earnings próximos de ADRs del portafolio</li>
+          <li><code>health-check</code> — yahoo-prices alive?</li>
+          <li><code>historico-refresh</code> — mantiene <code>historico_precios</code> fresco</li>
         </ul>
       </div>
     </div>
     <div class="rule-card" style="border-left-color:#48aaff">
-      <div class="rule-title" style="color:#48aaff">🇺🇸 monitor_usa.sh</div>
+      <div class="rule-title" style="color:#48aaff">🐧 watchdog_restart.sh (WSL, local)</div>
       <div class="rule-body">
-        Mercado USA — cada 5 min (lun-vie, 08:10-20:30 ART):
+        Lo único local — porque desde acá se ejecuta <code>schtasks</code>:
         <ul style="margin:6px 0 0 14px;font-size:10.5px;color:#a0bcd8;line-height:1.7">
-          <li><strong>Watchdog</strong>: verifica que la tabla <code>mercado_usa</code> tenga precios frescos (&lt;7 min)</li>
-          <li><strong>Health check</strong>: edge function <code>yahoo-prices</code> responde? Alerta Telegram si caída</li>
-          <li><strong>Earnings watch</strong>: consulta ADRs del portafolio, chequea próximos earnings, alerta una vez por ticker+fecha</li>
-          <li><strong>Watchdog bidireccional</strong>: si detecta datos viejos, llama <code>cmd.exe /c schtasks /run /tn "\Dashboard USA"</code> para reiniciar la tarea Windows directamente desde WSL</li>
+          <li>Cada 5 min lun-vie en horario de mercado</li>
+          <li>Si <code>mercado</code> stale &gt;8min → <code>wmic kill monitor_rt.py</code> + <code>schtasks /end + /run "\Dashboard"</code></li>
+          <li>Si <code>mercado_usa</code> stale &gt;8min → kill <code>alpaca_usa.py</code> + restart <code>"\Dashboard USA"</code></li>
+          <li>Mata antes de reiniciar (evita instancias Python duplicadas)</li>
+          <li>Log: <code>scripts/watchdog_restart.log</code></li>
         </ul>
       </div>
     </div>
@@ -957,32 +964,38 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
   </div>
 
   <div style="background:#132236;border:1px solid rgba(0,229,168,.25);border-radius:12px;padding:18px;margin-bottom:14px">
-    <div style="font-weight:700;font-size:13px;color:#00e5a8;margin-bottom:12px">☁️ Supabase pg_cron (cloud, siempre activo)</div>
+    <div style="font-weight:700;font-size:13px;color:#00e5a8;margin-bottom:12px">CLOUD Supabase pg_cron (siempre activo)</div>
     <table style="width:100%;border-collapse:collapse;font-size:10.5px">
       <thead><tr style="color:#4a6e90;border-bottom:1px solid #1e3a5a">
         <th style="text-align:left;padding:6px 8px">Job name</th>
-        <th style="text-align:left;padding:6px 8px">Schedule</th>
-        <th style="text-align:left;padding:6px 8px">Qué hace</th>
-        <th style="text-align:left;padding:6px 8px">ID</th>
+        <th style="text-align:left;padding:6px 8px">Schedule (UTC)</th>
+        <th style="text-align:left;padding:6px 8px">Que hace</th>
       </tr></thead>
       <tbody>
-        <tr>
-          <td style="padding:8px"><code style="color:#00e5a8">update-portafolio-resumen</code></td>
-          <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * *</code><br>Cada 5 min (24/7)</td>
-          <td style="padding:8px;font-size:10px;color:#a0bcd8">HTTP POST a edge fn <code>update-portafolio-resumen</code><br>Recalcula portafolio_resumen + pnl_diario para todos los usuarios</td>
-          <td style="padding:8px;color:#4a6e90">4</td>
-        </tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">alertas-engine-every-30s</code></td><td style="padding:6px 8px"><code>30 seconds</code></td><td style="padding:6px 8px;color:#a0bcd8">Motor de alertas (precio, RSI, MACD)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">finra-short-volume-refresh</code></td><td style="padding:6px 8px"><code>20 0 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">FINRA short volume diario (21:20 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">fetch-fred-refresh</code></td><td style="padding:6px 8px"><code>0 21 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">FRED indicators diarios (18:00 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">update-portafolio-resumen</code></td><td style="padding:6px 8px"><code>*/5 * * * *</code></td><td style="padding:6px 8px;color:#a0bcd8">Recalcula portafolio_resumen continuo</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-watchdog-ars</code></td><td style="padding:6px 8px"><code>*/10 13-20 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">Alerta TG si mercado stale (10:40-17:50 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-watchdog-usa</code></td><td style="padding:6px 8px"><code>*/10 11-23 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">Alerta TG si mercado_usa stale</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-dolar</code></td><td style="padding:6px 8px"><code>5 20 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">MEP/CCL/Oficial/Blue/Mayorista snapshot (17:05 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-pnl</code></td><td style="padding:6px 8px"><code>15 20 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">PnL diario por usuario (17:15 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-resumen</code></td><td style="padding:6px 8px"><code>25 20 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">Resumen TG diario (17:25 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-earnings-am</code></td><td style="padding:6px 8px"><code>30 12 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">Earnings ADRs (09:30 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-earnings-pm</code></td><td style="padding:6px 8px"><code>0 15,19 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">Earnings (12:00 + 16:00 ART)</td></tr>
+        <tr style="border-bottom:1px solid rgba(30,58,90,.5)"><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-health</code></td><td style="padding:6px 8px"><code>15 11-23 * * 1-5</code></td><td style="padding:6px 8px;color:#a0bcd8">Yahoo-prices alive check</td></tr>
+        <tr><td style="padding:6px 8px"><code style="color:#00e5a8">monitor-cron-historico</code></td><td style="padding:6px 8px"><code>0 1 * * 2-6</code></td><td style="padding:6px 8px;color:#a0bcd8">Mantiene historico_precios fresco (22:00 ART dia prev)</td></tr>
       </tbody>
     </table>
     <div style="margin-top:10px;font-size:10px;color:#4a6e90;line-height:1.7">
-      📍 Ver jobs: <code>SELECT * FROM cron.job;</code><br>
-      📍 Cancelar: <code>SELECT cron.unschedule(4);</code><br>
-      📍 También se dispara on-demand desde web y app tras cada mutación de portafolio
+      Ver jobs: <code>SELECT * FROM cron.job;</code><br>
+      Cancelar: <code>SELECT cron.unschedule('nombre');</code><br>
+      <strong>Restore</strong>: leer <code>Backup/&lt;mes&gt;/schedulers/supabase-crons.json</code> y re-ejecutar el SQL
     </div>
   </div>
 
   <div style="background:#132236;border:1px solid #1e3a5a;border-radius:12px;padding:18px">
-    <div style="font-weight:700;font-size:13px;color:#00d8e8;margin-bottom:12px">🐧 WSL Cron (Roma)</div>
+    <div style="font-weight:700;font-size:13px;color:#00d8e8;margin-bottom:12px">WSL Cron (Roma)</div>
     <table style="width:100%;border-collapse:collapse;font-size:10.5px">
       <thead><tr style="color:#4a6e90;border-bottom:1px solid #1e3a5a">
         <th style="text-align:left;padding:6px 8px">Cron</th>
@@ -992,29 +1005,35 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
       </tr></thead>
       <tbody>
         <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
-          <td style="padding:8px"><code style="color:#00d084">Monitor Local</code></td>
-          <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * 1-5</code><br>Lun-vie, 10:40-18:00 ART</td>
-          <td style="padding:8px"><code style="font-size:9px">scripts/monitor_local.sh</code><br><span style="font-size:9px;color:#4a6e90">Watchdog ARS + dólar (17:01) + PnL (17:06)</span></td>
-          <td style="padding:8px;font-size:9px;color:#4a6e90">monitor_local.log</td>
+          <td style="padding:8px"><code style="color:#48aaff">watchdog_restart</code></td>
+          <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * 1-5</code><br>Lun-vie horario mercado</td>
+          <td style="padding:8px"><code style="font-size:9px">scripts/watchdog_restart.sh</code><br><span style="font-size:9px;color:#4a6e90">kill+restart de tasks Windows si stale</span></td>
+          <td style="padding:8px;font-size:9px;color:#4a6e90">watchdog_restart.log</td>
         </tr>
         <tr style="border-bottom:1px solid rgba(30,58,90,.5)">
-          <td style="padding:8px"><code style="color:#48aaff">Monitor USA</code></td>
-          <td style="padding:8px;color:#7a9ec0"><code>*/5 * * * 1-5</code><br>Lun-vie, 08:10-20:30 ART</td>
-          <td style="padding:8px"><code style="font-size:9px">scripts/monitor_usa.sh</code><br><span style="font-size:9px;color:#4a6e90">Watchdog USA + health check + earnings (WSL)</span></td>
-          <td style="padding:8px;font-size:9px;color:#4a6e90">monitor_usa.log</td>
-        </tr>
-        <tr>
           <td style="padding:8px"><code style="color:#b090ff">Backup Markdowns</code></td>
           <td style="padding:8px;color:#7a9ec0"><code>0 6 * * 1</code><br>Lunes 03:00 ART</td>
-          <td style="padding:8px"><code style="font-size:9px">Drive/scripts/backup-markdowns.sh</code><br><span style="font-size:9px;color:#4a6e90">Copia AGENTS, SOUL, TOOLS, MEMORY, etc → Drive/Markdowns/</span></td>
+          <td style="padding:8px"><code style="font-size:9px">Drive/scripts/backup-markdowns.sh</code><br><span style="font-size:9px;color:#4a6e90">Copia AGENTS, SOUL, TOOLS, MEMORY a Drive/Markdowns/</span></td>
           <td style="padding:8px;font-size:9px;color:#4a6e90">backup-markdowns.log</td>
+        </tr>
+        <tr style="opacity:.4">
+          <td style="padding:8px"><code style="color:#666">monitor_local.sh</code> <span style="font-size:9px;color:#888">(deprecated)</span></td>
+          <td style="padding:8px;color:#666">Migrado a Supabase</td>
+          <td style="padding:8px;color:#666;font-size:9px">-> monitor-cron tasks: dolar, pnl, watchdog-ars, resumen</td>
+          <td style="padding:8px;font-size:9px;color:#666">-</td>
+        </tr>
+        <tr style="opacity:.4">
+          <td style="padding:8px"><code style="color:#666">monitor_usa.sh</code> <span style="font-size:9px;color:#888">(deprecated)</span></td>
+          <td style="padding:8px;color:#666">Migrado a Supabase</td>
+          <td style="padding:8px;color:#666;font-size:9px">-> monitor-cron tasks: watchdog-usa, health, earnings</td>
+          <td style="padding:8px;font-size:9px;color:#666">-</td>
         </tr>
       </tbody>
     </table>
     <div style="margin-top:10px;font-size:10px;color:#4a6e90;line-height:1.6">
-      📍 Editar cron: <code>crontab -e</code><br>
-      📍 Ver cron actual: <code>crontab -l</code><br>
-      📍 WSL está en UTC — los scripts convierten a ART internamente
+      Editar cron: <code>crontab -e</code><br>
+      Ver cron actual: <code>crontab -l</code><br>
+      <strong>Restore</strong>: <code>crontab Backup/&lt;mes&gt;/schedulers/wsl-crontab.txt</code>
     </div>
   </div>
 </div>

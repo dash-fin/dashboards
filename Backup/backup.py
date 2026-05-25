@@ -175,6 +175,105 @@ def backup_reciente(script_dir: Path, now: datetime):
     return None
 
 
+# ── Scheduler backup (Windows + WSL + Supabase) ──────────────────────
+def backup_schedulers(base_dir: Path) -> int:
+    """Guarda inventario de tareas/crons en base_dir/schedulers/."""
+    import subprocess
+    print(f"\n  🕒  Schedulers")
+    out_dir = base_dir / "schedulers"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    count = 0
+
+    # 1) Windows Task Scheduler — listado completo
+    try:
+        r = subprocess.run(
+            ["schtasks.exe", "/query", "/fo", "LIST", "/v"],
+            capture_output=True, text=True, encoding="cp1252", errors="replace", timeout=30
+        )
+        if r.returncode == 0 and r.stdout:
+            (out_dir / "windows-tasks.txt").write_text(r.stdout, encoding="utf-8")
+            print(f"     📋 windows-tasks.txt        {len(r.stdout)//1024} KB")
+            count += 1
+    except Exception as e:
+        print(f"     ⚠ windows-tasks: {e}")
+
+    # 2) Windows tasks — XML completo de cada task del usuario (restore-ready)
+    try:
+        r = subprocess.run(
+            ["schtasks.exe", "/query", "/fo", "csv"],
+            capture_output=True, text=True, encoding="cp1252", errors="replace", timeout=30
+        )
+        if r.returncode == 0:
+            xml_dir = out_dir / "windows-tasks-xml"
+            xml_dir.mkdir(exist_ok=True)
+            # Parse task names from CSV (first column)
+            tasks = set()
+            for line in r.stdout.splitlines()[1:]:
+                if not line.strip(): continue
+                name = line.split(",", 1)[0].strip('"')
+                # Only top-level user tasks (no system tasks under \Microsoft\…)
+                if name.startswith("\\") and not name.startswith("\\Microsoft"):
+                    tasks.add(name)
+            for tn in tasks:
+                try:
+                    rx = subprocess.run(
+                        ["schtasks.exe", "/query", "/tn", tn, "/xml"],
+                        capture_output=True, text=True, encoding="utf-16-le",
+                        errors="replace", timeout=15
+                    )
+                    if rx.returncode == 0 and rx.stdout:
+                        safe = tn.lstrip("\\").replace("\\", "_").replace(" ", "_") + ".xml"
+                        (xml_dir / safe).write_text(rx.stdout, encoding="utf-8")
+                except Exception:
+                    pass
+            n = len(list(xml_dir.glob("*.xml")))
+            if n:
+                print(f"     📄 windows-tasks-xml/       {n} tasks")
+                count += n
+    except Exception as e:
+        print(f"     ⚠ windows-tasks-xml: {e}")
+
+    # 3) WSL crontab
+    try:
+        r = subprocess.run(
+            ["wsl.exe", "-e", "bash", "-c", "crontab -l 2>/dev/null"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            (out_dir / "wsl-crontab.txt").write_text(r.stdout, encoding="utf-8")
+            print(f"     🐧 wsl-crontab.txt          {len(r.stdout.splitlines())} líneas")
+            count += 1
+    except Exception as e:
+        print(f"     ⚠ wsl-crontab: {e}")
+
+    # 4) Supabase pg_cron jobs
+    if SB_MGMT_TOKEN:
+        try:
+            payload = json.dumps({
+                "query": "SELECT jobid, jobname, schedule, command, active FROM cron.job ORDER BY jobid;"
+            }).encode()
+            req = urllib.request.Request(
+                f"https://api.supabase.com/v1/projects/{PROJECT_REF}/database/query",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {SB_MGMT_TOKEN}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (DashboardBackup/1.0)",
+                }
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                jobs = json.loads(resp.read().decode("utf-8"))
+            (out_dir / "supabase-crons.json").write_text(
+                json.dumps(jobs, indent=2, default=str), encoding="utf-8"
+            )
+            print(f"     ☁  supabase-crons.json      {len(jobs)} jobs")
+            count += 1
+        except Exception as e:
+            print(f"     ⚠ supabase-crons: {e}")
+
+    return count
+
+
 # ── Edge Functions backup ────────────────────────────────────────────
 def list_edge_functions() -> list:
     """Lista todas las edge functions del proyecto via Management API."""
@@ -368,6 +467,10 @@ COMMIT;
     # Edge functions: guardar en carpeta del mes, una sola vez por día
     fn_count = backup_edge_functions(month_dir)
     print(f"\n  ⚡  {fn_count} edge functions respaldadas en {month_dir / 'edge-functions'}")
+
+    # Schedulers (Windows tasks + WSL crontab + Supabase pg_cron)
+    sch_count = backup_schedulers(month_dir)
+    print(f"  🕒  {sch_count} entradas respaldadas en {month_dir / 'schedulers'}")
     print(f"{'═'*54}\n")
 
 
