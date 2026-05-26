@@ -108,6 +108,7 @@
 .peema-soporte{background:rgba(0,180,216,.12);color:#00b4d8;border:1px solid rgba(0,180,216,.3)}
 .peema-caro   {background:rgba(255,63,94,.12);color:var(--red);border:1px solid rgba(255,63,94,.3)}
 .peema-neutral{background:var(--bg3);color:var(--text3);border:1px solid var(--border2)}
+.cedear-badge{display:inline-flex;align-items:center;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:700;font-family:'IBM Plex Mono',monospace;background:rgba(251,191,36,.12);color:#fbbf24;border:1px solid rgba(251,191,36,.35);letter-spacing:.3px;white-space:nowrap;vertical-align:middle}
 .peema-bar{height:3px;border-radius:2px;background:var(--bg3);margin-top:4px;overflow:hidden;width:100%}
 .peema-bar-fill{height:100%;border-radius:2px}
 .peema-filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
@@ -2428,6 +2429,18 @@ window.rrgSwitchFilter = function(sel){
   rrgRender(); rrgBuildLegend();
 };
 
+// ── CEDEAR lookup: set de tickers USA disponibles como CEDEAR en ARG ──
+let _cedearSet = null;
+async function loadCedearSet() {
+  if (_cedearSet) return _cedearSet;
+  try {
+    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/rest/v1/cedear_ratios?select=ticker&limit=2000',
+      {headers:{apikey: CFG?.SB_KEY || 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY'}});
+    _cedearSet = new Set((r.ok ? await r.json() : []).map(x => x.ticker.toUpperCase()));
+  } catch { _cedearSet = new Set(); }
+  return _cedearSet;
+}
+
 window.rrgScanSP500 = async function(){
   const filterVal = rrgFilter === 'all' ? 'improving' : rrgFilter;
   const panel = document.getElementById('rrg-scan-panel');
@@ -2493,10 +2506,11 @@ window.rrgScanSP500 = async function(){
     filtered.sort((a,b) => { if (a.crossLagToImp !== b.crossLagToImp) return a.crossLagToImp ? -1 : 1; const qd=(qOrder[a.name]??4)-(qOrder[b.name]??4); return qd!==0?qd:b.ratio-a.ratio; });
     meta.textContent = `${filtered.length} símbolos en ${qLabel[filterVal]||'todos'} de ${allSyms.length} escaneados`;
     if (!filtered.length) { body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en este cuadrante</div>'; return; }
+    await loadCedearSet();
     const arrowR = v => v>0?`<span style="color:#00e5a8">▲</span>`:`<span style="color:#ff3f5e">▼</span>`;
     body.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px">
       ${filtered.map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg3);border:${r.crossLagToImp?'1px solid #00e5a8':'1px solid var(--border)'};border-radius:5px;gap:6px;${r.crossLagToImp?'box-shadow:0 0 8px rgba(0,229,168,.25);':''}">
-        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:4px">${r.sym}${r.crossLagToImp?`<span title="Cruzó de Lagging a Improving hace ${r.crossWeeksAgo} ${r.crossWeeksAgo===1?'semana':'semanas'}" style="font-size:9px">🎯</span>`:''}</div><div style="font-size:8px;color:${r.color};margin-top:2px">${r.name}${r.crossLagToImp?` · cruce ${r.crossWeeksAgo}w atrás`:''}</div></div>
+        <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:4px">${r.sym}${r.crossLagToImp?`<span title="Cruzó de Lagging a Improving hace ${r.crossWeeksAgo} ${r.crossWeeksAgo===1?'semana':'semanas'}" style="font-size:9px">🎯</span>`:''}${_cedearSet?.has(r.sym)?'<span class="cedear-badge" title="Disponible como CEDEAR">CEDEAR</span>':''}</div><div style="font-size:8px;color:${r.color};margin-top:2px">${r.name}${r.crossLagToImp?` · cruce ${r.crossWeeksAgo}w atrás`:''}</div></div>
         <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"><div>${r.ratio.toFixed(1)} ${arrowR(r.dR)}</div><div>${r.mom.toFixed(1)} ${arrowR(r.dM)}</div></div>
       </div>`).join('')}
     </div>`;
@@ -4005,6 +4019,7 @@ function peEmaSignalLabel(sig) {
 }
 
 window.peEmaLoad = async function() {
+  await loadCedearSet();
   const btn     = document.getElementById('peema-scan-btn');
   const prog    = document.getElementById('peema-progress');
   const progTxt = document.getElementById('peema-progress-text');
@@ -4127,7 +4142,7 @@ function peEmaRenderSuggestions(rows) {
       ? `P/E ${r.pe}x, dentro del rango EMA200w (${pctStr}). Zona de soporte + valuación razonable`
       : `P/E ${r.pe}x, precio <b style="color:#00b4d8">${pctStr}</b> de EMA200w. Zona de valor, esperar confirmación técnica`;
     return `<div class="peema-suggestion-item">
-      <div class="peema-s-ticker" onclick="if(window.afLoad){usTab('af',document.getElementById('ustab-af'));setTimeout(()=>afLoad('${r.symbol}'),300)}">${r.symbol}</div>
+      <div class="peema-s-ticker" onclick="if(window.afLoad){usTab('af',document.getElementById('ustab-af'));setTimeout(()=>afLoad('${r.symbol}'),300)}">${r.symbol}${_cedearSet?.has(r.symbol)?'<span class="cedear-badge" style="margin-left:6px;font-size:7px" title="Disponible como CEDEAR en ARG">CEDEAR</span>':''}</div>
       <div class="peema-s-info">
         <span class="${cls}">${ico} ${lbl}</span>${pegStr}
         <span style="margin-left:6px;font-size:9px;color:var(--text3)">${r.name}</span>
@@ -4185,7 +4200,7 @@ window.peEmaApplyFilters = function() {
     const pegTxt             = r.peg ? r.peg+'x' : '—';
     const pegColor           = r.peg && r.peg<1 ? 'var(--green)' : r.peg && r.peg<2 ? 'var(--amber)' : 'var(--text3)';
     return `<tr onclick="if(window.afLoad){usTab('af',document.getElementById('ustab-af'));setTimeout(()=>afLoad('${r.symbol}'),300)}" style="cursor:pointer" title="Ver análisis AF de ${r.symbol}">
-      <td class="th-left" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--blue)">${r.symbol}</td>
+      <td class="th-left" style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap">${r.symbol}${_cedearSet?.has(r.symbol)?'&nbsp;<span class="cedear-badge" title="Disponible como CEDEAR en ARG">CEDEAR</span>':''}</td>
       <td style="font-size:10px;color:var(--text2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:${peColor}">${r.pe}x</td>
       <td style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2)">${r.fwdPE!=null?r.fwdPE+'x':'—'}</td>

@@ -1272,13 +1272,17 @@ function pfPatchOpsKpis() {
     if(opsUsd !== 0)          lines.push(`Opciones ${fmtS(opsUsd)}`);
     if(pfGanRealizada !== 0)  lines.push(`Realizada ${fmtS(pfGanRealizada)}`);
     lines.push(`<b>Total ${fmtS(totalPos)}</b>`);
-    // PnL diario acumulado (suma de pnl_usd del calendario, como control)
+    // PnL diario acumulado vs ganancia total portafolio
     if (window.__pfPnlDiarioAcum != null) {
-      const diff = totalPos - window.__pfPnlDiarioAcum;
-      const clr = diff >= -0.01 && diff <= 0.01 ? 'var(--text4)' : (diff > 0 ? 'var(--green)' : 'var(--red)');
-      lines.push(`<span style="color:var(--text5);font-size:8px">vs. acum PnL diario: ${fmtS(window.__pfPnlDiarioAcum)}</span>`);
+      const acumBruto = window.__pfPnlDiarioAcum;
+      const ajuste    = window.__pfPnlDiarioAjuste || 0;
+      const acumNet   = acumBruto + ajuste;
+      lines.push(`<span style="color:var(--text5);font-size:8px">acum PnL diario: ${fmtS(acumBruto)}${ajuste ? ' ←bruto' : ''}</span>`);
+      if (ajuste) lines.push(`<span style="color:var(--text4);font-size:8px">  bonos pre-14/4: ${fmtS(ajuste)} → neto: ${fmtS(acumNet)}</span>`);
+      const diff = totalPos - acumNet;
       if (Math.abs(diff) > 0.5) {
-        lines.push(`<span style="color:${clr};font-size:8px">  brecha: ${fmtS(diff)}</span>`);
+        const clr = diff > 0 ? 'var(--green)' : 'var(--red)';
+        lines.push(`<span style="color:${clr};font-size:8px">  brecha portafolio: ${fmtS(diff)}</span>`);
       }
     }
     gainDetail.innerHTML = lines.join('<br>');
@@ -3394,7 +3398,7 @@ async function pfRenderResumenCalendar() {
       const leverageLine = row.leverage_ratio > 1 ? `\nLev: ${row.leverage_ratio.toFixed(2)}x  equity: U$S ${Math.round(row.equity_usd||0).toLocaleString('es-AR')}` : '';
       const roeLine = row.roe_diario != null ? `  ROE: ${row.roe_diario>=0?'+':''}${row.roe_diario.toFixed(2)}%` : '';
       const srcLine = row.source && row.source !== 'cron' ? `\n[${row.source}]` : '';
-      const tip = `${key}${row._live ? ' (en curso)' : ''}\nP&L bruto: U\$S ${fmtPnl(row.pnl_bruto_usd??pnl)} (${fmtPct(row.pnl_pct||0)})${roeLine}\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}${leverageLine}${srcLine}\nShift+click para recalcular`;
+      const tip = `${key}${row._live ? ' (en curso)' : ''}\nP&L bruto: U\$S ${fmtPnl(row.pnl_bruto_usd??pnl)} (${fmtPct(row.pnl_pct||0)})${roeLine}\nPortafolio: U\$S ${Math.round(row.valor_usd||0).toLocaleString('es-AR')}${leverageLine}${srcLine}\nShift+click / doble-tap para recalcular`;
       return `<div title="${tip}" data-fecha="${key}" onclick="pfRecalcDay(event,'${key}')" style="height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:${bg};color:#fff;border-radius:2px;cursor:pointer;line-height:1.2;gap:0;overflow:hidden${liveBorder}">
         <span style="font-size:8px;font-weight:600;text-align:center">${d}</span>
         ${!privacy ? `<span style="font-size:7px;white-space:nowrap;text-align:center">${fmtPnl(pnl)}</span>` : ''}
@@ -3472,6 +3476,14 @@ window.pfRenderBenchmark = __pfRB;
     // Último registro con equity para KPI leverage
     const _lastEq = [...pnlRows].reverse().find(r => r.equity_usd != null);
     if (_lastEq) { window.__pfLatestPnlDiario = _lastEq; pfPatchOpsKpis && pfPatchOpsKpis(); }
+    // Ajustes de base (bonos pre-periodo): movimientos_capital tipo='ajuste'
+    if (window.__pfPnlDiarioAjuste == null) {
+      try {
+        const adjRows = await sb('movimientos_capital', `user_email=eq.${_email}&tipo=eq.ajuste&select=monto_usd`) || [];
+        window.__pfPnlDiarioAjuste = adjRows.reduce((s,r) => s + Number(r.monto_usd||0), 0);
+        pfPatchOpsKpis && pfPatchOpsKpis();
+      } catch(_) {}
+    }
   }
   // Inyectar hoy con pnl_pct live si el snapshot aún no fue guardado
   const _benchToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
@@ -3942,9 +3954,16 @@ window.pfSaveDay = async () => {
   }
 };
 
-// ── Recalcular día específico (Shift+click en celda del calendario) ──
+// ── Recalcular día específico (Shift+click en desktop / doble-tap en mobile) ──
 window.pfRecalcDay = async (e, fecha) => {
-  if (!e.shiftKey) return;
+  if (!e.shiftKey) {
+    const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isMobile) return;
+    if (!pfRecalcDay._taps) pfRecalcDay._taps = {};
+    const now = Date.now(), last = pfRecalcDay._taps[fecha] || 0;
+    pfRecalcDay._taps[fecha] = now;
+    if (now - last > 500) return; // primer tap: solo registra timestamp
+  }
   const user_email = _pfEmail || window.currentUser?.email || '';
   if (!user_email) return;
   if (!confirm(`¿Recalcular PnL del ${fecha}?\n(Usa precios actuales de mercado y MEP histórico de ese día)`)) return;
