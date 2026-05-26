@@ -1277,12 +1277,13 @@ function pfPatchOpsKpis() {
       const acumBruto = window.__pfPnlDiarioAcum;
       const ajuste    = window.__pfPnlDiarioAjuste || 0;
       const acumNet   = acumBruto + ajuste;
-      lines.push(`<span style="color:var(--text5);font-size:8px">acum PnL diario: ${fmtS(acumBruto)}${ajuste ? ' ←bruto' : ''}</span>`);
-      if (ajuste) lines.push(`<span style="color:var(--text4);font-size:8px">  bonos pre-14/4: ${fmtS(ajuste)} → neto: ${fmtS(acumNet)}</span>`);
+      lines.push(`<span style="color:var(--text4);font-size:8px">── validación vs pnl_diario ──</span>`);
+      lines.push(`<span style="color:var(--text5);font-size:8px">Σ pnl_diario: ${fmtS(acumBruto)}${ajuste ? ' (sin ajuste inicio)' : ''}</span>`);
+      if (ajuste) lines.push(`<span style="color:var(--text4);font-size:8px">Ajuste bonos pre-inicio: ${fmtS(ajuste)} → neto: ${fmtS(acumNet)}</span>`);
       const diff = totalPos - acumNet;
       if (Math.abs(diff) > 0.5) {
-        const clr = diff > 0 ? 'var(--green)' : 'var(--red)';
-        lines.push(`<span style="color:${clr};font-size:8px">  brecha portafolio: ${fmtS(diff)}</span>`);
+        const isExpected = diff > 0; // positivo = hoy no guardado aún
+        lines.push(`<span style="color:var(--amber);font-size:8px">Δ posiciones vs pnl_diario: ${fmtS(diff)}${isExpected ? ' (incluye hoy no guardado)' : ''}</span>`);
       }
     }
     gainDetail.innerHTML = lines.join('<br>');
