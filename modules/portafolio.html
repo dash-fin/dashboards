@@ -3514,7 +3514,8 @@ window.pfRenderBenchmark = __pfRB;
   const pfByDate = {};
   let compVal = 100;
   filtered.forEach((r, i) => {
-    if(i > 0 && r.pnl_pct != null) compVal = compVal * (1 + Number(r.pnl_pct) / 100);
+    const _ret = r.roe_diario != null ? r.roe_diario : r.pnl_pct;
+    if(i > 0 && _ret != null) compVal = compVal * (1 + Number(_ret) / 100);
     pfByDate[r.fecha] = +compVal.toFixed(4);
   });
 
@@ -3554,7 +3555,7 @@ window.pfRenderBenchmark = __pfRB;
 
   // Sharpe ratio (anualizado, rf=0) — usa pnl_pct/100 como retorno diario total
   let sharpe = null;
-  const dailyRets = filtered.filter(r => r.pnl_pct != null).map(r => Number(r.pnl_pct)/100);
+  const dailyRets = filtered.filter(r => r.roe_diario != null || r.pnl_pct != null).map(r => Number(r.roe_diario ?? r.pnl_pct)/100);
   if(dailyRets.length >= 10) {
     const mean = dailyRets.reduce((s,r)=>s+r,0)/dailyRets.length;
     const std  = Math.sqrt(dailyRets.reduce((s,r)=>s+(r-mean)**2,0)/dailyRets.length);
