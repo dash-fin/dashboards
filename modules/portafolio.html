@@ -572,6 +572,7 @@
       <div class="kpi-label">Valuación actual</div>
       <div class="kpi-val" id="pfk-actual">—</div>
       <div class="kpi-sub">USD a precios hoy</div>
+      <div id="pfk-actual-leverage" style="display:none;font-size:9px;color:var(--text4);margin-top:2px;font-family:'IBM Plex Mono',monospace;line-height:1.5"></div>
     </div>
     <div class="kpi" id="pfk-gain-box" style="--accent:var(--amber)">
       <div class="kpi-label">Ganancia / Pérdida</div>
@@ -1245,6 +1246,13 @@ function pfPatchOpsKpis() {
   // Valuación actual
   const totAct = pfBaseAct + opsUsd;
   pfCountUp(document.getElementById('pfk-actual'), totAct, {prefix:'U$S '});
+  // Breakdown equity/caución si hay leverage
+  const _levEl = document.getElementById('pfk-actual-leverage');
+  if (_levEl && window.__pfLatestPnlDiario?.leverage_ratio > 1) {
+    const {equity_usd, deuda_usd, leverage_ratio} = window.__pfLatestPnlDiario;
+    _levEl.style.display = '';
+    _levEl.innerHTML = `Equity U$S ${Math.round(equity_usd).toLocaleString('es-AR')}&nbsp;|&nbsp;Cauc. -${Math.round(deuda_usd).toLocaleString('es-AR')}&nbsp;|&nbsp;${leverage_ratio.toFixed(2)}x`;
+  } else if (_levEl) { _levEl.style.display = 'none'; }
 
   // Ganancia total
   const ganTotal    = pfBaseGan + opsUsd + pfGanRealizada;
@@ -3457,10 +3465,13 @@ window.pfRenderBenchmark = __pfRB;
   if (!pnlRows) {
     // ⚠ FIX (mayo-2026): ídem al calendario — usar _pfEmail como fallback para no depender de auth async.
     const _email = encodeURIComponent(_pfEmail || window.currentUser?.email || '');
-    pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct,pnl_usd`) || [];
+    pnlRows = await sb('pnl_diario',`user_email=eq.${_email}&order=fecha.asc&select=fecha,pnl_pct,pnl_usd,pnl_bruto_usd,roe_diario,equity_usd,leverage_ratio,deuda_usd`) || [];
     pfPnlCache = pnlRows; // cachear SIN hoy para que cada render re-inyecte el dato live actualizado
-    // Calcular suma acumulada de pnl_usd (para control vs ganancia real)
-    window.__pfPnlDiarioAcum = pnlRows.reduce((s, r) => s + (Number(r.pnl_usd)||0), 0);
+    // Suma acumulada de pnl_bruto_usd (fórmula telescópica v2); fallback a pnl_usd para registros anteriores
+    window.__pfPnlDiarioAcum = pnlRows.reduce((s, r) => s + (Number(r.pnl_bruto_usd ?? r.pnl_usd)||0), 0);
+    // Último registro con equity para KPI leverage
+    const _lastEq = [...pnlRows].reverse().find(r => r.equity_usd != null);
+    if (_lastEq) { window.__pfLatestPnlDiario = _lastEq; pfPatchOpsKpis && pfPatchOpsKpis(); }
   }
   // Inyectar hoy con pnl_pct live si el snapshot aún no fue guardado
   const _benchToday = new Date(Date.now() - 3*3600*1000).toISOString().split('T')[0];
@@ -3486,12 +3497,15 @@ window.pfRenderBenchmark = __pfRB;
 
   const startDate = filtered[0].fecha;
 
-  // Construir índice de retorno compuesto (base 100) a partir de pnl_pct
-  // Día 1 = 100, cada día siguiente: prev * (1 + pnl_pct/100)
+  // Construir índice de retorno compuesto (base 100)
+  // Usa roe_diario (retorno sobre equity) si existe; fallback a pnl_pct para días sin leverage
   const pfByDate = {};
   let compVal = 100;
   filtered.forEach((r, i) => {
-    if(i > 0 && r.pnl_pct != null) compVal = compVal * (1 + Number(r.pnl_pct) / 100);
+    if(i > 0) {
+      const dailyRet = r.roe_diario != null ? r.roe_diario : r.pnl_pct;
+      if(dailyRet != null) compVal = compVal * (1 + Number(dailyRet) / 100);
+    }
     pfByDate[r.fecha] = +compVal.toFixed(4);
   });
 
@@ -3529,9 +3543,11 @@ window.pfRenderBenchmark = __pfRB;
   const spyRet  = spyLast ? (spyLast - 100).toFixed(1) : null;
   const alpha   = pfRet != null && spyRet != null ? (Number(pfRet) - Number(spyRet)).toFixed(1) : null;
 
-  // Sharpe ratio (anualizado, rf=0) — usa pnl_pct/100 como retorno diario
+  // Sharpe ratio (anualizado, rf=0) — usa roe_diario si disponible, si no pnl_pct
   let sharpe = null;
-  const dailyRets = filtered.filter(r => r.pnl_pct != null).map(r => Number(r.pnl_pct)/100);
+  const dailyRets = filtered
+    .filter(r => (r.roe_diario ?? r.pnl_pct) != null)
+    .map(r => Number(r.roe_diario ?? r.pnl_pct)/100);
   if(dailyRets.length >= 10) {
     const mean = dailyRets.reduce((s,r)=>s+r,0)/dailyRets.length;
     const std  = Math.sqrt(dailyRets.reduce((s,r)=>s+(r-mean)**2,0)/dailyRets.length);
@@ -3550,7 +3566,7 @@ window.pfRenderBenchmark = __pfRB;
   const fmt = n => (Number(n)>=0?'+':'')+n+'%';
   kpis.innerHTML = [
     `<span>Desde <b style="color:var(--text2)">${startDate}</b></span>`,
-    pfRet  != null ? `<span>Portafolio <b style="color:${clr(pfRet)}">${fmt(pfRet)}</b></span>` : '',
+    pfRet  != null ? `<span>Portafolio equity <b style="color:${clr(pfRet)}">${fmt(pfRet)}</b></span>` : '',
     spyRet != null ? `<span>S&P 500 <b style="color:${clr(spyRet)}">${fmt(spyRet)}</b></span>` : '',
     alpha  != null ? `<span>Alpha <b style="color:${clr(alpha)}">${fmt(alpha)}</b></span>` : '',
     sharpe != null ? `<span>Sharpe <b style="color:${clr(sharpe)}">${sharpe}</b></span>` : '',
@@ -3574,7 +3590,7 @@ window.pfRenderBenchmark = __pfRB;
   _benchChart = new Chart(document.getElementById('pfBenchCanvas').getContext('2d'), {
     type:'line',
     data:{ labels, datasets:[
-      { label:'Portafolio',     data:pfDisp,  borderColor:'#38c8ff', backgroundColor:'rgba(56,200,255,0.07)',
+      { label:'Portafolio (equity)',     data:pfDisp,  borderColor:'#38c8ff', backgroundColor:'rgba(56,200,255,0.07)',
         borderWidth:2, pointRadius:0, tension:0.2, fill:true, spanGaps:true },
       { label:'S&P 500 (SPY)', data:spyDisp, borderColor:'#ffc84a', backgroundColor:'transparent',
         borderWidth:1.5, pointRadius:0, tension:0.2, spanGaps:true }
