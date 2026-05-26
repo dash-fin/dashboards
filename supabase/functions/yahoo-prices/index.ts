@@ -458,6 +458,36 @@ serve(async (req) => {
       });
     }
 
+    // ── Modo 10: pre/post market extended ─────────────────
+    // POST { mode: "extended", symbols: ["AAPL","GGAL"] }
+    // Response: { "AAPL": { mkt, prePct, postPct, prePrice, postPrice }, ... }
+    if (mode === "extended") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+      const { crumb: ec, cookie: eook } = await getYahooCrumb();
+      const extResult: Record<string, { mkt: string; prePct: number|null; postPct: number|null; prePrice: number|null; postPrice: number|null }> = {};
+      for (let i = 0; i < symbols.length; i += 50) {
+        const chunk = symbols.slice(i, i + 50);
+        const eUrl = "https://query2.finance.yahoo.com/v7/finance/quote?symbols=" + chunk.join(",") + "&crumb=" + encodeURIComponent(ec) + "&fields=preMarketChangePercent,preMarketPrice,postMarketChangePercent,postMarketPrice,marketState";
+        try {
+          const er = await fetch(eUrl, { headers: { "User-Agent": UA, "Cookie": eook } });
+          if (!er.ok) continue;
+          const ed = await er.json();
+          (ed?.quoteResponse?.result ?? []).forEach((q: any) => {
+            extResult[q.symbol] = {
+              mkt:       q.marketState               ?? "REGULAR",
+              prePct:    q.preMarketChangePercent     ?? null,
+              postPct:   q.postMarketChangePercent    ?? null,
+              prePrice:  q.preMarketPrice             ?? null,
+              postPrice: q.postMarketPrice            ?? null,
+            };
+          });
+        } catch { /* skip chunk */ }
+      }
+      return new Response(JSON.stringify(extResult), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Modo 1: precios actuales vía Yahoo ──────────────────
     if (!symbols?.length) throw new Error("symbols requerido");
 
