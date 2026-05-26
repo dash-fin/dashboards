@@ -1,4 +1,4 @@
-// ══════════════════════════════════════════════════════════════════
+﻿// ══════════════════════════════════════════════════════════════════
 // Supabase Edge Function: update-portafolio-resumen
 // Recalcula KPIs de portafolio (MEP, posiciones, opciones, trades)
 // y hace UPSERT en portafolio_resumen + pnl_diario.
@@ -47,18 +47,15 @@ serve(async (req) => {
       if (body?.email) filterEmail = body.email;
     } catch (_) { /* no body = recalculate all */ }
 
-    // Today (UTC-3, Argentina)
     const nowAR    = new Date(Date.now() - 3 * 3600_000);
     const todayStr = nowAR.toISOString().slice(0, 10);
-    const dow      = nowAR.getDay(); // 0=Sun, 6=Sat
+    const dow      = nowAR.getDay();
 
-    // MEP: AL30 / AL30D
     const mepRows = await get(`mercado?symbol=in.("AL30","AL30D")&settlement=eq.24hs&select=symbol,last`);
     const mepMap: Record<string, number> = {};
     for (const r of mepRows) mepMap[r.symbol] = parseFloat(r.last) || 0;
     const mep = mepMap["AL30D"] > 0 ? mepMap["AL30"] / mepMap["AL30D"] : 1440;
 
-    // Active user emails
     const emailRows = await get(`portafolio?activo=eq.true&select=user_email`);
     let emails = [...new Set(emailRows.map((r: any) => r.user_email).filter(Boolean))] as string[];
     if (filterEmail) emails = emails.filter(e => e === filterEmail);
@@ -66,10 +63,9 @@ serve(async (req) => {
     for (const email of emails) {
       const enc = encodeURIComponent(email);
 
-      // Non-option positions
-      const positions = await get(`portafolio?user_email=eq.${enc}&activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,precio_compra_ars,mep_compra,fecha_compra`);
+      // Added ticker_adr for CEDEAR USD daily PnL
+      const positions = await get(`portafolio?user_email=eq.${enc}&activo=eq.true&tipo=neq.OPCION&select=ticker_ars,tipo,cantidad,precio_compra_ars,mep_compra,fecha_compra,ticker_adr`);
 
-      // Current prices
       const tickers = [...new Set(positions.map((p: any) => (p.ticker_ars || "").split(" ")[0]).filter(Boolean))];
       const priceMap: Record<string, any> = {};
       if (tickers.length > 0) {
@@ -78,7 +74,21 @@ serve(async (req) => {
         for (const r of rows) priceMap[r.symbol] = r;
       }
 
+      // USD prices for CEDEAR ADRs (avoids MEP distortion on daily PnL)
+      const cedearADRs = [...new Set(
+        positions.filter((p: any) => p.tipo === "CEDEAR" && p.ticker_adr)
+                 .map((p: any) => p.ticker_adr as string)
+      )];
+      const usaMap: Record<string, any> = {};
+      if (cedearADRs.length > 0) {
+        const inStr2 = cedearADRs.map(t => `"${t}"`).join(",");
+        const usaRows = await get(`mercado_usa?symbol=in.(${inStr2})&select=symbol,change_pct`);
+        for (const r of usaRows) usaMap[r.symbol] = r;
+      }
+
       let totalInv = 0, totalVal = 0, dailyPnl = 0;
+      const perPos: Array<{ ticker: string; usd: number; pct: number; tipo: string }> = [];
+
       for (const p of positions) {
         const sym    = (p.ticker_ars || "").split(" ")[0];
         const factor = BOND_TYPES.has(p.tipo) ? 100 : 1;
@@ -91,16 +101,23 @@ serve(async (req) => {
         const val    = last > 0 ? cant * last / (factor * mep) : 0;
         totalInv += cost;
         totalVal += val;
-        if (p.fecha_compra && p.fecha_compra < todayStr && px.change != null && val > 0) {
-          dailyPnl += val * parseFloat(px.change) / 100;
+
+        if (p.fecha_compra && p.fecha_compra < todayStr && val > 0) {
+          let posDaily = 0;
+          if (p.tipo === "CEDEAR" && p.ticker_adr && usaMap[p.ticker_adr] != null) {
+            // CEDEARs: use USD % change to avoid MEP distortion
+            posDaily = val * (parseFloat(usaMap[p.ticker_adr].change_pct) || 0) / 100;
+          } else if (px.change != null) {
+            posDaily = val * parseFloat(px.change) / 100;
+          }
+          dailyPnl += posDaily;
+          perPos.push({ ticker: sym, usd: posDaily, pct: val > 0 ? posDaily / val * 100 : 0, tipo: p.tipo });
         }
       }
 
-      // Realized gains (trades)
       const trades = await get(`trades?user_email=eq.${enc}&select=ganancia_usd`);
       const realized = trades.reduce((s: number, r: any) => s + (parseFloat(r.ganancia_usd) || 0), 0);
 
-      // Options P&L
       let opsPnl = 0, opsDaily = 0;
       const opPortRows = await get(`portafolio?user_email=eq.${enc}&activo=eq.true&tipo=eq.OPCION&select=operacion_id`);
       const opIds = opPortRows.map((r: any) => r.operacion_id).filter(Boolean);
@@ -142,6 +159,28 @@ serve(async (req) => {
       const dayPct = totAct > 0 ? dayTot / totAct * 100 : 0;
       const round2 = (n: number) => Math.round(n * 100) / 100;
 
+      // top_ganador / top_perdedor / detalle_tipos
+      let topGanador: any = null, topPerdedor: any = null;
+      const tiposMap: Record<string, number> = {};
+
+      if (perPos.length > 0) {
+        const sorted = [...perPos].sort((a, b) => b.pct - a.pct);
+        topGanador  = { ticker: sorted[0].ticker, pct: round2(sorted[0].pct) };
+        topPerdedor = { ticker: sorted[sorted.length - 1].ticker, pct: round2(sorted[sorted.length - 1].pct) };
+        for (const pos of perPos) {
+          tiposMap[pos.tipo] = (tiposMap[pos.tipo] || 0) + pos.usd;
+        }
+        if (opsDaily !== 0) tiposMap["OPCION"] = (tiposMap["OPCION"] || 0) + opsDaily;
+      }
+
+      let detalleTipos: Record<string, number> | null = null;
+      if (dayTot !== 0 && Object.keys(tiposMap).length > 0) {
+        detalleTipos = {};
+        for (const tipo of Object.keys(tiposMap)) {
+          detalleTipos[tipo] = round2(tiposMap[tipo] / dayTot);
+        }
+      }
+
       await post("portafolio_resumen", {
         user_email:         email,
         total_value_usd:    round2(totAct),
@@ -153,14 +192,17 @@ serve(async (req) => {
         updated_at:         new Date().toISOString(),
       });
 
-      // pnl_diario — solo días hábiles con datos
       if (dow > 0 && dow < 6 && totAct > 0) {
         await post("pnl_diario", {
-          user_email: email,
-          fecha:      todayStr,
-          valor_usd:  round2(totAct),
-          pnl_usd:    round2(dayTot),
-          pnl_pct:    round2(dayPct),
+          user_email:    email,
+          fecha:         todayStr,
+          valor_usd:     round2(totAct),
+          pnl_usd:       round2(dayTot),
+          pnl_pct:       round2(dayPct),
+          roe_diario:    round2(dayPct),
+          top_ganador:   topGanador,
+          top_perdedor:  topPerdedor,
+          detalle_tipos: detalleTipos,
         });
       }
     }
