@@ -135,7 +135,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
   <h1>📈 Dashboard Financiero — Arquitectura del Sistema</h1>
   <p>Análisis de mercado ARS/USD · CEDEARs · Renta fija · Portafolio personal · Mayo 2026</p>
   <div class="stats-bar">
-    <div class="stat-pill"><strong>11+</strong> módulos</div>
+    <div class="stat-pill"><strong>15+</strong> módulos</div>
     <div class="stat-pill"><strong>14+</strong> tablas DB</div>
     <div class="stat-pill"><strong>12</strong> Edge Functions</div>
     <div class="stat-pill"><strong>3</strong> canales de alerta</div>
@@ -172,76 +172,95 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
       </div>
     </div>
 
-    <div class="modules-grid">
+    <div class="modules-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="mod-card">
-        <div class="mod-icon">📊</div>
-        <div class="mod-name">Dashboard</div>
-        <div class="mod-sub">Overview general · KPIs del portafolio · Resumen del día</div>
+        <div class="mod-icon">🏠</div>
+        <div class="mod-name">Home</div>
+        <div class="mod-sub">KPIs globales · MEP live · Accesos rápidos a módulos · Resumen del día</div>
       </div>
       <div class="mod-card" style="border-color:rgba(0,208,132,.3)">
         <div class="mod-icon">💼</div>
         <div class="mod-name" style="color:#00d084">Portafolio</div>
-        <div class="mod-sub">CRUD posiciones · PnL v2 telescópico · Calendario PnL semanal · Benchmark SPY · CEDEAR badges</div>
+        <div class="mod-sub">
+          <b>Resumen</b> — donut + PnL diario v2 · Calendario semanal · Benchmark SPY (roe_diario)<br>
+          <b>Posiciones</b> — tabla CRUD · opciones · CEDEAR pre/post market ☀️🌙<br>
+          <b>Historial</b> — trades cerrados · ganancia realizada
+        </div>
       </div>
       <div class="mod-card">
         <div class="mod-icon">🏷️</div>
         <div class="mod-name">CEDEARs</div>
-        <div class="mod-sub">MEP implícito · Rankings · Tabla general · Spreads vs AL30</div>
+        <div class="mod-sub">MEP implícito por ticker · Rankings baratos/caros · Spread vs AL30 · Realtime</div>
       </div>
       <div class="mod-card">
         <div class="mod-icon">📄</div>
         <div class="mod-name">Bonos ARS</div>
-        <div class="mod-sub">Curva TEM/TEA · Tabla general · Arbitrajes Realtime · TAMAR ref.</div>
+        <div class="mod-sub">Curva TEM/TEA · Tabla general · Arbitrajes Realtime · TAMAR ref. · Factor /100 soberanos</div>
       </div>
-      <div class="mod-card">
+      <div class="mod-card" style="border-color:rgba(72,170,255,.35)">
         <div class="mod-icon">🇺🇸</div>
-        <div class="mod-name">USA (USD)</div>
-        <div class="mod-sub">Precios RT · RRG S&amp;P500 · PE×EMA screener · CEDEAR badges 🟡 · Short Interest</div>
+        <div class="mod-name">USA (12 sub-tabs)</div>
+        <div class="mod-sub">
+          <b>Mercado</b> — precios RT · <b>Sectores</b> — heatmap · <b>Opciones</b> — chain USA<br>
+          <b>Short Data</b> — FINRA short int. · <b>GEX SPY</b> — gamma exposure · <b>RRG</b> — Relative Rotation<br>
+          <b>Market Topology</b> — correlaciones · <b>Macro</b> — FRED indicators<br>
+          <b>Smart Money</b> — flujos institucionales · <b>Insider</b> — Dataroma + Finviz<br>
+          <b>AF vs AT</b> — fundamental por ticker · <b>P/E × EMA200</b> — screener con CEDEAR badge
+        </div>
       </div>
       <div class="mod-card" style="border-color:rgba(255,68,85,.3)">
         <div class="mod-icon">🔔</div>
         <div class="mod-name" style="color:#ff4455">Alertas</div>
-        <div class="mod-sub">CRUD alertas · Realtime WebSocket · Historial · Config WhatsApp/Telegram</div>
+        <div class="mod-sub">CRUD alertas precio/RSI/MACD · Motor Realtime 30s · Historial · Config WA/Telegram · Tab SL/TP</div>
       </div>
       <div class="mod-card">
         <div class="mod-icon">📉</div>
         <div class="mod-name">Volatilidad</div>
-        <div class="mod-sub">Vol. histórica · Comparativas · Charts</div>
+        <div class="mod-sub">
+          <b>Sonrisa de Vol.</b> — IV call/put por strike (GGAL) · Skew 25Δ · IV ATM<br>
+          <b>Term Structure</b> — curva de TEM por vencimiento<br>
+          <b>Cadena</b> — cadena de opciones inline
+        </div>
       </div>
       <div class="mod-card">
         <div class="mod-icon">🎯</div>
-        <div class="mod-name">Opciones / Estrat.</div>
-        <div class="mod-sub">Opciones IAMC (PDF via Claude AI) · Estrategias de cobertura</div>
-      </div>
-      <div class="mod-card" style="border-color:rgba(255,102,128,.3)">
-        <div class="mod-icon">📉</div>
-        <div class="mod-name" style="color:#ff6680">Short Interest</div>
-        <div class="mod-sub">Posiciones cortas FINRA · Days to Cover · Evolución histórica x ticker</div>
-      </div>
-      <div class="mod-card">
-        <div class="mod-icon">🌍</div>
-        <div class="mod-name">AF / Acciones</div>
-        <div class="mod-sub">af.html · Acciones locales y extranjeras</div>
-      </div>
-      <div class="mod-card">
-        <div class="mod-icon">🔬</div>
-        <div class="mod-name">Análisis</div>
-        <div class="mod-sub">analisis.html · Análisis técnico y fundamental</div>
+        <div class="mod-name">Opciones / Estrategias</div>
+        <div class="mod-sub">Opciones IAMC (PDF via Claude AI) · CRUD estrategias multi-pata · P&amp;L por leg · Realtime</div>
       </div>
       <div class="mod-card">
         <div class="mod-icon">🔗</div>
         <div class="mod-name">Cadena</div>
-        <div class="mod-sub">cadena.html · Cadena de opciones en tiempo real</div>
+        <div class="mod-sub">Cadena de opciones ARS en tiempo real · Strike / vencimiento / prima · Acción directa desde UI</div>
       </div>
       <div class="mod-card">
-        <div class="mod-icon">🏪</div>
+        <div class="mod-icon">📊</div>
         <div class="mod-name">Market</div>
-        <div class="mod-sub">market.html · Vista general del mercado</div>
+        <div class="mod-sub">Vista general del mercado · Tabla de acciones · Rankings por sector</div>
       </div>
       <div class="mod-card">
-        <div class="mod-icon">🇺🇸</div>
+        <div class="mod-icon">📈</div>
         <div class="mod-name">USA Options</div>
-        <div class="mod-sub">usa-options.html · Opciones de acciones USA</div>
+        <div class="mod-sub">Cadena de opciones USA · Flow institucional · Puts/Calls por vencimiento</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🔬</div>
+        <div class="mod-name">Análisis</div>
+        <div class="mod-sub">Análisis técnico y fundamental · Charts OHLCV · Indicadores avanzados</div>
+      </div>
+      <div class="mod-card" style="border-color:rgba(0,216,232,.3)">
+        <div class="mod-icon">🛒</div>
+        <div class="mod-name" style="color:#00d8e8">PrecioCheck</div>
+        <div class="mod-sub">Comparador de precios Argentina · SEPA / Precios Claros · proxy edge function · Sin login</div>
+      </div>
+      <div class="mod-card" style="border-color:rgba(240,176,32,.2)">
+        <div class="mod-icon">⚠️</div>
+        <div class="mod-name" style="color:#f0b020">Stress Test</div>
+        <div class="mod-sub">Página standalone · Escenarios de caída del mercado · Impacto estimado por posición</div>
+      </div>
+      <div class="mod-card">
+        <div class="mod-icon">🌍</div>
+        <div class="mod-name">AF / Acciones</div>
+        <div class="mod-sub">Análisis fundamental avanzado · OHLCV + earnings · Integrado en sub-tab USA "AF vs AT"</div>
       </div>
     </div>
 
@@ -356,9 +375,10 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         <span class="chip ch-amber">Claude AI (opciones)</span>
       </div>
       <div style="font-size:10px;color:#4a6e90;margin-top:10px;line-height:1.6">
-        <code style="background:rgba(0,0,0,.3);color:#b8d0ec">scripts/</code> — actualiza tabla <code style="background:rgba(0,0,0,.3);color:#b8d0ec">mercado</code><br>
-        <code style="background:rgba(0,0,0,.3);color:#b8d0ec">process_iamc.py</code> — descarga PDF IAMC,<br>
-        parsea con Claude API → tabla opciones
+        <code style="background:rgba(0,0,0,.3);color:#b8d0ec">monitor_rt.py</code> — precios ARS (pyhomebroker) → <code style="background:rgba(0,0,0,.3);color:#b8d0ec">mercado</code><br>
+        <code style="background:rgba(0,0,0,.3);color:#b8d0ec">alpaca_usa.py</code> — precios USA (Alpaca) → <code style="background:rgba(0,0,0,.3);color:#b8d0ec">mercado_usa</code><br>
+        <code style="background:rgba(0,0,0,.3);color:#b8d0ec">process_iamc.py</code> — PDF IAMC → Claude API → <code style="background:rgba(0,0,0,.3);color:#b8d0ec">opciones_rt</code><br>
+        backfills: <code style="background:rgba(0,0,0,.3);color:#b8d0ec">backfill_pnl.py</code> · <code style="background:rgba(0,0,0,.3);color:#b8d0ec">backfill_dolar.py</code> · <code style="background:rgba(0,0,0,.3);color:#b8d0ec">backfill_historico.py</code>
       </div>
     </div>
 
@@ -399,8 +419,8 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
       </div>
       <div class="b-col">
         <div class="b-col-icon">🔧</div>
-        <div class="b-col-name">11 Edge Functions</div>
-        <div class="b-col-sub">Deno · JWT OFF · yahoo-prices<br>alertas-engine · fetch-fred<br>fetch-historical · finra-si<br>finra-short-volume · insider-*<br>preciocheck-proxy<br><strong>update-portafolio-resumen</strong></div>
+        <div class="b-col-name">12 Edge Functions</div>
+        <div class="b-col-sub">Deno · JWT OFF · yahoo-prices<br>alertas-engine · fetch-fred<br>fetch-historical · finra-si<br>finra-short-volume<br>insider-dataroma · insider-finviz<br>preciocheck-proxy<br>update-portafolio-resumen<br><strong>monitor-cron</strong></div>
       </div>
     </div>
   </div>
@@ -412,7 +432,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
     <div class="sec-row">
       <div class="sec-icon">🗄️</div>
       <div>
-        <div class="sec-title" style="color:#48aaff">Base de Datos — 11+ Tablas</div>
+        <div class="sec-title" style="color:#48aaff">Base de Datos — 15+ Tablas</div>
         <div class="sec-sub">PostgreSQL · Python via Task Scheduler · Edge Function update-portafolio-resumen via pg_cron</div>
       </div>
     </div>
@@ -504,6 +524,16 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
         <div class="db-table-name">🔢 cedear_ratios</div>
         <div class="db-table-cols">symbol · ratio · updated_at</div>
         <div class="db-note">Ratio conversión CEDEAR → ADR</div>
+      </div>
+      <div class="db-table" style="border-color:rgba(0,216,232,.3)">
+        <div class="db-table-name" style="color:#00d8e8">📜 historico_precios</div>
+        <div class="db-table-cols">symbol · fecha · precio_ars<br>precio_usd · mep · fuente</div>
+        <div class="db-note">Serie histórica de cierres<br>Actualizada por monitor-cron-historico</div>
+      </div>
+      <div class="db-table" style="opacity:.75">
+        <div class="db-table-name" style="color:#7a9ec0">🗃️ Tablas cache (dyn.)</div>
+        <div class="db-table-cols">cache_dataroma<br>cache_finviz_insider<br>cache_finra_short_volume</div>
+        <div class="db-note">Auto-creadas por edge functions<br>TTL 1 día — no son RLS</div>
       </div>
       <div class="db-table" style="border-color:rgba(0,229,168,.3)">
         <div class="db-table-name" style="color:#00e5a8">📊 portafolio_resumen</div>
