@@ -1079,6 +1079,7 @@ function showTickerDetail(r){
 window.CFG = {
   SB_URL: 'https://endymbpdayeidromxayb.supabase.co',
   SB_KEY: 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY',
+  SB_SECRET: 'sb_secret_y8LUbP3IQ6md47Mxm3fz6g_PmV6ssX_',
   ANTHROPIC_KEY: '',
   ADMIN_PASSWORD: localStorage.getItem('ap') || 'Ggal2026+',
   TG_TOKEN: '8576934070:AAFrb--ocLPcFZh-mOzFDTc5ujYnouA3H3U',
@@ -1087,8 +1088,7 @@ window.CFG = {
   WA_KEY: 'https://api.callmebot.com/whatsapp.php?phone=5491162410971&text=This+is+a+test&apikey=4061538',
   AL_CANAL: 'ambos',
 };
-window.CFG.SBH
-window.CFG.SBH = { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + CFG.SB_KEY };
+window.CFG.SBH = { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + CFG.SB_SECRET };
 
 // ── Supabase Auth client ──
 const { createClient } = supabase;
@@ -3255,13 +3255,9 @@ async function fetchDolarData(){
   if(dolarHistoricoCache) return dolarHistoricoCache;
 
   const supabaseUrl = 'https://endymbpdayeidromxayb.supabase.co';
-  const supabaseKey = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
-
   const url = `${supabaseUrl}/rest/v1/dolar_historico?order=fecha.asc&select=fecha,tipo,close`;
   try {
-    const resp = await fetch(url, {
-      headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` }
-    });
+    const resp = await fetch(url, { headers: CFG.SBH });
     if(!resp.ok) throw new Error(`Supabase error: ${resp.status}`);
     const data = await resp.json();
 
