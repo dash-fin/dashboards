@@ -609,7 +609,6 @@ footer .ref{color:var(--accent)}
 // ── Config ──────────────────────────────────
 const SUPABASE_URL   = 'https://endymbpdayeidromxayb.supabase.co';
 const ANON_KEY       = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
-const SERVICE_KEY    = 'sb_secret_y8LUbP3IQ6md47Mxm3fz6g_PmV6ssX_';
 const AUTH_ADMIN     = `${SUPABASE_URL}/auth/v1/admin`;
 const REST           = `${SUPABASE_URL}/rest/v1`;
 
@@ -707,13 +706,11 @@ async function authFetch(url, opts={}){
 }
 
 async function restFetch(url, opts={}){
-  const headers = {
-    'Authorization': `Bearer ${SERVICE_KEY}`,
-    'apikey': ANON_KEY,
-    'Content-Type': 'application/json',
-    ...(opts.headers||{})
-  };
-  return fetch(url, {...opts, headers});
+  const u = new URL(url);
+  const targetPath = u.pathname + u.search;
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers||{}) };
+  const proxyUrl = `${SUPABASE_URL}/functions/v1/admin-proxy?path=${encodeURIComponent(targetPath)}`;
+  return fetch(proxyUrl, {...opts, headers});
 }
 
 // ── Data state ───────────────────────────────
