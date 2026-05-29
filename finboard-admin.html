@@ -379,8 +379,15 @@ footer .ref{color:var(--accent)}
     <div class="pin-logo">FIN<span>BOARD</span></div>
     <div class="pin-sub">Panel de Administración</div>
     <div class="pin-label">Ingresá tu PIN de acceso</div>
-    <input class="pin-input" id="pin-input" type="password" placeholder="••••••••••••"
-      autocomplete="off" spellcheck="false" autofocus>
+    <div style="position:relative;display:flex;align-items:center">
+      <input class="pin-input" id="pin-input" type="password" placeholder="••••••••••••"
+        autocomplete="off" spellcheck="false" autofocus
+        style="padding-right:44px">
+      <button id="pin-eye" type="button"
+        style="position:absolute;right:10px;background:none;border:none;cursor:pointer;font-size:18px;color:var(--t3);padding:6px;line-height:1;transition:color .15s"
+        onmouseenter="this.style.color='var(--t1)'" onmouseleave="this.style.color='var(--t3)'"
+        onclick="togglePinVisibility()" title="Mostrar/ocultar PIN">👁️</button>
+    </div>
     <div class="pin-error-msg" id="pin-error"></div>
     <button class="pin-btn" id="pin-submit">INGRESAR →</button>
     <div class="pin-hint">Este panel solo es accesible para administradores</div>
@@ -594,12 +601,24 @@ footer .ref{color:var(--accent)}
 // ── Config ──────────────────────────────────
 const SUPABASE_URL   = 'https://endymbpdayeidromxayb.supabase.co';
 const ANON_KEY       = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
-const SERVICE_KEY    = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
+const SERVICE_KEY    = 'sb_secret_y8LUbP3IQ6md47Mxm3fz6g_PmV6ssX_';
 const AUTH_ADMIN     = `${SUPABASE_URL}/auth/v1/admin`;
 const REST           = `${SUPABASE_URL}/rest/v1`;
 
 // ── PIN ──────────────────────────────────────
 const CORRECT_PIN = 'finboard2024';
+
+function togglePinVisibility(){
+  const inp = document.getElementById('pin-input');
+  const eye = document.getElementById('pin-eye');
+  if(inp.type==='password'){
+    inp.type='text';
+    eye.textContent='🙈';
+  } else {
+    inp.type='password';
+    eye.textContent='👁️';
+  }
+}
 
 function initPin(){
   if(sessionStorage.getItem('finboard_authed')==='1'){
