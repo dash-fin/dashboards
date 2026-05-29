@@ -691,13 +691,19 @@ function setFooterDate(){
 
 // ── API helpers ──────────────────────────────
 async function authFetch(url, opts={}){
+  // Extraer la parte del path de la URL (después del dominio)
+  const u = new URL(url);
+  const targetPath = u.pathname + u.search;
+
   const headers = {
-    'Authorization': `Bearer ${SERVICE_KEY}`,
-    'apikey': SERVICE_KEY,
     'Content-Type': 'application/json',
     ...(opts.headers||{})
   };
-  return fetch(url, {...opts, headers});
+  // No pasamos Authorization/apikey porque el proxy usa la secret key interna
+
+  const proxyUrl = `${SUPABASE_URL}/functions/v1/admin-proxy?path=${encodeURIComponent(targetPath)}`;
+
+  return fetch(proxyUrl, {...opts, headers});
 }
 
 async function restFetch(url, opts={}){
@@ -735,18 +741,10 @@ async function loadAll(){
 }
 
 async function loadUsers(){
-  try {
-    const r = await fetch(`${SUPABASE_URL}/functions/v1/list-users`,{
-      method:'GET',
-      headers:{'apikey':ANON_KEY}
-    });
-    const d = await r.json();
-    if(!r.ok) throw new Error(d.error||r.status);
-    allUsers = d.users || [];
-  } catch(e){
-    console.error('loadUsers error:', e);
-    throw e;
-  }
+  const r = await authFetch(`${AUTH_ADMIN}/users?per_page=1000&page=1`);
+  if(!r.ok) throw new Error('users: '+r.status);
+  const d = await r.json();
+  allUsers = d.users || d || [];
 }
 
 async function loadPortfolio(){
