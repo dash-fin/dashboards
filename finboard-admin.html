@@ -542,8 +542,16 @@ footer .ref{color:var(--accent)}
       <label class="form-label">Email</label>
       <input class="form-input" id="invite-email" type="email" placeholder="usuario@email.com">
     </div>
-    <div class="info-box">
-      <p>Se creará la cuenta con una contraseña temporal generada automáticamente. El usuario puede cambiar su contraseña desde la app → <strong>Más → Cambiar contraseña</strong>.</p>
+    <div class="form-group">
+      <label class="form-label">Contraseña</label>
+      <div style="position:relative;display:flex;align-items:center">
+        <input class="form-input" id="invite-password" type="password" placeholder="Contraseña del usuario"
+          style="padding-right:44px">
+        <button id="invite-pw-eye" type="button"
+          style="position:absolute;right:10px;background:none;border:none;cursor:pointer;font-size:18px;color:var(--t3);padding:6px;line-height:1;transition:color .15s"
+          onmouseenter="this.style.color='var(--t1)'" onmouseleave="this.style.color='var(--t3)'"
+          onclick="toggleInvitePw()" title="Mostrar/ocultar">👁️</button>
+      </div>
     </div>
     <div id="invite-result" style="display:none"></div>
     <div class="modal-footer">
@@ -611,6 +619,18 @@ const CORRECT_PIN = 'finboard2024';
 function togglePinVisibility(){
   const inp = document.getElementById('pin-input');
   const eye = document.getElementById('pin-eye');
+  if(inp.type==='password'){
+    inp.type='text';
+    eye.textContent='🙈';
+  } else {
+    inp.type='password';
+    eye.textContent='👁️';
+  }
+}
+
+function toggleInvitePw(){
+  const inp = document.getElementById('invite-password');
+  const eye = document.getElementById('invite-pw-eye');
   if(inp.type==='password'){
     inp.type='text';
     eye.textContent='🙈';
@@ -948,6 +968,7 @@ async function deleteUser(userId, email){
 // ── Invite ───────────────────────────────────
 function openInviteModal(){
   document.getElementById('invite-email').value='';
+  document.getElementById('invite-password').value='';
   document.getElementById('invite-result').style.display='none';
   document.getElementById('invite-result').innerHTML='';
   const btn = document.getElementById('invite-submit-btn');
@@ -958,28 +979,25 @@ function openInviteModal(){
 
 async function submitInvite(){
   const email = document.getElementById('invite-email').value.trim();
+  const password = document.getElementById('invite-password').value.trim();
   if(!email){ toast('Ingresá un email','info'); return; }
+  if(!password){ toast('Ingresá una contraseña','info'); return; }
   const btn = document.getElementById('invite-submit-btn');
   btn.innerHTML='Creando…';btn.disabled=true;
-  const pass = genPassword();
   try {
-    const r = await authFetch(`${AUTH_ADMIN}/users`,{
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/create-user`,{
       method:'POST',
-      body:JSON.stringify({email, password:pass, email_confirm:true})
+      headers:{'Content-Type':'application/json','apikey':ANON_KEY},
+      body:JSON.stringify({email, password})
     });
     const d = await r.json();
-    if(!r.ok) throw new Error(d.msg||d.message||r.status);
+    if(!r.ok) throw new Error(d.error||r.status);
     const resultDiv = document.getElementById('invite-result');
     resultDiv.style.display='block';
     resultDiv.innerHTML=`
       <div class="success-box">
         <div class="succ-label">✅ Usuario creado exitosamente</div>
-        <p style="font-size:12px;color:var(--t2);margin-bottom:12px">Contraseña temporal para <strong style="color:var(--t1)">${escHtml(email)}</strong>:</p>
-        <div class="copy-row">
-          <div class="copy-val">${escHtml(pass)}</div>
-          <button class="copy-btn" onclick="copyText(${JSON.stringify(pass)},this)">Copiar</button>
-        </div>
-        <p style="font-size:11px;color:var(--t3);margin-top:10px">El usuario puede cambiar su contraseña desde la app → <strong style="color:var(--accent)">Más → Cambiar contraseña</strong></p>
+        <p style="font-size:12px;color:var(--t2);margin-bottom:12px">Usuario <strong style="color:var(--t1)">${escHtml(email)}</strong> creado con la contraseña indicada.</p>
       </div>
     `;
     toast('Usuario creado: '+email,'success');
@@ -989,7 +1007,7 @@ async function submitInvite(){
   } catch(e){
     toast('Error al crear usuario: '+e.message,'error');
   } finally {
-    btn.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Crear usuario`;
+    btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Crear usuario';
     btn.disabled=false;
   }
 }
