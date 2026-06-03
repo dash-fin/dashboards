@@ -1042,13 +1042,11 @@ window.usTab = (name, btn) => {
 
 // ── Load ──
 window.usLoadAll = async () => {
-  const [rows, sectRows, sigRows] = await Promise.all([
+  const [rows, sigRows] = await Promise.all([
     sb('mercado_usa','select=symbol,sector,market_cap_cat,last,change_pct,volume,volume_rel,rsi_14,sma_20,sma_50,sma_200,above_sma20,above_sma50,above_sma200,session&order=volume.desc.nullslast&limit=600'),
-    sb('sectores_usa','select=*&order=change_pct.desc.nullslast'),
     sb('opciones_usa_signals','select=*&order=vol_total.desc.nullslast&limit=100'),
   ]);
   if(rows) usAllData = rows;
-  if(sectRows) usSectors = sectRows;
   if(sigRows) usSignals = sigRows;
 
   const sectors = [...new Set(usAllData.map(r=>r.sector).filter(Boolean))].sort();
@@ -1233,13 +1231,14 @@ window.usShowSector = (symbol, isGreen) => {
   document.getElementById('usSectorDetail').style.display='';
 };
 
-// ── Sectores heatmap ──
+// ── Sectores heatmap (desde mercado_usa: ETF Sector) ──
 function usRenderSectores(){
-  if(!usSectors.length){
+  const etfs = usAllData.filter(r=>r.sector==='ETF Sector' && r.change_pct!=null).sort((a,b)=>b.change_pct-a.change_pct);
+  if(!etfs.length){
     document.getElementById('usHeatmap').innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><p>Sin datos de sectores</p></div>';
     return;
   }
-  const sorted = [...usSectors].filter(r=>r.change_pct!=null).sort((a,b)=>b.change_pct-a.change_pct);
+  const sorted = etfs;
   const max = Math.max(...sorted.map(r=>Math.abs(r.change_pct||0)), 1);
   document.getElementById('usHeatmap').innerHTML = sorted.map(r=>{
     const chg = Number(r.change_pct||0);
