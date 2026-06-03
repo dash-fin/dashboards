@@ -1920,7 +1920,7 @@ async function loadHomeDolar(){
 async function loadHomeSectores(){
   const el=document.getElementById('h-sectores');if(!el)return;
   const [secRows,comRows]=await Promise.all([
-    sb('sectores_usa','select=symbol,name,change_pct&order=change_pct.desc.nullslast'),
+    sb('mercado_usa','select=symbol,sector,last,change_pct&sector=eq."ETF Sector"&order=change_pct.desc.nullslast'),
     sb('mercado_usa','symbol=in.("GLD","SLV","USO")&select=symbol,last,change_pct'),
   ]);
 
@@ -1986,7 +1986,7 @@ async function loadHomeSectores(){
     const chg=Number(r.change_pct||0),barW=Math.min(Math.abs(chg)/maxAbs*100,100);
     const barBg=chg>0?'linear-gradient(90deg,var(--green2),var(--green))':chg<0?'linear-gradient(90deg,#cc2244,var(--red))':'rgba(100,140,200,.3)';
     const cls=chg>0?'up':chg<0?'dn':'neu';
-    return `<div class="sec-item"><span class="sec-sym"${r.color?` style="color:${r.color}"`:''}>${r.symbol}</span><span class="sec-name">${r.name||''}</span><div class="sec-bar-w"><div class="sec-bar" style="background:${barBg}" data-w="${barW.toFixed(0)}"></div></div><span class="sec-pct ${cls}">${chg>=0?'+':''}${chg.toFixed(2)}%</span></div>`;
+    return `<div class="sec-item"><span class="sec-sym"${r.color?` style="color:${r.color}"`:''}>${r.symbol}</span><span class="sec-name">${r.sector||''}</span><div class="sec-bar-w"><div class="sec-bar" style="background:${barBg}" data-w="${barW.toFixed(0)}"></div></div><span class="sec-pct ${cls}">${chg>=0?'+':''}${chg.toFixed(2)}%</span></div>`;
   };
 
   el.innerHTML=pos.map(row).join('')+(pos.length&&neg.length?'<div class="sec-sep"></div>':'')+neg.map(row).join('');
@@ -2509,7 +2509,7 @@ async function loadFearGreed(){
 async function loadMiniHeatmap(){
   const el=document.getElementById('miniHeatmap');
   if(!el)return;
-  const rows=await sb('sectores_usa','select=symbol,name,change_pct&order=change_pct.desc.nullslast');
+  const rows=await sb('mercado_usa','select=symbol,sector,last,change_pct&sector=eq."ETF Sector"&order=change_pct.desc.nullslast');
   if(!rows||!rows.length){el.innerHTML='<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">Sin datos</div>';return;}
   const max=Math.max(...rows.map(r=>Math.abs(r.change_pct||0)),1);
   el.innerHTML=rows.map(r=>{
