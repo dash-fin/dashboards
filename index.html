@@ -1920,7 +1920,7 @@ async function loadHomeDolar(){
 async function loadHomeSectores(){
   const el=document.getElementById('h-sectores');if(!el)return;
   const [secRows,comRows]=await Promise.all([
-    sb('mercado_usa','select=symbol,sector,last,change_pct&sector=eq."ETF Sector"&order=change_pct.desc.nullslast'),
+    sb('mercado_usa','select=symbol,sector,last,change_pct&sector=eq.ETF%20Sector&order=change_pct.desc.nullslast'),
     sb('mercado_usa','symbol=in.("GLD","SLV","USO")&select=symbol,last,change_pct'),
   ]);
 
@@ -2509,7 +2509,7 @@ async function loadFearGreed(){
 async function loadMiniHeatmap(){
   const el=document.getElementById('miniHeatmap');
   if(!el)return;
-  const rows=await sb('mercado_usa','select=symbol,sector,last,change_pct&sector=eq."ETF Sector"&order=change_pct.desc.nullslast');
+  const rows=await sb('mercado_usa','select=symbol,sector,last,change_pct&sector=eq.ETF%20Sector&order=change_pct.desc.nullslast');
   if(!rows||!rows.length){el.innerHTML='<div style="padding:8px;text-align:center;font-size:10px;color:var(--text3)">Sin datos</div>';return;}
   const max=Math.max(...rows.map(r=>Math.abs(r.change_pct||0)),1);
   el.innerHTML=rows.map(r=>{
