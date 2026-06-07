@@ -293,6 +293,8 @@
 .al-select:focus{border-color:var(--green)}
 .al-cond-panel{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px}
 .al-rt-pulse{animation:pulse 1.5s infinite}
+@keyframes al-toast-in  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+@keyframes al-toast-out { from { opacity:1; transform:translateY(0); } to { opacity:0; transform:translateY(16px); } }
 </style>
 
 <script>
@@ -312,6 +314,7 @@ const AL = {
   rtChannel: null,     // Supabase Realtime — tabla mercado (ARS)
   rtChannelUsa: null,  // Supabase Realtime — tabla mercado_usa
   rtChannelOpt: null,  // Supabase Realtime — tabla opciones_rt
+  rtHistChannel: null, // Supabase Realtime — alertas_historial (inserts)
 };
 
 // Limpiador agresivo de tickers para que siempre coincidan
@@ -435,6 +438,7 @@ async function alInit(){
   alHealthCheck();
   setInterval(alHealthCheck, 30000);
   setInterval(() => alCargarPreciosIniciales(true), 10000);
+  alRtConnectHistorial();
 }
 
 alInit();
@@ -621,6 +625,52 @@ function alRtStatus(status){
   dot.className = s.pulse ? 'al-rt-pulse' : '';
   label.textContent = s.text;
   label.style.color = s.color;
+}
+
+function alShowToast(ticker, condDesc, estado) {
+  const ok = estado?.includes('✅');
+  const accent = ok ? 'var(--green)' : 'var(--amber)';
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:9999;
+    background:var(--bg2);border:1px solid ${ok ? 'rgba(0,229,168,.35)' : 'rgba(240,165,0,.35)'};
+    border-radius:8px;padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,.55);
+    font-family:'IBM Plex Mono',monospace;max-width:300px;cursor:pointer;
+    animation:al-toast-in .25s ease`;
+  el.innerHTML = `<div style="font-size:8px;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">🔔 Alerta disparada</div>
+    <div style="font-weight:600;color:var(--text);font-size:13px">${ticker}</div>
+    <div style="font-size:10px;color:var(--text2);margin-top:2px">${condDesc || ''}</div>`;
+  el.onclick = () => { el.remove(); alTab('historial', document.getElementById('alstab-historial')); };
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.style.animation = 'al-toast-out .25s ease forwards';
+    setTimeout(() => el.remove(), 280);
+  }, 6000);
+}
+
+function alRtConnectHistorial() {
+  if (AL.rtHistChannel) { try { AL.rtHistChannel.unsubscribe(); } catch(e) {} }
+  const uid = alUserId();
+  if (!uid || uid === 'anon') return;
+  AL.rtHistChannel = window.sbAuth
+    .channel('al-hist-' + uid)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'alertas_historial',
+      filter: `user_id=eq.${uid}`
+    }, payload => {
+      const h = payload.new;
+      if (!h) return;
+      alShowToast(h.ticker || '—', h.cond_desc || '—', h.estado || '');
+      alKpiUpdate();
+      alCargarHistorial();
+    })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') alLog('🔔 Notificaciones en vivo activas.', 'green');
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        setTimeout(alRtConnectHistorial, 5000);
+      }
+    });
 }
 
 // ─────────────────────────────────────────────
