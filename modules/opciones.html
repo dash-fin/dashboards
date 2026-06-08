@@ -1863,15 +1863,16 @@ async function flujoLoadData(P) {
       if(prev) {
         let cB=0,cS=0,pB=0,pS=0,volTot=0,px=null;
         Object.values(snap).forEach(r => {
-          if(px==null && r.price_underlying!=null) px = r.price_underlying;
+          if(px==null && r.price_underlying!=null) px = +r.price_underlying;
           const p = prev[_fkey(r)];
           const dVol = p ? Math.max(0, (r.volume||0)-(p.volume||0)) : 0;
           if(dVol>0) {
-            const mid  = ((r.bid||0)+(r.ask||0))/2;
-            const prem = dVol * (r.last||0) * 100;
-            // Fallback cuando bid/ask son null: comparar last vs snapshot anterior
-            const buy  = mid>0 ? (r.last||0)>=mid : (p ? (r.last||0)>(p.last||0) : null);
-            if(buy===null) return; // dirección desconocida, no sumar
+            // Coerción explícita: NUMERIC de Postgres llega como string vía REST
+            const last = +(r.last)||0, bid = +(r.bid)||0, ask = +(r.ask)||0;
+            const mid  = (bid+ask)/2;
+            const prem = dVol * last * 100;
+            const buy  = mid>0 ? last>=mid : (p ? last>(+(p.last)||0) : null);
+            if(buy===null) return;
             volTot += dVol;
             const k = (r.kind||'').toLowerCase().charAt(0);
             if(k==='c'){ if(buy)cB+=prem; else cS+=prem; }
@@ -1912,9 +1913,11 @@ function flujoRenderChart(P, labels, callNet, putNet, price, volArea) {
       },
       plugins:{legend:{display:false},
         tooltip:{callbacks:{label:c=>{
-          if(c.dataset.label==='Precio') return 'Precio: $'+c.raw;
-          if(c.dataset.label==='Vol')    return 'Vol: '+fmtM(c.raw)+' contratos';
-          return c.dataset.label+': '+fmtM(c.raw);
+          if(c.dataset.label==='Precio') return ` Precio: $${c.raw}`;
+          if(c.dataset.label==='Vol')    return ` Vol: ${fmtM(c.raw||0)} contratos`;
+          const v=c.raw; if(v==null||isNaN(v)) return null;
+          const a=Math.abs(v), s=a>=1e6?`$${(v/1e6).toFixed(1)}M`:a>=1e3?`$${(v/1e3).toFixed(0)}K`:`$${v.toFixed(0)}`;
+          return ` ${c.dataset.label}: ${s}`;
         }}}}
     }
   });
