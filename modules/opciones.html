@@ -1857,6 +1857,7 @@ function gdoiRender() {
 document.getElementById('gdoiOnlyChg')?.addEventListener('change', gdoiRender);
 
 // ── Flujo intradía (serie temporal opciones_flow, estilo Skewly) ──
+const toART = ts => { const d=new Date(ts); const h=((d.getUTCHours()-3+24)%24).toString().padStart(2,'0'); return h+':'+d.getUTCMinutes().toString().padStart(2,'0'); };
 let flujoLoaded     = {local:false, usa:false};
 let flujoRange      = {local:'1D', usa:'1D'};
 let flujoCharts     = {local:null, usa:null};
@@ -1927,7 +1928,7 @@ async function flujoLoadData(P) {
             iDeltas.push({fkey:_fkey(r), strike:+(r.strike)||0, kind:k, expiration:(r.expiration||'').slice(0,10), symbol:r.symbol, dVol, prem, buy});
           }
         });
-        labels.push(t.slice(11,16));
+        labels.push(toART(t));
         callNet.push(cB-cS);
         putNet.push(pB-pS);
         price.push(px!=null ? +(+px).toFixed(2) : null);
