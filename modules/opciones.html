@@ -1558,11 +1558,17 @@ async function guhLoadData() {
   try {
     const ticker = document.getElementById('ggalUsaTicker')?.value || 'GGAL';
     const expSel = document.getElementById('ggalUsaVto')?.value || '';
-    // Traer histórico completo
-    const rows = await fetch(
-      SB_REST + `opciones_usa_historico?select=fecha_snapshot,expiration,strike,kind,open_interest&symbol=eq.${ticker}&order=fecha_snapshot&limit=10000`,
-      { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } }
-    ).then(r => r.ok ? r.json() : []);
+    // Traer histórico completo (paginado — Supabase limita a 1000 filas por request)
+    const _base = SB_REST + `opciones_usa_historico?select=fecha_snapshot,expiration,strike,kind,open_interest&symbol=eq.${ticker}&order=fecha_snapshot`;
+    const _hdrs = { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } };
+    let rows = [], _pg = 0, _PS = 1000;
+    while(true) {
+      const _batch = await fetch(`${_base}&limit=${_PS}&offset=${_pg*_PS}`, _hdrs).then(r => r.ok ? r.json() : []);
+      if (!Array.isArray(_batch) || !_batch.length) break;
+      rows = rows.concat(_batch);
+      if (_batch.length < _PS) break;
+      _pg++;
+    }
 
     // Si no hay histórico, usar snapshot actual
     if(!rows?.length) {
