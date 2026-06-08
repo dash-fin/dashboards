@@ -1832,7 +1832,7 @@ async function flujoLoadData(P) {
     const days  = {'1D':1,'3D':3,'5D':5}[range] || 1;
     const since = new Date(Date.now() - days*86400000).toISOString();
     // Paginado desc para obtener los snapshots más recientes primero (evita pre-market vacío)
-    const _flBase = SB_REST + `opciones_flow?select=ts,symbol,strike,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&ts=gte.${since}&order=ts.desc`;
+    const _flBase = SB_REST + `opciones_flow?select=ts,symbol,expiration,strike,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&ts=gte.${since}&order=ts.desc`;
     const _flHdrs = { headers:{ apikey:SBKEY, Authorization:'Bearer '+SBKEY } };
     let rows = [], _flPg = 0, _flPS = 1000;
     while(_flPg < 20) { // máx 20000 filas ≈ full trading day
@@ -1851,8 +1851,8 @@ async function flujoLoadData(P) {
       return;
     }
 
-    // Agrupar por timestamp — clave compuesta para USA donde symbol='GGAL' en todos
-    const _fkey = r => `${r.symbol}_${r.strike||''}_${r.kind||''}`;
+    // Clave compuesta: symbol+expiration+strike+kind (USA tiene symbol='GGAL' para todos, y múltiples expirations por strike)
+    const _fkey = r => `${r.symbol}_${r.expiration||''}_${r.strike||''}_${r.kind||''}`;
     const byTs = {}; const tsOrder = [];
     rows.forEach(r => { if(!byTs[r.ts]){ byTs[r.ts]={}; tsOrder.push(r.ts); } byTs[r.ts][_fkey(r)]=r; });
 
