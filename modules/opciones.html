@@ -853,6 +853,8 @@ window.oSetTab = async (n,b)=>{
   const isGgalUsa = n.startsWith('ggalusa_');
   document.getElementById('oSelectVto').closest('.filter-group').style.display = isGgalUsa ? 'none' : '';
   document.getElementById('ggalUsaFilter').style.display = isGgalUsa ? '' : 'none';
+  // Poblar el selector de vencimiento al entrar a cualquier tab USA (incl. Hist/Δ OI/Flujo)
+  if(isGgalUsa && !gucExpirations.length) { try { await gucFetchOptions(); } catch(_e){} }
 
   if(n==='gex'){
     ['oChartArs','oChartAdr'].forEach(id=>{
@@ -1314,7 +1316,7 @@ async function gucFetchOptions() {
       o.value = e; o.textContent = e;
       expSel.appendChild(o);
     });
-    expSel.onchange = () => gucLoadData(gucLoadedTab || 'iamc');
+    expSel.onchange = () => ggalUsaApplyTicker();
     return gucExpirations;
   } catch(e) { console.error('[ggalusa] fetch expirations:', e); return []; }
 }
