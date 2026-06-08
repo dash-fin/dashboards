@@ -536,11 +536,32 @@
       <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Momentum</div><div class="g-val" id="flmom_usa" style="font-size:15px">—</div></div>
       <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Señal de trading</div><div class="g-val" id="flsig_usa" style="font-size:13px">—</div></div>
     </div>
-    <div class="filter-group flujo-range" id="flrange_usa">
-      <button class="rbtn active" onclick="flujoSetRange('usa','1D',this)">1D</button>
-      <button class="rbtn" onclick="flujoSetRange('usa','3D',this)">3D</button>
-      <button class="rbtn" onclick="flujoSetRange('usa','5D',this)">5D</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <select id="flujoSymSel_usa" onchange="flujoChangeSym(this.value)"
+        style="background:var(--card-bg);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;cursor:pointer">
+        <option value="GGAL">GGAL</option>
+      </select>
+      <button class="rbtn" onclick="flujoWatchlistMgr()" title="Gestionar watchlist" style="padding:3px 8px">&#9881;</button>
+      <div class="filter-group flujo-range" id="flrange_usa">
+        <button class="rbtn active" onclick="flujoSetRange('usa','1D',this)">1D</button>
+        <button class="rbtn" onclick="flujoSetRange('usa','3D',this)">3D</button>
+        <button class="rbtn" onclick="flujoSetRange('usa','5D',this)">5D</button>
+      </div>
     </div>
+  </div>
+  <!-- Panel gestión watchlist -->
+  <div id="flujoWlPanel" style="display:none;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <b style="font-size:13px">Watchlist USA opciones</b>
+      <button class="rbtn" onclick="document.getElementById('flujoWlPanel').style.display='none'" style="padding:1px 8px">&#10005;</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input id="flujoWlInput" placeholder="Ticker (ej: YPF)" maxlength="6"
+        style="flex:1;background:var(--card2-bg,var(--card-bg));color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;text-transform:uppercase"
+        onkeydown="if(event.key==='Enter')flujoWlAdd()">
+      <button class="tab-btn" onclick="flujoWlAdd()" style="padding:5px 14px;font-size:13px">Agregar</button>
+    </div>
+    <div id="flujoWlList" style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px"></div>
   </div>
   <div class="card" style="margin-top:12px">
     <div class="card-head">
@@ -1864,6 +1885,82 @@ let flujoCharts     = {local:null, usa:null};
 let flujoSnapData   = {local:null, usa:null};
 let flujoBreakCharts= {local:null, usa:null};
 let flujoEvoCharts  = {local:null, usa:null};
+let flujoUnderlying = {local:'GGAL', usa:'GGAL'};
+let _flujoWatchlist = ['GGAL'];
+let _flujoWlLoaded  = false;
+
+async function flujoLoadWatchlist() {
+  try {
+    const rows = await fetch(SB_REST+'opciones_watchlist_usa?select=symbol&activo=eq.true&order=symbol.asc',
+      {headers:{apikey:SBKEY,'Authorization':'Bearer '+SBKEY}}).then(r=>r.json());
+    _flujoWatchlist = Array.isArray(rows) ? rows.map(r=>r.symbol).filter(Boolean) : ['GGAL'];
+    if(!_flujoWatchlist.includes('GGAL')) _flujoWatchlist.unshift('GGAL');
+    const sel = document.getElementById('flujoSymSel_usa');
+    if(sel) sel.innerHTML = _flujoWatchlist.map(s=>`<option value="${s}">${s}</option>`).join('');
+  } catch(_e) {}
+  _flujoWlLoaded = true;
+}
+
+window.flujoChangeSym = (sym) => {
+  flujoUnderlying.usa = sym.toUpperCase();
+  flujoLoaded.usa = false;
+  flujoLoadData('usa');
+};
+
+window.flujoWatchlistMgr = () => {
+  const p = document.getElementById('flujoWlPanel');
+  if(!p) return;
+  p.style.display = p.style.display==='none' ? '' : 'none';
+  if(p.style.display!=='none') flujoWlRenderList();
+};
+
+function flujoWlRenderList() {
+  const el = document.getElementById('flujoWlList');
+  if(!el) return;
+  el.innerHTML = _flujoWatchlist.map(s =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--card-bg);border:1px solid var(--border);border-radius:5px;padding:3px 8px">
+      ${s}
+      <button onclick="flujoWlRemove('${s}')" style="background:none;border:none;color:var(--text4);cursor:pointer;font-size:12px;padding:0">&#10005;</button>
+    </span>`
+  ).join('');
+}
+
+window.flujoWlAdd = async () => {
+  const inp = document.getElementById('flujoWlInput');
+  const sym = (inp?.value||'').trim().toUpperCase();
+  if(!sym || _flujoWatchlist.includes(sym)) { if(inp) inp.value=''; return; }
+  try {
+    await fetch(SB_REST+'opciones_watchlist_usa', {
+      method:'POST',
+      headers:{apikey:SBKEY,'Authorization':'Bearer '+SBKEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({symbol:sym, activo:true})
+    });
+    _flujoWatchlist.push(sym); _flujoWatchlist.sort();
+    const sel = document.getElementById('flujoSymSel_usa');
+    if(sel) sel.innerHTML = _flujoWatchlist.map(s=>`<option value="${s}">${s}</option>`).join('');
+    flujoWlRenderList();
+    if(inp) inp.value='';
+  } catch(e) { alert('Error: '+e.message); }
+};
+
+window.flujoWlRemove = async (sym) => {
+  if(!confirm('Quitar '+sym+' de la watchlist?')) return;
+  try {
+    await fetch(SB_REST+'opciones_watchlist_usa?symbol=eq.'+sym, {
+      method:'DELETE',
+      headers:{apikey:SBKEY,'Authorization':'Bearer '+SBKEY,'Prefer':'return=minimal'}
+    });
+    _flujoWatchlist = _flujoWatchlist.filter(s=>s!==sym);
+    const sel = document.getElementById('flujoSymSel_usa');
+    if(sel) sel.innerHTML = _flujoWatchlist.map(s=>`<option value="${s}">${s}</option>`).join('');
+    if(flujoUnderlying.usa===sym) {
+      flujoUnderlying.usa = _flujoWatchlist[0]||'GGAL';
+      if(sel) sel.value = flujoUnderlying.usa;
+      flujoLoadData('usa');
+    }
+    flujoWlRenderList();
+  } catch(e) { alert('Error: '+e.message); }
+};
 
 window.flujoSetRange = (P, r, btn) => {
   flujoRange[P] = r;
@@ -1873,6 +1970,7 @@ window.flujoSetRange = (P, r, btn) => {
 
 async function flujoLoadData(P) {
   flujoLoaded[P] = true;
+  if(P==='usa' && !_flujoWlLoaded) await flujoLoadWatchlist();
   const meta = document.getElementById('flmeta_'+P);
   meta.textContent = 'cargando…';
   try {
@@ -1880,7 +1978,8 @@ async function flujoLoadData(P) {
     const days  = {'1D':1,'3D':3,'5D':5}[range] || 1;
     const since = new Date(Date.now() - days*86400000).toISOString();
     // Paginado desc para obtener los snapshots más recientes primero (evita pre-market vacío)
-    const _flBase = SB_REST + `opciones_flow?select=ts,symbol,expiration,strike,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&ts=gte.${since}&order=ts.desc`;
+    const _flUnderlying = P==='usa' ? flujoUnderlying.usa : 'GGAL';
+    const _flBase = SB_REST + `opciones_flow?select=ts,symbol,expiration,strike,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&underlying=eq.${_flUnderlying}&ts=gte.${since}&order=ts.desc`;
     const _flHdrs = { headers:{ apikey:SBKEY, Authorization:'Bearer '+SBKEY } };
     let rows = [], _flPg = 0, _flPS = 1000;
     while(_flPg < 20) { // máx 20000 filas ≈ full trading day
@@ -1941,7 +2040,7 @@ async function flujoLoadData(P) {
     flujoSnapData[P] = {tsOrder, byTs, labels, snapDeltas};
     flujoRenderChart(P, labels, callNet, putNet, price, volArea, snapDeltas);
     flujoRenderSentiment(P, callNet, putNet, price);
-    meta.textContent = `${P==='usa'?'GGAL USA':'GGAL local'} · ${range} · ${tsOrder.length} snapshots · ${labels.length} intervalos`;
+    meta.textContent = `${P==='usa'?_flUnderlying+' USA':'GGAL local'} · ${range} · ${tsOrder.length} snapshots · ${labels.length} intervalos`;
   } catch(e) { console.error('[flujo]', e); meta.textContent='Error: '+e.message; }
 }
 
