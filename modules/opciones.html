@@ -6,11 +6,14 @@
     <button class="stab"        id="ostab-hist"       onclick="oSetTab('hist',this)">GGAL · Hist OI</button>
     <button class="stab"        id="ostab-estrategias" onclick="oSetTab('estrategias',this)">GGAL · Estrat</button>
     <button class="stab"        id="ostab-cadena"     onclick="oSetTab('cadena',this)">GGAL · Cadena</button>
+    <button class="stab"        id="ostab-flujo"      onclick="oSetTab('flujo',this)">GGAL · Flujo</button>
   </div>
   <div class="sub-tabs">
     <button class="stab" id="ostab-ggalusa_iamc"   onclick="oSetTab('ggalusa_iamc',this)" style="color:var(--blue)">🇺🇸 USA · OI</button>
     <button class="stab" id="ostab-ggalusa_gex"    onclick="oSetTab('ggalusa_gex',this)" style="color:var(--blue)">🇺🇸 USA · Gamma</button>
     <button class="stab" id="ostab-ggalusa_hist"   onclick="oSetTab('ggalusa_hist',this)" style="color:var(--blue)">🇺🇸 USA · Hist OI</button>
+    <button class="stab" id="ostab-ggalusa_doi"    onclick="oSetTab('ggalusa_doi',this)" style="color:var(--blue)">🇺🇸 USA · Δ OI</button>
+    <button class="stab" id="ostab-ggalusa_flujo"  onclick="oSetTab('ggalusa_flujo',this)" style="color:var(--blue)">🇺🇸 USA · Flujo</button>
     <button class="stab" id="ostab-ggalusa_tabla"  onclick="oSetTab('ggalusa_tabla',this)" style="color:var(--blue)">🇺🇸 USA · Tabla</button>
     <button class="stab" id="ostab-ggalusa_cadena" onclick="oSetTab('ggalusa_cadena',this)" style="color:var(--blue)">🇺🇸 USA · Cadena</button>
   </div>
@@ -412,6 +415,46 @@
   <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="guhMeta">—</div>
 </div>
 
+<!-- ── GGAL USA: Panel Δ OI (cambio de Open Interest fin de día, estilo Skewly) ── -->
+<div class="sub-panel" id="opanel-ggalusa_doi">
+  <div class="gamma-grid" style="grid-template-columns:repeat(4,1fr); margin-top:10px">
+    <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">Δ OI Calls</div><div class="g-val" id="gdoi-calls">—</div></div>
+    <div class="g-card" style="--c:var(--red)"><div class="g-lab">Δ OI Puts</div><div class="g-val" id="gdoi-puts">—</div></div>
+    <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Mayor desarme</div><div class="g-val" id="gdoi-top" style="font-size:13px">—</div></div>
+    <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Bases con cambio</div><div class="g-val" id="gdoi-count">—</div></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-head">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="card-title">Cambio de Open Interest por base — fin de día</div>
+          <div class="card-desc" id="gdoiSubtitle">Δ entre los 2 últimos cierres · ordenado por mayor variación · 🟢 armado · 🔴 desarme</div>
+        </div>
+        <label class="filter-group" style="cursor:pointer">
+          <input type="checkbox" id="gdoiOnlyChg" checked style="accent-color:var(--cyan)"> solo con cambio
+        </label>
+      </div>
+    </div>
+    <div class="table-wrap" style="max-height:560px">
+      <table>
+        <thead><tr>
+          <th class="th-left">Suby.</th>
+          <th class="th-left">Base</th>
+          <th class="th-left">Vto</th>
+          <th>Días</th>
+          <th>OI prev</th>
+          <th>OI hoy</th>
+          <th>Δ OI</th>
+          <th>Δ %</th>
+          <th>Vol hoy</th>
+        </tr></thead>
+        <tbody id="gdoiTbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="gdoiMeta">—</div>
+</div>
+
 <!-- ── GGAL USA: Panel 5: Cadena RT ────────────────────────── -->
 <div class="sub-panel" id="opanel-ggalusa_cadena">
   <div class="card" style="margin-top:10px">
@@ -437,6 +480,54 @@
       </table>
     </div>
   </div>
+</div>
+
+<!-- ── Flujo intradía (estilo Skewly) — GGAL local ────────────── -->
+<div class="sub-panel" id="opanel-flujo">
+  <div class="flujo-head">
+    <div class="gamma-grid" style="grid-template-columns:repeat(3,1fr);flex:1">
+      <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">Sentimiento del mercado</div><div class="g-val" id="flsent_local" style="font-size:15px">—</div></div>
+      <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Momentum</div><div class="g-val" id="flmom_local" style="font-size:15px">—</div></div>
+      <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Señal de trading</div><div class="g-val" id="flsig_local" style="font-size:13px">—</div></div>
+    </div>
+    <div class="filter-group flujo-range" id="flrange_local">
+      <button class="rbtn active" onclick="flujoSetRange('local','1D',this)">1D</button>
+      <button class="rbtn" onclick="flujoSetRange('local','3D',this)">3D</button>
+      <button class="rbtn" onclick="flujoSetRange('local','5D',this)">5D</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-head">
+      <div class="card-title">Flujo intradía en tiempo real — premium calls/puts · precio · volumen</div>
+      <div class="card-desc">línea cero: arriba = compras · abajo = ventas · precio (amarillo) eje derecho</div>
+    </div>
+    <div class="card-body"><div class="chart-wrap" style="height:280px"><canvas id="flujoChart_local"></canvas></div></div>
+  </div>
+  <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="flmeta_local">—</div>
+</div>
+
+<!-- ── Flujo intradía (estilo Skewly) — GGAL USA ──────────────── -->
+<div class="sub-panel" id="opanel-ggalusa_flujo">
+  <div class="flujo-head">
+    <div class="gamma-grid" style="grid-template-columns:repeat(3,1fr);flex:1">
+      <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">Sentimiento del mercado</div><div class="g-val" id="flsent_usa" style="font-size:15px">—</div></div>
+      <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Momentum</div><div class="g-val" id="flmom_usa" style="font-size:15px">—</div></div>
+      <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Señal de trading</div><div class="g-val" id="flsig_usa" style="font-size:13px">—</div></div>
+    </div>
+    <div class="filter-group flujo-range" id="flrange_usa">
+      <button class="rbtn active" onclick="flujoSetRange('usa','1D',this)">1D</button>
+      <button class="rbtn" onclick="flujoSetRange('usa','3D',this)">3D</button>
+      <button class="rbtn" onclick="flujoSetRange('usa','5D',this)">5D</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="card-head">
+      <div class="card-title">Flujo intradía en tiempo real — premium calls/puts · precio · volumen</div>
+      <div class="card-desc">línea cero: arriba = compras · abajo = ventas · precio (amarillo) eje derecho</div>
+    </div>
+    <div class="card-body"><div class="chart-wrap" style="height:280px"><canvas id="flujoChart_usa"></canvas></div></div>
+  </div>
+  <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="flmeta_usa">—</div>
 </div>
 
 <script>
@@ -771,7 +862,7 @@ window.oSetTab = async (n,b)=>{
   }
   if(n==='hist' && !hLoaded) hLoadData();
   // GGAL USA tabs — si los datos ya están cargados, solo re-renderizar el tab activo
-  if(n.startsWith('ggalusa_') && n !== 'ggalusa_hist') {
+  if(n.startsWith('ggalusa_') && n !== 'ggalusa_hist' && n !== 'ggalusa_doi' && n !== 'ggalusa_flujo') {
     const sub = n.replace('ggalusa_', '');
     if(!gucLoaded) gucLoadData(sub);
     else if(sub==='iamc')   gucRenderDistribution();
@@ -780,6 +871,9 @@ window.oSetTab = async (n,b)=>{
     else if(sub==='cadena') gucRenderChain();
   }
   if(n==='ggalusa_hist') { if(!guhLoaded) guhLoadData(); }
+  if(n==='ggalusa_doi')  { if(!gdoiLoaded) gdoiLoadData(); }
+  if(n==='flujo')        { if(!flujoLoaded.local) flujoLoadData('local'); }
+  if(n==='ggalusa_flujo'){ if(!flujoLoaded.usa)   flujoLoadData('usa'); }
   // Lazy-load módulos externos
   for(const mod of ['estrategias','analisis','cadena']){
     if(n===mod){
@@ -1308,8 +1402,12 @@ async function gucLoadData(tab) {
 }
 
 window.ggalUsaApplyTicker = () => {
-  gucLoaded = false;
-  gucLoadData(gucLoadedTab || 'iamc');
+  gucLoaded = false; guhLoaded = false; gdoiLoaded = false; flujoLoaded.usa = false;
+  const active = document.querySelector('.stab.active')?.id || '';
+  if(active === 'ostab-ggalusa_hist')        guhLoadData();
+  else if(active === 'ostab-ggalusa_doi')    gdoiLoadData();
+  else if(active === 'ostab-ggalusa_flujo')  flujoLoadData('usa');
+  else                                       gucLoadData(gucLoadedTab || 'iamc');
 };
 
 // ── GGAL USA: Distribución OI ─────────────────────────────
@@ -1596,6 +1694,223 @@ function gucRenderChain() {
   }).join('');
 }
 
+// ── GGAL USA: Δ Open Interest por base (fin de día, estilo Skewly) ──
+let gdoiLoaded = false;
+async function gdoiLoadData() {
+  gdoiLoaded = true;
+  const tbody = document.getElementById('gdoiTbody');
+  const meta  = document.getElementById('gdoiMeta');
+  meta.textContent = 'cargando…';
+  try {
+    const ticker = document.getElementById('ggalUsaTicker')?.value || 'GGAL';
+    // Traer histórico completo (todas las expiraciones) ordenado por fecha
+    const rows = await fetch(
+      SB_REST + `opciones_usa_historico?select=fecha_snapshot,expiration,strike,kind,open_interest,volume&symbol=eq.${ticker}&order=fecha_snapshot.desc&limit=20000`,
+      { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } }
+    ).then(r => r.ok ? r.json() : []);
+
+    if(!rows?.length) { tbody.innerHTML=''; meta.textContent='Sin histórico para '+ticker; return; }
+
+    const dates = [...new Set(rows.map(r=>r.fecha_snapshot))].sort();
+    if(dates.length < 2) { tbody.innerHTML=''; meta.textContent='Se necesitan ≥2 días de snapshots (hay '+dates.length+')'; return; }
+    const dHoy  = dates[dates.length-1];
+    const dPrev = dates[dates.length-2];
+
+    // Indexar por base: expiration|strike|kind
+    const key = r => `${r.expiration}|${r.strike}|${r.kind}`;
+    const hoyMap={}, prevMap={};
+    rows.forEach(r=>{
+      if(r.fecha_snapshot===dHoy)  hoyMap[key(r)]  = r;
+      if(r.fecha_snapshot===dPrev) prevMap[key(r)] = r;
+    });
+
+    const today = new Date(dHoy);
+    const allKeys = [...new Set([...Object.keys(hoyMap), ...Object.keys(prevMap)])];
+    const recs = allKeys.map(k=>{
+      const h=hoyMap[k], p=prevMap[k];
+      const ref = h||p;
+      const oiHoy  = h ? (h.open_interest||0) : 0;
+      const oiPrev = p ? (p.open_interest||0) : 0;
+      const delta  = oiHoy - oiPrev;
+      const pct    = oiPrev>0 ? (delta/oiPrev*100) : (oiHoy>0 ? 100 : 0);
+      const dias   = Math.max(0, Math.round((new Date(ref.expiration)-today)/86400000));
+      return { exp:ref.expiration, strike:ref.strike, kind:ref.kind, dias,
+               oiHoy, oiPrev, delta, pct, vol: h?(h.volume||0):0 };
+    });
+
+    // Totales
+    const dCalls = recs.filter(r=>r.kind==='call').reduce((s,r)=>s+r.delta,0);
+    const dPuts  = recs.filter(r=>r.kind==='put').reduce((s,r)=>s+r.delta,0);
+    const changed = recs.filter(r=>r.delta!==0);
+    const topDes  = changed.slice().sort((a,b)=>a.delta-b.delta)[0]; // más negativo
+    const sg = v => (v>0?'+':'') + fmtM(v);
+    document.getElementById('gdoi-calls').textContent = sg(dCalls);
+    document.getElementById('gdoi-calls').style.color = dCalls>=0?'var(--green)':'var(--red)';
+    document.getElementById('gdoi-puts').textContent  = sg(dPuts);
+    document.getElementById('gdoi-puts').style.color  = dPuts>=0?'var(--green)':'var(--red)';
+    document.getElementById('gdoi-top').textContent   = topDes && topDes.delta<0
+      ? `$${topDes.strike}${topDes.kind==='call'?'C':'P'} ${sg(topDes.delta)}` : '—';
+    document.getElementById('gdoi-count').textContent = String(changed.length);
+
+    document.getElementById('gdoiSubtitle').textContent =
+      `${dPrev} → ${dHoy} · ordenado por mayor variación · 🟢 armado · 🔴 desarme`;
+
+    gdoiRecs = recs;
+    gdoiRender();
+    meta.textContent = `${ticker} · ${dHoy} vs ${dPrev} · ${recs.length} bases · ${changed.length} con cambio`;
+  } catch(e){ console.error('[gdoi]', e); tbody.innerHTML=''; meta.textContent='Error: '+e.message; }
+}
+
+let gdoiRecs = [];
+function gdoiRender() {
+  const onlyChg = document.getElementById('gdoiOnlyChg')?.checked;
+  const fmtN = v => v ? Math.abs(v).toLocaleString('en-US') : '—';
+  let list = gdoiRecs.slice();
+  if(onlyChg) list = list.filter(r=>r.delta!==0);
+  // Orden: mayor variación absoluta primero
+  list.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+  const ticker = document.getElementById('ggalUsaTicker')?.value || 'GGAL';
+
+  document.getElementById('gdoiTbody').innerHTML = list.map(r=>{
+    const up = r.delta>0, dn = r.delta<0;
+    const col = up?'var(--green)':dn?'var(--red)':'var(--text3)';
+    const dPct = (r.delta>0?'+':'') + r.pct.toFixed(0) + '%';
+    const kc = r.kind==='call' ? 'var(--cyan)' : 'var(--red)';
+    const kl = r.kind==='call' ? 'C' : 'P';
+    return `<tr>
+      <td style="color:var(--text3)">${ticker}</td>
+      <td class="th-left"><span style="color:var(--amber);font-weight:700">$${r.strike}</span> <span style="color:${kc};font-weight:700">${kl}</span></td>
+      <td class="th-left" style="color:var(--text3);font-family:'IBM Plex Mono',monospace;font-size:10px">${r.exp}</td>
+      <td style="color:var(--text4)">${r.dias}d</td>
+      <td>${fmtN(r.oiPrev)}</td>
+      <td>${fmtN(r.oiHoy)}</td>
+      <td style="color:${col};font-weight:700">${r.delta>0?'+':r.delta<0?'−':''}${fmtN(r.delta)}</td>
+      <td style="color:${col}">${r.delta===0?'—':dPct}</td>
+      <td style="color:var(--text3)">${fmtN(r.vol)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--text4);padding:18px">Sin bases con cambio</td></tr>`;
+}
+document.getElementById('gdoiOnlyChg')?.addEventListener('change', gdoiRender);
+
+// ── Flujo intradía (serie temporal opciones_flow, estilo Skewly) ──
+let flujoLoaded = {local:false, usa:false};
+let flujoRange  = {local:'1D', usa:'1D'};
+let flujoCharts = {local:null, usa:null};
+
+window.flujoSetRange = (P, r, btn) => {
+  flujoRange[P] = r;
+  if(btn){ btn.parentElement.querySelectorAll('.rbtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+  flujoLoadData(P);
+};
+
+async function flujoLoadData(P) {
+  flujoLoaded[P] = true;
+  const meta = document.getElementById('flmeta_'+P);
+  meta.textContent = 'cargando…';
+  try {
+    const range = flujoRange[P] || '1D';
+    const days  = {'1D':1,'3D':3,'5D':5}[range] || 1;
+    const since = new Date(Date.now() - days*86400000).toISOString();
+    const rows = await fetch(
+      SB_REST + `opciones_flow?select=ts,symbol,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&ts=gte.${since}&order=ts&limit=80000`,
+      { headers:{ apikey:SBKEY, Authorization:'Bearer '+SBKEY } }
+    ).then(r => r.ok ? r.json() : []);
+
+    if(!rows.length) {
+      if(flujoCharts[P]){ flujoCharts[P].destroy(); flujoCharts[P]=null; }
+      ['flsent_','flmom_','flsig_'].forEach(p=>{const e=document.getElementById(p+P); if(e){e.textContent='—';e.style.color='';}});
+      meta.textContent = 'Sin datos de flujo todavía — la serie arranca cuando los monitores capturen (cada 5 min en horario de mercado)';
+      return;
+    }
+
+    // Agrupar por timestamp
+    const byTs = {}; const tsOrder = [];
+    rows.forEach(r => { if(!byTs[r.ts]){ byTs[r.ts]={}; tsOrder.push(r.ts); } byTs[r.ts][r.symbol]=r; });
+
+    const labels=[], callNet=[], putNet=[], price=[], volArea=[];
+    let prev = null;
+    tsOrder.forEach(t => {
+      const snap = byTs[t];
+      if(prev) {
+        let cB=0,cS=0,pB=0,pS=0,volTot=0,px=null;
+        Object.values(snap).forEach(r => {
+          if(px==null && r.price_underlying!=null) px = r.price_underlying;
+          const p = prev[r.symbol];
+          const dVol = p ? Math.max(0, (r.volume||0)-(p.volume||0)) : 0;
+          if(dVol>0) {
+            const mid  = ((r.bid||0)+(r.ask||0))/2;
+            const prem = dVol * (r.last||0) * 100;
+            const buy  = mid>0 && (r.last||0) >= mid;
+            volTot += dVol;
+            const k = (r.kind||'').toLowerCase().charAt(0);
+            if(k==='c'){ if(buy)cB+=prem; else cS+=prem; }
+            else if(k==='p'){ if(buy)pB+=prem; else pS+=prem; }
+          }
+        });
+        labels.push(t.slice(11,16));
+        callNet.push(cB-cS);
+        putNet.push(pB-pS);
+        price.push(px!=null ? +(+px).toFixed(2) : null);
+        volArea.push(volTot);
+      }
+      prev = snap;
+    });
+
+    flujoRenderChart(P, labels, callNet, putNet, price, volArea);
+    flujoRenderSentiment(P, callNet, putNet, price);
+    meta.textContent = `${P==='usa'?'GGAL USA':'GGAL local'} · ${range} · ${tsOrder.length} snapshots · ${labels.length} intervalos`;
+  } catch(e) { console.error('[flujo]', e); meta.textContent='Error: '+e.message; }
+}
+
+function flujoRenderChart(P, labels, callNet, putNet, price, volArea) {
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  if(flujoCharts[P]) flujoCharts[P].destroy();
+  flujoCharts[P] = new Chart(document.getElementById('flujoChart_'+P), {
+    data:{ labels, datasets:[
+      {type:'line',label:'Vol', data:volArea, yAxisID:'yv', backgroundColor:'rgba(124,77,255,.15)', borderColor:'rgba(124,77,255,.35)', borderWidth:1, fill:true, pointRadius:0, tension:.3, order:4},
+      {type:'line',label:'Call premium', data:callNet, borderColor:'#00e5a8', borderWidth:1.8, pointRadius:0, tension:.3, fill:false, order:1},
+      {type:'line',label:'Put premium', data:putNet, borderColor:'#ff3f5e', borderWidth:1.8, pointRadius:0, tension:.3, fill:false, order:2},
+      {type:'line',label:'Precio', data:price, yAxisID:'y1', borderColor:'#ffc84a', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:.3, fill:false, spanGaps:true, order:3},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},
+        y:{grid:GR,ticks:{...TK,callback:v=>fmtM(v)}},
+        y1:{position:'right',grid:{display:false},ticks:{...TK,callback:v=>'$'+v}},
+        yv:{display:false,beginAtZero:true},
+      },
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          if(c.dataset.label==='Precio') return 'Precio: $'+c.raw;
+          if(c.dataset.label==='Vol')    return 'Vol: '+fmtM(c.raw)+' contratos';
+          return c.dataset.label+': '+fmtM(c.raw);
+        }}}}
+    }
+  });
+}
+
+function flujoRenderSentiment(P, callNet, putNet, price) {
+  const sum=a=>a.reduce((x,y)=>x+(y||0),0);
+  const callTot=sum(callNet);
+  const pxVals=price.filter(v=>v!=null);
+  const pxUp = pxVals.length>=2 ? pxVals[pxVals.length-1] >= pxVals[0] : null;
+  let bias,biasCol;
+  if(callTot>0 && pxUp){ bias='ALCISTA'; biasCol='var(--green)'; }
+  else if(callTot<0 || pxUp===false){ bias='BAJISTA'; biasCol='var(--red)'; }
+  else { bias='NEUTRAL'; biasCol='var(--amber)'; }
+  const n=callNet.length, avg=a=>a.length?sum(a)/a.length:0;
+  const recent=callNet.slice(Math.floor(n*0.66)), older=callNet.slice(Math.floor(n*0.33),Math.floor(n*0.66));
+  const mom = Math.abs(avg(recent)) >= Math.abs(avg(older)) ? 'ACELERANDO' : 'DESACELERANDO';
+  let sig,sigCol;
+  if(callTot<0 && pxUp===false){ sig='Confirmación bajista'; sigCol='var(--red)'; }
+  else if(callTot>0 && pxUp){ sig='Confirmación alcista'; sigCol='var(--green)'; }
+  else { sig='Sin confirmación'; sigCol='var(--amber)'; }
+  const set=(id,txt,col)=>{const e=document.getElementById(id);if(e){e.textContent=txt;e.style.color=col;}};
+  set('flsent_'+P, bias, biasCol);
+  set('flmom_'+P, mom, 'var(--text)');
+  set('flsig_'+P, sig, sigCol);
+}
+
 oLoadData();
 })();
 </script>
@@ -1622,5 +1937,10 @@ oLoadData();
 .card-head { padding:12px 15px 0; }
 .card-body { padding:10px 15px 13px; }
 #hkpi-row .g-val { font-size:16px; }
+
+.flujo-head { display:flex; gap:12px; align-items:stretch; margin-top:10px; }
+.flujo-range { gap:4px; }
+.flujo-range .rbtn { background:var(--bg2); border:1px solid var(--border2); color:var(--text3); padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer; font-family:'IBM Plex Mono',monospace; }
+.flujo-range .rbtn.active { background:var(--cyan); color:#04121a; border-color:var(--cyan); font-weight:700; }
 #hkpi-row .g-lab { font-size:8px; }
 </style>
