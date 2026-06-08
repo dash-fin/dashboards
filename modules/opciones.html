@@ -1835,7 +1835,7 @@ async function flujoLoadData(P) {
     const _flBase = SB_REST + `opciones_flow?select=ts,symbol,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&ts=gte.${since}&order=ts.desc`;
     const _flHdrs = { headers:{ apikey:SBKEY, Authorization:'Bearer '+SBKEY } };
     let rows = [], _flPg = 0, _flPS = 1000;
-    while(_flPg < 5) { // máx 5000 filas ≈ 25 snapshots USA
+    while(_flPg < 20) { // máx 20000 filas ≈ full trading day
       const _b = await fetch(`${_flBase}&limit=${_flPS}&offset=${_flPg*_flPS}`, _flHdrs).then(r=>r.ok?r.json():[]);
       if(!Array.isArray(_b)||!_b.length) break;
       rows = rows.concat(_b);

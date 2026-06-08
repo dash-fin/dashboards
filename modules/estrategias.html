@@ -476,7 +476,7 @@ function esRenderLegs(){
         <option value="put"  ${leg.kind==='put'?'selected':''}>PUT</option>
       </select>
       <select class="es-select" style="font-size:10px;padding:3px 5px" onchange="esUpdateLegField(${i},'strike',Number(this.value))">
-        ${strikes.map(s=>`<option value="${s}" ${s===leg.strike?'selected':''}>$${fmtAR(s,0)}</option>`).join('')}
+        ${strikes.map(s=>`<option value="${s}" ${s===leg.strike?'selected':''}>$${fmtAR(s, s%1 ? 1 : 0)}</option>`).join('')}
       </select>
       <select class="es-select" style="font-size:10px;padding:3px 5px" onchange="esUpdateLegField(${i},'vto',this.value)">
         ${legVtos.map(v=>`<option value="${v}" ${v===leg.vto?'selected':''}>${v}</option>`).join('')}
