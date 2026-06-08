@@ -1851,9 +1851,10 @@ async function flujoLoadData(P) {
       return;
     }
 
-    // Agrupar por timestamp
+    // Agrupar por timestamp — clave compuesta para USA donde symbol='GGAL' en todos
+    const _fkey = r => `${r.symbol}_${r.strike||''}_${r.kind||''}`;
     const byTs = {}; const tsOrder = [];
-    rows.forEach(r => { if(!byTs[r.ts]){ byTs[r.ts]={}; tsOrder.push(r.ts); } byTs[r.ts][r.symbol]=r; });
+    rows.forEach(r => { if(!byTs[r.ts]){ byTs[r.ts]={}; tsOrder.push(r.ts); } byTs[r.ts][_fkey(r)]=r; });
 
     const labels=[], callNet=[], putNet=[], price=[], volArea=[];
     let prev = null;
@@ -1863,12 +1864,14 @@ async function flujoLoadData(P) {
         let cB=0,cS=0,pB=0,pS=0,volTot=0,px=null;
         Object.values(snap).forEach(r => {
           if(px==null && r.price_underlying!=null) px = r.price_underlying;
-          const p = prev[r.symbol];
+          const p = prev[_fkey(r)];
           const dVol = p ? Math.max(0, (r.volume||0)-(p.volume||0)) : 0;
           if(dVol>0) {
             const mid  = ((r.bid||0)+(r.ask||0))/2;
             const prem = dVol * (r.last||0) * 100;
-            const buy  = mid>0 && (r.last||0) >= mid;
+            // Fallback cuando bid/ask son null: comparar last vs snapshot anterior
+            const buy  = mid>0 ? (r.last||0)>=mid : (p ? (r.last||0)>(p.last||0) : null);
+            if(buy===null) return; // dirección desconocida, no sumar
             volTot += dVol;
             const k = (r.kind||'').toLowerCase().charAt(0);
             if(k==='c'){ if(buy)cB+=prem; else cS+=prem; }
