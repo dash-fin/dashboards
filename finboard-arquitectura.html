@@ -145,6 +145,7 @@ body::before {
       <span class="badge badge-blue">React Native 0.76.9</span>
       <span class="badge badge-amber">Hermes Engine</span>
       <span class="badge badge-green">Supabase</span>
+      <span class="badge badge-amber">FCM Push</span>
       <span class="badge badge-blue">JavaScript</span>
       <span class="badge badge-red">Android only</span>
     </div>
@@ -246,6 +247,8 @@ body::before {
           <li>Alertas recientes</li>
           <li>Mini bar chart</li>
           <li>Toggle ocultar saldo</li>
+          <li>Single-tap → card detalle (StockDetailModal)</li>
+          <li>Doble-tap refresh · long-press drag</li>
         </ul>
       </div>
       <div class="screen-card">
@@ -275,6 +278,8 @@ body::before {
           <li>Tabs: Activas / Historial</li>
           <li>Dot color: TP/SL/otro</li>
           <li>Timestamp formateado</li>
+          <li>Alta: dir gte/lte (compat engine)</li>
+          <li>Botón 🔔 Test (notif local)</li>
         </ul>
       </div>
       <div class="screen-card">
@@ -314,16 +319,85 @@ body::before {
           </tr>
           <tr>
             <td>alertas</td>
-            <td>Alertas activas configuradas</td>
-            <td style="color:var(--t2)">user_email, ticker, tipo, condicion, valor, mensaje, activa</td>
+            <td>Alertas activas (evaluadas por edge function alertas-engine cada 30s)</td>
+            <td style="color:var(--t2)">id, user_id, ticker, tipo, params (jsonb: dir <code style="color:var(--accent)">gte/lte</code>, valor, cooldown), activa, last_fired, fired_count</td>
           </tr>
           <tr>
             <td>alertas_historial</td>
-            <td>Historial de alertas disparadas</td>
-            <td style="color:var(--t2)">user_email, ticker, mensaje, created_at</td>
+            <td>Historial de alertas disparadas (origen del push/Telegram)</td>
+            <td style="color:var(--t2)">user_id, alerta_id, ticker, tipo, cond_desc, precio, canal, estado, fired_at</td>
+          </tr>
+          <tr>
+            <td>push_tokens</td>
+            <td>Expo push tokens por usuario (envío de push nativo)</td>
+            <td style="color:var(--t2)">user_id, token, platform, updated_at · RLS <code style="color:var(--accent)">own_push_tokens</code></td>
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- NOTIFICATIONS / PUSH -->
+  <div class="section">
+    <div class="section-title">Notificaciones &amp; alertas (push nativo FCM)</div>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">01</div>
+        <div class="flow-name">pg_cron · 30s</div>
+        <div class="flow-desc">Invoca la edge function alertas-engine</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">02</div>
+        <div class="flow-name">alertas-engine</div>
+        <div class="flow-desc">Lee alertas activas, compara vs mercado / opciones_rt</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">03</div>
+        <div class="flow-name">Dispara</div>
+        <div class="flow-desc">Inserta fila en alertas_historial</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">04</div>
+        <div class="flow-name">3 canales</div>
+        <div class="flow-desc">Telegram + WhatsApp + Push (Expo→FCM)</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">05</div>
+        <div class="flow-name">Dispositivo</div>
+        <div class="flow-desc">Notificación en foreground / background / cerrada</div>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="card">
+        <div class="card-label">📲 Registro de token</div>
+        <div class="card-sub" style="margin-top:6px">
+          <code style="color:var(--accent)">src/utils/push.js</code> → <code style="color:var(--accent)">getExpoPushTokenAsync({projectId})</code> y upsert en <code style="color:var(--accent)">push_tokens</code>. Llamado desde App.js al loguear.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">📤 Envío</div>
+        <div class="card-sub" style="margin-top:6px">
+          alertas-engine → <code style="color:var(--accent)">enviarPush()</code> → POST a <code style="color:var(--accent)">exp.host/--/api/v2/push/send</code> con los tokens del usuario.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">🔥 Firebase / FCM</div>
+        <div class="card-sub" style="margin-top:6px">
+          Proyecto <code style="color:var(--accent)">finboard-b5431</code> · package <code style="color:var(--accent)">com.finboard.app</code>.<br>
+          <code style="color:var(--accent)">android/app/google-services.json</code> + plugin google-services en Gradle.<br>
+          Service account FCM V1 subida a Expo (owner elyagui). EAS projectId <code style="color:var(--accent)">06dccd64…</code>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">⚙️ Handler foreground</div>
+        <div class="card-sub" style="margin-top:6px">
+          SDK 52: requiere <code style="color:var(--accent)">shouldShowBanner</code> + <code style="color:var(--accent)">shouldShowList</code> (shouldShowAlert quedó deprecado). Canal Android <code style="color:var(--accent)">finboard-alerts</code> (importancia MAX).
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding:12px 16px;background:var(--card2);border-radius:8px;border:1px solid rgba(255,69,96,0.2)">
+      <span style="font-size:10px;color:var(--red);font-weight:700">HISTÓRICO / GOTCHAS: </span>
+      <span style="font-size:11px;color:var(--t2)">El approach previo (Supabase Realtime → notificación local) SOLO andaba en foreground (el socket se suspende en background) — reemplazado por push real FCM en v2.3.0. · Las edge functions deben usar las API keys nuevas <code style="color:var(--accent)">sb_secret_</code>/<code style="color:var(--accent)">sb_publishable_</code> (las legacy JWT se deshabilitaron el 26/05/2026 y dejaron el motor muerto). · Doc detallada: <code style="color:var(--accent)">PUSH_NOTIFICATIONS.md</code></span>
     </div>
   </div>
 
@@ -341,7 +415,11 @@ body::before {
           <tr><td>android/app/src/main/assets/login.html</td><td style="color:var(--t2)">HTML embebido del login (554KB, logo + canvas animado + form)</td></tr>
           <tr><td>android/app/src/main/res/drawable-*/splashscreen_logo.png</td><td style="color:var(--t2)">Splash screen (5 densidades: mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi)</td></tr>
           <tr><td>assets/logo.png</td><td style="color:var(--t2)">Logo FINBOARD (icon FB). Usado también como splash.</td></tr>
-          <tr><td>app.json</td><td style="color:var(--t2)">Expo config: nombre, bundle ID <code style="color:var(--accent)">com.finboard.app</code>, splash, icon</td></tr>
+          <tr><td>app.json</td><td style="color:var(--t2)">Expo config: nombre, bundle ID <code style="color:var(--accent)">com.finboard.app</code>, splash, icon, EAS projectId</td></tr>
+          <tr><td>src/utils/push.js</td><td style="color:var(--t2)">Registro del Expo push token → tabla <code style="color:var(--accent)">push_tokens</code></td></tr>
+          <tr><td>src/components/StockDetailModal.js</td><td style="color:var(--t2)">Card detalle (single-tap en listas Home): precio, pre/post, 1D-1Y (Yahoo v8), sparkline, link TradingView</td></tr>
+          <tr><td>android/app/google-services.json</td><td style="color:var(--t2)">Config FCM (Firebase <code style="color:var(--accent)">finboard-b5431</code>). Requerido por el build.</td></tr>
+          <tr><td>PUSH_NOTIFICATIONS.md</td><td style="color:var(--t2)">Doc de arquitectura de notificaciones / push (detalle + troubleshooting)</td></tr>
         </tbody>
       </table>
     </div>
@@ -435,7 +513,7 @@ body::before {
     </div>
   </div>
 
-  <div class="footer">FINBOARD · ARQUITECTURA DEL SISTEMA · MAYO 2026</div>
+  <div class="footer">FINBOARD · ARQUITECTURA DEL SISTEMA · JUNIO 2026 · v2.3.0</div>
 </div>
 </body>
 </html>

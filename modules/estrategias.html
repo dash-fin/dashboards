@@ -949,9 +949,45 @@ window.esCerrarOp = async (id) => {
   const token = session?.data?.session?.access_token;
   if(!token) return;
   const headers = {...CFG.SBH,'Authorization':'Bearer '+token,'Content-Type':'application/json','Prefer':'return=minimal'};
-  await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({estado:'cerrada',fecha_cierre:new Date().toISOString().split('T')[0],spot_cierre:Number(spotCierre)})});
-  // Cerrar también las filas de portafolio vinculadas
+  const r = await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}&select=*`, {headers});
+  const opData = (await r.json())[0];
+  if (!opData) { alert('No se encontró la operación'); return; }
+  const hoy = new Date().toISOString().split('T')[0];
+  await fetch(`${CFG.SB_URL}/rest/v1/operaciones?id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({estado:'cerrada',fecha_cierre:hoy,spot_cierre:Number(spotCierre)})});
   await fetch(`${CFG.SB_URL}/rest/v1/portafolio?operacion_id=eq.${id}`,{method:'PATCH',headers,body:JSON.stringify({activo:false})});
+  // Insertar en trades para que la app lo vea
+  const pata = opData.patas?.[0] || {};
+  const act = pata.action||'buy';
+  const kind = (pata.kind||'call').toUpperCase();
+  const strike = pata.strike||0;
+  const expPart = (opData.fecha||'').slice(0,7).replace('-','/');
+  const primaEnt = Number(pata.prima||0);
+  const primaCie = Number(pata.prima_cierre||0);
+  const cant = Number(pata.qty||0);
+  const tickerArs = `GGAL_${kind}_${strike}_${expPart}`;
+  const mepVal = 1440;
+  const usdInv = act === 'buy' ? (primaEnt * cant * 100) / mepVal : 0;
+  const usdRet = act === 'buy' ? (primaCie * cant * 100) / mepVal : 0;
+  const gan = usdRet - usdInv;
+  const ganPct = usdInv > 0 ? (gan / usdInv * 100) : 0;
+  await fetch(`${CFG.SB_URL}/rest/v1/trades`,{method:'POST',headers:{
+    ...CFG.SBH,'Authorization':'Bearer '+token,'Content-Type':'application/json','Prefer':'return=minimal'
+  },body:JSON.stringify({
+    user_email: session?.user?.email || '',
+    tipo: 'OPCION',
+    ticker_ars: tickerArs,
+    fecha_apertura: opData.fecha || null,
+    cantidad: cant,
+    precio_entrada_ars: Math.round(primaEnt * 100),
+    mep_entrada: mepVal,
+    fecha_cierre: hoy,
+    precio_salida_ars: Math.round(primaCie * 100),
+    mep_salida: mepVal,
+    usd_invertido: Math.round(usdInv * 100) / 100,
+    usd_retorno: Math.round(usdRet * 100) / 100,
+    ganancia_usd: Math.round(gan * 100) / 100,
+    ganancia_pct: Math.round(ganPct * 100) / 100,
+  })});
   esPosLoad();
 };
 

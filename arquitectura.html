@@ -877,7 +877,7 @@ code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-fam
     </div>
     <div class="rule-card">
       <div class="rule-title" style="color:#00d084">🔐 Claves de acceso</div>
-      <div class="rule-body">Frontend usa <strong>anon key</strong> (pública, ok para lectura). Scripts Python usan <strong>service role key</strong> para writes masivos sin restricciones de RLS. Edge Function tiene JWT verification desactivado.</div>
+      <div class="rule-body">Frontend usa <strong>publishable key</strong> (<code>sb_publishable_</code>, pública, lectura). Scripts Python y Edge Functions usan <strong>secret key</strong> (<code>sb_secret_</code>) para writes sin restricciones de RLS. Edge Functions con JWT verification desactivado (<code>--no-verify-jwt</code>).<br><br><strong style="color:#ff4455">⚠️ Migración 26/05/2026:</strong> las <strong>legacy keys</strong> (anon / service_role en formato JWT) fueron <strong>deshabilitadas</strong>. Devuelven <code>401 "Legacy API keys are disabled"</code>. Las edge functions que las hardcodeaban (alertas-engine, update-portafolio-resumen) quedaron muertas hasta migrarlas a <code>sb_secret_</code>/<code>sb_publishable_</code>.</div>
     </div>
     <div class="rule-card">
       <div class="rule-title" style="color:#b090ff">🎨 Sistema de temas</div>
