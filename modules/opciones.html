@@ -1711,38 +1711,50 @@ async function gdoiLoadData() {
   meta.textContent = 'cargando…';
   try {
     const ticker = document.getElementById('ggalUsaTicker')?.value || 'GGAL';
-    // Traer histórico completo (todas las expiraciones) ordenado por fecha
-    const rows = await fetch(
-      SB_REST + `opciones_usa_historico?select=fecha_snapshot,expiration,strike,kind,open_interest,volume&symbol=eq.${ticker}&order=fecha_snapshot.desc&limit=20000`,
-      { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } }
-    ).then(r => r.ok ? r.json() : []);
+    const expSel = document.getElementById('ggalUsaVto')?.value || '';
+    // Paginado desc para obtener las 2 fechas más recientes con todos sus registros
+    const _gdBase = SB_REST + `opciones_usa_historico?select=fecha_snapshot,expiration,strike,kind,open_interest,volume&symbol=eq.${ticker}&order=fecha_snapshot.desc`;
+    const _gdHdrs = { headers: { apikey: SBKEY, Authorization: 'Bearer ' + SBKEY } };
+    let rows = [], _gdPg = 0, _gdPS = 1000;
+    while(true) {
+      const _b = await fetch(`${_gdBase}&limit=${_gdPS}&offset=${_gdPg*_gdPS}`, _gdHdrs).then(r=>r.ok?r.json():[]);
+      if(!Array.isArray(_b)||!_b.length) break;
+      rows = rows.concat(_b);
+      if(_b.length < _gdPS) break;
+      _gdPg++;
+      if(_gdPg >= 3) break; // 3000 filas cubre ≥2 días completos
+    }
 
     if(!rows?.length) { tbody.innerHTML=''; meta.textContent='Sin histórico para '+ticker; return; }
 
-    const dates = [...new Set(rows.map(r=>r.fecha_snapshot))].sort();
-    if(dates.length < 2) { tbody.innerHTML=''; meta.textContent='Se necesitan ≥2 días de snapshots (hay '+dates.length+')'; return; }
-    const dHoy  = dates[dates.length-1];
-    const dPrev = dates[dates.length-2];
+    const allDates = [...new Set(rows.map(r=>r.fecha_snapshot))].sort();
+    if(allDates.length < 2) { tbody.innerHTML=''; meta.textContent='Se necesitan ≥2 días de snapshots (hay '+allDates.length+')'; return; }
+    const dHoy  = allDates[allDates.length-1];
+    const dPrev = allDates[allDates.length-2];
 
-    // Indexar por base: expiration|strike|kind
-    const key = r => `${r.expiration}|${r.strike}|${r.kind}`;
+    // Filtrar por vencimiento seleccionado o el más próximo futuro
+    const futExps = [...new Set(rows.filter(r=>r.expiration>=dHoy).map(r=>r.expiration))].sort();
+    const activeExp = expSel || (futExps.length ? futExps[0] : rows[0].expiration);
+    const filtered = rows.filter(r => r.expiration === activeExp);
+
+    // Indexar por base: strike|kind (ya filtrado por expiration)
+    const key = r => `${r.strike}|${r.kind}`;
     const hoyMap={}, prevMap={};
-    rows.forEach(r=>{
+    filtered.forEach(r=>{
       if(r.fecha_snapshot===dHoy)  hoyMap[key(r)]  = r;
       if(r.fecha_snapshot===dPrev) prevMap[key(r)] = r;
     });
 
     const today = new Date(dHoy);
+    const dias = Math.max(0, Math.round((new Date(activeExp)-today)/86400000));
     const allKeys = [...new Set([...Object.keys(hoyMap), ...Object.keys(prevMap)])];
     const recs = allKeys.map(k=>{
       const h=hoyMap[k], p=prevMap[k];
-      const ref = h||p;
       const oiHoy  = h ? (h.open_interest||0) : 0;
       const oiPrev = p ? (p.open_interest||0) : 0;
       const delta  = oiHoy - oiPrev;
       const pct    = oiPrev>0 ? (delta/oiPrev*100) : (oiHoy>0 ? 100 : 0);
-      const dias   = Math.max(0, Math.round((new Date(ref.expiration)-today)/86400000));
-      return { exp:ref.expiration, strike:ref.strike, kind:ref.kind, dias,
+      return { exp:activeExp, strike:(h||p).strike, kind:(h||p).kind, dias,
                oiHoy, oiPrev, delta, pct, vol: h?(h.volume||0):0 };
     });
 
@@ -1765,7 +1777,7 @@ async function gdoiLoadData() {
 
     gdoiRecs = recs;
     gdoiRender();
-    meta.textContent = `${ticker} · ${dHoy} vs ${dPrev} · ${recs.length} bases · ${changed.length} con cambio`;
+    meta.textContent = `${ticker} · Vto ${activeExp} · ${dHoy} vs ${dPrev} · ${recs.length} bases · ${changed.length} con cambio`;
   } catch(e){ console.error('[gdoi]', e); tbody.innerHTML=''; meta.textContent='Error: '+e.message; }
 }
 
@@ -1819,10 +1831,18 @@ async function flujoLoadData(P) {
     const range = flujoRange[P] || '1D';
     const days  = {'1D':1,'3D':3,'5D':5}[range] || 1;
     const since = new Date(Date.now() - days*86400000).toISOString();
-    const rows = await fetch(
-      SB_REST + `opciones_flow?select=ts,symbol,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&ts=gte.${since}&order=ts&limit=80000`,
-      { headers:{ apikey:SBKEY, Authorization:'Bearer '+SBKEY } }
-    ).then(r => r.ok ? r.json() : []);
+    // Paginado desc para obtener los snapshots más recientes primero (evita pre-market vacío)
+    const _flBase = SB_REST + `opciones_flow?select=ts,symbol,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&ts=gte.${since}&order=ts.desc`;
+    const _flHdrs = { headers:{ apikey:SBKEY, Authorization:'Bearer '+SBKEY } };
+    let rows = [], _flPg = 0, _flPS = 1000;
+    while(_flPg < 5) { // máx 5000 filas ≈ 25 snapshots USA
+      const _b = await fetch(`${_flBase}&limit=${_flPS}&offset=${_flPg*_flPS}`, _flHdrs).then(r=>r.ok?r.json():[]);
+      if(!Array.isArray(_b)||!_b.length) break;
+      rows = rows.concat(_b);
+      if(_b.length < _flPS) break;
+      _flPg++;
+    }
+    rows.reverse(); // ascendente para el gráfico
 
     if(!rows.length) {
       if(flujoCharts[P]){ flujoCharts[P].destroy(); flujoCharts[P]=null; }
