@@ -401,16 +401,21 @@ function detectStrat(legs){
   return 'Personalizada';
 }
 
-window.esAddLeg = () => {
-  // Filtrar opciones de abril/junio
-  const abrilJunio = esOptsData.filter(o=>{
-    const v = o.vto||'';
-    return v.startsWith('04/') || v.startsWith('06/');
+function esVtosActivos() {
+  const now = new Date();
+  const yy = now.getFullYear(), mm = now.getMonth()+1;
+  const allVtos = [...new Set(esOptsData.map(o=>o.vto))].filter(v=>v&&v!=='—').sort();
+  const future = allVtos.filter(v=>{
+    const [mv,yv] = v.split('/').map(Number);
+    return yv>yy || (yv===yy && mv>=mm);
   });
-  const pool = abrilJunio.length ? abrilJunio : esOptsData;
-  // Default: call ATM de abril
-  const abrilCalls = pool.filter(o=>o.kind==='CALL'&&(o.vto||'').startsWith('04/'));
-  const nearest = (abrilCalls.length ? abrilCalls : pool.filter(o=>o.kind==='CALL'))
+  return future.length ? future.slice(0,4) : allVtos.slice(0,4);
+}
+
+window.esAddLeg = () => {
+  const vtos = esVtosActivos();
+  const pool = vtos.length ? esOptsData.filter(o=>vtos.includes(o.vto)) : esOptsData;
+  const nearest = pool.filter(o=>o.kind==='CALL')
     .sort((a,b)=>Math.abs(a.strike-esSpotVal)-Math.abs(b.strike-esSpotVal))[0];
   esLegs.push({
     action:'buy', kind:'call',
@@ -446,21 +451,19 @@ window.esRemoveLeg = i => { esLegs.splice(i,1); esRenderLegs(); esRecalc(); };
 function esRenderLegs(){
   const strikesCall = [...new Set(esOptsData.filter(o=>o.kind==='CALL').map(o=>o.strike))].sort((a,b)=>a-b);
   const strikesPut  = [...new Set(esOptsData.filter(o=>o.kind==='PUT').map(o=>o.strike))].sort((a,b)=>a-b);
-  // Solo abril y junio
-  const allVtos = [...new Set(esOptsData.map(o=>o.vto))].sort();
-  const vtosFiltrados = allVtos.filter(v=>v&&(v.startsWith('04/')||v.startsWith('06/')));
-  const vtosDisp = vtosFiltrados.length ? vtosFiltrados : allVtos;
+  const vtosDisp = esVtosActivos();
 
   document.getElementById('esLegsContainer').innerHTML = esLegs.length ? esLegs.map((leg,i)=>{
     const strikes = leg.kind==='call' ? strikesCall : strikesPut;
-    // vtos disponibles para este kind+strike, filtrados a abr/jun
+    // vtos disponibles para este kind+strike, filtrados a los próximos activos
     const legVtosAll = [...new Set(esOptsData.filter(o=>o.kind===leg.kind.toUpperCase()&&o.strike===leg.strike).map(o=>o.vto))].sort();
-    const legVtos = legVtosAll.filter(v=>v&&(v.startsWith('04/')||v.startsWith('06/'))).length
-      ? legVtosAll.filter(v=>v&&(v.startsWith('04/')||v.startsWith('06/')))
+    const activos = esVtosActivos();
+    const legVtos = legVtosAll.filter(v=>activos.includes(v)).length
+      ? legVtosAll.filter(v=>activos.includes(v))
       : legVtosAll;
-    // Si el vto actual no está en los disponibles, tomar el primero
+    // Si el vto actual no está en los disponibles, tomar el primero futuro
     if(legVtos.length && !legVtos.includes(leg.vto)){
-      leg.vto = legVtos.find(v=>v.startsWith('04/')) || legVtos[0];
+      leg.vto = legVtos[0];
       const opt = esGetOpt(leg.kind, leg.strike, leg.vto);
       if(opt) leg.prima = opt.mid;
     }
@@ -1019,7 +1022,7 @@ window.esSugGen = () => {
 
   const strikes=[...new Set(esOptsData.map(o=>o.strike))].sort((a,b)=>a-b);
   const atmIdx=strikes.indexOf(strikes.reduce((b,s)=>Math.abs(s-esSpotVal)<Math.abs(b-esSpotVal)?s:b, strikes[0]));
-  const vtoNearest=[...new Set(esOptsData.map(o=>o.vto))].sort()[0];
+  const vtoNearest=esVtosActivos()[0] || [...new Set(esOptsData.map(o=>o.vto))].sort()[0];
 
   document.getElementById('esSugEmpty').style.display='none';
   const grid=document.getElementById('esSugGrid');
