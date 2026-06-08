@@ -504,6 +504,28 @@
     <div class="card-body"><div class="chart-wrap" style="height:280px"><canvas id="flujoChart_local"></canvas></div></div>
   </div>
   <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="flmeta_local">—</div>
+  <!-- Drill-down local nivel 1: top strikes del intervalo -->
+  <div id="fldrill_local" style="display:none;margin-top:10px">
+    <div class="card">
+      <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="card-title" id="fldrill_title_local">Desagregado por strike</div>
+        <div class="card-desc">ordenado por volumen · verde=compra · rojo=venta · click en barra → evolución del día</div></div>
+        <button class="rbtn" onclick="flujoCloseDrill('local')" style="padding:2px 10px;font-size:13px">✕</button>
+      </div>
+      <div class="card-body"><div style="height:300px"><canvas id="flujoBreakChart_local"></canvas></div></div>
+    </div>
+    <!-- Drill-down local nivel 2: evolución del strike seleccionado -->
+    <div id="flevo_local" style="display:none;margin-top:10px">
+      <div class="card">
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+          <div><div class="card-title" id="flevo_title_local">Evolución del strike</div>
+          <div class="card-desc">barras: delta volumen por intervalo · línea: vol acumulado · precio (amarillo)</div></div>
+          <button class="rbtn" onclick="flujoCloseEvo('local')" style="padding:2px 10px;font-size:13px">✕</button>
+        </div>
+        <div class="card-body"><div class="chart-wrap" style="height:220px"><canvas id="flujoEvoChart_local"></canvas></div></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ── Flujo intradía (estilo Skewly) — GGAL USA ──────────────── -->
@@ -528,6 +550,28 @@
     <div class="card-body"><div class="chart-wrap" style="height:280px"><canvas id="flujoChart_usa"></canvas></div></div>
   </div>
   <div style="text-align:center;color:var(--text4);font-size:10px;padding:6px 0 2px" id="flmeta_usa">—</div>
+  <!-- Drill-down usa nivel 1 -->
+  <div id="fldrill_usa" style="display:none;margin-top:10px">
+    <div class="card">
+      <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="card-title" id="fldrill_title_usa">Desagregado por strike</div>
+        <div class="card-desc">ordenado por volumen · verde=compra · rojo=venta · click en barra → evolución del día</div></div>
+        <button class="rbtn" onclick="flujoCloseDrill('usa')" style="padding:2px 10px;font-size:13px">✕</button>
+      </div>
+      <div class="card-body"><div style="height:300px"><canvas id="flujoBreakChart_usa"></canvas></div></div>
+    </div>
+    <!-- Drill-down usa nivel 2 -->
+    <div id="flevo_usa" style="display:none;margin-top:10px">
+      <div class="card">
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+          <div><div class="card-title" id="flevo_title_usa">Evolución del strike</div>
+          <div class="card-desc">barras: delta volumen por intervalo · línea: vol acumulado · precio (amarillo)</div></div>
+          <button class="rbtn" onclick="flujoCloseEvo('usa')" style="padding:2px 10px;font-size:13px">✕</button>
+        </div>
+        <div class="card-body"><div class="chart-wrap" style="height:220px"><canvas id="flujoEvoChart_usa"></canvas></div></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1813,9 +1857,12 @@ function gdoiRender() {
 document.getElementById('gdoiOnlyChg')?.addEventListener('change', gdoiRender);
 
 // ── Flujo intradía (serie temporal opciones_flow, estilo Skewly) ──
-let flujoLoaded = {local:false, usa:false};
-let flujoRange  = {local:'1D', usa:'1D'};
-let flujoCharts = {local:null, usa:null};
+let flujoLoaded     = {local:false, usa:false};
+let flujoRange      = {local:'1D', usa:'1D'};
+let flujoCharts     = {local:null, usa:null};
+let flujoSnapData   = {local:null, usa:null};
+let flujoBreakCharts= {local:null, usa:null};
+let flujoEvoCharts  = {local:null, usa:null};
 
 window.flujoSetRange = (P, r, btn) => {
   flujoRange[P] = r;
@@ -1856,18 +1903,18 @@ async function flujoLoadData(P) {
     const byTs = {}; const tsOrder = [];
     rows.forEach(r => { if(!byTs[r.ts]){ byTs[r.ts]={}; tsOrder.push(r.ts); } byTs[r.ts][_fkey(r)]=r; });
 
-    const labels=[], callNet=[], putNet=[], price=[], volArea=[];
+    const labels=[], callNet=[], putNet=[], price=[], volArea=[], snapDeltas=[];
     let prev = null;
     tsOrder.forEach(t => {
       const snap = byTs[t];
       if(prev) {
         let cB=0,cS=0,pB=0,pS=0,volTot=0,px=null;
+        const iDeltas=[];
         Object.values(snap).forEach(r => {
           if(px==null && r.price_underlying!=null) px = +r.price_underlying;
           const p = prev[_fkey(r)];
           const dVol = p ? Math.max(0, (r.volume||0)-(p.volume||0)) : 0;
           if(dVol>0) {
-            // Coerción explícita: NUMERIC de Postgres llega como string vía REST
             const last = +(r.last)||0, bid = +(r.bid)||0, ask = +(r.ask)||0;
             const mid  = (bid+ask)/2;
             const prem = dVol * last * 100;
@@ -1877,6 +1924,7 @@ async function flujoLoadData(P) {
             const k = (r.kind||'').toLowerCase().charAt(0);
             if(k==='c'){ if(buy)cB+=prem; else cS+=prem; }
             else if(k==='p'){ if(buy)pB+=prem; else pS+=prem; }
+            iDeltas.push({fkey:_fkey(r), strike:+(r.strike)||0, kind:k, expiration:(r.expiration||'').slice(0,10), symbol:r.symbol, dVol, prem, buy});
           }
         });
         labels.push(t.slice(11,16));
@@ -1884,17 +1932,19 @@ async function flujoLoadData(P) {
         putNet.push(pB-pS);
         price.push(px!=null ? +(+px).toFixed(2) : null);
         volArea.push(volTot);
+        snapDeltas.push(iDeltas);
       }
       prev = snap;
     });
 
-    flujoRenderChart(P, labels, callNet, putNet, price, volArea);
+    flujoSnapData[P] = {tsOrder, byTs, labels, snapDeltas};
+    flujoRenderChart(P, labels, callNet, putNet, price, volArea, snapDeltas);
     flujoRenderSentiment(P, callNet, putNet, price);
     meta.textContent = `${P==='usa'?'GGAL USA':'GGAL local'} · ${range} · ${tsOrder.length} snapshots · ${labels.length} intervalos`;
   } catch(e) { console.error('[flujo]', e); meta.textContent='Error: '+e.message; }
 }
 
-function flujoRenderChart(P, labels, callNet, putNet, price, volArea) {
+function flujoRenderChart(P, labels, callNet, putNet, price, volArea, snapDeltas) {
   const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
   if(flujoCharts[P]) flujoCharts[P].destroy();
   flujoCharts[P] = new Chart(document.getElementById('flujoChart_'+P), {
@@ -1905,6 +1955,11 @@ function flujoRenderChart(P, labels, callNet, putNet, price, volArea) {
       {type:'line',label:'Precio', data:price, yAxisID:'y1', borderColor:'#ffc84a', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:.3, fill:false, spanGaps:true, order:3},
     ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      onClick:(evt,elements)=>{
+        if(!elements.length) return;
+        const idx=elements[0].index;
+        if(snapDeltas&&snapDeltas[idx]) flujoShowBreakdown(P, labels[idx], snapDeltas[idx]);
+      },
       scales:{
         x:{grid:GR,ticks:{...TK,maxTicksLimit:10}},
         y:{grid:GR,ticks:{...TK,callback:v=>fmtM(v)}},
@@ -1943,6 +1998,128 @@ function flujoRenderSentiment(P, callNet, putNet, price) {
   set('flsent_'+P, bias, biasCol);
   set('flmom_'+P, mom, 'var(--text)');
   set('flsig_'+P, sig, sigCol);
+}
+
+// ── Flujo drill-down ─────────────────────────────────────────────
+window.flujoCloseDrill = P => {
+  const el=document.getElementById('fldrill_'+P); if(el) el.style.display='none';
+  if(flujoBreakCharts[P]){ flujoBreakCharts[P].destroy(); flujoBreakCharts[P]=null; }
+  flujoCloseEvo(P);
+};
+window.flujoCloseEvo = P => {
+  const el=document.getElementById('flevo_'+P); if(el) el.style.display='none';
+  if(flujoEvoCharts[P]){ flujoEvoCharts[P].destroy(); flujoEvoCharts[P]=null; }
+};
+
+function flujoShowBreakdown(P, timeLabel, iDeltas) {
+  const panel=document.getElementById('fldrill_'+P);
+  const title=document.getElementById('fldrill_title_'+P);
+  if(!panel||!title) return;
+  flujoCloseEvo(P);
+  if(flujoBreakCharts[P]){ flujoBreakCharts[P].destroy(); flujoBreakCharts[P]=null; }
+  title.textContent=`Desagregado por strike · ${timeLabel}`;
+  panel.style.display='block';
+
+  // Agregar por contrato (fkey único)
+  const agg={};
+  iDeltas.forEach(d=>{
+    const k=d.fkey;
+    if(!agg[k]) agg[k]={...d, buyVol:0, sellVol:0};
+    if(d.buy) agg[k].buyVol+=d.dVol; else agg[k].sellVol+=d.dVol;
+  });
+  const items=Object.values(agg)
+    .map(a=>({...a,total:a.buyVol+a.sellVol}))
+    .sort((a,b)=>b.total-a.total).slice(0,14);
+
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  const lbs=items.map(a=>`$${a.strike} ${a.kind==='c'?'C':'P'} ${a.expiration.slice(5)}`);
+  flujoBreakCharts[P]=new Chart(document.getElementById('flujoBreakChart_'+P),{
+    type:'bar',
+    data:{labels:lbs, datasets:[
+      {label:'Compra', data:items.map(a=>a.buyVol),  backgroundColor:'rgba(0,229,168,.75)', borderWidth:0},
+      {label:'Venta',  data:items.map(a=>-a.sellVol), backgroundColor:'rgba(255,63,94,.75)', borderWidth:0},
+    ]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{stacked:true, grid:GR, ticks:{...TK, callback:v=>Math.abs(v)+'c'}},
+        y:{stacked:true, grid:{display:false}, ticks:{...TK}},
+      },
+      plugins:{
+        legend:{display:true, labels:{color:'#6e8090',boxWidth:10,font:{size:9}}},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${Math.abs(c.raw||0).toLocaleString()} c`}}
+      },
+      onClick:(evt,elements)=>{
+        if(!elements.length) return;
+        const item=items[elements[0].index];
+        flujoShowEvolution(P, item.fkey, item.strike, item.kind, item.expiration);
+      }
+    }
+  });
+  // Scroll al panel
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function flujoShowEvolution(P, fkey, strike, kind, expiration) {
+  const evoPanel=document.getElementById('flevo_'+P);
+  const evoTitle=document.getElementById('flevo_title_'+P);
+  if(!evoPanel||!evoTitle) return;
+  if(flujoEvoCharts[P]){ flujoEvoCharts[P].destroy(); flujoEvoCharts[P]=null; }
+
+  const sd=flujoSnapData[P];
+  if(!sd) return;
+
+  const lbs=[], buyBars=[], sellBars=[], volAcum=[], priceL=[];
+  let prevVol=null;
+  sd.tsOrder.forEach(t=>{
+    const row=sd.byTs[t][fkey];
+    const vol=row ? +(row.volume)||0 : null;
+    lbs.push(t.slice(11,16));
+    if(vol!==null && prevVol!==null){
+      const dv=Math.max(0,vol-prevVol);
+      const last=row?+(row.last)||0:0, bid=row?+(row.bid)||0:0, ask=row?+(row.ask)||0:0;
+      const mid=(bid+ask)/2;
+      const isBuy=mid>0 ? last>=mid : false;
+      buyBars.push(isBuy?dv:0);
+      sellBars.push(isBuy?0:dv);
+    } else { buyBars.push(0); sellBars.push(0); }
+    volAcum.push(vol);
+    priceL.push(row&&row.price_underlying!=null ? +(row.price_underlying) : null);
+    if(vol!==null) prevVol=vol;
+  });
+
+  evoTitle.textContent=`$${strike} ${kind==='c'?'CALL':'PUT'} · vto ${expiration.slice(5)} · evolución del día`;
+  evoPanel.style.display='block';
+
+  const GR={color:'#1e2530'}, TK={color:'#6e8090',font:{size:9}};
+  flujoEvoCharts[P]=new Chart(document.getElementById('flujoEvoChart_'+P),{
+    data:{labels:lbs, datasets:[
+      {type:'bar',  label:'Compra', data:buyBars,  backgroundColor:'rgba(0,229,168,.7)',  yAxisID:'yv', borderWidth:0},
+      {type:'bar',  label:'Venta',  data:sellBars, backgroundColor:'rgba(255,63,94,.7)',  yAxisID:'yv', borderWidth:0},
+      {type:'line', label:'Vol acum',data:volAcum,  borderColor:kind==='c'?'#00e5a8':'#ff3f5e', borderWidth:1.5, backgroundColor:'transparent', pointRadius:0, tension:.3, spanGaps:true, yAxisID:'yv2'},
+      {type:'line', label:'Precio', data:priceL,   borderColor:'#ffc84a', borderWidth:1.5, borderDash:[4,3], pointRadius:0, tension:.3, spanGaps:true, yAxisID:'y1'},
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:GR, ticks:{...TK, maxTicksLimit:10}},
+        yv:{position:'left', grid:GR, ticks:{...TK, callback:v=>v+'c'}, beginAtZero:true, stacked:true},
+        yv2:{display:false, beginAtZero:true},
+        y1:{position:'right', grid:{display:false}, ticks:{...TK, callback:v=>'$'+v}},
+      },
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          if(c.dataset.label==='Precio') return ` Precio: $${c.raw}`;
+          if(c.dataset.label==='Vol acum') return ` Vol acum: ${(c.raw||0).toLocaleString()} c`;
+          return ` ${c.dataset.label}: ${(c.raw||0).toLocaleString()} c`;
+        }}}
+      }
+    }
+  });
+  evoPanel.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
 oLoadData();
