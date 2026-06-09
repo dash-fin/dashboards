@@ -1929,6 +1929,7 @@ window.flujoWlAdd = async () => {
   const inp = document.getElementById('flujoWlInput');
   const sym = (inp?.value||'').trim().toUpperCase();
   if(!sym || _flujoWatchlist.includes(sym)) { if(inp) inp.value=''; return; }
+  if(_flujoWatchlist.length >= 3) { alert('Máximo 3 símbolos (GGAL + 2). Quitá uno primero.'); if(inp) inp.value=''; return; }
   try {
     await fetch(SB_REST+'opciones_watchlist_usa', {
       method:'POST',
