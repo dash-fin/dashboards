@@ -2176,7 +2176,7 @@ function flujoShowEvolution(P, fkey, strike, kind, expiration) {
   sd.tsOrder.forEach(t=>{
     const row=sd.byTs[t][fkey];
     const vol=row ? +(row.volume)||0 : null;
-    lbs.push(t.slice(11,16));
+    lbs.push(toART(t));
     if(vol!==null && prevVol!==null){
       const dv=Math.max(0,vol-prevVol);
       const last=row?+(row.last)||0:0, bid=row?+(row.bid)||0:0, ask=row?+(row.ask)||0:0;
