@@ -1,4 +1,4 @@
-<div class="sub-tabs-row">
+﻿<div class="sub-tabs-row">
   <div class="sub-tabs">
     <button class="stab active" id="ostab-iamc"       onclick="oSetTab('iamc',this)">GGAL · OI</button>
     <button class="stab"        id="ostab-gex"        onclick="oSetTab('gex',this)">GGAL · Gamma</button>
@@ -495,6 +495,7 @@
       <button class="rbtn" onclick="flujoSetRange('local','3D',this)">3D</button>
       <button class="rbtn" onclick="flujoSetRange('local','5D',this)">5D</button>
     </div>
+    <button class="rbtn" onclick="flujoRefresh('local',this)" title="Refrescar datos" style="padding:3px 9px">&#8635;</button>
   </div>
   <div class="card" style="margin-top:12px">
     <div class="card-head">
@@ -547,6 +548,7 @@
         <button class="rbtn" onclick="flujoSetRange('usa','3D',this)">3D</button>
         <button class="rbtn" onclick="flujoSetRange('usa','5D',this)">5D</button>
       </div>
+      <button class="rbtn" onclick="flujoRefresh('usa',this)" title="Refrescar datos" style="padding:3px 9px">&#8635;</button>
     </div>
   </div>
   <!-- Panel gestión watchlist -->
@@ -1966,6 +1968,13 @@ window.flujoWlRemove = async (sym) => {
 window.flujoSetRange = (P, r, btn) => {
   flujoRange[P] = r;
   if(btn){ btn.parentElement.querySelectorAll('.rbtn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+  flujoLoadData(P);
+};
+
+window.flujoRefresh = (P, btn) => {
+  flujoLoaded[P] = false;
+  if(P==='usa') _flujoWlLoaded = false;
+  if(btn){ btn.style.transform='rotate(360deg)'; btn.style.transition='transform 0.4s'; setTimeout(()=>{ btn.style.transform=''; btn.style.transition=''; },400); }
   flujoLoadData(P);
 };
 
