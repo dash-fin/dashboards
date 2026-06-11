@@ -550,6 +550,7 @@
     <button class="stab active" id="pftab-resumen"    onclick="pfTab('resumen',this)">Resumen</button>
     <button class="stab"        id="pftab-posiciones" onclick="pfTab('posiciones',this)">Posiciones</button>
     <button class="stab"        id="pftab-historial"  onclick="pfTab('historial',this)">Historial</button>
+    <button class="stab"        id="pftab-reportes"   onclick="pfTab('reportes',this)">Reportes</button>
   </div>
   <div class="sub-tabs-meta" style="display:flex;align-items:center;gap:8px">
     <span id="pfMeta" style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
@@ -825,6 +826,66 @@
   </div>
 </div>
 
+<!-- ── PANEL: REPORTES ──────────────────────────────── -->
+<div class="sub-panel" id="pfpanel-reportes">
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="toolbar" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px">Reporte de rendimiento realizado</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="flt" id="pfRepP-semanal" onclick="pfRepSetPeriod('semanal',this)">Semanal</button>
+        <button class="flt on" id="pfRepP-mensual" onclick="pfRepSetPeriod('mensual',this)">Mensual</button>
+        <button class="flt" id="pfRepP-historico" onclick="pfRepSetPeriod('historico',this)">Histórico</button>
+        <button class="btn-sec" style="font-size:10px;padding:4px 10px" onclick="pfRepExportCSV()">⬇ CSV</button>
+        <button onclick="captureElement(document.getElementById('pfRepChartCard'),this)" type="button" title="Copiar imagen del gráfico" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 8px;cursor:pointer;color:var(--text4);font-size:10px">📸</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div id="pfRepKPIs" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:6px 0 4px">
+      <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Realizado total</div><div class="kpi-val" id="pfRepkTotal">—</div><div class="kpi-sub">USD acumulado</div></div>
+      <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Operaciones</div><div class="kpi-val" id="pfRepkOps">—</div><div class="kpi-sub">cerradas</div></div>
+      <div class="kpi" style="--accent:var(--cyan)"><div class="kpi-label">Win rate</div><div class="kpi-val" id="pfRepkWin">—</div><div class="kpi-sub" id="pfRepkWinSub">ganadoras</div></div>
+      <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Mejor trade</div><div class="kpi-val" id="pfRepkBest" style="font-size:14px">—</div><div class="kpi-sub" id="pfRepkBestSub">—</div></div>
+      <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Peor trade</div><div class="kpi-val" id="pfRepkWorst" style="font-size:14px">—</div><div class="kpi-sub" id="pfRepkWorstSub">—</div></div>
+    </div>
+  </div>
+
+  <!-- Gráfico principal: realizado acumulado por tipo -->
+  <div class="card" id="pfRepChartCard" style="margin-bottom:14px">
+    <div class="card-head" style="font-size:10px;display:flex;justify-content:space-between;align-items:center">
+      <span>Ganancia realizada acumulada por tipo (USD)</span>
+      <span id="pfRepLegend" style="display:flex;gap:12px;flex-wrap:wrap"></span>
+    </div>
+    <div id="pfRepChart" style="width:100%;height:380px;position:relative"></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+    <!-- Abierto actual (no realizado) -->
+    <div class="card">
+      <div class="card-head" style="font-size:10px">Abierto actual · no realizado (hoy)</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="th-left">Tipo</th><th>Invertido</th><th>Actual</th><th>P&amp;L USD</th><th>%</th></tr></thead>
+          <tbody id="pfRepOpenTbody"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">—</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Detalle por período -->
+    <div class="card">
+      <div class="card-head" style="font-size:10px" id="pfRepBreakHead">Detalle por período</div>
+      <div class="table-wrap" style="max-height:340px;overflow:auto">
+        <table>
+          <thead id="pfRepBreakHeadRow"></thead>
+          <tbody id="pfRepBreakTbody"><tr><td style="text-align:center;padding:20px;color:var(--text3)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
 <script>
 (function(){
 
@@ -978,6 +1039,7 @@ window.pfTab = (name, btn) => {
   if (btn) btn.classList.add('active');
   if (window.qaTrack) window.qaTrack('portafolio', name);
   if(name === 'historial') pfLoadHistorial();
+  if(name === 'reportes') { if(window.pfLoadReportes) window.pfLoadReportes(); }
   if(name === 'resumen') {
     pfRenderBenchmark();
     pfRenderResumenCalendar();
@@ -1608,6 +1670,7 @@ function pfRenderSubDonut(calced) {
 
 // ── Tabla allocación ──────────────────────────────────────
 function pfRenderAlloc(byTipo, totAct) {
+  try { window.pfOpenByTipo = byTipo; window.pfOpenTotAct = totAct; } catch(e){}
   const tbody = document.getElementById('pfAllocTbody');
   const tipos = Object.keys(byTipo).sort((a,b)=>byTipo[b].act-byTipo[a].act);
   if(!tipos.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Sin datos</td></tr>';return;}
@@ -5032,6 +5095,189 @@ function pfAnimKPIs() {
   const grid = document.getElementById('pfKPIGrid'); if (!grid) return;
   Array.from(grid.children).forEach((el, i) => pfAnimEl(el, i * 1.5));
 }
+</script>
+
+<!-- ── Reportes (tab nuevo) ── -->
+<script>
+(function(){
+  const REP_LABEL = {CEDEAR:'CEDEARs',BONO_SOBERANO:'Bonos Soberanos',DOLAR_LINKED:'Dólar Linked',BONO_CER:'Bonos CER',BONO_DUAL:'Bonos Duales',ACCION:'Acciones',OPCION:'Opciones'};
+  const REP_COLOR = {CEDEAR:'#00b4d8',BONO_SOBERANO:'#00e5a8',DOLAR_LINKED:'#f0a500',BONO_CER:'#b39dff',BONO_DUAL:'#ff3f5e',ACCION:'#4da6ff',OPCION:'#ffc84a'};
+  const TOTAL_COLOR = '#e6e8ef';
+
+  let _repPeriod = 'mensual';
+  let _repData   = null;   // { trades:[], types:[], byDateType:{}, ... }
+  let _repChart  = null;
+  let _repRO     = null;
+
+  function fmtUSD(n){ const v = Math.round(n||0); const s = v<0?'-':''; return s+'U$S '+Math.abs(v).toLocaleString('es-AR'); }
+  function validDate(d){ if(!d) return false; const y = +String(d).slice(0,4); return y>=2015 && y<=2100; }
+
+  async function repEmail(){
+    try { const u = await window.sbAuth?.auth?.getUser(); return u?.data?.user?.email || ''; } catch(e){ return ''; }
+  }
+
+  // ISO week key (YYYY-Www) y month key (YYYY-MM)
+  function weekKey(dStr){
+    const d = new Date(dStr+'T12:00:00');
+    const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = (dt.getUTCDay()+6)%7; dt.setUTCDate(dt.getUTCDate()-day+3);
+    const firstThu = new Date(Date.UTC(dt.getUTCFullYear(),0,4));
+    const week = 1 + Math.round(((dt-firstThu)/86400000 - 3 + ((firstThu.getUTCDay()+6)%7))/7);
+    return dt.getUTCFullYear()+'-W'+String(week).padStart(2,'0');
+  }
+  function monthKey(dStr){ return String(dStr).slice(0,7); }
+
+  window.pfLoadReportes = async function(){
+    const email = await repEmail();
+    let trades = [];
+    try {
+      trades = await window.sb('trades', `user_email=eq.${encodeURIComponent(email)}&order=fecha_cierre.asc&limit=1000`);
+    } catch(e){ trades = []; }
+    trades = (Array.isArray(trades)?trades:[]).filter(t => t.fecha_cierre && validDate(t.fecha_cierre) && t.ganancia_usd != null);
+
+    // Tipos presentes, ordenados por ganancia total desc
+    const totByType = {};
+    trades.forEach(t => { const tp=t.tipo||'OTRO'; totByType[tp]=(totByType[tp]||0)+(+t.ganancia_usd||0); });
+    const types = Object.keys(totByType).sort((a,b)=>totByType[b]-totByType[a]);
+
+    _repData = { trades, types, totByType };
+    repRenderKPIs();
+    repRenderChart();
+    repRenderOpen();
+    repRenderBreakdown();
+  };
+
+  function repRenderKPIs(){
+    const { trades, totByType } = _repData;
+    const total = Object.values(totByType).reduce((s,v)=>s+v,0);
+    const ops = trades.length;
+    const wins = trades.filter(t=>(+t.ganancia_usd||0)>0).length;
+    const winPct = ops? Math.round(wins/ops*100) : 0;
+    let best=null, worst=null;
+    trades.forEach(t=>{ const g=+t.ganancia_usd||0; if(best===null||g>best.g) best={g,t}; if(worst===null||g<worst.g) worst={g,t}; });
+    const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+    set('pfRepkTotal', fmtUSD(total));
+    document.getElementById('pfRepkTotal').style.color = total>=0?'var(--green)':'var(--red)';
+    set('pfRepkOps', ops);
+    set('pfRepkWin', winPct+'%'); set('pfRepkWinSub', `${wins}/${ops} ganadoras`);
+    if(best){ set('pfRepkBest', fmtUSD(best.g)); set('pfRepkBestSub', (best.t.ticker_ars||best.t.tipo||'')+' · '+(best.t.fecha_cierre||'')); }
+    if(worst){ set('pfRepkWorst', fmtUSD(worst.g)); set('pfRepkWorstSub', (worst.t.ticker_ars||worst.t.tipo||'')+' · '+(worst.t.fecha_cierre||'')); }
+  }
+
+  function repRenderChart(){
+    const el = document.getElementById('pfRepChart');
+    if(!el || !window.LightweightCharts){ return; }
+    // limpiar anterior
+    if(_repChart){ try{_repChart.remove();}catch(e){} _repChart=null; }
+    if(_repRO){ try{_repRO.disconnect();}catch(e){} _repRO=null; }
+    el.innerHTML='';
+    const { trades, types } = _repData;
+    if(!trades.length){ el.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">Sin operaciones cerradas</div>'; document.getElementById('pfRepLegend').innerHTML=''; return; }
+
+    const chart = LightweightCharts.createChart(el, {
+      layout:{ background:{type:'solid',color:'transparent'}, textColor:'#9aa0b4' },
+      grid:{ vertLines:{color:'rgba(120,120,160,.08)'}, horzLines:{color:'rgba(120,120,160,.08)'} },
+      crosshair:{ mode:0 },
+      timeScale:{ borderColor:'#2a2a4a', timeVisible:false, secondsVisible:false },
+      rightPriceScale:{ borderColor:'#2a2a4a' },
+      width: el.clientWidth, height: 380,
+      localization:{ priceFormatter: p => 'U$S '+Math.round(p).toLocaleString('es-AR') },
+    });
+
+    // Serie acumulada por tipo
+    types.forEach(tp=>{
+      const byDate = {};
+      trades.filter(t=>(t.tipo||'OTRO')===tp).forEach(t=>{ const d=t.fecha_cierre; byDate[d]=(byDate[d]||0)+(+t.ganancia_usd||0); });
+      const dates = Object.keys(byDate).sort();
+      let cum=0; const data = dates.map(d=>{ cum+=byDate[d]; return {time:d, value:Math.round(cum*100)/100}; });
+      if(!data.length) return;
+      const s = chart.addLineSeries({ color: REP_COLOR[tp]||'#888', lineWidth:2, priceLineVisible:false, lastValueVisible:true, title:'' });
+      s.setData(data);
+    });
+    // Total acumulado
+    const allByDate = {};
+    trades.forEach(t=>{ const d=t.fecha_cierre; allByDate[d]=(allByDate[d]||0)+(+t.ganancia_usd||0); });
+    const ad = Object.keys(allByDate).sort();
+    let ct=0; const totData = ad.map(d=>{ ct+=allByDate[d]; return {time:d, value:Math.round(ct*100)/100}; });
+    const ts = chart.addLineSeries({ color: TOTAL_COLOR, lineWidth:3, priceLineVisible:false, lastValueVisible:true });
+    ts.setData(totData);
+
+    chart.timeScale().fitContent();
+    _repChart = chart;
+    _repRO = new ResizeObserver(es=>{ for(const e of es){ chart.applyOptions({width:e.contentRect.width}); } });
+    _repRO.observe(el);
+
+    // Leyenda
+    const leg = types.map(tp=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text2)"><span style="width:10px;height:3px;background:${REP_COLOR[tp]||'#888'};display:inline-block;border-radius:2px"></span>${REP_LABEL[tp]||tp}</span>`).join('');
+    document.getElementById('pfRepLegend').innerHTML = leg + `<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text2)"><span style="width:10px;height:3px;background:${TOTAL_COLOR};display:inline-block;border-radius:2px"></span>Total</span>`;
+  }
+
+  function repRenderOpen(){
+    const tbody = document.getElementById('pfRepOpenTbody');
+    if(!tbody) return;
+    const byTipo = window.pfOpenByTipo || {};
+    const tipos = Object.keys(byTipo).sort((a,b)=>(byTipo[b].act||0)-(byTipo[a].act||0));
+    if(!tipos.length){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text3)">Abrí la pestaña Resumen para cargar posiciones</td></tr>'; return; }
+    tbody.innerHTML = tipos.map(tp=>{
+      const d=byTipo[tp]; const inv=d.inv||0, act=d.act||0, gan=act-inv;
+      const gc=gan>=0?'var(--green)':'var(--red)', gs=gan>=0?'+':'';
+      return `<tr>
+        <td class="th-left"><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:2px;background:${REP_COLOR[tp]||'#888'}"></span>${REP_LABEL[tp]||tp}</span></td>
+        <td>${fmtUSD(inv)}</td><td>${fmtUSD(act)}</td>
+        <td style="color:${gc}">${gs}${fmtUSD(Math.abs(gan)).replace('U$S','U$S')}</td>
+        <td style="color:${gc}">${inv>0?gs+(gan/inv*100).toFixed(1)+'%':'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function repBuckets(){
+    const { trades, types } = _repData;
+    const keyFn = _repPeriod==='semanal'?weekKey:(_repPeriod==='mensual'?monthKey:()=>'TOTAL');
+    const buckets = {}; // key -> {tipo:sum, _total}
+    trades.forEach(t=>{ const k=keyFn(t.fecha_cierre); const tp=t.tipo||'OTRO';
+      if(!buckets[k]) buckets[k]={_total:0};
+      buckets[k][tp]=(buckets[k][tp]||0)+(+t.ganancia_usd||0); buckets[k]._total+=(+t.ganancia_usd||0);
+    });
+    const keys = Object.keys(buckets).sort().reverse();
+    return { buckets, keys, types };
+  }
+
+  function repRenderBreakdown(){
+    const { buckets, keys, types } = repBuckets();
+    const head = document.getElementById('pfRepBreakHeadRow');
+    const tbody = document.getElementById('pfRepBreakTbody');
+    document.getElementById('pfRepBreakHead').textContent = 'Detalle por período · '+(_repPeriod==='semanal'?'semanal':_repPeriod==='mensual'?'mensual':'histórico');
+    if(!keys.length){ head.innerHTML=''; tbody.innerHTML='<tr><td style="text-align:center;padding:20px;color:var(--text3)">Sin datos</td></tr>'; return; }
+    head.innerHTML = '<tr><th class="th-left">Período</th>'+types.map(tp=>`<th>${REP_LABEL[tp]||tp}</th>`).join('')+'<th>Total</th></tr>';
+    tbody.innerHTML = keys.map(k=>{
+      const b=buckets[k];
+      const cells = types.map(tp=>{ const v=b[tp]||0; const c=v>0?'var(--green)':v<0?'var(--red)':'var(--text3)'; return `<td style="color:${c}">${v?fmtUSD(v):'—'}</td>`; }).join('');
+      const tc=b._total>=0?'var(--green)':'var(--red)';
+      const label = _repPeriod==='historico'?'Histórico':k;
+      return `<tr><td class="th-left" style="font-family:'IBM Plex Mono',monospace;font-size:10px">${label}</td>${cells}<td style="color:${tc};font-weight:600">${fmtUSD(b._total)}</td></tr>`;
+    }).join('');
+  }
+
+  window.pfRepSetPeriod = function(p, btn){
+    _repPeriod = p;
+    document.querySelectorAll('[id^="pfRepP-"]').forEach(b=>b.classList.remove('on'));
+    if(btn) btn.classList.add('on');
+    if(_repData) repRenderBreakdown();
+  };
+
+  window.pfRepExportCSV = function(){
+    if(!_repData){ return; }
+    const { buckets, keys, types } = repBuckets();
+    const rows = [['Periodo', ...types.map(tp=>REP_LABEL[tp]||tp), 'Total']];
+    keys.forEach(k=>{ const b=buckets[k]; rows.push([ (_repPeriod==='historico'?'Historico':k), ...types.map(tp=>Math.round(b[tp]||0)), Math.round(b._total) ]); });
+    const csv = rows.map(r=>r.join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=`reporte_${_repPeriod}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+})();
 </script>
 <!-- ── Modal detalle de posición ── -->
 <div id="pfChartOverlay" onclick="pfChartClose(event)" 
