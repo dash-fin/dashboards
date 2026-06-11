@@ -134,6 +134,7 @@
     <button class="stab"        id="ustab-opciones" onclick="usTab('opciones',this)">Opciones</button>
     <button class="stab"        id="ustab-shortint" onclick="usTab('shortint',this)">Short Data</button>
     <button class="stab"        id="ustab-gex"      onclick="usTab('gex',this);if(!window.gexAllData.length)window.loadGEX()">GEX SPY</button>
+    <button class="stab"        id="ustab-cadena"   onclick="usTab('cadena',this)">Cadena</button>
     <button class="stab"        id="ustab-rrg"      onclick="usTab('rrg',this)">RRG</button>
     <button class="stab"        id="ustab-topology" onclick="usTab('topology',this)">Market Topology</button>
     <button class="stab"        id="ustab-macro"    onclick="usTab('macro',this)">Macro</button>
@@ -431,6 +432,35 @@
     <div id="gex-exp-selector" style="display:flex;gap:6px;flex-wrap:wrap"></div>
   </div>
   <div style="margin-top:8px;font-size:10px;color:var(--text3);font-family:monospace">* OI/Vol: open interest cuando disponible, volumen del dia como proxy cuando OI es null</div>
+</div>
+
+<!-- ══ CADENA POR TICKER ══ -->
+<div class="sub-panel" id="uspanel-cadena">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <input id="cadTicker" placeholder="Ticker: OKLO, AAPL, SPY..." onkeydown="if(event.key==='Enter')loadCadenaUsa()"
+      style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;width:210px;text-transform:uppercase">
+    <button class="btn btn-outline" onclick="loadCadenaUsa()" style="font-size:11px;padding:7px 14px">Ver cadena + OI</button>
+    <span id="cadSpot" style="font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:var(--text)"></span>
+    <span id="cadMeta" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></span>
+  </div>
+  <div id="cadExpSel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+  <div style="overflow-x:auto">
+    <table style="width:100%;min-width:680px;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:11px">
+      <thead>
+        <tr style="font-size:8px;text-transform:uppercase;letter-spacing:1px">
+          <th colspan="4" style="text-align:center;color:var(--green);padding:5px;border-bottom:1px solid var(--border)">CALLS</th>
+          <th style="padding:5px;border-bottom:2px solid var(--border);color:var(--text2)">STRIKE</th>
+          <th colspan="4" style="text-align:center;color:var(--red);padding:5px;border-bottom:1px solid var(--border)">PUTS</th>
+        </tr>
+        <tr style="color:var(--text3);font-size:7px;text-transform:uppercase">
+          <th style="text-align:right;padding:4px 8px">OI</th><th style="text-align:right;padding:4px 8px">Vol</th><th style="text-align:right;padding:4px 8px">IV</th><th style="text-align:right;padding:4px 8px">Last</th>
+          <th style="text-align:center;padding:4px 8px;border-left:2px solid var(--border);border-right:2px solid var(--border)">$</th>
+          <th style="text-align:left;padding:4px 8px">Last</th><th style="text-align:left;padding:4px 8px">IV</th><th style="text-align:left;padding:4px 8px">Vol</th><th style="text-align:left;padding:4px 8px">OI</th>
+        </tr>
+      </thead>
+      <tbody id="cadBody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Ingresá un ticker y tocá "Ver cadena + OI"</td></tr></tbody>
+    </table>
+  </div>
 </div>
 
 <!-- ══ MARKET TOPOLOGY ══ -->
@@ -1721,6 +1751,85 @@ window.gexSetExp = function(exp, btn) {
   if (btn) btn.style.background = 'var(--bg3)';
   window.renderGEX();
 };
+
+// ── Cadena de opciones por ticker (CBOE via rapid-worker) ──
+window._cadData = []; window._cadExp = 'all'; window._cadSpot = 0;
+window.loadCadenaUsa = async function() {
+  const t = (document.getElementById('cadTicker').value || '').trim().toUpperCase();
+  if (!t) { document.getElementById('cadMeta').textContent = 'Ingresá un ticker'; return; }
+  document.getElementById('cadMeta').textContent = 'Bajando cadena de ' + t + '...';
+  document.getElementById('cadSpot').textContent = '';
+  document.getElementById('cadExpSel').innerHTML = '';
+  document.getElementById('cadBody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Cargando...</td></tr>';
+  try {
+    const session = await sbAuth.auth.getSession();
+    const token = session?.data?.session?.access_token;
+    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/rapid-worker', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': CFG.SB_KEY },
+      body: JSON.stringify({ mode: 'cboe', ticker: t }),
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    if (!d.options || !d.options.length) throw new Error('Sin opciones para ' + t);
+    window._cadData = d.options;
+    window._cadSpot = Number(d.spot) || 0;
+    window._cadExp = 'all';
+    document.getElementById('cadSpot').textContent = window._cadSpot ? ('$' + window._cadSpot.toFixed(2)) : '';
+    document.getElementById('cadMeta').textContent = t + ' · ' + d.options.length + ' contratos';
+    const exps = [...new Set(d.options.map(o => o.expiration))].filter(Boolean).sort();
+    document.getElementById('cadExpSel').innerHTML = exps.slice(0, 14).map(e =>
+      '<button class="btn btn-outline" style="font-size:9px;padding:3px 9px" onclick="cadSetExp(\'' + e + '\',this)">' + (e ? e.slice(0, 10) : '?') + '</button>'
+    ).join('');
+    if (exps.length) cadSetExp(exps[0]);
+    else renderCadena();
+  } catch (e) {
+    document.getElementById('cadMeta').textContent = 'Error: ' + e.message;
+    document.getElementById('cadBody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--red)">' + e.message + '</td></tr>';
+  }
+};
+window.cadSetExp = function(exp, btn) {
+  window._cadExp = exp;
+  document.querySelectorAll('#cadExpSel button').forEach(b => b.style.background = '');
+  if (btn) btn.style.background = 'var(--bg3)';
+  renderCadena();
+};
+function renderCadena() {
+  const spot = window._cadSpot;
+  const rows = window._cadData.filter(o => window._cadExp === 'all' || o.expiration === window._cadExp);
+  const byStrike = {};
+  rows.forEach(o => {
+    const k = Number(o.strike); if (!k) return;
+    if (!byStrike[k]) byStrike[k] = { strike: k };
+    const kind = (o.kind || o.type || '').toLowerCase().startsWith('p') ? 'put' : 'call';
+    byStrike[k][kind] = o;
+  });
+  const strikes = Object.values(byStrike).sort((a, b) => a.strike - b.strike);
+  const fmtI = v => (v == null || v === '') ? '—' : Math.round(Number(v)).toLocaleString('es-AR');
+  const fmtP = v => (v == null || v === '') ? '—' : Number(v).toFixed(2);
+  const fmtIV = o => { const iv = o && (o.iv != null ? o.iv : o.implied_volatility); return iv == null ? '—' : (Number(iv) * (Number(iv) < 3 ? 100 : 1)).toFixed(0) + '%'; };
+  const last = o => o ? (o.last != null ? o.last : (o.last_price != null ? o.last_price : o.mark)) : null;
+  const tb = document.getElementById('cadBody');
+  if (!strikes.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Sin strikes</td></tr>'; return; }
+  tb.innerHTML = strikes.map(s => {
+    const c = s.call || {}, p = s.put || {};
+    const atm = spot && Math.abs(s.strike - spot) <= spot * 0.012;
+    const bg = atm ? 'background:rgba(251,191,36,.10)' : '';
+    return '<tr style="border-bottom:1px solid rgba(30,37,48,.5);' + bg + '">'
+      + '<td style="text-align:right;padding:4px 8px;color:var(--green);font-weight:600">' + fmtI(c.open_interest) + '</td>'
+      + '<td style="text-align:right;padding:4px 8px;color:var(--text3)">' + fmtI(c.volume) + '</td>'
+      + '<td style="text-align:right;padding:4px 8px;color:var(--text3);font-size:10px">' + fmtIV(c) + '</td>'
+      + '<td style="text-align:right;padding:4px 8px">' + fmtP(last(c)) + '</td>'
+      + '<td style="text-align:center;padding:4px 8px;font-weight:700;color:' + (atm ? 'var(--amber)' : 'var(--text2)') + ';border-left:2px solid var(--border);border-right:2px solid var(--border)">' + s.strike + (atm ? ' <span style="font-size:6px;letter-spacing:1px">ATM</span>' : '') + '</td>'
+      + '<td style="text-align:left;padding:4px 8px">' + fmtP(last(p)) + '</td>'
+      + '<td style="text-align:left;padding:4px 8px;color:var(--text3);font-size:10px">' + fmtIV(p) + '</td>'
+      + '<td style="text-align:left;padding:4px 8px;color:var(--text3)">' + fmtI(p.volume) + '</td>'
+      + '<td style="text-align:left;padding:4px 8px;color:var(--red);font-weight:600">' + fmtI(p.open_interest) + '</td>'
+      + '</tr>';
+  }).join('');
+}
 
 window.renderGEX = function() {
   const rows = window.gexSelectedExp === 'all' ? window.gexAllData : window.gexAllData.filter(r => r.expiration === window.gexSelectedExp);
