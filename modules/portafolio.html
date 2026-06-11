@@ -3093,6 +3093,35 @@ window.pfCloseOpcionSave = async () => {
     return s + sign * (l.prima_cierre - l.prima) * l.qty * optSz;
   }, 0);
 
+  // Registrar cada pata como trade (fuente única del historial). estrategia_id solo si es multi-pata.
+  const mepC = (typeof pfMep === 'number' && pfMep > 0) ? pfMep : null;
+  const esEstrategia = (op.patas || []).length > 1;
+  const tradeRowsOp = patasConCierre.map(l => {
+    const sign = l.action === 'buy' ? 1 : -1;
+    const ganARSleg = sign * (l.prima_cierre - l.prima) * l.qty * optSz;
+    const invARSleg = Math.abs((l.prima || 0) * l.qty * optSz);
+    const ganUSD = mepC ? ganARSleg / mepC : null;
+    const invUSD = mepC ? invARSleg / mepC : null;
+    return {
+      user_email:         window.currentUser.email,
+      tipo:               'OPCION',
+      ticker_ars:         `${op.subyacente}_${(l.kind||'').toUpperCase()}_${l.strike}`,
+      fecha_apertura:     op.fecha || null,
+      cantidad:           l.qty,
+      precio_entrada_ars: Math.round((l.prima || 0) * 100),
+      mep_entrada:        mepC,
+      fecha_cierre:       fecha,
+      precio_salida_ars:  Math.round((l.prima_cierre || 0) * 100),
+      mep_salida:         mepC,
+      usd_invertido:      invUSD != null ? Math.round(invUSD * 100) / 100 : null,
+      usd_retorno:        (invUSD != null && ganUSD != null) ? Math.round((invUSD + ganUSD) * 100) / 100 : null,
+      ganancia_usd:       ganUSD != null ? Math.round(ganUSD * 100) / 100 : null,
+      ganancia_pct:       (invUSD > 0 && ganUSD != null) ? Math.round((ganUSD / invUSD * 100) * 100) / 100 : null,
+      notas:              op.nombre || null,
+      estrategia_id:      esEstrategia ? op.id : null,
+    };
+  });
+
   btn.disabled = true; btn.innerHTML = '<span>⏳</span> Cerrando...'; btn.style.opacity = '0.6';
   try {
     await Promise.all([
@@ -3103,6 +3132,7 @@ window.pfCloseOpcionSave = async () => {
         patas: patasConCierre,
       }),
       sbPatch('portafolio', 'operacion_id=eq.'+op.id, { activo: false }),
+      sbInsert('trades', tradeRowsOp),
     ]);
     pfCloseOpcionHide();
     await pfLoadAll();
