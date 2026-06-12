@@ -461,6 +461,88 @@
       <tbody id="cadBody"><tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Ingresá un ticker y tocá "Ver cadena + OI"</td></tr></tbody>
     </table>
   </div>
+  <script>
+  // JS dentro del panel para que viaje cuando usa-options.html (uoTab) lo inyecta.
+  (function(){
+    window._cadData = []; window._cadExp = 'all'; window._cadSpot = 0;
+    window.loadCadenaUsa = async function() {
+      const t = (document.getElementById('cadTicker').value || '').trim().toUpperCase();
+      if (!t) { document.getElementById('cadMeta').textContent = 'Ingresá un ticker'; return; }
+      document.getElementById('cadMeta').textContent = 'Bajando cadena de ' + t + '...';
+      document.getElementById('cadSpot').textContent = '';
+      document.getElementById('cadExpSel').innerHTML = '';
+      document.getElementById('cadBody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Cargando...</td></tr>';
+      try {
+        const session = await sbAuth.auth.getSession();
+        const token = session?.data?.session?.access_token;
+        const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/rapid-worker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': CFG.SB_KEY },
+          body: JSON.stringify({ mode: 'cboe', ticker: t }),
+          signal: AbortSignal.timeout(20000)
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json();
+        if (d.error) throw new Error(d.error);
+        if (!d.options || !d.options.length) throw new Error('Sin opciones para ' + t);
+        window._cadData = d.options;
+        window._cadSpot = Number(d.spot) || 0;
+        window._cadExp = 'all';
+        document.getElementById('cadSpot').textContent = window._cadSpot ? ('$' + window._cadSpot.toFixed(2)) : '';
+        document.getElementById('cadMeta').textContent = t + ' · ' + d.options.length + ' contratos · spot $' + (window._cadSpot ? window._cadSpot.toFixed(2) : '?');
+        const exps = [...new Set(d.options.map(o => o.expiration))].filter(Boolean).sort();
+        document.getElementById('cadExpSel').innerHTML = exps.slice(0, 14).map(e =>
+          '<button class="btn btn-outline" style="font-size:9px;padding:3px 9px" onclick="cadSetExp(\'' + e + '\',this)">' + (e ? e.slice(0, 10) : '?') + '</button>'
+        ).join('');
+        if (exps.length) cadSetExp(exps[0]);
+        else renderCadena();
+      } catch (e) {
+        document.getElementById('cadMeta').textContent = 'Error: ' + e.message;
+        document.getElementById('cadBody').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--red)">' + e.message + '</td></tr>';
+      }
+    };
+    window.cadSetExp = function(exp, btn) {
+      window._cadExp = exp;
+      document.querySelectorAll('#cadExpSel button').forEach(b => b.style.background = '');
+      if (btn) btn.style.background = 'var(--bg3)';
+      renderCadena();
+    };
+    window.renderCadena = function renderCadena() {
+      const spot = window._cadSpot;
+      const rows = window._cadData.filter(o => window._cadExp === 'all' || o.expiration === window._cadExp);
+      const byStrike = {};
+      rows.forEach(o => {
+        const k = Number(o.strike); if (!k) return;
+        if (!byStrike[k]) byStrike[k] = { strike: k };
+        const kind = ((o.kind || o.type || '') + '').toLowerCase().startsWith('p') ? 'put' : 'call';
+        byStrike[k][kind] = o;
+      });
+      const strikes = Object.values(byStrike).sort((a, b) => a.strike - b.strike);
+      const fmtI = v => (v == null || v === '') ? '—' : Math.round(Number(v)).toLocaleString('es-AR');
+      const fmtP = v => (v == null || v === '') ? '—' : Number(v).toFixed(2);
+      const fmtIV = o => { const iv = o && (o.iv != null ? o.iv : o.implied_volatility); return iv == null ? '—' : (Number(iv) * (Number(iv) < 3 ? 100 : 1)).toFixed(0) + '%'; };
+      const last = o => o ? (o.last != null ? o.last : (o.last_price != null ? o.last_price : o.mark)) : null;
+      const tb = document.getElementById('cadBody');
+      if (!strikes.length) { tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text3)">Sin strikes</td></tr>'; return; }
+      tb.innerHTML = strikes.map(s => {
+        const c = s.call || {}, p = s.put || {};
+        const atm = spot && Math.abs(s.strike - spot) <= spot * 0.012;
+        const bg = atm ? 'background:rgba(251,191,36,.10)' : '';
+        return '<tr style="border-bottom:1px solid rgba(30,37,48,.5);' + bg + '">'
+          + '<td style="text-align:right;padding:4px 8px;color:var(--green);font-weight:600">' + fmtI(c.open_interest) + '</td>'
+          + '<td style="text-align:right;padding:4px 8px;color:var(--text3)">' + fmtI(c.volume) + '</td>'
+          + '<td style="text-align:right;padding:4px 8px;color:var(--text3);font-size:10px">' + fmtIV(c) + '</td>'
+          + '<td style="text-align:right;padding:4px 8px">' + fmtP(last(c)) + '</td>'
+          + '<td style="text-align:center;padding:4px 8px;font-weight:700;color:' + (atm ? 'var(--amber)' : 'var(--text2)') + ';border-left:2px solid var(--border);border-right:2px solid var(--border)">' + s.strike + (atm ? ' <span style="font-size:6px;letter-spacing:1px">ATM</span>' : '') + '</td>'
+          + '<td style="text-align:left;padding:4px 8px">' + fmtP(last(p)) + '</td>'
+          + '<td style="text-align:left;padding:4px 8px;color:var(--text3);font-size:10px">' + fmtIV(p) + '</td>'
+          + '<td style="text-align:left;padding:4px 8px;color:var(--text3)">' + fmtI(p.volume) + '</td>'
+          + '<td style="text-align:left;padding:4px 8px;color:var(--red);font-weight:600">' + fmtI(p.open_interest) + '</td>'
+          + '</tr>';
+      }).join('');
+    };
+  })();
+  </script>
 </div>
 
 <!-- ══ MARKET TOPOLOGY ══ -->

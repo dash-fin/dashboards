@@ -2,6 +2,7 @@
   <div class="sub-tabs">
     <button class="stab active" id="uostab-gex" onclick="uoTab('gex',this)">GEX SPY</button>
     <button class="stab" id="uostab-opciones" onclick="uoTab('opciones',this)">Stock Options</button>
+    <button class="stab" id="uostab-cadena" onclick="uoTab('cadena',this)">Cadena</button>
   </div>
   <div class="sub-tabs-meta" id="uoMeta">—</div>
 </div>
@@ -17,7 +18,7 @@ window.uoTab = async function(n,b){
     existing.classList.add('active');
     return;
   }
-  const map = {gex:'gex', opciones:'opciones'};
+  const map = {gex:'gex', opciones:'opciones', cadena:'cadena'};
   const usId = map[n] || n;
   const r = await fetch('modules/usa.html?v='+Date.now());
   if(!r.ok) return;
