@@ -475,10 +475,10 @@
       try {
         const session = await sbAuth.auth.getSession();
         const token = session?.data?.session?.access_token;
-        const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/rapid-worker', {
+        const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-options', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'apikey': CFG.SB_KEY },
-          body: JSON.stringify({ mode: 'cboe', ticker: t }),
+          body: JSON.stringify({ ticker: t }),
           signal: AbortSignal.timeout(20000)
         });
         if (!r.ok) throw new Error('HTTP ' + r.status);
