@@ -31,15 +31,15 @@
 
 <div id="media-wrap">
   <div class="mhead">
-    <div class="msub">📡 <b style="color:var(--t1,#e8f0fb)">Media Analytics</b> — descubrimiento social (StockTwits + ApeWisdom) + badges de calidad</div>
+    <div class="msub">📡 <b style="color:var(--t1,#e8f0fb)">Media Analytics</b> — descubrimiento por interés social + badges de calidad</div>
     <div class="mupd" id="media-upd">cargando…</div>
   </div>
   <div class="minfo">
-    <b style="color:var(--t1,#e8f0fb)">Surge</b> = qué tan rápido sube la atención social (crecimiento de menciones vs 24h + escalada de ranking + trending de StockTwits). Más alto = calentándose más rápido.
+    <b style="color:var(--t1,#e8f0fb)">Surge</b> = qué tan rápido sube el interés social (crecimiento de menciones vs 24h + escalada de ranking). Más alto = calentándose más rápido.
     &nbsp;·&nbsp;
-    <b style="color:var(--t1,#e8f0fb)">Menciones (MENC)</b> = posts que nombran el ticker en las últimas ~24h (Reddit + StockTwits, agregado vía ApeWisdom).
+    <b style="color:var(--t1,#e8f0fb)">Menciones (MENC)</b> = volumen de comentarios que nombran el ticker en las últimas ~24h.
     &nbsp;·&nbsp;
-    <b style="color:var(--t1,#e8f0fb)">Sentim</b> = dirección del humor en StockTwits: <span style="color:#00e5a8">Alcista</span> / <span style="color:#ff4560">Bajista</span> / Neutral según el % de mensajes Bullish vs Bearish. El surge dice <i>cuánto</i> se habla; el sentim dice <i>para qué lado</i>.
+    <b style="color:var(--t1,#e8f0fb)">Sentim</b> = dirección del humor: <span style="color:#00e5a8">Alcista</span> / <span style="color:#ff4560">Bajista</span> / Neutral según el % alcista vs bajista. El surge dice <i>cuánto</i> se habla; el sentim, <i>para qué lado</i>.
   </div>
   <div class="mfilters" id="media-filters"></div>
   <div style="overflow-x:auto">
@@ -59,7 +59,7 @@
       <tbody id="media-rows"></tbody>
     </table>
   </div>
-  <div class="mlegend">CEDEAR=tiene CEDEAR · PE_BAJO=&lt;15 · EMA200=en/cerca/debajo EMA200 semanal · SMALL/MID_CAP · CERCA_MINIMO=basing 52s · VOL_ALTO=vol≥1.5x · Tap fila = resumen StockTwits · refresca cada 5min</div>
+  <div class="mlegend">CEDEAR=tiene CEDEAR · PE_BAJO=&lt;15 · EMA200=en/cerca/debajo EMA200 semanal · SMALL/MID_CAP · CERCA_MINIMO=basing 52s · VOL_ALTO=vol≥1.5x · Tap fila = por qué se mueve + tesis · refresca cada 5min</div>
 </div>
 
 <script>
@@ -118,9 +118,13 @@
       tr.onclick=()=>{
         const nx=tr.nextElementSibling;
         if(nx&&nx.classList.contains('mdet')){ nx.remove(); return; }
-        if(!x.summary) return;
+        if(!x.summary && !x.tesis){ return; }
         const dr=document.createElement('tr'); dr.className='mdet';
-        dr.innerHTML='<td colspan="10">'+x.summary+'</td>';
+        let html='<div style="font-size:9px;font-weight:800;letter-spacing:1px;color:var(--accent,#00e5a8);margin-bottom:4px">POR QUÉ SE MUEVE</div>'+(x.summary||'Resumen en preparación.');
+        if(x.tesis) html+='<div style="margin-top:8px"><b style="color:#818cf8">Tesis:</b> '+x.tesis+'</div>';
+        if(x.calidad_fund!=null) html+='<div style="margin-top:4px"><b style="color:#38c8ff">Calidad fund:</b> '+x.calidad_fund+'/5</div>';
+        if(x.riesgo) html+='<div style="margin-top:4px"><b style="color:#ff4560">Riesgo:</b> '+x.riesgo+'</div>';
+        dr.innerHTML='<td colspan="10">'+html+'</td>';
         tr.after(dr);
       };
       tb.appendChild(tr);
