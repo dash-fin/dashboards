@@ -582,6 +582,11 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <button class="dsub" onclick="drawerNav('analysis','screener')"><span class="dsub-dot"></span><span class="dsub-label">P/E × EMA200</span></button>
         </div>
 
+        <button class="dmod" id="dmod-media" onclick="drawerNav('media')">
+          <div class="dmod-accent" style="background:#4488ff"></div>
+          <div class="dmod-inner"><span class="dmod-icon">📡</span><span class="dmod-label">Media Analytics</span></div>
+        </button>
+
         <button class="dmod" id="dmod-usaoptions" onclick="dmodToggle(this,'usaoptions')">
           <div class="dmod-accent" style="background:#4488ff"></div>
           <div class="dmod-inner"><span class="dmod-icon">📈</span><span class="dmod-label">Options</span><span class="dmod-chevron">▶</span></div>
@@ -1211,7 +1216,7 @@ function updateUserUI() {
 // Mapa mod → función de tab interna
 const _tabFn={portafolio:'pfTab',cedears:'csTab',alertas:'alTab',bonos:'bTab',usa:'usTab',opciones:'oSetTab',market:'usTab',analysis:'usTab',usaoptions:'uoTab'};
 // Alias: nombre de módulo → archivo HTML a cargar
-const _moduleFile={market:'usa',analysis:'usa',usaoptions:'usa-options'};
+const _moduleFile={market:'usa',analysis:'usa',usaoptions:'usa-options',media:'media'};
 // Tabs visibles por módulo (filtra los de usa.html)
 const _moduleTabs={market:['mercado','sectores','rrg','topology'],analysis:['shortint','macro','insider','smartmoney','af','screener']};
 // Tab por defecto por módulo
