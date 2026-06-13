@@ -1,0 +1,127 @@
+<!-- ══ MEDIA ANALYTICS (Hermes) — descubrimiento social + badges de calidad ══ -->
+<style>
+  #media-wrap{padding:4px 2px 24px}
+  #media-wrap .mhead{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+  #media-wrap .msub{font-size:12px;color:var(--t2,#9fb2c8)}
+  #media-wrap .mupd{font-size:11px;color:var(--t3,#5d7a99)}
+  #media-wrap .mfilters{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
+  #media-wrap .mchip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:14px;border:1px solid var(--bd,#1d2a3a);background:var(--card,#0f1722);color:var(--t2,#9fb2c8);cursor:pointer;user-select:none}
+  #media-wrap .mchip.on{border-color:var(--accent,#00e5a8);background:rgba(0,229,168,.14);color:var(--accent,#00e5a8)}
+  #media-wrap table{width:100%;border-collapse:collapse;font-size:13px}
+  #media-wrap th,#media-wrap td{padding:9px 10px;text-align:right;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap}
+  #media-wrap th{font-size:10px;letter-spacing:1px;color:var(--t2,#9fb2c8);cursor:pointer;position:sticky;top:0;background:var(--bg,#090f16)}
+  #media-wrap th:first-child,#media-wrap td:first-child{text-align:left}
+  #media-wrap td.sym{font-weight:800;font-size:15px;color:var(--t1,#e8f0fb)}
+  #media-wrap td.sec{text-align:left;color:var(--t2,#9fb2c8);font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+  #media-wrap .mb{display:inline-block;font-size:9px;font-weight:800;padding:2px 6px;border-radius:7px;margin:1px 2px 1px 0}
+  #media-wrap .mb-CEDEAR{background:rgba(0,229,168,.18);color:#00e5a8;border:1px solid rgba(0,229,168,.4)}
+  #media-wrap .mb-PE_BAJO{background:rgba(56,200,255,.16);color:#38c8ff;border:1px solid rgba(56,200,255,.4)}
+  #media-wrap .mb-EMA200{background:rgba(129,140,248,.16);color:#818cf8;border:1px solid rgba(129,140,248,.4)}
+  #media-wrap .mb-SMALL_CAP,#media-wrap .mb-MID_CAP{background:rgba(240,176,32,.16);color:#f0b020;border:1px solid rgba(240,176,32,.4)}
+  #media-wrap .mb-CERCA_MINIMO{background:rgba(255,69,96,.14);color:#ff4560;border:1px solid rgba(255,69,96,.4)}
+  #media-wrap .mb-VOL_ALTO{background:rgba(255,159,67,.16);color:#ff9f43;border:1px solid rgba(255,159,67,.4)}
+  #media-wrap tr.mrow{cursor:pointer}
+  #media-wrap tr.mdet td{background:#0b121b;text-align:left;color:var(--t2,#9fb2c8);font-size:12.5px;line-height:1.5;white-space:normal;padding:6px 14px 12px}
+  #media-wrap .mpos{color:#00e5a8}#media-wrap .mneg{color:#ff4560}
+  #media-wrap .mmuted{color:var(--t3,#5d7a99)}
+  #media-wrap .mempty{padding:40px;text-align:center;color:var(--t3,#5d7a99)}
+  #media-wrap .mlegend{font-size:10px;color:var(--t3,#5d7a99);margin-top:12px}
+</style>
+
+<div id="media-wrap">
+  <div class="mhead">
+    <div class="msub">📡 <b style="color:var(--t1,#e8f0fb)">Media Analytics</b> — descubrimiento social (StockTwits + ApeWisdom) + badges de calidad</div>
+    <div class="mupd" id="media-upd">cargando…</div>
+  </div>
+  <div class="mfilters" id="media-filters"></div>
+  <div style="overflow-x:auto">
+    <table id="media-tbl">
+      <thead><tr>
+        <th data-k="symbol">TICKER</th>
+        <th data-k="surge">SURGE</th>
+        <th data-k="badge_count">BADGES</th>
+        <th data-k="mentions">MENC</th>
+        <th data-k="pe">PE</th>
+        <th data-k="dist_ema200w">dEMA200s</th>
+        <th data-k="market_cap">MKT CAP</th>
+        <th data-k="rel_volume">VOL x</th>
+        <th data-k="sector">SECTOR</th>
+      </tr></thead>
+      <tbody id="media-rows"></tbody>
+    </table>
+  </div>
+  <div class="mlegend">CEDEAR=tiene CEDEAR · PE_BAJO=&lt;15 · EMA200=en/cerca/debajo EMA200 semanal · SMALL/MID_CAP · CERCA_MINIMO=basing 52s · VOL_ALTO=vol≥1.5x · Tap fila = resumen StockTwits · refresca cada 5min</div>
+</div>
+
+<script>
+(function(){
+  const SB='https://endymbpdayeidromxayb.supabase.co';
+  const KEY=(window.CFG && window.CFG.SB_KEY) || 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
+  const BADGES=['CEDEAR','PE_BAJO','EMA200','SMALL_CAP','MID_CAP','CERCA_MINIMO','VOL_ALTO'];
+  let DATA=[], active=new Set(), sortK='surge', sortDir=-1;
+
+  const fmtCap=n=>{ if(!n) return '—'; if(n>=1e12) return (n/1e12).toFixed(1)+'T'; if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(0)+'M'; return n; };
+  const fmtNum=(n,d=1)=> (n==null||isNaN(n))?'—':Number(n).toFixed(d);
+
+  async function load(){
+    const upd=document.getElementById('media-upd'); if(!upd) return;
+    try{
+      const r=await fetch(SB+'/rest/v1/hermes_signals?select=*',{headers:{apikey:KEY,Authorization:'Bearer '+KEY}});
+      DATA=await r.json();
+      const u=DATA.reduce((a,x)=>x.updated_at>a?x.updated_at:a,'');
+      upd.textContent='act. '+(u?new Date(u).toLocaleString('es-AR'):'—')+' · '+DATA.length+' candidatos';
+    }catch(e){ upd.textContent='error: '+e; }
+    renderFilters(); render();
+  }
+
+  function renderFilters(){
+    const f=document.getElementById('media-filters'); if(!f) return; f.innerHTML='';
+    BADGES.forEach(b=>{
+      const c=document.createElement('span');
+      c.className='mchip'+(active.has(b)?' on':'');
+      c.textContent=b;
+      c.onclick=()=>{ active.has(b)?active.delete(b):active.add(b); renderFilters(); render(); };
+      f.appendChild(c);
+    });
+  }
+
+  function render(){
+    const tb=document.getElementById('media-rows'); if(!tb) return;
+    let rows=DATA.filter(x=>[...active].every(b=>(x.badges||[]).includes(b)));
+    rows.sort((a,b)=>{ let va=a[sortK],vb=b[sortK]; if(typeof va==='string'){va=va||'';vb=vb||'';return sortDir*va.localeCompare(vb);} return sortDir*((va||0)-(vb||0)); });
+    tb.innerHTML='';
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="9" class="mempty">Sin candidatos para el filtro</td></tr>'; return; }
+    rows.forEach(x=>{
+      const tr=document.createElement('tr'); tr.className='mrow';
+      const badges=(x.badges||[]).map(b=>'<span class="mb mb-'+b+'">'+b.replace('_','')+'</span>').join('');
+      const d=x.dist_ema200w;
+      tr.innerHTML='<td class="sym">'+x.symbol+'</td>'+
+        '<td>'+fmtNum(x.surge)+'</td>'+
+        '<td style="text-align:left">'+(badges||'<span class="mmuted">—</span>')+'</td>'+
+        '<td>'+(x.mentions||'—')+'</td>'+
+        '<td>'+(x.pe?fmtNum(x.pe):'—')+'</td>'+
+        '<td class="'+(d>0?'mneg':'mpos')+'">'+(d==null?'—':(d>0?'+':'')+Math.round(d)+'%')+'</td>'+
+        '<td>'+fmtCap(x.market_cap)+'</td>'+
+        '<td>'+(x.rel_volume?fmtNum(x.rel_volume,1)+'x':'—')+'</td>'+
+        '<td class="sec">'+(x.sector||'—')+'</td>';
+      tr.onclick=()=>{
+        const nx=tr.nextElementSibling;
+        if(nx&&nx.classList.contains('mdet')){ nx.remove(); return; }
+        if(!x.summary) return;
+        const dr=document.createElement('tr'); dr.className='mdet';
+        dr.innerHTML='<td colspan="9">'+x.summary+'</td>';
+        tr.after(dr);
+      };
+      tb.appendChild(tr);
+    });
+  }
+
+  document.querySelectorAll('#media-wrap th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k; if(sortK===k) sortDir*=-1; else {sortK=k; sortDir=(k==='symbol'||k==='sector')?1:-1;}
+    render();
+  });
+
+  load();
+  if(window.moduleTimers) window.moduleTimers.media=setInterval(load, 5*60*1000);
+})();
+</script>
