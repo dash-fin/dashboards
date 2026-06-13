@@ -4,6 +4,7 @@
   #media-wrap .mhead{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:6px}
   #media-wrap .msub{font-size:12px;color:var(--t2,#9fb2c8)}
   #media-wrap .mupd{font-size:11px;color:var(--t3,#5d7a99)}
+  #media-wrap .minfo{font-size:11.5px;color:var(--t2,#9fb2c8);line-height:1.5;background:var(--card,#0f1722);border:1px solid var(--bd,#1d2a3a);border-radius:10px;padding:9px 12px;margin:8px 0}
   #media-wrap .mfilters{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 12px}
   #media-wrap .mchip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:14px;border:1px solid var(--bd,#1d2a3a);background:var(--card,#0f1722);color:var(--t2,#9fb2c8);cursor:pointer;user-select:none}
   #media-wrap .mchip.on{border-color:var(--accent,#00e5a8);background:rgba(0,229,168,.14);color:var(--accent,#00e5a8)}
@@ -33,12 +34,20 @@
     <div class="msub">📡 <b style="color:var(--t1,#e8f0fb)">Media Analytics</b> — descubrimiento social (StockTwits + ApeWisdom) + badges de calidad</div>
     <div class="mupd" id="media-upd">cargando…</div>
   </div>
+  <div class="minfo">
+    <b style="color:var(--t1,#e8f0fb)">Surge</b> = qué tan rápido sube la atención social (crecimiento de menciones vs 24h + escalada de ranking + trending de StockTwits). Más alto = calentándose más rápido.
+    &nbsp;·&nbsp;
+    <b style="color:var(--t1,#e8f0fb)">Menciones (MENC)</b> = posts que nombran el ticker en las últimas ~24h (Reddit + StockTwits, agregado vía ApeWisdom).
+    &nbsp;·&nbsp;
+    <b style="color:var(--t1,#e8f0fb)">Sentim</b> = dirección del humor en StockTwits: <span style="color:#00e5a8">Alcista</span> / <span style="color:#ff4560">Bajista</span> / Neutral según el % de mensajes Bullish vs Bearish. El surge dice <i>cuánto</i> se habla; el sentim dice <i>para qué lado</i>.
+  </div>
   <div class="mfilters" id="media-filters"></div>
   <div style="overflow-x:auto">
     <table id="media-tbl">
       <thead><tr>
         <th data-k="symbol">TICKER</th>
         <th data-k="surge">SURGE</th>
+        <th data-k="bull_pct">SENTIM</th>
         <th data-k="badge_count">BADGES</th>
         <th data-k="mentions">MENC</th>
         <th data-k="pe">PE</th>
@@ -90,13 +99,15 @@
     let rows=DATA.filter(x=>[...active].every(b=>(x.badges||[]).includes(b)));
     rows.sort((a,b)=>{ let va=a[sortK],vb=b[sortK]; if(typeof va==='string'){va=va||'';vb=vb||'';return sortDir*va.localeCompare(vb);} return sortDir*((va||0)-(vb||0)); });
     tb.innerHTML='';
-    if(!rows.length){ tb.innerHTML='<tr><td colspan="9" class="mempty">Sin candidatos para el filtro</td></tr>'; return; }
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="10" class="mempty">Sin candidatos para el filtro</td></tr>'; return; }
     rows.forEach(x=>{
       const tr=document.createElement('tr'); tr.className='mrow';
       const badges=(x.badges||[]).map(b=>'<span class="mb mb-'+b+'">'+b.replace('_','')+'</span>').join('');
       const d=x.dist_ema200w;
+      const sc=x.sent_label==='Alcista'?'#00e5a8':x.sent_label==='Bajista'?'#ff4560':'#9fb2c8';
       tr.innerHTML='<td class="sym">'+x.symbol+'</td>'+
         '<td>'+fmtNum(x.surge)+'</td>'+
+        '<td style="color:'+sc+';font-weight:700;font-size:11px">'+(x.sent_label?x.sent_label+' <span style="font-size:9px;opacity:.65">'+Math.round(x.bull_pct)+'%</span>':'<span class="mmuted">—</span>')+'</td>'+
         '<td style="text-align:left">'+(badges||'<span class="mmuted">—</span>')+'</td>'+
         '<td>'+(x.mentions||'—')+'</td>'+
         '<td>'+(x.pe?fmtNum(x.pe):'—')+'</td>'+
@@ -109,7 +120,7 @@
         if(nx&&nx.classList.contains('mdet')){ nx.remove(); return; }
         if(!x.summary) return;
         const dr=document.createElement('tr'); dr.className='mdet';
-        dr.innerHTML='<td colspan="9">'+x.summary+'</td>';
+        dr.innerHTML='<td colspan="10">'+x.summary+'</td>';
         tr.after(dr);
       };
       tb.appendChild(tr);
