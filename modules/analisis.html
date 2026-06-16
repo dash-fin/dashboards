@@ -17,6 +17,11 @@
 .anl-rbtn{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:4px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;cursor:pointer}
 .anl-section{margin-top:18px}
 .anl-sec-hdr{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:2px;color:var(--text3);text-transform:uppercase;padding-bottom:7px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.anl-group{margin-top:30px}
+.anl-group:first-child{margin-top:6px}
+.anl-group-hdr{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;letter-spacing:1.5px;color:var(--gc,var(--text));text-transform:uppercase;padding:8px 12px;margin-bottom:14px;border-left:4px solid var(--gc,var(--border));background:linear-gradient(90deg,color-mix(in srgb,var(--gc,var(--text3)) 14%,transparent),transparent);border-radius:4px;display:flex;align-items:center;gap:10px}
+.anl-group-hdr small{font-size:9px;font-weight:500;letter-spacing:.5px;color:var(--text3);text-transform:none}
+.anl-sub-hdr{font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin:14px 0 8px}
 .anl-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .anl-grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 @media(max-width:1100px){.anl-grid3{grid-template-columns:1fr 1fr}}
@@ -148,14 +153,44 @@ window.anlRender=()=>{
   const calls=rows.filter(r=>r.c);
   const puts =rows.filter(r=>r.p);
 
-  body.innerHTML=`
-    ${secCalls(calls,rows,T)}
-    ${secPuts(puts,rows,T,days)}
-    ${secCombinadas(calls,puts,rows,T,days)}
-    ${secMultiPata(calls,puts,T)}
-    ${secSinteticos(rows,T,days)}
-    ${secRatios(calls,puts,T)}
-  `;
+  const C=secCalls(calls,rows,T);
+  const P=secPuts(puts,rows,T,days);
+  const Cb=secCombinadas(calls,puts,rows,T,days);
+  const M=secMultiPata(calls,puts,T);
+  const S=secSinteticos(rows,T,days);
+  const R=secRatios(calls,puts,T);
+
+  const group=(title,sub,color,inner)=>`<div class="anl-group">
+    <div class="anl-group-hdr" style="--gc:${color}">${title}${sub?`<small>${sub}</small>`:''}</div>
+    ${inner}
+  </div>`;
+  const sub=t=>`<div class="anl-sub-hdr">${t}</div>`;
+
+  body.innerHTML=
+    group('🐂 Alcistas','sube el subyacente','var(--green)',
+      `${sub('Verticales débito/crédito')}
+       <div class="anl-grid2">${C.bullCallSpread}${C.bullCallSpread1}</div>
+       <div class="anl-grid2" style="margin-top:10px">${P.bullPutSpread}${P.bullPutSpread1}</div>
+       ${sub('Renta / cobertura')}
+       ${P.nakedPut}
+       <div class="anl-grid2" style="margin-top:10px">${Cb.coveredCall}${Cb.collar}</div>
+       ${sub('Movimiento fuerte / combinadas')}
+       <div class="anl-grid2">${R.callBackSpread}${M.jadeLizard}</div>`)
+    +group('🐻 Bajistas','baja el subyacente','var(--red)',
+      `${sub('Verticales débito/crédito')}
+       <div class="anl-grid2">${P.bearPutSpread}${P.bearPutSpread1}</div>
+       <div class="anl-grid2" style="margin-top:10px">${C.bearCallSpread}${C.bearCallSpread1}</div>
+       ${sub('Movimiento fuerte')}
+       <div class="anl-grid2">${R.putBackSpread}</div>`)
+    +group('⚖️ Neutrales','rango / volatilidad / arbitraje','var(--amber)',
+      `${sub('Volatilidad (mov. grande en cualquier dirección)')}
+       <div class="anl-grid2">${Cb.straddle}${Cb.strangle}</div>
+       ${sub('Rango lateral')}
+       ${M.ironCondor}
+       ${sub('Ratios (mov. moderado, delta acotado)')}
+       <div class="anl-grid2" style="margin-top:0">${R.ratioCall}${R.ratioPut}</div>
+       ${sub('Paridad / arbitraje')}
+       ${S.synthetics}`);
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -197,11 +232,12 @@ function secCalls(calls,rows,T){
     const pL=pAbove(gSpot,r1.k,T,iv)??50;
     bc2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100});
   }
-  return`<div class="anl-section">
-    <div class="anl-sec-hdr">ESTRATEGIAS CON CALLS</div>
-    <div class="anl-grid2">${mkSpread('Bull Call Spread','B1 – B2',bs1,'bull')}${mkSpread('Bull Call Spread +1','B1 – B3',bs2,'bull')}</div>
-    <div class="anl-grid2" style="margin-top:10px">${mkCreditSpread('Bear Call Spread','V K1 / C K2 · crédito · bajista',bc1)}${mkCreditSpread('Bear Call Spread +1','V K1 / C K3 · crédito',bc2)}</div>
-  </div>`;
+  return{
+    bullCallSpread :mkSpread('Bull Call Spread','B1 – B2',bs1,'bull'),
+    bullCallSpread1:mkSpread('Bull Call Spread +1','B1 – B3',bs2,'bull'),
+    bearCallSpread :mkCreditSpread('Bear Call Spread','V K1 / C K2 · crédito · bajista',bc1),
+    bearCallSpread1:mkCreditSpread('Bear Call Spread +1','V K1 / C K3 · crédito',bc2),
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -251,12 +287,13 @@ function secPuts(puts,rows,T,days){
     const probOk=pAbove(gSpot,r.k,T,r.iv||gIV);
     return{lbl:fk(r.k),tnaBid,tnaLast,tnaOff,tnaNet,cap:r.k*100,probOk};
   });
-  return`<div class="anl-section">
-    <div class="anl-sec-hdr">ESTRATEGIAS CON PUTS</div>
-    ${mkNakedPut(np)}
-    <div class="anl-grid2" style="margin-top:10px">${mkSpread('Bear Put Spread','B2 – B1',br1,'bear')}${mkSpread('Bear Put Spread +1','B3 – B1',br2,'bear')}</div>
-    <div class="anl-grid2" style="margin-top:10px">${mkCreditSpread('Bull Put Spread','V K2 / C K1 · crédito · alcista',bp1)}${mkCreditSpread('Bull Put Spread +1','V K3 / C K1 · crédito',bp2)}</div>
-  </div>`;
+  return{
+    nakedPut      :mkNakedPut(np),
+    bearPutSpread :mkSpread('Bear Put Spread','B2 – B1',br1,'bear'),
+    bearPutSpread1:mkSpread('Bear Put Spread +1','B3 – B1',br2,'bear'),
+    bullPutSpread :mkCreditSpread('Bull Put Spread','V K2 / C K1 · crédito · alcista',bp1),
+    bullPutSpread1:mkCreditSpread('Bull Put Spread +1','V K3 / C K1 · crédito',bp2),
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -387,13 +424,7 @@ function secCombinadas(calls,puts,rows,T,days){
     <div class="anl-note">Collar: protección + cap al upside. Crédito = la protección es gratuita o te pagan.</div>
   </div>`;
 
-  return`<div class="anl-section">
-    <div class="anl-sec-hdr">ESTRATEGIAS COMBINADAS</div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div class="anl-grid2">${straddleHtml}${strangleHtml}</div>
-      <div class="anl-grid2">${ccHtml}${collarHtml}</div>
-    </div>
-  </div>`;
+  return{straddle:straddleHtml,strangle:strangleHtml,coveredCall:ccHtml,collar:collarHtml};
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -492,11 +523,7 @@ function secMultiPata(calls,puts,T){
     <div class="anl-note">Condición clave: crédito total ≥ ancho del call spread → no hay pérdida al alza. BE↓ = K put − crédito.</div>
   </div>`;
 
-  return`<div class="anl-section">
-    <div class="anl-sec-hdr">ESTRATEGIAS MULTI-PATA</div>
-    ${icHtml}
-    <div style="margin-top:10px">${jlHtml}</div>
-  </div>`;
+  return{ironCondor:icHtml,jadeLizard:jlHtml};
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -512,9 +539,7 @@ function secSinteticos(rows,T,days){
     return{lbl:fk(r.k),lc,lp,tna,tnaN,tipo,isAtm:Math.abs(r.k-gSpot)/gSpot<0.025};
   }).filter(Boolean);
 
-  return`<div class="anl-section">
-    <div class="anl-sec-hdr">SINTÉTICOS — Paridad Put-Call · TNA Implícita</div>
-    <div class="anl-card">
+  return{synthetics:`<div class="anl-card">
       <div class="anl-card-hdr">
         <span class="anl-card-title">Synthetics</span>
         <span class="anl-card-sub">Paridad Put-Call · TNA sintética vs Caución 1d mercado</span>
@@ -531,8 +556,7 @@ function secSinteticos(rows,T,days){
         <td class="anl-td" style="color:${r.tnaN>=0?'var(--green)':'var(--text3)'}">${r.tipo}</td>
       </tr>`).join('')||`<tr><td colspan="6" class="anl-empty">Sin datos</td></tr>`}</tbody></table>
       <div class="anl-note">TNA Neta CF: TNA Last – TLR (19,9%). Exceso sobre la caución. <b style="color:var(--green)">Long Sint.</b> = C&gt;P. <b style="color:var(--text2)">Short Sint.</b> = P&gt;C.</div>
-    </div>
-  </div>`;
+    </div>`};
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -602,20 +626,12 @@ function secRatios(calls,puts,T){
     </tbody></table>
   </div>`;
 
-  return`<div class="anl-section">
-    <div class="anl-sec-hdr">RATIOS Y BACK SPREADS</div>
-    <div class="anl-grid2">
-      ${mkRatio('Ratio Call 1×2','Compra 1 call K1 · Vende 2 calls K2',rc12,['NETO','MÁX GANANCIA (K2)','BE↑'])}
-      ${mkRatio('Ratio Put 1×2','Compra 1 put K1 · Vende 2 puts K2 (K2<K1)',rp12,['NETO','MÁX GANANCIA (K2)','BE↓'])}
-    </div>
-    <div class="anl-grid2" style="margin-top:10px">
-      ${mkRatio('Call Back Spread','Vende 1 call K1 · Compra 2 calls K2 (ratio invertido)',rci,['NETO','MÁX PÉRDIDA','BE↑ (break-even alza)'])}
-      ${mkRatio('Put Back Spread','Vende 1 put K1 · Compra 2 puts K2 (ratio invertido)',rpi,['NETO','MÁX PÉRDIDA','BE↓ (break-even baja)'])}
-    </div>
-    <div style="margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);padding:6px 0">
-      Ratio 1×2: beneficiás de movimiento moderado hacia K2. Back Spread: beneficiás de movimiento fuerte (gamma largo).
-    </div>
-  </div>`;
+  return{
+    ratioCall     :mkRatio('Ratio Call 1×2','Compra 1 call K1 · Vende 2 calls K2',rc12,['NETO','MÁX GANANCIA (K2)','BE↑']),
+    ratioPut      :mkRatio('Ratio Put 1×2','Compra 1 put K1 · Vende 2 puts K2 (K2<K1)',rp12,['NETO','MÁX GANANCIA (K2)','BE↓']),
+    callBackSpread:mkRatio('Call Back Spread','Vende 1 call K1 · Compra 2 calls K2 (movimiento fuerte alza)',rci,['NETO','MÁX PÉRDIDA','BE↑ (break-even alza)']),
+    putBackSpread :mkRatio('Put Back Spread','Vende 1 put K1 · Compra 2 puts K2 (movimiento fuerte baja)',rpi,['NETO','MÁX PÉRDIDA','BE↓ (break-even baja)']),
+  };
 }
 
 // ══════════════════════════════════════════════════════════════
