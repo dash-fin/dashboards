@@ -191,7 +191,7 @@ window.rtcLoad=async()=>{
     const today=new Date().toISOString().slice(0,10);
     const[sR,oR,cR]=await Promise.all([
       sbF('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last,change&limit=1'),
-      sbF('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,previous_close,volume,operations,bid_size,ask_size&order=expiration.asc,strike.asc&limit=500'),
+      sbF('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,previous_close,volume,operations,bid_size,ask_size&order=expiration.asc,strike.asc&limit=1000'),
       sbF('cauciones','symbol=eq.PESOS&days=eq.1&select=bid_rate,ask_rate,settlement&order=settlement.desc&limit=1')
     ]);
     if(sR?.length){
