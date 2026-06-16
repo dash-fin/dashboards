@@ -80,18 +80,32 @@
   --cyan:#005870;--cyanDim:rgba(0,88,112,.08);
 }
 
-/* ── TEMA: SEPIA ── */
-[data-theme="sepia"]{
-  --bg:#18130e;--bg2:#211810;--bg3:#2a2015;--bg4:#33281c;
-  --border:rgba(255,220,160,.05);--border2:rgba(255,220,160,.10);--border3:rgba(255,220,160,.18);
-  --text:#f2e8d5;--text2:#d5b888;--text3:#906848;--text4:#584030;
-  --green:#4ec870;--green2:#3aaa58;--greenG:linear-gradient(135deg,#4ec870,#3aaa58);--greenDim:rgba(78,200,112,.10);
-  --red:#e05848;--redG:linear-gradient(135deg,#e05848,#b83828);--redDim:rgba(224,88,72,.10);
-  --amber:#e8a820;--amberG:linear-gradient(135deg,#e8a820,#c07800);--amberDim:rgba(232,168,32,.10);
-  --blue:#78b0e8;--blueG:linear-gradient(135deg,#78b0e8,#4878c8);--blueDim:rgba(120,176,232,.10);
-  --purple:#c898e8;--purpleDim:rgba(200,152,232,.10);
-  --cyan:#48c8b8;--cyanDim:rgba(72,200,184,.10);
+/* ── TEMA: MATRIZ (oscuro profesional, alto contraste) ── */
+[data-theme="matriz"]{
+  --bg:#1E2732;--bg2:#283342;--bg3:#324052;--bg4:#3A475A;
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.14);--border3:rgba(255,255,255,.22);
+  --text:#FFFFFF;--text2:#A0AEC0;--text3:#718096;--text4:#5A6878;
+  --green:#27AE60;--green2:#1E9B50;--greenG:linear-gradient(135deg,#27AE60,#1E9B50);--greenDim:rgba(39,174,96,.14);
+  --red:#E74C3C;--redG:linear-gradient(135deg,#E74C3C,#C0392B);--redDim:rgba(231,76,60,.14);
+  --amber:#F39C12;--amberG:linear-gradient(135deg,#F39C12,#D68910);--amberDim:rgba(243,156,18,.14);
+  --blue:#3498DB;--blueG:linear-gradient(135deg,#3498DB,#2980B9);--blueDim:rgba(52,152,219,.14);
+  --purple:#9B59B6;--purpleDim:rgba(155,89,182,.14);
+  --cyan:#1ABC9C;--cyanDim:rgba(26,188,156,.14);
 }
+
+[data-theme="matriz"] th{font-size:11px;letter-spacing:.6px;font-weight:600}
+[data-theme="matriz"] td{font-size:12px;font-weight:500}
+[data-theme="matriz"] .card-title{font-size:10px;letter-spacing:1.5px;font-weight:600}
+[data-theme="matriz"] .kpi-label{font-size:10px}
+[data-theme="matriz"] .badge{font-size:9px}
+[data-theme="matriz"] .tag{font-size:9px}
+[data-theme="matriz"] .block-title{font-size:10px;letter-spacing:1.5px;font-weight:600}
+[data-theme="matriz"] .gstat-label{font-size:10px;letter-spacing:1.2px;font-weight:600}
+[data-theme="matriz"] .rank-head-title{font-size:10px;letter-spacing:1px;font-weight:600}
+[data-theme="matriz"] .sec-head{font-size:10px;letter-spacing:1.5px;font-weight:600}
+[data-theme="matriz"] .stab{font-size:12px;font-weight:600}
+[data-theme="matriz"] .anl-th{font-size:10px!important;letter-spacing:.6px!important;font-weight:600!important}
+[data-theme="matriz"] .anl-td{font-size:12px!important;font-weight:500!important}
 
 /* ── Dropdown de tema ── */
 .theme-dropdown{position:relative}
@@ -105,9 +119,9 @@
 .theme-drop-item.active{color:var(--green)}
 .sw-vetacap{background:#1a2e48;border:1px solid #48aaff}
 .sw-vetaprof{background:#162238;border:1px solid #58a0ff}
+.sw-matriz{background:#283342;border:1px solid #27AE60}
 .sw-oscuro{background:#131820;border:1px solid #323d50}
 .sw-claro{background:#ffffff;border:1px solid #b8c2d8}
-.sw-sepia{background:#2a2015;border:1px solid #5a4835}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;line-height:1.5;overflow-x:hidden}
 body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;background:radial-gradient(ellipse 80% 60% at 50% -20%,rgba(68,136,255,.06),transparent);pointer-events:none;z-index:0}
 ::-webkit-scrollbar{width:4px;height:4px}
@@ -658,9 +672,9 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <div class="drawer-theme-dots">
             <div class="dtheme-dot" style="background:#10e898"  title="Default" onclick="setTheme('default')"></div>
             <div class="dtheme-dot" style="background:#1a2e48"  title="Vetacap" onclick="setTheme('vetacap')"></div>
+            <div class="dtheme-dot" style="background:#283342"  title="Matriz" onclick="setTheme('matriz')"></div>
             <div class="dtheme-dot" style="background:#1a1f2e"  title="Oscuro"  onclick="setTheme('oscuro')"></div>
             <div class="dtheme-dot" style="background:#dde6f5"  title="Claro"   onclick="setTheme('claro')"></div>
-            <div class="dtheme-dot" style="background:#c8a96e"  title="Sepia"   onclick="setTheme('sepia')"></div>
           </div>
         </div>
         <div id="drawerLoginBtn" class="drawer-user-row" onclick="openAuth();drawerClose()">
@@ -707,9 +721,9 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <div class="theme-drop-menu" id="themeMenu">
             <div class="theme-drop-item" onclick="setTheme('default')"><span class="theme-swatch sw-vetacap"></span>Default</div>
             <div class="theme-drop-item" onclick="setTheme('vetacap')"><span class="theme-swatch sw-vetaprof"></span>Vetacap</div>
+            <div class="theme-drop-item" onclick="setTheme('matriz')"><span class="theme-swatch sw-matriz"></span>Matriz</div>
             <div class="theme-drop-item" onclick="setTheme('oscuro')"><span class="theme-swatch sw-oscuro"></span>Oscuro</div>
             <div class="theme-drop-item" onclick="setTheme('claro')"><span class="theme-swatch sw-claro"></span>Claro</div>
-            <div class="theme-drop-item" onclick="setTheme('sepia')"><span class="theme-swatch sw-sepia"></span>Sepia</div>
           </div>
         </div>
         <!-- User pill -->
@@ -860,9 +874,9 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 const _THEMES = {
   default: {label:'Default', sw:'sw-vetacap'},
   vetacap: {label:'Vetacap', sw:'sw-vetaprof'},
+  matriz:  {label:'Matriz',  sw:'sw-matriz'},
   oscuro:  {label:'Oscuro',  sw:'sw-oscuro'},
   claro:   {label:'Claro',   sw:'sw-claro'},
-  sepia:   {label:'Sepia',   sw:'sw-sepia'},
 };
 window.setTheme = function(tema){
   document.documentElement.setAttribute('data-theme', tema);
