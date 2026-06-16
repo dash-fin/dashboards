@@ -105,6 +105,9 @@ const fp=n=>fn(n,2);
 const fpct=(n,d=1)=>n==null?'—':(n>=0?'+':'')+fn(n,d)+'%';
 const mid=o=>o.bid!=null&&o.ask!=null?(o.bid+o.ask)/2:(o.last??o.ask??o.bid??null);
 const pc=p=>p<20?'c-prob-lo':p<55?'c-prob-md':'c-prob-hi';
+// % Lleno: débito → bajo=barato=verde · crédito → alto=cobrás más=verde
+const pctDeb=p=>p==null?'':p<33?'c-win':p<55?'c-prob-md':'c-costo';
+const pctCre=p=>p==null?'':p>40?'c-win':p>25?'c-prob-md':'c-costo';
 
 // ── Config ────────────────────────────────────────────────────
 const SBR='https://endymbpdayeidromxayb.supabase.co/rest/v1/';
@@ -499,7 +502,7 @@ function secMultiPata(calls,puts,T){
       <td class="anl-td c-rr">${fn(r.br,2)}</td>
       <td class="anl-td">${fp(r.beU)}</td>
       <td class="anl-td">${fp(r.beD)}</td>
-      <td class="anl-td">${fn(r.pct,1)}%</td>
+      <td class="anl-td ${pctCre(r.pct)}">${fn(r.pct,1)}%</td>
       <td class="anl-td ${r.probOk!=null?pc(100-r.probOk):''}">${r.probOk!=null?fn(r.probOk,1)+'%':'—'}</td>
     </tr>`).join('')||`<tr><td colspan="9" class="anl-empty">Sin datos</td></tr>`}</tbody></table></div>
     <div class="anl-note">% Lleno: crédito/ancho mínimo. Ordenado por Expected Value (EV).</div>
@@ -649,7 +652,7 @@ function mkSpread(title,sub,rows,type){
       <td class="anl-td c-be">${fp(r.be)}</td>
       <td class="anl-td ${pc(r.pL)}">${fn(r.pL,1)}%</td>
       <td class="anl-td c-rr">${fn(r.rr,2)}x</td>
-      <td class="anl-td">${fn(r.pct,1)}%</td>
+      <td class="anl-td ${pctDeb(r.pct)}">${fn(r.pct,1)}%</td>
     </tr>`).join(''):`<tr><td colspan="7" class="anl-empty">Sin datos</td></tr>`;
   return`<div class="anl-card">
     <div class="anl-card-hdr"><span class="anl-card-title">${title}</span><span class="anl-card-sub">${sub}</span></div>
@@ -672,7 +675,7 @@ function mkCreditSpread(title,sub,rows){
       <td class="anl-td c-be">${fp(r.be)}</td>
       <td class="anl-td ${pc(r.pL)}">${fn(r.pL,1)}%</td>
       <td class="anl-td c-rr">${fn(r.rr,2)}x</td>
-      <td class="anl-td">${fn(r.pct,1)}%</td>
+      <td class="anl-td ${pctCre(r.pct)}">${fn(r.pct,1)}%</td>
     </tr>`).join(''):`<tr><td colspan="7" class="anl-empty">Sin datos</td></tr>`;
   return`<div class="anl-card">
     <div class="anl-card-hdr"><span class="anl-card-title">${title}</span><span class="anl-card-sub">${sub}</span></div>
