@@ -179,9 +179,28 @@ function secCalls(calls,rows,T){
     const pa=pAbove(gSpot,r1.k,T,iv);
     bs2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL:pa!=null?100-pa:50,rr:mw/costo,pct:costo/w*100});
   }
+  // ── Bear Call Spread (crédito): vende call K1, compra call K2 (K1<K2) ──
+  const bc1=[],bc2=[];
+  for(let i=0;i<calls.length-1;i++){
+    const r1=calls[i],r2=calls[i+1];const p1=px(r1.c),p2=px(r2.c);
+    if(p1==null||p2==null)continue;const credit=p1-p2;if(credit<=0)continue;
+    const w=r2.k-r1.k;if(w<=0)continue;const ml=w-credit;if(ml<=0)continue;
+    const be=r1.k+credit,iv=r1.iv||gIV;
+    const pL=pAbove(gSpot,r1.k,T,iv)??50;
+    bc1.push({lbl:`${fk(r1.k)} / ${fk(r2.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100});
+  }
+  for(let i=0;i<calls.length-2;i++){
+    const r1=calls[i],r3=calls[i+2];const p1=px(r1.c),p3=px(r3.c);
+    if(p1==null||p3==null)continue;const credit=p1-p3;if(credit<=0)continue;
+    const w=r3.k-r1.k;if(w<=0)continue;const ml=w-credit;if(ml<=0)continue;
+    const be=r1.k+credit,iv=r1.iv||gIV;
+    const pL=pAbove(gSpot,r1.k,T,iv)??50;
+    bc2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100});
+  }
   return`<div class="anl-section">
     <div class="anl-sec-hdr">ESTRATEGIAS CON CALLS</div>
-    <div class="anl-grid2">${mkSpread('Bull Spread','B1 – B2',bs1,'bull')}${mkSpread('Bull Spread +1','B1 – B3',bs2,'bull')}</div>
+    <div class="anl-grid2">${mkSpread('Bull Call Spread','B1 – B2',bs1,'bull')}${mkSpread('Bull Call Spread +1','B1 – B3',bs2,'bull')}</div>
+    <div class="anl-grid2" style="margin-top:10px">${mkCreditSpread('Bear Call Spread','V K1 / C K2 · crédito · bajista',bc1)}${mkCreditSpread('Bear Call Spread +1','V K1 / C K3 · crédito',bc2)}</div>
   </div>`;
 }
 
@@ -206,6 +225,24 @@ function secPuts(puts,rows,T,days){
     const pL=pAbove(gSpot,r3.k,T,iv)??50;
     br2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL,rr:mw/costo,pct:costo/w*100});
   }
+  // ── Bull Put Spread (crédito): vende put K2, compra put K1 (K1<K2) ──
+  const bp1=[],bp2=[];
+  for(let i=0;i<puts.length-1;i++){
+    const r1=puts[i],r2=puts[i+1];const p1=px(r1.p),p2=px(r2.p);
+    if(p1==null||p2==null)continue;const credit=p2-p1;if(credit<=0)continue;
+    const w=r2.k-r1.k;if(w<=0)continue;const ml=w-credit;if(ml<=0)continue;
+    const be=r2.k-credit,iv=r2.iv||gIV;
+    const pa=pAbove(gSpot,r2.k,T,iv);const pL=pa!=null?100-pa:50;
+    bp1.push({lbl:`${fk(r2.k)} / ${fk(r1.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100});
+  }
+  for(let i=0;i<puts.length-2;i++){
+    const r1=puts[i],r3=puts[i+2];const p1=px(r1.p),p3=px(r3.p);
+    if(p1==null||p3==null)continue;const credit=p3-p1;if(credit<=0)continue;
+    const w=r3.k-r1.k;if(w<=0)continue;const ml=w-credit;if(ml<=0)continue;
+    const be=r3.k-credit,iv=r3.iv||gIV;
+    const pa=pAbove(gSpot,r3.k,T,iv);const pL=pa!=null?100-pa:50;
+    bp2.push({lbl:`${fk(r3.k)} / ${fk(r1.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100});
+  }
   const np=puts.map(r=>{
     const tnaBid=r.p.bid!=null?(r.p.bid/r.k)*(365/days)*100:null;
     const tnaLast=r.p.last!=null?(r.p.last/r.k)*(365/days)*100:null;
@@ -217,7 +254,8 @@ function secPuts(puts,rows,T,days){
   return`<div class="anl-section">
     <div class="anl-sec-hdr">ESTRATEGIAS CON PUTS</div>
     ${mkNakedPut(np)}
-    <div class="anl-grid2" style="margin-top:10px">${mkSpread('Bear Spread','B2 – B1',br1,'bear')}${mkSpread('Bear Spread +1','B3 – B1',br2,'bear')}</div>
+    <div class="anl-grid2" style="margin-top:10px">${mkSpread('Bear Put Spread','B2 – B1',br1,'bear')}${mkSpread('Bear Put Spread +1','B3 – B1',br2,'bear')}</div>
+    <div class="anl-grid2" style="margin-top:10px">${mkCreditSpread('Bull Put Spread','V K2 / C K1 · crédito · alcista',bp1)}${mkCreditSpread('Bull Put Spread +1','V K3 / C K1 · crédito',bp2)}</div>
   </div>`;
 }
 
@@ -606,6 +644,29 @@ function mkSpread(title,sub,rows,type){
       <th class="anl-th">RR</th><th class="anl-th">% LLENO</th>
     </tr></thead><tbody>${trs}</tbody></table>
     <div class="anl-note">${note}</div>
+  </div>`;
+}
+
+function mkCreditSpread(title,sub,rows){
+  const trs=rows.length
+    ?rows.map(r=>`<tr class="anl-tr">
+      <td class="anl-td l">${r.lbl}</td>
+      <td class="anl-td c-win">${fp(r.credit)}</td>
+      <td class="anl-td c-costo">${fp(r.ml)}</td>
+      <td class="anl-td c-be">${fp(r.be)}</td>
+      <td class="anl-td ${pc(r.pL)}">${fn(r.pL,1)}%</td>
+      <td class="anl-td c-rr">${fn(r.rr,2)}x</td>
+      <td class="anl-td">${fn(r.pct,1)}%</td>
+    </tr>`).join(''):`<tr><td colspan="7" class="anl-empty">Sin datos</td></tr>`;
+  return`<div class="anl-card">
+    <div class="anl-card-hdr"><span class="anl-card-title">${title}</span><span class="anl-card-sub">${sub}</span></div>
+    <table class="anl-table"><thead><tr>
+      <th class="anl-th l">STRIKE</th>
+      <th class="anl-th">CRÉDITO</th><th class="anl-th">MÁX PÉRD</th>
+      <th class="anl-th">BE</th><th class="anl-th">PROB%</th>
+      <th class="anl-th">RR</th><th class="anl-th">% LLENO</th>
+    </tr></thead><tbody>${trs}</tbody></table>
+    <div class="anl-note">Crédito = máx ganancia &nbsp;·&nbsp; Riesgo = ancho − crédito &nbsp;·&nbsp; PROB% = prob. de terminar en zona de pérdida (bajo = mejor)</div>
   </div>`;
 }
 
