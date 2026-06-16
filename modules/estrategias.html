@@ -342,8 +342,8 @@ async function esLoad(){
         strike:Number(o.strike), vto:esFormatVto(o.expiration),
         expiration:o.expiration,
         last:Number(o.last||0), bid:Number(o.bid||0), ask:Number(o.ask||0),
-        mid: Number(o.last||0) || Number(o.bid||0), // last primero, bid fallback
-      })).filter(o=>o.strike>0&&o.mid>0);
+        mid: Number(o.last||0) || Number(o.bid||0) || Number(o.ask||0), // last > bid > ask > strike*0.05 default
+      })).filter(o=>o.strike>0);
 
     // Calcular IV ATM
     const atmOpts = esOptsData.filter(o=>{
