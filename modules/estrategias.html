@@ -314,7 +314,7 @@ window.esTab = (name, btn) => {
 // ══════════════════════════════════════════════════
 async function esLoad(){
   const [optRows, spotRows, caucRows] = await Promise.all([
-    sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0)&order=strike.asc&limit=500'),
+    sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&order=strike.asc&limit=1000'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
     sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=symbol,last&limit=5'),
   ]);
