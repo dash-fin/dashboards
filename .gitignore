@@ -14,3 +14,9 @@ package.json
 Backup/
 *.json.backup
 supabase-crons.json
+
+# Local Claude config / docs — contienen tokens (PAT Supabase, etc). NUNCA commitear
+.claude/
+# Scratch / temp
+*.output
+_*.txt

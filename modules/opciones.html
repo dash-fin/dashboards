@@ -485,10 +485,11 @@
 <!-- ── Flujo intradía (estilo Skewly) — GGAL local ────────────── -->
 <div class="sub-panel" id="opanel-flujo">
   <div class="flujo-head">
-    <div class="gamma-grid" style="grid-template-columns:repeat(3,1fr);flex:1">
-      <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">Sentimiento del mercado</div><div class="g-val" id="flsent_local" style="font-size:15px">—</div></div>
-      <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Momentum</div><div class="g-val" id="flmom_local" style="font-size:15px">—</div></div>
-      <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Señal de trading</div><div class="g-val" id="flsig_local" style="font-size:13px">—</div></div>
+    <div class="gamma-grid" style="grid-template-columns:repeat(4,1fr);flex:1">
+      <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">Sentimiento</div><div class="g-val" id="flsent_local" style="font-size:14px">—</div></div>
+      <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Momentum</div><div class="g-val" id="flmom_local" style="font-size:14px">—</div></div>
+      <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Señal</div><div class="g-val" id="flsig_local" style="font-size:11px">—</div></div>
+      <div class="g-card" style="--c:var(--blue)"><div class="g-lab">Vol total</div><div class="g-val" id="flvoltotal_local" style="font-size:14px">—</div></div>
     </div>
     <div class="filter-group flujo-range" id="flrange_local">
       <button class="rbtn active" onclick="flujoSetRange('local','1D',this)">1D</button>
@@ -532,10 +533,11 @@
 <!-- ── Flujo intradía (estilo Skewly) — GGAL USA ──────────────── -->
 <div class="sub-panel" id="opanel-ggalusa_flujo">
   <div class="flujo-head">
-    <div class="gamma-grid" style="grid-template-columns:repeat(3,1fr);flex:1">
-      <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">Sentimiento del mercado</div><div class="g-val" id="flsent_usa" style="font-size:15px">—</div></div>
-      <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Momentum</div><div class="g-val" id="flmom_usa" style="font-size:15px">—</div></div>
-      <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Señal de trading</div><div class="g-val" id="flsig_usa" style="font-size:13px">—</div></div>
+    <div class="gamma-grid" style="grid-template-columns:repeat(4,1fr);flex:1">
+      <div class="g-card" style="--c:var(--cyan)"><div class="g-lab">Sentimiento</div><div class="g-val" id="flsent_usa" style="font-size:14px">—</div></div>
+      <div class="g-card" style="--c:var(--purple)"><div class="g-lab">Momentum</div><div class="g-val" id="flmom_usa" style="font-size:14px">—</div></div>
+      <div class="g-card" style="--c:var(--amber)"><div class="g-lab">Señal</div><div class="g-val" id="flsig_usa" style="font-size:11px">—</div></div>
+      <div class="g-card" style="--c:var(--blue)"><div class="g-lab">Vol total</div><div class="g-val" id="flvoltotal_usa" style="font-size:14px">—</div></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <select id="flujoSymSel_usa" onchange="flujoChangeSym(this.value)"
@@ -543,6 +545,7 @@
         <option value="GGAL">GGAL</option>
       </select>
       <button class="rbtn" onclick="flujoWatchlistMgr()" title="Gestionar watchlist" style="padding:3px 8px">&#9881;</button>
+      <select id="flujoVtoSel_usa" onchange="flujoChangeVto(this.value)" style="background:var(--card-bg);color:var(--text1);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;display:none"></select>
       <div class="filter-group flujo-range" id="flrange_usa">
         <button class="rbtn active" onclick="flujoSetRange('usa','1D',this)">1D</button>
         <button class="rbtn" onclick="flujoSetRange('usa','3D',this)">3D</button>
@@ -1888,6 +1891,7 @@ let flujoSnapData   = {local:null, usa:null};
 let flujoBreakCharts= {local:null, usa:null};
 let flujoEvoCharts  = {local:null, usa:null};
 let flujoUnderlying = {local:'GGAL', usa:'GGAL'};
+let flujoVto = {local:null, usa:null};
 let _flujoWatchlist = ['GGAL'];
 let _flujoWlLoaded  = false;
 
@@ -1905,6 +1909,13 @@ async function flujoLoadWatchlist() {
 
 window.flujoChangeSym = (sym) => {
   flujoUnderlying.usa = sym.toUpperCase();
+  flujoVto.usa = null;
+  flujoLoaded.usa = false;
+  flujoLoadData('usa');
+};
+
+window.flujoChangeVto = (vto) => {
+  flujoVto.usa = vto || null;
   flujoLoaded.usa = false;
   flujoLoadData('usa');
 };
@@ -1989,7 +2000,8 @@ async function flujoLoadData(P) {
     const since = new Date(Date.now() - days*86400000).toISOString();
     // Paginado desc para obtener los snapshots más recientes primero (evita pre-market vacío)
     const _flUnderlying = P==='usa' ? flujoUnderlying.usa : 'GGAL';
-    const _flBase = SB_REST + `opciones_flow?select=ts,symbol,expiration,strike,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&underlying=eq.${_flUnderlying}&ts=gte.${since}&order=ts.desc`;
+    const vtoFilter = P==='usa' && flujoVto.usa ? `&expiration=eq.${flujoVto.usa}` : '';
+    const _flBase = SB_REST + `opciones_flow?select=ts,symbol,expiration,strike,kind,last,bid,ask,volume,price_underlying&mercado=eq.${P}&underlying=eq.${_flUnderlying}${vtoFilter}&ts=gte.${since}&order=ts.desc`;
     const _flHdrs = { headers:{ apikey:SBKEY, Authorization:'Bearer '+SBKEY } };
     let rows = [], _flPg = 0, _flPS = 1000;
     while(_flPg < 20) { // máx 20000 filas ≈ full trading day
@@ -2001,6 +2013,19 @@ async function flujoLoadData(P) {
     }
     rows.reverse(); // ascendente para el gráfico
 
+    // Poblar selector de vencimiento (USA)
+    if(P==='usa'){
+      const vtoSel = document.getElementById('flujoVtoSel_usa');
+      if(vtoSel){
+        const vtos = [...new Set(rows.map(r=>r.expiration).filter(Boolean))].sort();
+        if(vtos.length>1){
+          vtoSel.style.display='';
+          const cur = flujoVto.usa;
+          vtoSel.innerHTML = '<option value="">Todos</option>'+vtos.map(v=>`<option value="${v}"${cur===v?' selected':''}>${v.slice(5)}</option>`).join('');
+        } else { vtoSel.style.display='none'; }
+      }
+    }
+
     if(!rows.length) {
       if(flujoCharts[P]){ flujoCharts[P].destroy(); flujoCharts[P]=null; }
       ['flsent_','flmom_','flsig_'].forEach(p=>{const e=document.getElementById(p+P); if(e){e.textContent='—';e.style.color='';}});
@@ -2008,8 +2033,8 @@ async function flujoLoadData(P) {
       return;
     }
 
-    // Clave compuesta: symbol+expiration+strike+kind (USA tiene symbol='GGAL' para todos, y múltiples expirations por strike)
-    const _fkey = r => `${r.symbol}_${r.expiration||''}_${r.strike||''}_${r.kind||''}`;
+    // Clave compuesta: expiration+strike+kind (USA tiene distintos vencimientos por strike)
+    const _fkey = r => `${(r.expiration||'')}_${r.strike||''}_${r.kind||''}`;
     const byTs = {}; const tsOrder = [];
     rows.forEach(r => { if(!byTs[r.ts]){ byTs[r.ts]={}; tsOrder.push(r.ts); } byTs[r.ts][_fkey(r)]=r; });
 
@@ -2050,6 +2075,12 @@ async function flujoLoadData(P) {
     flujoSnapData[P] = {tsOrder, byTs, labels, snapDeltas};
     flujoRenderChart(P, labels, callNet, putNet, price, volArea, snapDeltas);
     flujoRenderSentiment(P, callNet, putNet, price);
+
+    // Volumen total del período (suma de todos los dVol de todos los intervalos)
+    const totalVol = volArea.reduce((a,b)=>a+(b||0),0);
+    const elVol = document.getElementById('flvoltotal_'+P);
+    if(elVol) elVol.textContent = totalVol>=1000 ? Math.round(totalVol/1000)+'K' : String(totalVol);
+
     meta.textContent = `${P==='usa'?_flUnderlying+' USA':'GGAL local'} · ${range} · ${tsOrder.length} snapshots · ${labels.length} intervalos`;
   } catch(e) { console.error('[flujo]', e); meta.textContent='Error: '+e.message; }
 }
