@@ -215,7 +215,7 @@ function secCalls(calls,rows,T){
     const w=r3.k-r1.k;if(w<=0)continue;const mw=w-costo;if(mw<=0)continue;
     const be=r1.k+costo,iv=r1.iv||gIV;
     const pa=pAbove(gSpot,r1.k,T,iv);
-    bs2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL:pa!=null?100-pa:50,rr:mw/costo,pct:costo/w*100,p1,p2});
+    bs2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL:pa!=null?100-pa:50,rr:mw/costo,pct:costo/w*100,p1,p2:p3,p3});
   }
   // ── Bear Call Spread (crédito): vende call K1, compra call K2 (K1<K2) ──
   const bc1=[],bc2=[];
@@ -233,7 +233,7 @@ function secCalls(calls,rows,T){
     const w=r3.k-r1.k;if(w<=0)continue;const ml=w-credit;if(ml<=0)continue;
     const be=r1.k+credit,iv=r1.iv||gIV;
     const pL=pAbove(gSpot,r1.k,T,iv)??50;
-    bc2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100,p1,p2});
+    bc2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100,p1,p2:p3,p3});
   }
   return{
     bullCallSpread :mkSpread('Bull Call Spread','B1 – B2',bs1,'bull'),
@@ -262,7 +262,7 @@ function secPuts(puts,rows,T,days){
     const w=r3.k-r1.k;if(w<=0)continue;const mw=w-costo;if(mw<=0)continue;
     const be=r3.k-costo,iv=r3.iv||gIV;
     const pL=pAbove(gSpot,r3.k,T,iv)??50;
-    br2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL,rr:mw/costo,pct:costo/w*100,p1,p2});
+    br2.push({lbl:`${fk(r1.k)} / ${fk(r3.k)}`,costo,mw,be,pL,rr:mw/costo,pct:costo/w*100,p1,p2:p3,p3});
   }
   // ── Bull Put Spread (crédito): vende put K2, compra put K1 (K1<K2) ──
   const bp1=[],bp2=[];
@@ -280,7 +280,7 @@ function secPuts(puts,rows,T,days){
     const w=r3.k-r1.k;if(w<=0)continue;const ml=w-credit;if(ml<=0)continue;
     const be=r3.k-credit,iv=r3.iv||gIV;
     const pa=pAbove(gSpot,r3.k,T,iv);const pL=pa!=null?100-pa:50;
-    bp2.push({lbl:`${fk(r3.k)} / ${fk(r1.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100,p1,p2});
+    bp2.push({lbl:`${fk(r3.k)} / ${fk(r1.k)}`,credit,ml,be,pL,rr:credit/ml,pct:credit/w*100,p1,p2:p3,p3});
   }
   const np=puts.map(r=>{
     const tnaBid=r.p.bid!=null?(r.p.bid/r.k)*(365/days)*100:null;
