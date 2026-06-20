@@ -305,7 +305,7 @@
           </div>
           <div>
             <div class="field-label">Strike</div>
-            <select class="field-input" id="pfmStrikeSelect" onchange="pfmOptLoadVtos()" style="cursor:pointer">
+            <select class="field-input" id="pfmStrikeSelect" onchange="pfmOptAutoFillPrima()" style="cursor:pointer">
               <option value="">— cargá subyacente —</option>
             </select>
           </div>
@@ -2707,7 +2707,10 @@ window.pfmOptLoadStrikes = async () => {
     return;
   }
   try {
-    const rows = await sb('opciones_rt', `underlying_asset=ilike.${sub}*&select=symbol,kind,strike,expiration,last,bid,ask`);
+    // limit + order explícitos y filtro de vencidos: garantiza traer TODAS las series vigentes
+    // (sin esto, por orden arbitrario o tope de filas, vencimientos como agosto podían quedar afuera).
+    const today = new Date().toISOString().slice(0,10);
+    const rows = await sb('opciones_rt', `underlying_asset=ilike.${sub}*&expiration=gte.${today}&select=symbol,kind,strike,expiration,last,bid,ask&order=expiration.asc,strike.asc&limit=2000`);
     pfmOptData = (rows||[]).filter(r => (r.kind||'').toUpperCase() === _pfmKind.toUpperCase());
     const strikes = [...new Set(pfmOptData.map(r=>Number(r.strike)).filter(Boolean))].sort((a,b)=>a-b);
     strikeEl.innerHTML = strikes.length
@@ -2719,15 +2722,24 @@ window.pfmOptLoadStrikes = async () => {
 };
 
 window.pfmOptLoadVtos = () => {
-  const strike    = parseFloat(document.getElementById('pfmStrikeSelect')?.value||'0');
   const vtoEl     = document.getElementById('pfmVtoSelect');
-  if(!vtoEl||!strike) return;
-  const forStrike = pfmOptData.filter(r => Number(r.strike)===strike);
-  const vtos = [...new Set(forStrike.map(r=>{
-    if(!r.expiration) return null;
+  if(!vtoEl) return;
+  const prevVto = vtoEl.value;
+  // Listar TODOS los vencimientos disponibles del subyacente+kind (no solo los del strike
+  // elegido): cada vto tiene su propia grilla de strikes, así agosto siempre aparece.
+  const vtoMap = new Map();
+  pfmOptData.forEach(r=>{
+    if(!r.expiration) return;
     const d = new Date(r.expiration);
-    return `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-  }).filter(Boolean))].sort();
+    const lbl = `${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    if(!vtoMap.has(lbl)) vtoMap.set(lbl, d.getTime());
+  });
+  const vtos = [...vtoMap.entries()].sort((a,b)=>a[1]-b[1]).map(e=>e[0]);
+  if(prevVto && vtos.includes(prevVto)) {
+    vtoEl.innerHTML = vtos.map(v=>`<option value="${v}"${v===prevVto?' selected':''}>${v}</option>`).join('');
+    pfmOptAutoFillPrima();
+    return; // conservar selección actual
+  }
   vtoEl.innerHTML = vtos.length
     ? vtos.map(v=>`<option value="${v}">${v}</option>`).join('')
     : '<option value="">—</option>';
@@ -2966,8 +2978,11 @@ async function pfAutoCreateAlerts(body) {
   const uid = window.currentUser?.id || 'anon';
   const ts  = () => new Date().toISOString();
 
+  // dir debe ser el CÓDIGO que mapea el engine ({gt,lt,gte,lte,eq}). Con el operador
+  // literal '<='/'>=' el engine caía al fallback '>' → el Stop Loss disparaba cuando el
+  // precio SUBÍA (se comportaba como Take Profit). SL = lte, TP = gte.
   const makeAlert = (dir, val, label) => ({
-    id:          'al_' + Date.now() + '_' + (dir === '<=' ? 'sl' : 'tp'),
+    id:          'al_' + Date.now() + '_' + (dir === 'lte' ? 'sl' : 'tp'),
     user_id:     uid,
     ticker,
     tipo:        'precio',
@@ -2981,11 +2996,11 @@ async function pfAutoCreateAlerts(body) {
   });
 
   if(body.stop_loss) {
-    try { await sbInsert('alertas', makeAlert('<=', body.stop_loss, 'Stop Loss')); } catch(e) { console.warn('[pf] SL alert', e); }
+    try { await sbInsert('alertas', makeAlert('lte', body.stop_loss, 'Stop Loss')); } catch(e) { console.warn('[pf] SL alert', e); }
   }
   if(body.take_profit) {
     await new Promise(r => setTimeout(r, 2));
-    try { await sbInsert('alertas', makeAlert('>=', body.take_profit, 'Take Profit')); } catch(e) { console.warn('[pf] TP alert', e); }
+    try { await sbInsert('alertas', makeAlert('gte', body.take_profit, 'Take Profit')); } catch(e) { console.warn('[pf] TP alert', e); }
   }
 }
 
