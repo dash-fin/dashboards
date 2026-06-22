@@ -100,7 +100,7 @@
     if(!rows.length){ tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Sin resultados</td></tr>'; return; }
     tb.innerHTML = rows.map((r,i)=>{
       const acc = (r.rs_semana!=null && r.rs_score!=null && r.rs_score>=r.rs_semana);
-      const cedear = r.cedear_ratio ? `<span style="background:rgba(0,229,168,.16);border:1px solid rgba(0,229,168,.4);border-radius:5px;padding:1px 5px;font-size:9px;font-weight:700;color:var(--accent);margin-left:6px">CEDEAR ${+r.cedear_ratio}:1</span>` : '';
+      const cedear = r.cedear_ratio ? `<span style="background:rgba(0,229,168,.16);border:1px solid rgba(0,229,168,.4);border-radius:5px;padding:1px 5px;font-size:9px;font-weight:700;color:var(--accent);margin-left:6px">CEDEAR</span>` : '';
       const pivClose = (r.vcp_dist_pivot!=null && r.vcp_dist_pivot>=0 && r.vcp_dist_pivot<=8);
       return `<tr>
         <td class="th-left" style="color:var(--text3)">${i+1}</td>
