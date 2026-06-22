@@ -1,0 +1,141 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: RADAR — Screener Minervini + VCP + Hermes Score
+     Fuente: tabla screener_usa (script screener_usa.py, 1×/día post-cierre)
+══════════════════════════════════════════════════ -->
+
+<div class="sub-tabs-row">
+  <div class="sub-tabs"><button class="stab active">Screener</button></div>
+  <div class="sub-tabs-meta" id="rdMeta">Minervini + VCP · early-entry</div>
+</div>
+
+<!-- KPIs -->
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px" id="rdKpis">
+  <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Tickers</div><div class="kpi-val" id="rk-total">—</div><div class="kpi-sub">en el universo</div></div>
+  <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Setups VCP</div><div class="kpi-val" id="rk-setups">—</div><div class="kpi-sub">patrón detectado</div></div>
+  <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Pegados al pivote</div><div class="kpi-val" id="rk-pivot">—</div><div class="kpi-sub">0–8% · a romper</div></div>
+  <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">Con CEDEAR</div><div class="kpi-val" id="rk-cedear">—</div><div class="kpi-sub">operable AR</div></div>
+  <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Top score</div><div class="kpi-val" id="rk-top">—</div><div class="kpi-sub" id="rk-top-sym">—</div></div>
+</div>
+
+<!-- Filtros -->
+<div class="card">
+  <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+    <div style="display:flex;gap:3px" id="rdSort">
+      <button class="flt on" data-k="hermes" onclick="rdSetSort('hermes',this)">↓ Hermes</button>
+      <button class="flt" data-k="rs_score" onclick="rdSetSort('rs_score',this)">↓ RS</button>
+      <button class="flt" data-k="vcp_score" onclick="rdSetSort('vcp_score',this)">↓ VCP</button>
+      <button class="flt" data-k="pivote" onclick="rdSetSort('pivote',this)">↓ Pivote</button>
+    </div>
+    <div style="display:flex;gap:3px">
+      <button class="flt" id="rdFltCedear" onclick="rdToggle('cedear',this)" data-cls="on-amber">🇦🇷 CEDEAR</button>
+      <button class="flt" id="rdFltSetup" onclick="rdToggle('setup',this)" data-cls="on-green">🎯 Setup</button>
+    </div>
+    <select class="search-input" id="rdGroup" onchange="rdApply()" style="max-width:200px"><option value="all">Todos los grupos</option></select>
+    <input class="search-input" placeholder="Buscar ticker..." id="rdSearch" oninput="rdApply()">
+    <span class="row-count" id="rdCount">0</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th class="th-left">#</th>
+        <th class="th-left">Ticker</th>
+        <th class="th-left">Grupo</th>
+        <th>RS</th>
+        <th>VCP</th>
+        <th>Pivote</th>
+        <th>EMA200</th>
+        <th>Máx 52w</th>
+        <th>RSI</th>
+        <th class="sort-desc">Hermes</th>
+      </tr></thead>
+      <tbody id="rdTbody"><tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Cargando screener...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function(){
+  const S = { rows: [], sort: 'hermes', asc: false, cedear: false, setup: false };
+  window._rdState = S;
+
+  const num = v => (v==null||isNaN(v)) ? null : Number(v);
+  const pct = v => v==null ? '—' : `${v>0?'+':''}${Number(v).toFixed(1)}%`;
+  const col = v => v>0 ? 'var(--green)' : v<0 ? 'var(--red)' : 'var(--text2)';
+  const scoreCol = v => v>=85 ? 'var(--green)' : v>=70 ? 'var(--accent)' : v>=55 ? 'var(--amber)' : 'var(--text3)';
+
+  const SORTF = {
+    hermes:    r => r.hermes_score,
+    rs_score:  r => r.rs_score,
+    vcp_score: r => r.vcp_score,
+    pivote:    r => (r.vcp_dist_pivot==null ? 999 : Math.abs(r.vcp_dist_pivot)),
+  };
+
+  window.rdSetSort = (k, btn) => {
+    S.sort = k; S.asc = (k === 'pivote');
+    document.querySelectorAll('#rdSort .flt').forEach(b=>b.classList.remove('on'));
+    if(btn) btn.classList.add('on');
+    rdApply();
+  };
+  window.rdToggle = (which, btn) => {
+    S[which] = !S[which];
+    btn.classList.toggle('on', S[which]);
+    rdApply();
+  };
+
+  window.rdApply = () => {
+    const q = (document.getElementById('rdSearch').value||'').toUpperCase().trim();
+    const g = document.getElementById('rdGroup').value;
+    let rows = S.rows.filter(r => {
+      if(S.cedear && !r.cedear_ratio) return false;
+      if(S.setup && !r.vcp_detected) return false;
+      if(g !== 'all' && r.grupo !== g) return false;
+      if(q && !(r.symbol||'').includes(q)) return false;
+      return true;
+    });
+    const f = SORTF[S.sort] || SORTF.hermes;
+    rows.sort((a,b)=>{ const av=f(a)??-999, bv=f(b)??-999; return S.asc ? av-bv : bv-av; });
+    document.getElementById('rdCount').textContent = rows.length + ' tickers';
+
+    const tb = document.getElementById('rdTbody');
+    if(!rows.length){ tb.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Sin resultados</td></tr>'; return; }
+    tb.innerHTML = rows.map((r,i)=>{
+      const acc = (r.rs_semana!=null && r.rs_score!=null && r.rs_score>=r.rs_semana);
+      const cedear = r.cedear_ratio ? `<span style="background:rgba(0,229,168,.16);border:1px solid rgba(0,229,168,.4);border-radius:5px;padding:1px 5px;font-size:9px;font-weight:700;color:var(--accent);margin-left:6px">CEDEAR ${+r.cedear_ratio}:1</span>` : '';
+      const pivClose = (r.vcp_dist_pivot!=null && r.vcp_dist_pivot>=0 && r.vcp_dist_pivot<=8);
+      return `<tr>
+        <td class="th-left" style="color:var(--text3)">${i+1}</td>
+        <td class="th-left"><b style="font-size:14px">${r.symbol}</b>${cedear}${r.vcp_detected?' 🎯':''}${acc?' <span style="color:var(--green);font-size:10px;font-weight:700">▲RS</span>':''}</td>
+        <td class="th-left" style="color:var(--text2);font-size:11px">${r.grupo||''}</td>
+        <td><b>${r.rs_score!=null?Math.round(r.rs_score):'—'}</b></td>
+        <td>${r.vcp_score??'—'}${r.vcp_contractions?`<span style="color:var(--text3);font-size:10px"> ·${r.vcp_contractions}T</span>`:''}</td>
+        <td style="color:${pivClose?'var(--accent)':'var(--text)'};font-weight:${pivClose?700:400}">${pct(r.vcp_dist_pivot)}</td>
+        <td style="color:${col(num(r.dist_ema200))}">${pct(r.dist_ema200)}</td>
+        <td style="color:${col(num(r.dist_max52w))}">${pct(r.dist_max52w)}</td>
+        <td>${r.rsi14!=null?Math.round(r.rsi14):'—'}</td>
+        <td><b style="font-size:16px;color:${scoreCol(r.hermes_score)}">${r.hermes_score}</b></td>
+      </tr>`;
+    }).join('');
+  };
+
+  async function rdLoad(){
+    const sel = 'symbol,hermes_score,rs_score,rs_semana,vcp_score,vcp_contractions,vcp_dist_pivot,vcp_detected,dist_ema200,dist_sma50,dist_max52w,rsi14,vol_relativa,grupo,sector,tipo,cedear_ratio,updated_at';
+    const res = await window.sb('screener_usa', `select=${sel}&order=hermes_score.desc&limit=800`);
+    S.rows = Array.isArray(res) ? res : [];
+    const setups = S.rows.filter(r=>r.vcp_detected).length;
+    const pivot  = S.rows.filter(r=>r.vcp_dist_pivot!=null && r.vcp_dist_pivot>=0 && r.vcp_dist_pivot<=8).length;
+    const ced    = S.rows.filter(r=>r.cedear_ratio).length;
+    document.getElementById('rk-total').textContent  = S.rows.length;
+    document.getElementById('rk-setups').textContent = setups;
+    document.getElementById('rk-pivot').textContent  = pivot;
+    document.getElementById('rk-cedear').textContent = ced;
+    if(S.rows[0]){ document.getElementById('rk-top').textContent = S.rows[0].hermes_score; document.getElementById('rk-top-sym').textContent = S.rows[0].symbol; }
+    const upd = S.rows.length && S.rows[0].updated_at ? new Date(S.rows[0].updated_at) : null;
+    if(upd){ const p2=n=>String(n).padStart(2,'0'); document.getElementById('rdMeta').textContent = `Minervini + VCP · actualizado ${p2((upd.getUTCHours()+21)%24)}:${p2(upd.getUTCMinutes())}`; }
+    const groups = [...new Set(S.rows.map(r=>r.grupo).filter(Boolean))].sort();
+    const gsel = document.getElementById('rdGroup');
+    gsel.innerHTML = '<option value="all">Todos los grupos</option>' + groups.map(g=>`<option value="${g}">${g}</option>`).join('');
+    rdApply();
+  }
+  rdLoad();
+})();
+</script>
