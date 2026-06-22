@@ -177,6 +177,13 @@
         </div>
       </div>
 
+      <!-- Lectura / Hints -->
+      <div class="es-panel">
+        <div class="es-panel-head"><div class="es-panel-title">Lectura de la posición</div></div>
+        <div id="esIVVH" style="padding:6px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.4"></div>
+        <div id="esHintsBox" style="padding:2px 14px 12px;font-size:12px;line-height:1.4"></div>
+      </div>
+
       <!-- Gráfico: precio GGAL (TradingView) + payoff horizontal -->
       <div class="es-panel">
         <div class="es-panel-head">
@@ -234,6 +241,13 @@
     </div>
   </div>
 
+  <!-- Lectura / Hints posiciones reales -->
+  <div class="es-panel" style="margin-bottom:10px">
+    <div class="es-panel-head"><div class="es-panel-title">Lectura del riesgo agregado</div></div>
+    <div id="posIVVH" style="padding:6px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.4"></div>
+    <div id="posHintsBox" style="padding:2px 14px 12px;font-size:12px;line-height:1.4"></div>
+  </div>
+
   <!-- Lista posiciones abiertas -->
   <div class="es-panel" style="margin-bottom:10px">
     <div class="es-panel-head">
@@ -285,6 +299,91 @@ function ivBS(precio,S,K,T,r,tipo){
 }
 function esFormatVto(exp){if(!exp)return'—';const m=exp.match(/(\d{4})-(\d{2})-(\d{2})/);return m?m[2]+'/'+m[1]:exp;}
 function calcT(vto){if(!vto||vto==='—')return 32/365;const[mm,yy]=vto.split('/').map(Number);if(!mm||!yy)return 32/365;const d=new Date(yy,mm-1,1);while(d.getDay()!==5)d.setDate(d.getDate()+1);d.setDate(d.getDate()+14);return Math.max((d-new Date())/(1000*60*60*24*365),1/365);}
+
+// ══════════════════════════════════════════════════
+// VOLATILIDAD HISTÓRICA + CAPA DE INTERPRETACIÓN (HINTS)
+// ══════════════════════════════════════════════════
+// VH = desv. estándar de log-returns diarios × √252 (anualizada)
+function calcVH(closes,n){
+  if(!Array.isArray(closes)||closes.length<n+1) return null;
+  const s=closes.slice(-(n+1)), rets=[];
+  for(let i=1;i<s.length;i++){ if(s[i]>0&&s[i-1]>0) rets.push(Math.log(s[i]/s[i-1])); }
+  if(rets.length<5) return null;
+  const m=rets.reduce((a,b)=>a+b,0)/rets.length;
+  const v=rets.reduce((a,b)=>a+(b-m)*(b-m),0)/(rets.length-1);
+  return Math.sqrt(v*252);
+}
+let esVHcache=null;
+async function esLoadVH(){
+  if(esVHcache) return esVHcache;
+  try{
+    const start=new Date(Date.now()-120*86400000).toISOString().slice(0,10);
+    const r=await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode:'yahoo-history',symbols:['GGAL.BA'],startDate:start})
+    });
+    const j=await r.json();
+    const closes=(Array.isArray(j['GGAL.BA'])?j['GGAL.BA']:[]).map(d=>Number(d.close)).filter(x=>x>0);
+    esVHcache={vh20:calcVH(closes,20),vh30:calcVH(closes,30),vh40:calcVH(closes,40)};
+  }catch(e){ esVHcache={vh20:null,vh30:null,vh40:null}; }
+  return esVHcache;
+}
+// VH del horizonte más parecido al plazo
+function vhForDays(vh,dias){ if(!vh) return null; if(dias<=25) return vh.vh20; if(dias<=35) return vh.vh30; return vh.vh40||vh.vh30||vh.vh20; }
+
+// Lectura IV vs VH → caro/barato
+function esIVVHText(ivPos,vh){
+  if(!ivPos||!vh) return null;
+  const ratio=ivPos/vh;
+  let verdict,lvl;
+  if(ratio>1.2){ verdict='Opciones CARAS: el mercado paga más vol de la que GGAL mostró. Favorece vender prima / spreads vendidos.'; lvl='warn'; }
+  else if(ratio<0.8){ verdict='Opciones BARATAS: pagás menos vol que la realidad reciente. Favorece comprar opciones.'; lvl='info'; }
+  else { verdict='Vol en línea con lo histórico — precio justo.'; lvl='info'; }
+  return {ratio,verdict,lvl,ivPos,vh};
+}
+
+// Motor de hints. g={delta,gamma,theta,vega,capital,ivPos,vh,dias,spot}
+function esBuildHints(g){
+  const H=[], cap=Math.abs(g.capital)||1, spot=g.spot||1;
+  // Perfil global (combinación de griegas)
+  if(g.gamma>0&&g.theta<0&&g.vega>0) H.push({lvl:'info',t:'Perfil COMPRADOR de prima: apostás a movimiento + suba de vol; el reloj y la calma te perjudican.'});
+  else if(g.gamma<0&&g.theta>0&&g.vega<0) H.push({lvl:'info',t:'Perfil VENDEDOR de prima: ganás con calma y vol cayendo; tu riesgo son los saltos bruscos.'});
+  // Dirección (delta)
+  const deltaNot=g.delta*spot, dirPct=Math.abs(deltaNot)/cap;
+  if(Math.abs(g.delta)<0.5) H.push({lvl:'info',t:'Direccionalmente neutral (Δ≈0): casi no ganás/perdés por dirección, sino por tiempo y volatilidad.'});
+  else if(g.delta>0) H.push({lvl:dirPct>3?'warn':'info',t:`Alcista${dirPct>3?' fuerte':''}: te movés como ~${Math.round(g.delta)} acciones de GGAL (exposición ≈ $${fmtAR(deltaNot,0)}). Una baja te pega de lleno.`});
+  else H.push({lvl:dirPct>3?'warn':'info',t:`Bajista${dirPct>3?' fuerte':''}: te movés como ~${Math.round(g.delta)} acciones de GGAL. Una suba te pega de lleno.`});
+  // Theta
+  if(g.theta<0){ const pctDia=Math.abs(g.theta)/cap*100; H.push({lvl:(pctDia>1||g.dias<10)?'warn':'info',t:`El tiempo juega en contra: perdés ~$${fmtAR(Math.abs(g.theta),0)}/día (${pctDia.toFixed(1)}% del capital/día)${g.dias?`, faltan ${g.dias}d`:''}. Necesitás que el movimiento llegue pronto.`}); }
+  else if(g.theta>0) H.push({lvl:'info',t:`El tiempo juega a favor: cobrás ~$${fmtAR(g.theta,0)}/día por el paso del tiempo.`});
+  // Gamma
+  if(g.gamma<0) H.push({lvl:'warn',t:'Gamma negativa: sos vendedor neto de convexidad — si el papel se mueve fuerte en tu contra, la pérdida se acelera.'});
+  else if(g.gamma>0&&Math.abs(g.delta)<0.5) H.push({lvl:'info',t:'Gamma positiva con delta neutro: te favorece un movimiento grande en cualquier dirección.'});
+  // Vega + cruce IV/VH
+  const ratio=(g.ivPos&&g.vh)?g.ivPos/g.vh:null;
+  if(g.vega>0){ const base=`Vega positiva ($${fmtAR(g.vega,0)} por punto de vol): ganás si la IV sube, perdés si se desinfla.`; if(ratio&&ratio>1.2) H.push({lvl:'danger',t:`${base} Y la IV está cara (${ratio.toFixed(2)}× la histórica) → doble viento en contra si la vol se normaliza.`}); else H.push({lvl:'info',t:base}); }
+  else if(g.vega<0){ const base='Vega negativa: ganás si la IV baja, perdés si se dispara.'; if(ratio&&ratio<0.8) H.push({lvl:'danger',t:`${base} Y la IV está barata (${ratio.toFixed(2)}× la histórica) → riesgo si la vol sube.`}); else H.push({lvl:'info',t:base}); }
+  return H;
+}
+
+// Render compartido: prefix 'es' (simulador) o 'pos' (posiciones). Carga VH async y pinta.
+async function esRenderHints(prefix,g){
+  const box=document.getElementById(prefix+'HintsBox'), ivvh=document.getElementById(prefix+'IVVH');
+  if(!box) return;
+  const vhAll=await esLoadVH();
+  const vh=vhForDays(vhAll,g.dias);
+  g.vh=vh;
+  const lvlColor={info:'var(--blue)',warn:'var(--amber)',danger:'var(--red)'};
+  const lvlIcon ={info:'•',warn:'⚠',danger:'⛔'};
+  if(ivvh){
+    const v=esIVVHText(g.ivPos,vh);
+    ivvh.innerHTML = v
+      ? `<span style="color:var(--text2)">IV posición <b style="color:var(--purple)">${(v.ivPos*100).toFixed(0)}%</b> · VH${g.dias<=25?20:g.dias<=35?30:40} GGAL <b style="color:var(--text)">${(v.vh*100).toFixed(0)}%</b> · ratio <b style="color:${lvlColor[v.lvl]}">${v.ratio.toFixed(2)}×</b></span><div style="margin-top:3px;color:${lvlColor[v.lvl]}">${v.verdict}</div>`
+      : `<span style="color:var(--text3)">${g.ivPos?'VH no disponible (sin serie GGAL.BA)':'Sin IV de posición'}</span>`;
+  }
+  const hints=esBuildHints(g);
+  box.innerHTML = hints.map(h=>`<div style="display:flex;gap:6px;align-items:flex-start;padding:4px 0;border-bottom:1px solid var(--border2)"><span style="color:${lvlColor[h.lvl]};font-weight:700;flex-shrink:0">${lvlIcon[h.lvl]}</span><span style="color:var(--text2)">${h.t}</span></div>`).join('');
+}
 
 // ══════════════════════════════════════════════════
 // STATE
@@ -571,7 +670,7 @@ window.esRecalc = () => {
   const pnlActual = pnlTeo?.[spotIdx] ?? pnlVto[spotIdx] ?? 0;
 
   // Griegos totales al spot actual
-  let totDelta=0,totGamma=0,totTheta=0,totVega=0;
+  let totDelta=0,totGamma=0,totTheta=0,totVega=0,ivNum=0,ivDen=0;
   esLegs.forEach(leg=>{
     const K=leg.strike, T=calcT(leg.vto);
     const iv=ivBS(leg.prima,S,K,T,r,leg.kind==='call'?'call':'put');
@@ -581,7 +680,10 @@ window.esRecalc = () => {
     totGamma+=sign*bsGamma(S,K,T_teo>0?T_teo:T,r,ivAdj)*leg.qty*optSz;
     totTheta+=sign*bsTheta(S,K,T_teo>0?T_teo:T,r,ivAdj,leg.kind==='call'?'call':'put')*leg.qty*optSz;
     totVega +=sign*bsVega(S,K,T_teo>0?T_teo:T,r,ivAdj)*leg.qty*optSz;
+    // IV de posición = promedio de IV ponderado por |vega| (vol a la que estás expuesto)
+    if(iv>0&&iv<5){ const w=Math.abs(bsVega(S,K,T_teo>0?T_teo:T,r,iv)*leg.qty*optSz); ivNum+=iv*w; ivDen+=w; }
   });
+  const ivPos = ivDen>0 ? ivNum/ivDen : null;
 
   // Update UI métricas
   document.getElementById('esCapital').textContent = costoNeto>0?'$'+fmtAR(costoNeto,2):'—';
@@ -602,6 +704,9 @@ window.esRecalc = () => {
   document.getElementById('gTheta').textContent  = '$'+fmtAR(totTheta,2);
   document.getElementById('gVega').textContent   = '$'+fmtAR(totVega,2);
   document.getElementById('gCapital').textContent= costoNeto>0?'$'+fmtAR(costoNeto,2):'Crédito';
+
+  // Lectura / hints del simulador
+  esRenderHints('es',{delta:totDelta,gamma:totGamma,theta:totTheta,vega:totVega,capital:costoNeto||Math.abs(totVega)*10,ivPos,dias,spot:S});
 
   // Gráfico
   const spotLineIdx = prices.findIndex(p=>p>=S);
@@ -865,17 +970,19 @@ window.esPosLoad = async () => {
   }
 
   // Totales griegos abiertas
-  let totDelta=0,totGamma=0,totTheta=0,totVega=0,totCapital=0,totPnL=0;
+  let totDelta=0,totGamma=0,totTheta=0,totVega=0,totCapital=0,totPnL=0,ivNum=0,ivDen=0,minDays=Infinity;
   abiertas.forEach(op=>{
     const optSz = op.patas?.[0]?.option_size||100;
     op.patas?.forEach(leg=>{
       const K=leg.strike, T=calcT(leg.vto), r=0.70;
       const iv=ivBS(leg.prima,esSpotVal,K,T,r,leg.kind==='call'?'call':'put');
       const T_now=T, sign=leg.action==='buy'?1:-1;
+      minDays=Math.min(minDays,T*365);
       totDelta+=sign*bsDelta(esSpotVal,K,T_now,r,iv,leg.kind==='call'?'call':'put')*leg.qty*optSz;
       totGamma+=sign*bsGamma(esSpotVal,K,T_now,r,iv)*leg.qty*optSz;
       totTheta+=sign*bsTheta(esSpotVal,K,T_now,r,iv,leg.kind==='call'?'call':'put')*leg.qty*optSz;
       totVega +=sign*bsVega(esSpotVal,K,T_now,r,iv)*leg.qty*optSz;
+      if(iv>0&&iv<5){ const w=Math.abs(bsVega(esSpotVal,K,T_now,r,iv)*leg.qty*optSz); ivNum+=iv*w; ivDen+=w; }
       const costoLeg=(leg.action==='buy'?leg.prima:-leg.prima)*leg.qty*optSz;
       totCapital+=costoLeg>0?costoLeg:0;
       // Precio actual: mercado si disponible, BS como fallback
@@ -893,6 +1000,15 @@ window.esPosLoad = async () => {
   document.getElementById('pos-theta').textContent='$'+fmtAR(totTheta,2);
   document.getElementById('pos-vega').textContent='$'+fmtAR(totVega,2);
   document.getElementById('pos-capital').textContent='$'+fmtAR(totCapital,2);
+
+  // Lectura / hints del riesgo agregado real
+  if(abiertas.length){
+    const ivPos = ivDen>0 ? ivNum/ivDen : null;
+    esRenderHints('pos',{delta:totDelta,gamma:totGamma,theta:totTheta,vega:totVega,capital:totCapital||Math.abs(totVega)*10,ivPos,dias:isFinite(minDays)?Math.round(minDays):32,spot:esSpotVal});
+  } else {
+    const b=document.getElementById('posHintsBox'); if(b) b.innerHTML='';
+    const v=document.getElementById('posIVVH'); if(v) v.innerHTML='';
+  }
 
   // Render abiertas
   document.getElementById('esPosContainer').innerHTML = !abiertas.length
