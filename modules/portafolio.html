@@ -553,6 +553,10 @@
     <button class="stab"        id="pftab-reportes"   onclick="pfTab('reportes',this)">Reportes</button>
   </div>
   <div class="sub-tabs-meta" style="display:flex;align-items:center;gap:8px">
+    <span id="pfLiveStatus" title="Estado del portafolio en vivo" style="display:inline-flex;align-items:center;gap:5px;font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace;letter-spacing:.5px">
+      <span id="pfLiveDot" style="width:8px;height:8px;border-radius:50%;background:#555;display:inline-block"></span>
+      <span id="pfLiveTxt">live ?</span>
+    </span>
     <span id="pfMeta" style="font-size:9px;color:var(--text3);font-family:'IBM Plex Mono',monospace"></span>
     <button class="btn-prim" id="pfNewPosBtn" style="font-size:13px;padding:5px 14px" onclick="pfModalOpen()">+ Nueva Posición</button>
   </div>
@@ -5379,3 +5383,34 @@ function pfAnimKPIs() {
 </div>
 
 </body>
+
+<style>
+@keyframes pfBlink { 0%,100%{opacity:1} 50%{opacity:.25} }
+#pfLiveDot.pf-live  { background:#2ecc71 !important; box-shadow:0 0 6px #2ecc71; animation:pfBlink 1.4s infinite }
+#pfLiveDot.pf-warn  { background:#f39c12 !important; box-shadow:0 0 5px #f39c12 }
+#pfLiveDot.pf-stale { background:#e74c3c !important; box-shadow:0 0 5px #e74c3c }
+</style>
+<script>
+(function(){
+  async function pfLivePoll(){
+    try{
+      const rows = await sb('portafolio_live_status', 'id=eq.1&select=ts,conectado,reconciliado,estado');
+      const dot = document.getElementById('pfLiveDot'); const txt = document.getElementById('pfLiveTxt');
+      if(!dot||!txt) return;
+      if(!rows || !rows.length){ dot.className=''; txt.textContent='live off'; return; }
+      const r = rows[0];
+      const ageS = (Date.now() - new Date(r.ts).getTime())/1000;
+      if(r.conectado && ageS < 90){
+        dot.className = r.reconciliado ? 'pf-live' : 'pf-warn';
+        txt.textContent = 'live' + (r.reconciliado ? '' : ' (sync…)');
+      } else if(ageS < 300){
+        dot.className = 'pf-warn'; txt.textContent = 'demorado ' + Math.round(ageS) + 's';
+      } else {
+        dot.className = 'pf-stale'; txt.textContent = 'offline';
+      }
+    }catch(e){ /* silencioso */ }
+  }
+  pfLivePoll(); setInterval(pfLivePoll, 15000);
+})();
+</script>
+
