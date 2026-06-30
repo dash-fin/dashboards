@@ -1788,29 +1788,13 @@ window.loadMacro = async function() {
     (async () => {
       try {
         const ANON = window._sbKey || '';
-        const mRows = await sb('cache_finra_margin', 'select=month,yoy_pct,debit_balance&order=month.asc&limit=500');
+        const mRows = await sb('cache_finra_margin', 'select=month,yoy_pct,sp500&order=month.asc&limit=500');
         if (!Array.isArray(mRows) || !mRows.length) return;
         const mdData = mRows.filter(r => r.yoy_pct != null);
 
-        // S&P 500 mensual desde Yahoo Finance
-        const yfResp = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=30y&interval=1mo', { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        const yfJ = await yfResp.json();
-        const res = yfJ?.chart?.result?.[0];
-        const tss  = res?.timestamp || [];
-        const spxC = res?.indicators?.quote?.[0]?.close || [];
-        // Mapear timestamp → YYYY-MM (primer día del mes)
-        const spxMap = {};
-        tss.forEach((ts, i) => {
-          if (spxC[i] != null) {
-            const d = new Date(ts * 1000);
-            const k = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
-            spxMap[k] = spxC[i];
-          }
-        });
-
         const labels  = mdData.map(r => r.month);
         const yoyVals = mdData.map(r => r.yoy_pct);
-        const spxVals = labels.map(m => spxMap[m] ?? null);
+        const spxVals = mdData.map(r => r.sp500 ?? null);
 
         // Badge último dato
         const last = mdData[mdData.length - 1];
