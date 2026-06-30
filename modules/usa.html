@@ -778,6 +778,15 @@
       </div>
     </div>
 
+    <div class="macro-chart-card">
+      <div class="macro-chart-head">
+        <span class="macro-chart-title">Margin Debt YoY% vs S&amp;P 500 — FINRA</span>
+        <button onclick="captureElement(document.getElementById('macro-chart-margin-wrap'),this)" type="button" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px">📷 Compartir</button>
+      </div>
+      <div class="macro-tip-box"><b>📊 Cómo leer:</b> La deuda marginal (dinero prestado para comprar acciones) crece con el optimismo. Cuando supera <b>+30–40% YoY</b> (zona roja) históricamente precede correcciones. Lecturas por debajo de <b>0% / -20%</b> (zona verde) señalan capitulación — oportunidad de entrada. Actualmente: <b id="margin-debt-badge" style="color:var(--red)">cargando…</b></div>
+      <div id="macro-chart-margin-wrap" class="macro-chart-body" style="height:300px"><canvas id="macro-chart-margin"></canvas></div>
+    </div>
+
   </div>
 </div><!-- /uspanel-macro -->
 
@@ -1774,6 +1783,79 @@ window.loadMacro = async function() {
 
     if (loadingEl) loadingEl.style.display = 'none';
     if (chartsEl)  chartsEl.style.display  = '';
+
+    // ── Margin Debt chart (FINRA + S&P 500 Yahoo) ──────────────────
+    (async () => {
+      try {
+        const ANON = window._sbKey || '';
+        const mRows = await sb('cache_finra_margin', 'select=month,yoy_pct,debit_balance&order=month.asc&limit=500');
+        if (!Array.isArray(mRows) || !mRows.length) return;
+        const mdData = mRows.filter(r => r.yoy_pct != null);
+
+        // S&P 500 mensual desde Yahoo Finance
+        const yfResp = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=30y&interval=1mo', { headers: { 'User-Agent': 'Mozilla/5.0' } });
+        const yfJ = await yfResp.json();
+        const res = yfJ?.chart?.result?.[0];
+        const tss  = res?.timestamp || [];
+        const spxC = res?.indicators?.quote?.[0]?.close || [];
+        // Mapear timestamp → YYYY-MM (primer día del mes)
+        const spxMap = {};
+        tss.forEach((ts, i) => {
+          if (spxC[i] != null) {
+            const d = new Date(ts * 1000);
+            const k = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+            spxMap[k] = spxC[i];
+          }
+        });
+
+        const labels  = mdData.map(r => r.month);
+        const yoyVals = mdData.map(r => r.yoy_pct);
+        const spxVals = labels.map(m => spxMap[m] ?? null);
+
+        // Badge último dato
+        const last = mdData[mdData.length - 1];
+        const badge = document.getElementById('margin-debt-badge');
+        if (badge && last) {
+          const col = last.yoy_pct > 30 ? 'var(--red)' : last.yoy_pct < 0 ? 'var(--green)' : 'var(--amber)';
+          badge.style.color = col;
+          badge.textContent = `${last.month}: ${last.yoy_pct > 0 ? '+' : ''}${last.yoy_pct.toFixed(1)}% YoY`;
+        }
+
+        if (window._macroCharts?.margin) window._macroCharts.margin.destroy();
+        window._macroCharts = window._macroCharts || {};
+        window._macroCharts.margin = new Chart(document.getElementById('macro-chart-margin'), {
+          type: 'line',
+          data: { labels, datasets: [
+            { label: 'S&P 500', data: spxVals, borderColor: '#222e42', backgroundColor: 'transparent',
+              borderWidth: 2, pointRadius: 0, tension: 0.2, yAxisID: 'yspx', order: 2 },
+            { label: 'Margin Debt YoY%', data: yoyVals, borderColor: '#ef4444', backgroundColor: 'transparent',
+              borderWidth: 1.5, pointRadius: 0, tension: 0.2, yAxisID: 'yyoy', order: 1 }
+          ]},
+          options: {
+            responsive: true, maintainAspectRatio: false, animation: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { labels: { color: '#8892aa', font: { family: 'IBM Plex Mono', size: 10 } } },
+              tooltip: { backgroundColor: '#111722', titleFont: { family: 'IBM Plex Mono', size: 10 }, bodyFont: { family: 'IBM Plex Mono', size: 11 },
+                callbacks: { label: ctx => ctx.dataset.yAxisID === 'yyoy'
+                  ? `YoY: ${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y.toFixed(1)}%`
+                  : `S&P 500: ${Math.round(ctx.parsed.y).toLocaleString()}` }},
+              annotation: { annotations: {
+                redBandHi: { type: 'box', yScaleID: 'yyoy', yMin: 30, yMax: 55, backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 0 },
+                redBandLo: { type: 'line', yScaleID: 'yyoy', yMin: 30, yMax: 30, borderColor: 'rgba(239,68,68,0.35)', borderWidth: 1, borderDash: [4,3] },
+                greenBandHi: { type: 'line', yScaleID: 'yyoy', yMin: 0, yMax: 0, borderColor: 'rgba(34,197,94,0.4)', borderWidth: 1, borderDash: [4,3] },
+                greenBandLo: { type: 'box', yScaleID: 'yyoy', yMin: -25, yMax: 0, backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 0 },
+              }}
+            },
+            scales: {
+              x:    { ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, maxTicksLimit: 10, maxRotation: 0 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+              yspx: { type: 'logarithmic', position: 'left',  ticks: { color: '#4a5568', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v }, grid: { color: 'rgba(255,255,255,0.04)' } },
+              yyoy: { position: 'right', ticks: { color: '#ef4444', font: { family: 'IBM Plex Mono', size: 9 }, callback: v => v + '%' }, grid: { drawOnChartArea: false } }
+            }
+          }
+        });
+      } catch(e) { console.warn('[MarginDebt chart]', e); }
+    })();
 
   } catch(e) {
     console.error('[loadMacro]', e);
