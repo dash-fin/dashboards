@@ -1793,13 +1793,22 @@ async function pfFetchOpsData() {
   // autenticado. closedToday usa .catch(()=>[]) para fallar silencioso si el JWT no está presente.
   // ⚠ No usar pnl_realizado de operaciones: suele ser null porque las escrituras con anon key
   // también fallan por RLS. El P&L realizado se extrae de patas[].prima_cierre en su lugar.
-  const [ops, closedToday, spotR, optRT, caucR] = await Promise.all([
+  const [ops, closedToday, spotR, optRT, caucR, brokerOpt] = await Promise.all([
     sb('operaciones','estado=eq.abierta&order=fecha.desc&select=*'),
     sb('operaciones',`estado=eq.cerrada&fecha_cierre=eq.${_arToday}&select=id,patas`).catch(()=>[]),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
     sb('opciones_rt','select=symbol,kind,last,bid,ask,strike,previous_close&order=symbol.asc'),
     sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=last&limit=5'),
+    sb('posiciones_broker','tipo=eq.OPCION&select=ticker_ars,qty').catch(()=>[]),
   ]);
+  // Snapshot broker = verdad de cantidad/lado de opciones ABIERTAS (rearquitectura 2026-07-03).
+  // Índice por clave parcial SUB_KIND_STRIKE (ticker_ars = SUB_KIND_STRIKE_YYYY-MM). qty signada: >0 comprado, <0 lanzado.
+  const brokerOptIdx = {};
+  (brokerOpt||[]).forEach(b => {
+    const p = String(b.ticker_ars||'').split('_');
+    if(p.length < 3) return;
+    brokerOptIdx[`${p[0]}_${p[1]}_${p[2]}`] = b;
+  });
   // P&L realizado de opciones cerradas hoy (prima_cierre ya guardada en patas)
   const realizedDailyARS = (closedToday||[]).reduce((total, op) => {
     const optSz = Number(op.patas?.[0]?.option_size) || 100;
@@ -1845,6 +1854,11 @@ async function pfFetchOpsData() {
     const legRows = (op.patas||[]).map(leg=>{
       const K     = Number(leg.strike) || 0;
       const prima = Number(leg.prima)  || 0;
+      // Cantidad/lado ABIERTO = snapshot del broker (verdad). Fallback a patas legacy si el broker no lo tiene.
+      const _bk = brokerOptIdx[`${op.subyacente}_${String(leg.kind).toUpperCase()}_${Number(leg.strike)}`];
+      if(_bk && _bk.qty != null && Math.abs(Number(_bk.qty)) > 0.4){
+        leg = {...leg, qty: Math.abs(Number(_bk.qty)), action: Number(_bk.qty) < 0 ? 'sell' : 'buy'};
+      }
       const qty   = Number(leg.qty)    || 0;
       const tipo  = leg.kind==='call'?'call':'put';
       const key   = `${tipo}_${K}`;
@@ -1875,7 +1889,7 @@ async function pfFetchOpsData() {
     if(!anyNull) totPnL += pnl;
     const legsDailySum = legRows.reduce((s,r) => r.legDailyPnl != null ? s + r.legDailyPnl : s, 0);
     const hasDailyPnl  = legRows.some(r => r.legDailyPnl != null);
-    const entrada=Math.abs((op.patas||[]).reduce((s,l)=>s+(l.action==='buy'?Number(l.prima)*Number(l.qty):-Number(l.prima)*Number(l.qty)),0)*optSz);
+    const entrada=Math.abs(legRows.reduce((s,r)=>{const l=r.leg;return s+(l.action==='buy'?Number(l.prima)*Number(l.qty):-Number(l.prima)*Number(l.qty));},0)*optSz);
     return{op,pnl,entrada,legRows,anyNull,legsDailySum,hasDailyPnl};
   });
 
