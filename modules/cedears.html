@@ -143,7 +143,7 @@ window.csTab = (name, btn) => {
 let csMepRows=[], csMepFilter='all', csMepSortCol='ccl_spread', csMepSortDir=1;
 let csMepRef=null, csCclRef=null, csCclGdRef=null;
 const CS_LIQ_FLOOR=3e6;  // turnover ARS mínimo para rankings/arbitrajes (filtra especies rancias)
-const CS_SANE=15;        // |spread%| máximo para considerarlo dato válido (más = punta stale)
+const CS_SANE=12;        // |spread%| máximo para considerarlo dato válido (más = punta stale)
 const csLiquidSane=(r,k)=> r[k]!=null && Math.abs(r[k])<=CS_SANE && r.vol_ars>=CS_LIQ_FLOOR;
 let csRatioMap={}, csUsaMap={};   // ratio-based CCL
 let csArsMap={};                  // precio ARS por ticker plano
