@@ -31,10 +31,17 @@
   </div>
   <div class="table-wrap">
     <table>
-      <thead><tr>
-        <th class="th-left">Ticker</th><th class="th-left">Onda</th><th>Dir</th>
-        <th>Conf</th><th>Calidad</th><th class="th-left">P.conf (origen)</th>
-        <th>Precio</th><th>Objetivo</th><th>Invalida</th><th class="th-left">Fase</th>
+      <thead><tr id="ewHead" style="cursor:pointer;user-select:none">
+        <th class="th-left" onclick="ewSort('symbol')">Ticker<span class="sc" data-k="symbol"></span></th>
+        <th class="th-left" onclick="ewSort('onda')">Onda<span class="sc" data-k="onda"></span></th>
+        <th onclick="ewSort('dir')">Dir<span class="sc" data-k="dir"></span></th>
+        <th onclick="ewSort('conf')">Conf<span class="sc" data-k="conf"></span></th>
+        <th onclick="ewSort('calidad')">Calidad<span class="sc" data-k="calidad"></span></th>
+        <th class="th-left" onclick="ewSort('p_conf')">P.conf (origen)<span class="sc" data-k="p_conf"></span></th>
+        <th onclick="ewSort('price')">Precio<span class="sc" data-k="price"></span></th>
+        <th onclick="ewSort('_obj')">Objetivo<span class="sc" data-k="_obj"></span></th>
+        <th onclick="ewSort('inval')">Invalida<span class="sc" data-k="inval"></span></th>
+        <th class="th-left" onclick="ewSort('fase')">Fase<span class="sc" data-k="fase"></span></th>
       </tr></thead>
       <tbody id="ewTbody"><tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Cargando…</td></tr></tbody>
     </table>
@@ -48,8 +55,15 @@
 
 <script>
 (function(){
-  const S = { rows: [], tab: 'D', ced: false, sol: false };
+  const S = { rows: [], tab: 'D', ced: false, sol: false, sortKey: null, sortDir: -1 };
   window._ewS = S;
+  const NUM = new Set(['conf', 'p_conf', 'price', '_obj', 'inval']);
+  const sval = (x, k) => k === '_obj' ? (x.target_corr != null ? x.target_corr : x.target) : x[k];
+  window.ewSort = (k) => {
+    if (S.sortKey === k) S.sortDir *= -1;
+    else { S.sortKey = k; S.sortDir = NUM.has(k) ? -1 : 1; }   // numérico arranca mejor→peor
+    ewRender();
+  };
 
   async function ewLoad(){
     try {
@@ -76,6 +90,15 @@
     if(q) r = r.filter(x=>x.symbol.includes(q));
     if(S.ced) r = r.filter(x=>x.cedear);
     if(S.sol) r = r.filter(x=>x.calidad==='sólido ✓');
+    if(S.sortKey){
+      const k = S.sortKey, dir = S.sortDir, num = NUM.has(k);
+      r = [...r].sort((a,b)=>{
+        let va = sval(a,k), vb = sval(b,k);
+        const na = (va==null||va===''), nb = (vb==null||vb==='');
+        if(na && nb) return 0; if(na) return 1; if(nb) return -1;   // nulos al final
+        return num ? (va-vb)*dir : String(va).localeCompare(String(vb))*dir;
+      });
+    }
     return r;
   }
 
@@ -142,6 +165,10 @@
       <td style="color:var(--text2)">${g(x.fase)}${x.mtf?` <span style="color:${x.mtf==='ALINEADO'?'var(--green)':'var(--amber)'};font-size:10px;font-weight:700">${x.mtf==='ALINEADO'?'⚡D-S':'⚠D-S'}</span>`:''}</td></tr>`).join('')
       : '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Sin filas.</td></tr>';
     document.getElementById('ewCount').textContent = r.length;
+    document.querySelectorAll('#ewHead .sc').forEach(sp=>{
+      sp.textContent = (sp.dataset.k===S.sortKey) ? (S.sortDir<0?' ▼':' ▲') : '';
+      sp.style.color = 'var(--accent)';
+    });
     // KPIs
     const D = S.rows.filter(x=>x.tf===(S.tab==='S'?'S':'D'));
     document.getElementById('ek-total').textContent = D.length;
