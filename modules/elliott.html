@@ -139,7 +139,7 @@
       <td style="color:${dc(x.dir)};font-weight:600">${x.dir}</td>
       <td>${x.conf}%</td><td>${calchip(x.calidad)}</td><td>${pconf(x)}</td>
       <td>${x.price}</td><td>${g(x.target_corr||x.target)}</td><td>${g(x.inval)}</td>
-      <td style="color:var(--text2)">${g(x.fase)}</td></tr>`).join('')
+      <td style="color:var(--text2)">${g(x.fase)}${x.mtf?` <span style="color:${x.mtf==='ALINEADO'?'var(--green)':'var(--amber)'};font-size:10px;font-weight:700">${x.mtf==='ALINEADO'?'⚡D-S':'⚠D-S'}</span>`:''}</td></tr>`).join('')
       : '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Sin filas.</td></tr>';
     document.getElementById('ewCount').textContent = r.length;
     // KPIs
