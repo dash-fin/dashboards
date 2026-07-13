@@ -136,7 +136,7 @@
     document.getElementById('ewTbody').innerHTML = r.length ? r.map(x=>`<tr>
       <td class="tk">${x.symbol}${x.cedear?' 🇦🇷':''}</td>
       <td><span style="background:${x.tf==='S'?'#2a1f0d':'#0d2333'};color:${x.tf==='S'?'#e0c04f':'#4fb0e0'};padding:0 5px;border-radius:4px;font-size:10px;font-weight:700;margin-right:5px">${x.tf==='S'?'SEM':'DIA'}</span>${x.onda}</td>
-      <td style="color:${dc(x.dir)};font-weight:600">${x.dir}</td>
+      <td style="color:${dc(x.dir)};font-weight:600">${x.dir}${['Onda 5','Diagonal'].includes(x.onda)?`<br><span style="color:${x.dir==='ALCISTA'?'var(--red)':'var(--green)'};font-size:10px;font-weight:700">↺ rev. ${x.dir==='ALCISTA'?'BAJISTA':'ALCISTA'}</span>`:''}</td>
       <td>${x.conf}%</td><td>${calchip(x.calidad)}</td><td>${pconf(x)}</td>
       <td>${x.price}</td><td>${g(x.target_corr||x.target)}</td><td>${g(x.inval)}</td>
       <td style="color:var(--text2)">${g(x.fase)}${x.mtf?` <span style="color:${x.mtf==='ALINEADO'?'var(--green)':'var(--amber)'};font-size:10px;font-weight:700">${x.mtf==='ALINEADO'?'⚡D-S':'⚠D-S'}</span>`:''}</td></tr>`).join('')
