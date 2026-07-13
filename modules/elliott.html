@@ -8,6 +8,7 @@
     <button class="stab active" onclick="ewTab('D',this)">Diario</button>
     <button class="stab" onclick="ewTab('S',this)">Semanal</button>
     <button class="stab" onclick="ewTab('elite',this)">Élite · reversiones</button>
+    <button class="stab" onclick="ewTab('hch',this)">HCH</button>
     <button class="stab" onclick="ewTab('ggal',this)">GGAL</button>
   </div>
   <div class="sub-tabs-meta" id="ewMeta">ZigZag + Fibonacci + oscilador EWO · p.conf = prob. del backtest</div>
@@ -22,7 +23,34 @@
 
 <div id="ewGgalPanel" style="display:none;margin-bottom:12px"></div>
 
-<div class="card">
+<div class="card" id="ewHchWrap" style="display:none">
+  <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+    <input class="search-input" placeholder="Buscar ticker..." id="hsSearch" oninput="ewRender()">
+    <span class="row-count" id="hsCount">0</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr id="hsHead" style="cursor:pointer;user-select:none">
+        <th class="th-left" onclick="hsSort('symbol')">Ticker<span class="sc" data-k="symbol"></span></th>
+        <th onclick="hsSort('tf')">TF<span class="sc" data-k="tf"></span></th>
+        <th class="th-left" onclick="hsSort('dir')">Patrón<span class="sc" data-k="dir"></span></th>
+        <th onclick="hsSort('status')">Estado<span class="sc" data-k="status"></span></th>
+        <th onclick="hsSort('sym')">Simetría<span class="sc" data-k="sym"></span></th>
+        <th onclick="hsSort('price')">Precio<span class="sc" data-k="price"></span></th>
+        <th onclick="hsSort('neck')">Cuello<span class="sc" data-k="neck"></span></th>
+        <th onclick="hsSort('target')">Objetivo<span class="sc" data-k="target"></span></th>
+      </tr></thead>
+      <tbody id="hsBody"></tbody>
+    </table>
+  </div>
+  <div style="color:var(--text3);font-size:12px;margin-top:10px;line-height:1.6">
+    <b>HCH</b> = Hombro-Cabeza-Hombro (reversión, independiente del conteo EW). ⛰️ <b>Techo</b> → giro bajista ·
+    ⩗ <b>Invertido</b> → giro alcista. En el backtest el <b>potencial</b> (cuello sin romper) rinde más que esperar el quiebre;
+    la <b>simetría</b> es calidad del dibujo, no probabilidad de acierto. Objetivo = movimiento medido (oculto si implica >60%). 🇦🇷 = CEDEAR.
+  </div>
+</div>
+
+<div class="card" id="ewEwWrap">
   <div class="toolbar" style="flex-wrap:wrap;gap:8px">
     <input class="search-input" placeholder="Buscar ticker..." id="ewSearch" oninput="ewRender()">
     <button class="flt" id="ewFced" onclick="ewToggle('ced',this)" data-cls="on-amber">🇦🇷 CEDEAR</button>
@@ -56,8 +84,14 @@
 
 <script>
 (function(){
-  const S = { rows: [], tab: 'D', ced: false, sol: false, sortKey: null, sortDir: -1 };
+  const S = { rows: [], hs: [], tab: 'D', ced: false, sol: false, sortKey: null, sortDir: -1, hsSortKey: 'sym', hsSortDir: -1 };
   window._ewS = S;
+  const HNUM = new Set(['sym', 'price', 'neck', 'target']);
+  window.hsSort = (k) => {
+    if (S.hsSortKey === k) S.hsSortDir *= -1;
+    else { S.hsSortKey = k; S.hsSortDir = HNUM.has(k) ? -1 : 1; }
+    ewRender();
+  };
   const NUM = new Set(['conf', 'p_conf', 'price', '_obj', 'inval']);
   const sval = (x, k) => k === '_obj' ? (x.target_corr != null ? x.target_corr : x.target) : x[k];
   window.ewSort = (k) => {
@@ -71,6 +105,10 @@
       const res = await window.sb('elliott_signals', 'select=*&order=conf.desc&limit=2000');
       S.rows = Array.isArray(res) ? res : [];
     } catch(e){ S.rows = []; }
+    try {
+      const h = await window.sb('hs_live', 'select=*&order=sym.desc&limit=500');
+      S.hs = Array.isArray(h) ? h : [];
+    } catch(e){ S.hs = []; }
     ewRender();
   }
   window.ewTab = (t, btn) => {
@@ -147,7 +185,40 @@
     </div>`;
   }
 
+  function renderHch(){
+    const q = (document.getElementById('hsSearch').value||'').toUpperCase();
+    let r = S.hs.filter(x=> !q || x.symbol.includes(q));
+    const k = S.hsSortKey, dir = S.hsSortDir, num = HNUM.has(k);
+    r = [...r].sort((a,b)=>{
+      let va=a[k], vb=b[k]; const na=(va==null||va===''), nb=(vb==null||vb==='');
+      if(na&&nb) return 0; if(na) return 1; if(nb) return -1;
+      return num ? (va-vb)*dir : String(va).localeCompare(String(vb))*dir;
+    });
+    const g = v => (v==null?'—':v);
+    document.getElementById('hsBody').innerHTML = r.length ? r.map(x=>{
+      const top = x.dir===-1, col = top?'var(--red)':'var(--green)';
+      const conf = x.status==='confirmado';
+      return `<tr>
+        <td class="tk">${x.symbol}${x.cedear?' 🇦🇷':''}</td>
+        <td><span style="background:${x.tf==='S'?'#2a1f0d':'#0d2333'};color:${x.tf==='S'?'#e0c04f':'#4fb0e0'};padding:0 5px;border-radius:4px;font-size:10px;font-weight:700">${x.tf==='S'?'SEM':'DIA'}</span></td>
+        <td style="color:${col};font-weight:700">${top?'⛰️ Techo → bajista':'⩗ Invertido → alcista'}</td>
+        <td style="color:${conf?'var(--green)':'var(--amber)'};font-weight:600">${x.status}</td>
+        <td>${x.sym}%</td><td>${x.price}</td><td>${x.neck}</td>
+        <td style="color:${col};font-weight:600">${g(x.target)}</td></tr>`;
+    }).join('') : '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">Sin HCH vivos.</td></tr>';
+    document.getElementById('hsCount').textContent = r.length;
+    document.querySelectorAll('#hsHead .sc').forEach(sp=>{
+      sp.textContent = (sp.dataset.k===S.hsSortKey) ? (S.hsSortDir<0?' ▼':' ▲') : '';
+      sp.style.color = 'var(--accent)';
+    });
+  }
+
   window.ewRender = () => {
+    const isHch = S.tab==='hch';
+    document.getElementById('ewHchWrap').style.display = isHch ? '' : 'none';
+    document.getElementById('ewEwWrap').style.display = isHch ? 'none' : '';
+    document.getElementById('ewKpis').style.display = isHch ? 'none' : '';
+    if(isHch){ document.getElementById('ewGgalPanel').style.display='none'; renderHch(); return; }
     const gp = document.getElementById('ewGgalPanel');
     if(S.tab==='ggal'){
       const grow = S.rows.find(x=>x.symbol==='GGAL' && x.tf==='D' && x.panel);
