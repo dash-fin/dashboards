@@ -4,12 +4,21 @@
      Diario + Semanal + Élite reversiones + GGAL. p_conf con origen.
 ══════════════════════════════════════════════════ -->
 <div class="sub-tabs-row">
-  <div class="sub-tabs" id="ewTabs">
+  <div class="sub-tabs" id="ewModes">
+    <button class="stab active" onclick="ewMode('elliott',this)">🌀 Elliott</button>
+    <button class="stab" onclick="ewMode('hch',this)">⛰️ HCH</button>
+  </div>
+</div>
+<div class="sub-tabs-row">
+  <div class="sub-tabs" id="ewSubEll">
     <button class="stab active" onclick="ewTab('D',this)">Diario</button>
     <button class="stab" onclick="ewTab('S',this)">Semanal</button>
     <button class="stab" onclick="ewTab('elite',this)">Élite · reversiones</button>
-    <button class="stab" onclick="ewTab('hch',this)">HCH</button>
     <button class="stab" onclick="ewTab('ggal',this)">GGAL</button>
+  </div>
+  <div class="sub-tabs" id="ewSubHch" style="display:none">
+    <button class="stab active" onclick="ewTab('D',this)">Diario</button>
+    <button class="stab" onclick="ewTab('S',this)">Semanal</button>
   </div>
   <div class="sub-tabs-meta" id="ewMeta">ZigZag + Fibonacci + oscilador EWO · p.conf = prob. del backtest</div>
 </div>
@@ -84,8 +93,18 @@
 
 <script>
 (function(){
-  const S = { rows: [], hs: [], tab: 'D', ced: false, sol: false, sortKey: null, sortDir: -1, hsSortKey: 'sym', hsSortDir: -1 };
+  const S = { rows: [], hs: [], mode: 'elliott', tab: 'D', ced: false, sol: false, sortKey: null, sortDir: -1, hsSortKey: 'sym', hsSortDir: -1 };
   window._ewS = S;
+  window.ewMode = (m, btn) => {
+    S.mode = m; S.tab = 'D';
+    document.querySelectorAll('#ewModes .stab').forEach(b=>b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    document.getElementById('ewSubEll').style.display = m==='hch'?'none':'';
+    document.getElementById('ewSubHch').style.display = m==='hch'?'':'none';
+    const grp = m==='hch' ? '#ewSubHch' : '#ewSubEll';
+    document.querySelectorAll(grp+' .stab').forEach((b,i)=>b.classList.toggle('active', i===0));
+    ewRender();
+  };
   const HNUM = new Set(['sym', 'price', 'neck', 'target']);
   window.hsSort = (k) => {
     if (S.hsSortKey === k) S.hsSortDir *= -1;
@@ -113,7 +132,8 @@
   }
   window.ewTab = (t, btn) => {
     S.tab = t;
-    document.querySelectorAll('#ewTabs .stab').forEach(b=>b.classList.remove('active'));
+    const grp = S.mode==='hch' ? '#ewSubHch' : '#ewSubEll';
+    document.querySelectorAll(grp+' .stab').forEach(b=>b.classList.remove('active'));
     if(btn) btn.classList.add('active');
     ewRender();
   };
@@ -187,7 +207,7 @@
 
   function renderHch(){
     const q = (document.getElementById('hsSearch').value||'').toUpperCase();
-    let r = S.hs.filter(x=> !q || x.symbol.includes(q));
+    let r = S.hs.filter(x=> x.tf===S.tab && (!q || x.symbol.includes(q)));
     const k = S.hsSortKey, dir = S.hsSortDir, num = HNUM.has(k);
     r = [...r].sort((a,b)=>{
       let va=a[k], vb=b[k]; const na=(va==null||va===''), nb=(vb==null||vb==='');
@@ -214,7 +234,7 @@
   }
 
   window.ewRender = () => {
-    const isHch = S.tab==='hch';
+    const isHch = S.mode==='hch';
     document.getElementById('ewHchWrap').style.display = isHch ? '' : 'none';
     document.getElementById('ewEwWrap').style.display = isHch ? 'none' : '';
     document.getElementById('ewKpis').style.display = isHch ? 'none' : '';
