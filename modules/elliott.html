@@ -1,0 +1,116 @@
+<!-- ══════════════════════════════════════════════════
+     MÓDULO: ELLIOTT — Screener de Ondas de Elliott
+     Fuente: tabla elliott_signals (script ew_publish.py, EOD)
+     Diario + Semanal + Élite reversiones + GGAL. p_conf con origen.
+══════════════════════════════════════════════════ -->
+<div class="sub-tabs-row">
+  <div class="sub-tabs" id="ewTabs">
+    <button class="stab active" onclick="ewTab('D',this)">Diario</button>
+    <button class="stab" onclick="ewTab('S',this)">Semanal</button>
+    <button class="stab" onclick="ewTab('elite',this)">Élite · reversiones</button>
+    <button class="stab" onclick="ewTab('ggal',this)">GGAL</button>
+  </div>
+  <div class="sub-tabs-meta" id="ewMeta">ZigZag + Fibonacci + oscilador EWO · p.conf = prob. del backtest</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px" id="ewKpis">
+  <div class="kpi" style="--accent:var(--blue)"><div class="kpi-label">Candidatos</div><div class="kpi-val" id="ek-total">—</div><div class="kpi-sub" id="ek-sub">diario</div></div>
+  <div class="kpi" style="--accent:var(--red)"><div class="kpi-label">Reversiones</div><div class="kpi-val" id="ek-rev">—</div><div class="kpi-sub">fin de mov. / diagonal</div></div>
+  <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">Mejor p.conf</div><div class="kpi-val" id="ek-p">—</div><div class="kpi-sub" id="ek-psym">—</div></div>
+  <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Con CEDEAR</div><div class="kpi-val" id="ek-ced">—</div><div class="kpi-sub">operable AR 🇦🇷</div></div>
+</div>
+
+<div class="card">
+  <div class="toolbar" style="flex-wrap:wrap;gap:8px">
+    <input class="search-input" placeholder="Buscar ticker..." id="ewSearch" oninput="ewRender()">
+    <button class="flt" id="ewFced" onclick="ewToggle('ced',this)" data-cls="on-amber">🇦🇷 CEDEAR</button>
+    <button class="flt" id="ewFsol" onclick="ewToggle('sol',this)" data-cls="on-green">sólido ✓</button>
+    <span class="row-count" id="ewCount">0</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th class="th-left">Ticker</th><th class="th-left">Onda</th><th>Dir</th>
+        <th>Conf</th><th>Calidad</th><th class="th-left">P.conf (origen)</th>
+        <th>Precio</th><th>Objetivo</th><th>Invalida</th><th class="th-left">Fase</th>
+      </tr></thead>
+      <tbody id="ewTbody"><tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Cargando…</td></tr></tbody>
+    </table>
+  </div>
+  <div style="color:var(--text3);font-size:12px;margin-top:10px;line-height:1.6">
+    <b>P.conf</b> = probabilidad histórica del backtest (P de +1R antes de la invalidación) con su
+    <b>origen</b> (IC95 · n · factores). Baseline azar ≈50%. <b>Solo reversiones</b> muestran número;
+    la continuación no tiene edge medible (queda "—"). 🇦🇷 = operable como CEDEAR.
+  </div>
+</div>
+
+<script>
+(function(){
+  const S = { rows: [], tab: 'D', ced: false, sol: false };
+  window._ewS = S;
+
+  async function ewLoad(){
+    try {
+      const res = await window.sb('elliott_signals', 'select=*&order=conf.desc&limit=2000');
+      S.rows = Array.isArray(res) ? res : [];
+    } catch(e){ S.rows = []; }
+    ewRender();
+  }
+  window.ewTab = (t, btn) => {
+    S.tab = t;
+    document.querySelectorAll('#ewTabs .stab').forEach(b=>b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    ewRender();
+  };
+  window.ewToggle = (k, btn) => { S[k] = !S[k]; btn.classList.toggle('active'); ewRender(); };
+
+  function subset(){
+    let r = S.rows;
+    if(S.tab === 'D') r = r.filter(x=>x.tf==='D');
+    else if(S.tab === 'S') r = r.filter(x=>x.tf==='S');
+    else if(S.tab === 'elite') r = r.filter(x=>['Onda 5','Diagonal'].includes(x.onda) && x.p_conf!=null).sort((a,b)=>(b.p_conf-a.p_conf)||(b.conf-a.conf));
+    else if(S.tab === 'ggal') r = r.filter(x=>x.symbol==='GGAL');
+    const q = (document.getElementById('ewSearch').value||'').toUpperCase();
+    if(q) r = r.filter(x=>x.symbol.includes(q));
+    if(S.ced) r = r.filter(x=>x.cedear);
+    if(S.sol) r = r.filter(x=>x.calidad==='sólido ✓');
+    return r;
+  }
+
+  function pconf(x){
+    if(x.p_conf==null) return '<span style="color:var(--text3)">—</span>';
+    const c = x.p_conf>=53?'var(--green)':(x.p_conf>=50?'var(--amber)':'var(--text2)');
+    return `<b style="color:${c}" title="${x.p_src||''}">${x.p_conf}%</b> <span style="color:var(--text3);font-size:10px">${x.p_src||''}</span>`;
+  }
+  function calchip(c){
+    const col = c==='sólido ✓'?'#0d2a1e;#4fe0a8':(c&&c.indexOf('dudoso')>=0?'#2a1a0d;#e0a84f':'#1c2733;#8fa6c0');
+    const [bg,fg]=col.split(';'); return `<span style="background:${bg};color:${fg};padding:1px 6px;border-radius:5px;font-size:11px">${c||'—'}</span>`;
+  }
+
+  window.ewRender = () => {
+    const r = subset();
+    const dc = x => x==='ALCISTA'?'var(--green)':'var(--red)';
+    const g = v => (v==null?'':v);
+    document.getElementById('ewTbody').innerHTML = r.length ? r.map(x=>`<tr>
+      <td class="tk">${x.symbol}${x.cedear?' 🇦🇷':''}</td>
+      <td>${x.onda}</td>
+      <td style="color:${dc(x.dir)};font-weight:600">${x.dir}</td>
+      <td>${x.conf}%</td><td>${calchip(x.calidad)}</td><td>${pconf(x)}</td>
+      <td>${x.price}</td><td>${g(x.target_corr||x.target)}</td><td>${g(x.inval)}</td>
+      <td style="color:var(--text2)">${g(x.fase)}</td></tr>`).join('')
+      : '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">Sin filas.</td></tr>';
+    document.getElementById('ewCount').textContent = r.length;
+    // KPIs
+    const D = S.rows.filter(x=>x.tf===(S.tab==='S'?'S':'D'));
+    document.getElementById('ek-total').textContent = D.length;
+    document.getElementById('ek-sub').textContent = S.tab==='S'?'semanal':'diario';
+    document.getElementById('ek-rev').textContent = D.filter(x=>['Onda 5','Diagonal'].includes(x.onda)).length;
+    const best = S.rows.filter(x=>x.p_conf!=null).sort((a,b)=>b.p_conf-a.p_conf)[0];
+    document.getElementById('ek-p').textContent = best?best.p_conf+'%':'—';
+    document.getElementById('ek-psym').textContent = best?best.symbol:'—';
+    document.getElementById('ek-ced').textContent = D.filter(x=>x.cedear).length;
+  };
+
+  ewLoad();
+})();
+</script>
