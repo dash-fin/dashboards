@@ -53,9 +53,10 @@
     </table>
   </div>
   <div style="color:var(--text3);font-size:12px;margin-top:10px;line-height:1.6">
-    <b>HCH</b> = Hombro-Cabeza-Hombro (reversión, independiente del conteo EW). ⛰️ <b>Techo</b> → giro bajista ·
-    ⩗ <b>Invertido</b> → giro alcista. En el backtest el <b>potencial</b> (cuello sin romper) rinde más que esperar el quiebre;
-    la <b>simetría</b> es calidad del dibujo, no probabilidad de acierto. Objetivo = movimiento medido (oculto si implica >60%). 🇦🇷 = CEDEAR.
+    <b>HCH</b> = Hombro-Cabeza-Hombro (reversión de tendencia). ⛰️ <b>Techo</b> → giro bajista (solo en zona ALTA del rango) ·
+    ⩗ <b>Invertido</b> → giro alcista (solo en zona BAJA). <b>HI/cabeza/HD</b> = fechas del hombro izq / cabeza / hombro der (para ubicarlo en el gráfico).
+    El <b>potencial</b> (cuello sin romper) rinde más que esperar el quiebre; la <b>simetría</b> es calidad del dibujo, no probabilidad.
+    Solo patrones recientes (diario ~6m, semanal ~1año). Objetivo = movimiento medido (oculto si implica >60%). 🇦🇷 = CEDEAR.
   </div>
 </div>
 
@@ -207,6 +208,7 @@
     </div>`;
   }
 
+  const fmtD = s => { if(!s) return '—'; const p=s.split('-'); return p[2]+'/'+p[1]; };
   function renderHch(){
     const q = (document.getElementById('hsSearch').value||'').toUpperCase();
     let r = S.hs.filter(x=> x.tf===S.tab && (!q || x.symbol.includes(q)));
@@ -223,7 +225,7 @@
       return `<tr>
         <td class="tk">${x.symbol}${x.cedear?' 🇦🇷':''}</td>
         <td><span style="background:${x.tf==='S'?'#2a1f0d':'#0d2333'};color:${x.tf==='S'?'#e0c04f':'#4fb0e0'};padding:0 5px;border-radius:4px;font-size:10px;font-weight:700">${x.tf==='S'?'SEM':'DIA'}</span></td>
-        <td style="color:${col};font-weight:700">${top?'⛰️ Techo → bajista':'⩗ Invertido → alcista'}</td>
+        <td style="color:${col};font-weight:700">${top?'⛰️ Techo → bajista':'⩗ Invertido → alcista'}<br><span style="color:var(--text3);font-weight:400;font-size:11px">HI ${fmtD(x.d_ini)} · cabeza ${fmtD(x.d_head)} · HD ${fmtD(x.d_rs)}</span></td>
         <td style="color:${conf?'var(--green)':'var(--amber)'};font-weight:600">${x.status}</td>
         <td>${x.sym}%</td><td>${x.price}</td><td>${x.neck}</td>
         <td style="color:${col};font-weight:600">${g(x.target)}</td></tr>`;
