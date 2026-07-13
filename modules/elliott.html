@@ -49,7 +49,8 @@
   <div style="color:var(--text3);font-size:12px;margin-top:10px;line-height:1.6">
     <b>P.conf</b> = probabilidad histórica del backtest (P de +1R antes de la invalidación) con su
     <b>origen</b> (IC95 · n · factores). Baseline azar ≈50%. <b>Solo reversiones</b> muestran número;
-    la continuación no tiene edge medible (queda "—"). 🇦🇷 = operable como CEDEAR.
+    la continuación no tiene edge medible (queda "—"). <b>🔷PRZ</b> = confluencia armónica (AB=CD/XABCD)
+    sobre onda 2/4 → ~80% reacción histórica (n=33): le devuelve edge a la continuación. 🇦🇷 = operable como CEDEAR.
   </div>
 </div>
 
@@ -158,7 +159,7 @@
     const g = v => (v==null?'':v);
     document.getElementById('ewTbody').innerHTML = r.length ? r.map(x=>`<tr>
       <td class="tk">${x.symbol}${x.cedear?' 🇦🇷':''}</td>
-      <td><span style="background:${x.tf==='S'?'#2a1f0d':'#0d2333'};color:${x.tf==='S'?'#e0c04f':'#4fb0e0'};padding:0 5px;border-radius:4px;font-size:10px;font-weight:700;margin-right:5px">${x.tf==='S'?'SEM':'DIA'}</span>${x.onda}</td>
+      <td><span style="background:${x.tf==='S'?'#2a1f0d':'#0d2333'};color:${x.tf==='S'?'#e0c04f':'#4fb0e0'};padding:0 5px;border-radius:4px;font-size:10px;font-weight:700;margin-right:5px">${x.tf==='S'?'SEM':'DIA'}</span>${x.onda}${x.harmonic?` <span title="${x.harmonic}" style="color:#818cf8;font-weight:800;font-size:10px">🔷PRZ</span>`:''}</td>
       <td style="color:${dc(x.dir)};font-weight:600">${x.dir}${['Onda 5','Diagonal'].includes(x.onda)?`<br><span style="color:${x.dir==='ALCISTA'?'var(--red)':'var(--green)'};font-size:10px;font-weight:700">↺ rev. ${x.dir==='ALCISTA'?'BAJISTA':'ALCISTA'}</span>`:''}</td>
       <td>${x.conf}%</td><td>${calchip(x.calidad)}</td><td>${pconf(x)}</td>
       <td>${x.price}</td><td>${g(x.target_corr||x.target)}</td><td>${g(x.inval)}</td>
