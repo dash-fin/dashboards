@@ -87,7 +87,9 @@
     <b>P.conf</b> = probabilidad histórica del backtest (P de +1R antes de la invalidación) con su
     <b>origen</b> (IC95 · n · factores). Baseline azar ≈50%. <b>Solo reversiones</b> muestran número;
     la continuación no tiene edge medible (queda "—"). <b>🔷PRZ</b> = confluencia armónica (AB=CD/XABCD)
-    sobre onda 2/4 → ~80% reacción histórica (n=33): le devuelve edge a la continuación. 🇦🇷 = operable como CEDEAR.
+    sobre onda 2/4 → ~80% reacción histórica (n=33): le devuelve edge a la continuación.
+    <b>⛰️+HCH</b> = la reversión tiene un Hombro-Cabeza-Hombro de misma dirección dentro de ±20 barras →
+    medido P(+1R) <b>77% diario / 67% semanal</b> (vs ~50% sin): las de mayor calidad, van primeras. 🇦🇷 = operable como CEDEAR.
   </div>
 </div>
 
@@ -143,7 +145,7 @@
     let r = S.rows;
     if(S.tab === 'D') r = r.filter(x=>x.tf==='D');
     else if(S.tab === 'S') r = r.filter(x=>x.tf==='S');
-    else if(S.tab === 'elite') r = r.filter(x=>['Onda 5','Diagonal'].includes(x.onda) && x.p_conf!=null).sort((a,b)=>(b.p_conf-a.p_conf)||(b.conf-a.conf));
+    else if(S.tab === 'elite') r = r.filter(x=>['Onda 5','Diagonal'].includes(x.onda) && x.p_conf!=null).sort((a,b)=>((b.hs_conf?1:0)-(a.hs_conf?1:0))||(b.p_conf-a.p_conf)||(b.conf-a.conf));
     else if(S.tab === 'ggal') r = r.filter(x=>x.symbol==='GGAL');
     const q = (document.getElementById('ewSearch').value||'').toUpperCase();
     if(q) r = r.filter(x=>x.symbol.includes(q));
@@ -250,7 +252,7 @@
     const g = v => (v==null?'':v);
     document.getElementById('ewTbody').innerHTML = r.length ? r.map(x=>`<tr>
       <td class="tk">${x.symbol}${x.cedear?' 🇦🇷':''}</td>
-      <td><span style="background:${x.tf==='S'?'#2a1f0d':'#0d2333'};color:${x.tf==='S'?'#e0c04f':'#4fb0e0'};padding:0 5px;border-radius:4px;font-size:10px;font-weight:700;margin-right:5px">${x.tf==='S'?'SEM':'DIA'}</span>${x.onda}${x.harmonic?` <span title="${x.harmonic}" style="color:#818cf8;font-weight:800;font-size:10px">🔷PRZ</span>`:''}</td>
+      <td><span style="background:${x.tf==='S'?'#2a1f0d':'#0d2333'};color:${x.tf==='S'?'#e0c04f':'#4fb0e0'};padding:0 5px;border-radius:4px;font-size:10px;font-weight:700;margin-right:5px">${x.tf==='S'?'SEM':'DIA'}</span>${x.onda}${x.harmonic?` <span title="${x.harmonic}" style="color:#818cf8;font-weight:800;font-size:10px">🔷PRZ</span>`:''}${x.hs_conf?` <span title="HCH de misma dirección dentro de ±20 barras (medido 77%d/67%s)" style="color:var(--green);font-weight:800;font-size:10px">⛰️+HCH</span>`:''}</td>
       <td style="color:${dc(x.dir)};font-weight:600">${x.dir}${['Onda 5','Diagonal'].includes(x.onda)?`<br><span style="color:${x.dir==='ALCISTA'?'var(--red)':'var(--green)'};font-size:10px;font-weight:700">↺ rev. ${x.dir==='ALCISTA'?'BAJISTA':'ALCISTA'}</span>`:''}</td>
       <td>${x.conf}%</td><td>${calchip(x.calidad)}</td><td>${pconf(x)}</td>
       <td>${x.price}</td><td>${g(x.target_corr||x.target)}</td><td>${g(x.inval)}</td>
