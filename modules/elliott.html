@@ -20,6 +20,8 @@
   <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">Con CEDEAR</div><div class="kpi-val" id="ek-ced">—</div><div class="kpi-sub">operable AR 🇦🇷</div></div>
 </div>
 
+<div id="ewGgalPanel" style="display:none;margin-bottom:12px"></div>
+
 <div class="card">
   <div class="toolbar" style="flex-wrap:wrap;gap:8px">
     <input class="search-input" placeholder="Buscar ticker..." id="ewSearch" oninput="ewRender()">
@@ -87,7 +89,47 @@
     const [bg,fg]=col.split(';'); return `<span style="background:${bg};color:${fg};padding:1px 6px;border-radius:5px;font-size:11px">${c||'—'}</span>`;
   }
 
+  function ggalPanelHTML(p){
+    const n1=v=>v==null?'—':(Math.round(v*10)/10);
+    const n2=v=>v==null?'—':(Math.round(v*100)/100);
+    const adxC=a=>a==null?'var(--text2)':(a>=25?'var(--green)':(a<20?'var(--text2)':'var(--amber)'));
+    const adxT=a=>a==null?'':(a>=25?'tendencia':(a<20?'rango':'incipiente'));
+    const regPin=p.regimen==='pin';
+    const skewT=p.skew==null?'':(p.skew>1.5?'puts caras (cobertura)':p.skew<-1.5?'calls caras (demanda alza)':'simétrico');
+    const flipT=p.flip_pct==null?'':(Math.abs(p.flip_pct)<2?'pegado → umbral rango↔tendencia':(p.flip_pct>0?'arriba del precio':'debajo del precio'));
+    const tC=p.trend==='alcista'?'var(--green)':(p.trend==='bajista'?'var(--red)':'var(--text2)');
+    return `<div class="card" style="border:1px solid var(--accent)">
+      <div style="font-weight:700;font-size:15px;margin-bottom:8px">📊 GGAL — Panel técnico + flujo</div>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:6px;font-size:14px">
+        <b style="color:${adxC(p.adx)}">ADX ${n1(p.adx)} (${adxT(p.adx)})</b>
+        <span style="color:var(--text2)">RSI ${n1(p.rsi)}</span>
+        <span style="color:${tC};font-weight:600">${p.trend||''}</span>
+        ${p.vol_ratio!=null?`<span style="color:var(--text2)">vol ${n1(p.vol_ratio)}×</span>`:''}
+      </div>
+      <div style="color:var(--text2);font-size:13px;line-height:1.9">
+        MAs: SMA20 ${n2(p.sma20)} · SMA50 ${n2(p.sma50)} · SMA200 ${n2(p.sma200)} · EMA21 ${n2(p.ema21)}<br>
+        Resist.: <span style="color:var(--red)">${(p.resist||[]).map(n2).join(' · ')}</span> &nbsp; Soportes: <span style="color:var(--green)">${(p.soportes||[]).map(n2).join(' · ')}</span>
+      </div>
+      <div style="height:1px;background:var(--border);margin:10px 0"></div>
+      <div style="color:var(--accent);font-weight:700;font-size:14px;margin-bottom:4px">⚡ Flujo de opciones (GEX + VI · vto ${p.vto||'—'})</div>
+      <div style="color:var(--text2);font-size:13px;line-height:1.9">
+        ${p.regimen?`Régimen γ: <b style="color:${regPin?'var(--green)':'var(--red)'}">${p.regimen.toUpperCase()}</b> (×${n2(p.factor)}) → ${regPin?'estabiliza, sostiene el rango':'acelera, propenso a romper'}<br>`:''}
+        ${p.vi_atm!=null?`VI local ATM <b>${n1(p.vi_atm)}%</b>${p.skew!=null?` · skew ${p.skew>0?'+':''}${n1(p.skew)} (${skewT})`:''}<br>`:''}
+        Call wall <span style="color:var(--red)">resist.</span>: local* <b>${n2(p.call_wall_l)}</b> · USA <b>${n2(p.call_wall_u)}</b><br>
+        Put wall <span style="color:var(--green)">soporte</span>: local* <b>${n2(p.put_wall_l)}</b> · USA <b>${n2(p.put_wall_u)}</b><br>
+        Gamma flip: <b>${n2(p.flip)}</b> ${flipT?`(${flipT})`:''} · Max pain: <b>${n2(p.max_pain)}</b>
+      </div>
+      <div style="color:var(--text3);font-size:11px;margin-top:8px;line-height:1.5">* local = calculado desde volumen firmado (no OI real). USA = OI real, pieza robusta. Muros en USD del ADR.</div>
+    </div>`;
+  }
+
   window.ewRender = () => {
+    const gp = document.getElementById('ewGgalPanel');
+    if(S.tab==='ggal'){
+      const grow = S.rows.find(x=>x.symbol==='GGAL' && x.tf==='D' && x.panel);
+      if(grow && grow.panel){ gp.innerHTML = ggalPanelHTML(grow.panel); gp.style.display='block'; }
+      else gp.style.display='none';
+    } else gp.style.display='none';
     const r = subset();
     const dc = x => x==='ALCISTA'?'var(--green)':'var(--red)';
     const g = v => (v==null?'':v);
