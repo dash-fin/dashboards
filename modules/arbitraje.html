@@ -126,7 +126,8 @@
     if(_chI){_chI.destroy();_chI=null;} el.innerHTML='';
     if(!r||!r.intraday?.length){ el.innerHTML='<div style="color:var(--text3);padding:20px;font-size:13px">Sin datos intradía de hoy todavía.</div>'; return; }
     const today = (r.daily?.length? r.daily[r.daily.length-1].d : new Date().toISOString().slice(0,10));
-    const pts=r.intraday.filter(x=>x[_mode]!=null).map(x=>({x:new Date(today+'T'+x.ts+':00').getTime(), y:x[_mode]}));
+    // captured_at ya es hora ART (GMT-3); ApexCharts formatea el eje en UTC, así que parseo como UTC (append Z) para mostrar el HH:MM verbatim
+    const pts=r.intraday.filter(x=>x[_mode]!=null).map(x=>({x:new Date(today+'T'+x.ts+':00Z').getTime(), y:x[_mode]}));
     const st=r.state[_mode]||r.state.mid;
     const o=baseOpts(pts, st, 260, {hour:'HH:mm',minute:'HH:mm'}); o.tooltip.x.format='HH:mm';
     _chI=new ApexCharts(el, o); _chI.render();
