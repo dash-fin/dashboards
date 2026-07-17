@@ -37,42 +37,40 @@
 
 <script>
 (function(){
-  let _rows = {}, _cur = null, _mode = 'mid';
-  const C = { bull:'#00e5a8', bear:'#ff3f5e', neu:'#8899aa', mean:'#f5a623' };
+  let _rows = {}, _cur = null, _mode = 'mid', _chD = null, _chI = null;
+  const C = { bull:'#00e5a8', bear:'#ff3f5e', neu:'#8899aa', mean:'#f5a623', line:'#a78bfa' };
 
-  function loadLWCa(){ return new Promise(res=>{ if(window.LightweightCharts){res();return;}
-    const s=document.createElement('script'); s.src='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+  function loadApex(){ return new Promise(res=>{ if(window.ApexCharts){res();return;}
+    const s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js';
     s.onload=res; s.onerror=res; document.head.appendChild(s); }); }
 
   const flagCol = f => f==='barato'?C.bull : f==='caro'?C.bear : C.neu;
-
-  function newChart(el){
-    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim()||'#131923';
-    return LightweightCharts.createChart(el, {
-      width:el.clientWidth, height:el.clientHeight,
-      layout:{ background:{type:'solid',color:bg}, textColor:'#8899aa', fontSize:11 },
-      grid:{ vertLines:{color:'#1e2530'}, horzLines:{color:'#1e2530'} },
-      crosshair:{ mode: LightweightCharts.CrosshairMode.Normal },
-      timeScale:{ borderColor:'#2a3440', timeVisible:true, secondsVisible:false },
-      rightPriceScale:{ borderColor:'#2a3440' },
-      handleScroll:true, handleScale:true,        // zoom + pan (explorar dentro del zoom)
-    });
-  }
+  const fmt = v => v==null?'—':Math.round(v).toLocaleString('es-AR');
 
   window.arbSetMode = (m,btn)=>{ _mode=m;
     document.querySelectorAll('.arb-mode').forEach(b=>b.classList.remove('active'));
-    if(btn)btn.classList.add('active'); drawIntra(); };
+    if(btn)btn.classList.add('active'); drawAction(_cur); drawDaily(_cur); drawIntra(); };
 
   function drawAction(r){
     const st = r.state[_mode] || r.state.mid;
     const col = flagCol(st.flag);
     const legs = st.flag==='caro' ? r.desarmar : r.armar;
     const legLabel = st.flag==='caro' ? 'DESARMAR' : (st.flag==='barato'?'ARMAR':'—');
+    // crédito vs débito: costo<0 = te pagan (crédito), >0 = pagás (débito)
+    const cost = st.cost;
+    const isCred = cost!=null && cost<0;
+    const cdCol = isCred?C.bull:C.bear;
+    const cdTxt = cost==null?'—':(isCred?`CRÉDITO ${fmt(-cost)} · te PAGAN para armar`:`DÉBITO ${fmt(cost)} · PAGÁS para armar`);
     document.getElementById('arbAction').innerHTML = `
       <div class="arb-flagcard" style="border-color:${col}55">
         <div style="font-size:11px;color:var(--text3)">Estado (${_mode})</div>
         <div style="font-size:22px;font-weight:800;color:${col}">${(st.flag||'').toUpperCase()} · ${st.accion||''}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:4px">z = ${st.z==null?'—':st.z.toFixed(2)} · costo ${st.cost==null?'—':Math.round(st.cost).toLocaleString('es-AR')} · media ${st.mean==null?'—':Math.round(st.mean).toLocaleString('es-AR')}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px">z = ${st.z==null?'—':st.z.toFixed(2)} · costo ${fmt(st.cost)} · media ${fmt(st.mean)}</div>
+      </div>
+      <div class="arb-flagcard" style="border-color:${cdCol}55">
+        <div style="font-size:11px;color:var(--text3)">Caja (armar ahora)</div>
+        <div style="font-size:17px;font-weight:800;color:${cdCol};margin-top:2px">${cdTxt}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Costo &lt; 0 = crédito (cobrás) · &gt; 0 = débito (pagás)</div>
       </div>
       <div class="arb-flagcard" style="border-color:${col}55">
         <div style="font-size:11px;color:var(--text3)">Qué hacer</div>
@@ -81,35 +79,57 @@
       </div>`;
   }
 
-  function drawDaily(r){
-    const el=document.getElementById('arbDailyChart'); el.innerHTML='';
-    if(!r.daily?.length) return;
-    const ch=newChart(el);
-    const s=ch.addLineSeries({ color:C.bull, lineWidth:2, priceLineVisible:false });
-    s.setData(r.daily.filter(d=>d[_mode]!=null).map(d=>({time:d.d, value:d[_mode]})));
-    const st=r.state[_mode]||r.state.mid;
-    if(st.mean!=null){
-      s.createPriceLine({ price:st.mean, color:C.mean, lineStyle:2, lineWidth:1, title:'media' });
-      if(st.sd){ s.createPriceLine({price:st.mean+st.sd,color:C.bear,lineStyle:3,lineWidth:1,title:'+1σ caro'});
-                 s.createPriceLine({price:st.mean-st.sd,color:C.bull,lineStyle:3,lineWidth:1,title:'-1σ barato'}); }
+  function baseOpts(pts, st, h, xfmt){
+    const yl=[], pl=[];
+    if(st && st.mean!=null){
+      yl.push({y:st.mean, borderColor:C.mean, strokeDashArray:6, label:{text:'media '+fmt(st.mean), style:{color:'#fff',background:C.mean,fontSize:'10px'}}});
+      if(st.sd){
+        yl.push({y:st.mean+st.sd, borderColor:C.bear, strokeDashArray:3, label:{text:'+1σ caro', style:{color:'#fff',background:C.bear,fontSize:'10px'}}});
+        yl.push({y:st.mean-st.sd, borderColor:C.bull, strokeDashArray:3, label:{text:'-1σ barato', style:{color:'#04120c',background:C.bull,fontSize:'10px'}}});
+      }
     }
-    ch.timeScale().fitContent();
+    // marcadores máx / mín / actual (como la captura)
+    if(pts.length){
+      const mx=pts.reduce((a,b)=>b.y>a.y?b:a), mn=pts.reduce((a,b)=>b.y<a.y?b:a), lc=pts[pts.length-1];
+      const mk=(p,col,txt)=>({x:p.x,y:p.y,marker:{size:6,fillColor:col,strokeColor:'#fff',strokeWidth:1},label:{text:txt+' '+fmt(p.y),borderColor:col,style:{color:'#fff',background:col,fontSize:'10px'}}});
+      pl.push(mk(mx,C.bear,''), mk(mn,C.line,''), mk(lc,C.bull,''));
+    }
+    return {
+      chart:{ type:'area', height:h, background:'transparent', animations:{enabled:false},
+        toolbar:{show:true, tools:{download:false,selection:true,zoom:true,zoomin:true,zoomout:true,pan:true,reset:true}}, zoom:{enabled:true,type:'x'} },
+      theme:{mode:'dark'},
+      series:[{name:'Costo', data:pts}],
+      colors:[C.line],
+      stroke:{ curve:'smooth', width:3 },
+      fill:{ type:'gradient', gradient:{shadeIntensity:1, opacityFrom:0.28, opacityTo:0.02} },
+      dataLabels:{enabled:false}, markers:{size:0},
+      grid:{ borderColor:'#1e2530', strokeDashArray:2 },
+      xaxis:{ type:'datetime', labels:{style:{colors:'#8899aa'}, datetimeFormatter:xfmt}, tooltip:{enabled:false} },
+      yaxis:{ labels:{style:{colors:'#8899aa'}, formatter:fmt} },
+      annotations:{ yaxis:yl, points:pl },
+      tooltip:{ theme:'dark', x:{format: xfmt==='intra'?'HH:mm':'dd MMM'} },
+    };
+  }
+
+  function drawDaily(r){
+    const el=document.getElementById('arbDailyChart');
+    if(_chD){_chD.destroy();_chD=null;} el.innerHTML='';
+    if(!r||!r.daily?.length) return;
+    const pts=r.daily.filter(d=>d[_mode]!=null).map(d=>({x:new Date(d.d).getTime(), y:d[_mode]}));
+    const st=r.state[_mode]||r.state.mid;
+    _chD=new ApexCharts(el, baseOpts(pts, st, 280, {day:'dd MMM'})); _chD.render();
     document.getElementById('arbDailyMeta').textContent = `${r.label} · ${r.expiration} · CoV ${r.cov}% · ${r.daily.length} días`;
-    new ResizeObserver(()=>ch.applyOptions({width:el.clientWidth})).observe(el);
   }
 
   function drawIntra(){
-    const r=_cur; const el=document.getElementById('arbIntraChart'); el.innerHTML='';
+    const r=_cur; const el=document.getElementById('arbIntraChart');
+    if(_chI){_chI.destroy();_chI=null;} el.innerHTML='';
     if(!r||!r.intraday?.length){ el.innerHTML='<div style="color:var(--text3);padding:20px;font-size:13px">Sin datos intradía de hoy todavía.</div>'; return; }
     const today = (r.daily?.length? r.daily[r.daily.length-1].d : new Date().toISOString().slice(0,10));
-    const ch=newChart(el);
-    const s=ch.addLineSeries({ color:C.bull, lineWidth:2, priceLineVisible:false });
-    s.setData(r.intraday.filter(x=>x[_mode]!=null).map(x=>({
-      time: Math.floor(new Date(today+'T'+x.ts+':00').getTime()/1000), value:x[_mode] })));
+    const pts=r.intraday.filter(x=>x[_mode]!=null).map(x=>({x:new Date(today+'T'+x.ts+':00').getTime(), y:x[_mode]}));
     const st=r.state[_mode]||r.state.mid;
-    if(st.mean!=null){ s.createPriceLine({price:st.mean,color:C.mean,lineStyle:2,lineWidth:1,title:'media diaria'}); }
-    ch.timeScale().fitContent();
-    new ResizeObserver(()=>ch.applyOptions({width:el.clientWidth})).observe(el);
+    const o=baseOpts(pts, st, 260, {hour:'HH:mm',minute:'HH:mm'}); o.tooltip.x.format='HH:mm';
+    _chI=new ApexCharts(el, o); _chI.render();
   }
 
   window.arbRender = ()=>{
@@ -118,7 +138,7 @@
   };
 
   window.arbInit = async ()=>{
-    await loadLWCa();
+    await loadApex();
     let data=[];
     try{ data = await sb('arb_cost','select=*&order=cov.desc'); }catch(e){}
     if(!data.length){ document.getElementById('arbAction').innerHTML='<div style="color:var(--text3)">Sin estructuras publicadas todavía.</div>'; return; }
