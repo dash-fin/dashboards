@@ -1,0 +1,136 @@
+<!-- Módulo Arbitraje / Costo — reversión a la media del costo de estructuras de opciones -->
+<div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+  <div>
+    <div class="sec-label">Arbitraje · Costo / Reversión</div>
+    <div style="font-size:12px;color:var(--text3)">Costo de armar cada estructura vs su media. Barato = armar · Caro = desarmar.</div>
+  </div>
+  <select id="arbSel" onchange="arbRender()" style="background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer"></select>
+</div>
+
+<!-- Tarjeta de acción -->
+<div id="arbAction" style="display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:10px 0"></div>
+
+<!-- Diario -->
+<div class="card" style="margin-bottom:12px">
+  <div class="card-head"><span class="card-title">Diario (EOD)</span><span id="arbDailyMeta" style="font-size:11px;color:var(--text3)"></span></div>
+  <div class="card-body"><div id="arbDailyChart" style="height:280px;width:100%"></div></div>
+</div>
+
+<!-- Intra 5m -->
+<div class="card">
+  <div class="card-head">
+    <span class="card-title">Intradía 5m (hoy)</span>
+    <div style="display:flex;gap:4px">
+      <button class="arb-mode active" data-mode="mid"    onclick="arbSetMode('mid',this)">Mid</button>
+      <button class="arb-mode"        data-mode="last"   onclick="arbSetMode('last',this)">Last</button>
+      <button class="arb-mode"        data-mode="puntas" onclick="arbSetMode('puntas',this)">Puntas</button>
+    </div>
+  </div>
+  <div class="card-body"><div id="arbIntraChart" style="height:260px;width:100%"></div></div>
+</div>
+
+<style>
+.arb-mode{background:var(--card-bg);color:var(--text3);border:1px solid var(--border);border-radius:5px;padding:3px 12px;font-size:12px;cursor:pointer;transition:all .12s}
+.arb-mode.active{background:var(--accent,#00e5a8);color:#04120c;border-color:transparent;font-weight:700}
+.arb-flagcard{flex:1;min-width:220px;background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+</style>
+
+<script>
+(function(){
+  let _rows = {}, _cur = null, _mode = 'mid';
+  const C = { bull:'#00e5a8', bear:'#ff3f5e', neu:'#8899aa', mean:'#f5a623' };
+
+  function loadLWCa(){ return new Promise(res=>{ if(window.LightweightCharts){res();return;}
+    const s=document.createElement('script'); s.src='https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+    s.onload=res; s.onerror=res; document.head.appendChild(s); }); }
+
+  const flagCol = f => f==='barato'?C.bull : f==='caro'?C.bear : C.neu;
+
+  function newChart(el){
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg2').trim()||'#131923';
+    return LightweightCharts.createChart(el, {
+      width:el.clientWidth, height:el.clientHeight,
+      layout:{ background:{type:'solid',color:bg}, textColor:'#8899aa', fontSize:11 },
+      grid:{ vertLines:{color:'#1e2530'}, horzLines:{color:'#1e2530'} },
+      crosshair:{ mode: LightweightCharts.CrosshairMode.Normal },
+      timeScale:{ borderColor:'#2a3440', timeVisible:true, secondsVisible:false },
+      rightPriceScale:{ borderColor:'#2a3440' },
+      handleScroll:true, handleScale:true,        // zoom + pan (explorar dentro del zoom)
+    });
+  }
+
+  window.arbSetMode = (m,btn)=>{ _mode=m;
+    document.querySelectorAll('.arb-mode').forEach(b=>b.classList.remove('active'));
+    if(btn)btn.classList.add('active'); drawIntra(); };
+
+  function drawAction(r){
+    const st = r.state[_mode] || r.state.mid;
+    const col = flagCol(st.flag);
+    const legs = st.flag==='caro' ? r.desarmar : r.armar;
+    const legLabel = st.flag==='caro' ? 'DESARMAR' : (st.flag==='barato'?'ARMAR':'—');
+    document.getElementById('arbAction').innerHTML = `
+      <div class="arb-flagcard" style="border-color:${col}55">
+        <div style="font-size:11px;color:var(--text3)">Estado (${_mode})</div>
+        <div style="font-size:22px;font-weight:800;color:${col}">${(st.flag||'').toUpperCase()} · ${st.accion||''}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px">z = ${st.z==null?'—':st.z.toFixed(2)} · costo ${st.cost==null?'—':Math.round(st.cost).toLocaleString('es-AR')} · media ${st.mean==null?'—':Math.round(st.mean).toLocaleString('es-AR')}</div>
+      </div>
+      <div class="arb-flagcard" style="border-color:${col}55">
+        <div style="font-size:11px;color:var(--text3)">Qué hacer</div>
+        <div style="font-size:15px;font-weight:700;color:${col};margin:2px 0">${legLabel}: ${legs||'—'}</div>
+        <div style="font-size:12px;color:var(--text3)">${st.hint||''}</div>
+      </div>`;
+  }
+
+  function drawDaily(r){
+    const el=document.getElementById('arbDailyChart'); el.innerHTML='';
+    if(!r.daily?.length) return;
+    const ch=newChart(el);
+    const s=ch.addLineSeries({ color:C.bull, lineWidth:2, priceLineVisible:false });
+    s.setData(r.daily.filter(d=>d[_mode]!=null).map(d=>({time:d.d, value:d[_mode]})));
+    const st=r.state[_mode]||r.state.mid;
+    if(st.mean!=null){
+      s.createPriceLine({ price:st.mean, color:C.mean, lineStyle:2, lineWidth:1, title:'media' });
+      if(st.sd){ s.createPriceLine({price:st.mean+st.sd,color:C.bear,lineStyle:3,lineWidth:1,title:'+1σ caro'});
+                 s.createPriceLine({price:st.mean-st.sd,color:C.bull,lineStyle:3,lineWidth:1,title:'-1σ barato'}); }
+    }
+    ch.timeScale().fitContent();
+    document.getElementById('arbDailyMeta').textContent = `${r.label} · ${r.expiration} · CoV ${r.cov}% · ${r.daily.length} días`;
+    new ResizeObserver(()=>ch.applyOptions({width:el.clientWidth})).observe(el);
+  }
+
+  function drawIntra(){
+    const r=_cur; const el=document.getElementById('arbIntraChart'); el.innerHTML='';
+    if(!r||!r.intraday?.length){ el.innerHTML='<div style="color:var(--text3);padding:20px;font-size:13px">Sin datos intradía de hoy todavía.</div>'; return; }
+    const today = (r.daily?.length? r.daily[r.daily.length-1].d : new Date().toISOString().slice(0,10));
+    const ch=newChart(el);
+    const s=ch.addLineSeries({ color:C.bull, lineWidth:2, priceLineVisible:false });
+    s.setData(r.intraday.filter(x=>x[_mode]!=null).map(x=>({
+      time: Math.floor(new Date(today+'T'+x.ts+':00').getTime()/1000), value:x[_mode] })));
+    const st=r.state[_mode]||r.state.mid;
+    if(st.mean!=null){ s.createPriceLine({price:st.mean,color:C.mean,lineStyle:2,lineWidth:1,title:'media diaria'}); }
+    ch.timeScale().fitContent();
+    new ResizeObserver(()=>ch.applyOptions({width:el.clientWidth})).observe(el);
+  }
+
+  window.arbRender = ()=>{
+    _cur = _rows[document.getElementById('arbSel').value]; if(!_cur) return;
+    drawAction(_cur); drawDaily(_cur); drawIntra();
+  };
+
+  window.arbInit = async ()=>{
+    await loadLWCa();
+    let data=[];
+    try{ data = await sb('arb_cost','select=*&order=cov.desc'); }catch(e){}
+    if(!data.length){ document.getElementById('arbAction').innerHTML='<div style="color:var(--text3)">Sin estructuras publicadas todavía.</div>'; return; }
+    _rows={}; const sel=document.getElementById('arbSel'); sel.innerHTML='';
+    data.forEach(r=>{ _rows[r.structure]=r;
+      const o=document.createElement('option'); o.value=r.structure;
+      const st=r.state?.mid||{}; o.textContent=`${r.label}  (${(st.flag||'').toUpperCase()})`;
+      sel.appendChild(o); });
+    sel.value = data[0].structure;
+    arbRender();
+  };
+
+  arbInit();
+})();
+</script>
