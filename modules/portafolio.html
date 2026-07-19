@@ -1831,7 +1831,7 @@ async function pfFetchOpsData() {
     if(!kind) return;
     const strike = Number(r.strike) || 0;
     if(!strike) return;
-    const price = Number(r.last||0) || Number(r.bid||0);
+    const price = Number(r.last||0) || Number(r.previous_close||0);  // PnL siempre last→close (no bid/ask; Matriz caído 2026-07-18)
     if(price > 0) rtIdx[`${kind}_${strike}`] = price;
     const cls = Number(r.previous_close||0);
     if(cls > 0) closeIdx[`${kind}_${strike}`] = cls;
