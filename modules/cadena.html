@@ -72,6 +72,25 @@
 .rtc-chart-svg{display:block;width:100%;overflow:visible}
 
 .rtc-empty{padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)}
+
+/* Leverage card modal */
+.rtc-clk{cursor:pointer}
+.rtc-clk:hover{text-decoration:underline;filter:brightness(1.35)}
+#rtcCardOv{position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:9999;display:none;align-items:center;justify-content:center;padding:14px}
+#rtcCardOv.on{display:flex}
+.rtc-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;max-width:740px;width:100%;max-height:94vh;overflow:auto;padding:16px 18px 20px;font-family:'IBM Plex Mono',monospace}
+.rtc-card-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.rtc-card-ttl{font-size:17px;font-weight:800;color:var(--text)}
+.rtc-card-sub{font-size:10px;color:var(--text3);margin-top:3px}
+.rtc-card-x{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);border-radius:5px;padding:5px 11px;font-family:inherit;font-size:11px;cursor:pointer;white-space:nowrap}
+.rtc-card-x:hover{filter:brightness(1.2)}
+.rtc-card-stats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
+.rtc-stat{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 11px;min-width:92px}
+.rtc-stat b{display:block;font-size:15px;color:var(--text);font-weight:700;line-height:1.2}
+.rtc-stat span{font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:1px}
+.rtc-card-lg{display:flex;gap:16px;font-size:10px;margin:6px 0 2px;flex-wrap:wrap;color:var(--text3)}
+.rtc-card-svg{display:block;width:100%;overflow:visible;margin-top:4px}
+.rtc-card-note{font-size:9px;color:var(--text3);margin-top:8px;line-height:1.5}
 </style>
 
 <div id="rtcWrap">
@@ -106,9 +125,9 @@
     <table class="rtc-table">
       <thead>
         <tr>
-          <th colspan="8" class="rtc-th-section-calls">▶ CALLS</th>
+          <th colspan="9" class="rtc-th-section-calls">▶ CALLS</th>
           <th class="rtc-th-section-mid" rowspan="2"></th>
-          <th colspan="8" class="rtc-th-section-puts">PUTS ◀</th>
+          <th colspan="9" class="rtc-th-section-puts">PUTS ◀</th>
         </tr>
         <tr>
           <th class="rtc-th gc" style="text-align:center">CANT</th>
@@ -118,6 +137,7 @@
           <th class="rtc-th rc" style="text-align:center">CANT</th>
           <th class="rtc-th">VI%</th>
           <th class="rtc-th">DELTA</th>
+          <th class="rtc-th" title="Palanca efectiva = |Δ|·Spot/Prima">PALANCA</th>
           <th class="rtc-th">VAR%</th>
           <th class="rtc-th gc" style="text-align:center">CANT</th>
           <th class="rtc-th gc">BID</th>
@@ -126,11 +146,12 @@
           <th class="rtc-th rc" style="text-align:center">CANT</th>
           <th class="rtc-th">VI%</th>
           <th class="rtc-th">DELTA</th>
+          <th class="rtc-th" title="Palanca efectiva = |Δ|·Spot/Prima">PALANCA</th>
           <th class="rtc-th">VAR%</th>
         </tr>
       </thead>
       <tbody id="rtcBody">
-        <tr><td colspan="17" class="rtc-empty">Cargando...</td></tr>
+        <tr><td colspan="19" class="rtc-empty">Cargando...</td></tr>
       </tbody>
     </table>
   </div>
@@ -159,6 +180,11 @@
     </div>
   </div>
 
+</div>
+
+<!-- Leverage curve modal -->
+<div id="rtcCardOv" onclick="if(event.target===this)rtcCardClose()">
+  <div class="rtc-card"></div>
 </div>
 
 <script>
@@ -259,7 +285,7 @@ window.rtcSetExp=(e,el)=>{
 window.rtcRender=()=>{
   const tbody=document.getElementById('rtcBody');
   if(!gSpot||!gOpts.length||!gExp){
-    tbody.innerHTML=`<tr><td colspan="17" class="rtc-empty">Sin datos</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="19" class="rtc-empty">Sin datos</td></tr>`;
     rtcDrawSmile([],null);rtcDrawVol([],null);return;
   }
   const T=Math.max((new Date(gExp)-new Date())/(365*86400000),1/365);
@@ -280,6 +306,8 @@ window.rtcRender=()=>{
     return`<span class="rtc-var ${cls}">${v>=0?'+':''}${fn(v,1)}%</span>`;
   };
   const fDelta=d=>{if(d==null)return'<span style="color:var(--text3)">—</span>';const c=Math.abs(d)>=0.45&&Math.abs(d)<=0.55?'var(--amber)':d>0?'var(--green)':'var(--red)';return`<span style="color:${c};font-size:10px">${d.toFixed(2)}</span>`};
+  // Palanca efectiva (omega/elasticidad) = |Δ|·Spot/Prima → cuánto se mueve la opción en % por cada 1% del subyacente
+  const fLev=(o,d)=>{const m=mid(o);if(m==null||m<=0||d==null||!gSpot)return'<span style="color:var(--text3)">—</span>';const om=Math.abs(d)*gSpot/m;const c=om>=12?'var(--red)':om>=7?'var(--amber)':'var(--text2)';return`<span style="color:${c};font-size:10px" title="Palanca efectiva Ω = |Δ|·Spot/Prima">${om.toFixed(1)}x</span>`};
   const fCant=n=>{if(!n||n<=0)return'<span style="color:var(--text4)">—</span>';return`<span style="color:var(--text3);font-size:10px">${fn(n,0)}</span>`};
   const fl =o=>o?._fl==='up'?'flash-up':o?._fl==='dn'?'flash-dn':'';
   const fb =o=>o?._fb==='up'?'flash-up':o?._fb==='dn'?'flash-dn':'';
@@ -305,20 +333,22 @@ window.rtcRender=()=>{
     return`<tr class="${rc}">
       <td class="rtc-td" style="text-align:center">${fCant(r.c?.bid_size)}</td>
       <td class="rtc-td bid ${fb(r.c)}">${r.c?.bid!=null?fn(r.c.bid):'—'}</td>
-      <td class="rtc-td ${fl(r.c)}">${r.c?.last!=null?fn(r.c.last):'—'}</td>
+      <td class="rtc-td ${r.c?'rtc-clk':''} ${fl(r.c)}" ${r.c?`onclick="rtcCard('${r.c.symbol}')" title="Ver apalancamiento"`:''}>${r.c?.last!=null?fn(r.c.last):'—'}</td>
       <td class="rtc-td ask ${fa(r.c)}">${r.c?.ask!=null?fn(r.c.ask):'—'}</td>
       <td class="rtc-td" style="text-align:center">${fCant(r.c?.ask_size)}</td>
       <td class="rtc-td iv">${callIV!=null?Math.round(callIV*100)+'%':'—'}</td>
       <td class="rtc-td" style="text-align:center">${fDelta(callDelta)}</td>
+      <td class="rtc-td">${fLev(r.c,callDelta)}</td>
       <td class="rtc-td">${varBadge(cv)}</td>
       ${strikeCell}
       <td class="rtc-td" style="text-align:center">${fCant(r.p?.bid_size)}</td>
       <td class="rtc-td bid ${fb(r.p)}">${r.p?.bid!=null?fn(r.p.bid):'—'}</td>
-      <td class="rtc-td ${fl(r.p)}">${r.p?.last!=null?fn(r.p.last):'—'}</td>
+      <td class="rtc-td ${r.p?'rtc-clk':''} ${fl(r.p)}" ${r.p?`onclick="rtcCard('${r.p.symbol}')" title="Ver apalancamiento"`:''}>${r.p?.last!=null?fn(r.p.last):'—'}</td>
       <td class="rtc-td ask ${fa(r.p)}">${r.p?.ask!=null?fn(r.p.ask):'—'}</td>
       <td class="rtc-td" style="text-align:center">${fCant(r.p?.ask_size)}</td>
       <td class="rtc-td iv">${putIV!=null?Math.round(putIV*100)+'%':'—'}</td>
       <td class="rtc-td" style="text-align:center">${fDelta(putDelta)}</td>
+      <td class="rtc-td">${fLev(r.p,putDelta)}</td>
       <td class="rtc-td">${varBadge(pv)}</td>
     </tr>`;
   }).join('');
@@ -459,6 +489,91 @@ function rtcDrawVol(rows,atmK){
 
   el.innerHTML=`${grid}${atmLine}${axes}${bars}${xLabels}`;
 }
+
+// ── Card de apalancamiento (prima vs spot) ────────────────────
+window.rtcCardClose=()=>{const o=document.getElementById('rtcCardOv');if(o)o.classList.remove('on');};
+window.rtcCard=(symbol)=>{
+  const o=gOpts.find(x=>x.symbol===symbol);
+  const ov=document.getElementById('rtcCardOv');
+  if(!o||!gSpot||!ov)return;
+  const box=ov.querySelector('.rtc-card');
+  const isC=o.kind==='CALL',K=o.strike;
+  const dte=Math.ceil((new Date(o.expiration)-new Date())/86400000);
+  const T=Math.max((new Date(o.expiration)-new Date())/(365*86400000),1/365);
+  const m=mid(o);
+  const hd=`<div class="rtc-card-hd"><div>
+      <div class="rtc-card-ttl">El apalancamiento de ${o.symbol}</div>
+      <div class="rtc-card-sub">${isC?'CALL':'PUT'} · Strike $${fn(K)} · Vto ${o.expiration.slice(0,10)} (${dte}d) · GGAL $${fn(gSpot)}</div>
+    </div><button class="rtc-card-x" onclick="rtcCardClose()">✕ Cerrar</button></div>`;
+  if(m==null||m<=0){box.innerHTML=hd+`<div class="rtc-card-note">Sin precio (bid/ask/last) para calcular la curva.</div>`;ov.classList.add('on');return;}
+  const iv=calcIV(m,gSpot,K,T,isC,gRate);
+  const delta=iv!=null?bsDelta(gSpot,K,T,iv,isC,gRate):null;
+  const intr=Math.max(isC?gSpot-K:K-gSpot,0);
+  const be=isC?K+m:K-m;
+  const lev=delta!=null?Math.abs(delta)*gSpot/m:null;
+  const intrPct=m>0?intr/m*100:0;
+
+  // Escenarios (mismos ratios que la referencia): calls al alza, puts a la baja
+  const mults=isC?[0.95,1,1.0625,1.125,1.25,1.375,1.5]:[1.05,1,0.9375,0.875,0.75,0.625,0.5];
+  const px=(S)=>iv!=null?bsV(S,K,T,iv,isC,gRate):Math.max(isC?S-K:K-S,0);
+  const scen=mults.map(f=>{const S=gSpot*f,pN=px(S);return{S,pN,pct:m>0?(pN/m-1)*100:0,cur:Math.abs(f-1)<1e-9};});
+
+  // Curva muestreada
+  const xMin=Math.min(...scen.map(s=>s.S)),xMax=Math.max(...scen.map(s=>s.S));
+  const N=64,xs=[];
+  for(let i=0;i<=N;i++){const S=xMin+(xMax-xMin)*i/N;xs.push({S,now:px(S),exp:Math.max(isC?S-K:K-S,0)});}
+  const yMax=Math.max(...xs.map(p=>p.now),m)*1.12||1;
+
+  const W=680,H=360,PL=62,PR=20,PT=20,PB=42,cw=W-PL-PR,ch=H-PT-PB;
+  const xS=v=>PL+((v-xMin)/(xMax-xMin||1))*cw;
+  const yS=v=>PT+ch-(Math.min(v,yMax)/yMax)*ch;
+
+  let grid='';
+  for(let i=0;i<=4;i++){const yv=yMax/4*i,y=yS(yv).toFixed(1);
+    grid+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="rgba(255,255,255,.06)"/>`;
+    grid+=`<text x="${PL-5}" y="${y}" text-anchor="end" dominant-baseline="middle" style="font-size:8px;fill:rgba(200,218,240,.45)">$${fn(yv)}</text>`;}
+  let xlab='';
+  scen.forEach(sc=>{xlab+=`<text x="${xS(sc.S).toFixed(1)}" y="${H-PB+16}" text-anchor="middle" style="font-size:8px;fill:rgba(200,218,240,.5)">${fn(sc.S)}</text>`;});
+
+  const pathNow=xs.map((p,i)=>(i?'L':'M')+xS(p.S).toFixed(1)+','+yS(p.now).toFixed(1)).join(' ');
+  const pathExp=xs.map((p,i)=>(i?'L':'M')+xS(p.S).toFixed(1)+','+yS(p.exp).toFixed(1)).join(' ');
+  const area=xs.map(p=>xS(p.S).toFixed(1)+','+yS(p.now).toFixed(1)).join(' ')+' '+xs.slice().reverse().map(p=>xS(p.S).toFixed(1)+','+yS(p.exp).toFixed(1)).join(' ');
+  const spotLine=`<line x1="${xS(gSpot).toFixed(1)}" y1="${PT}" x2="${xS(gSpot).toFixed(1)}" y2="${H-PB}" stroke="rgba(251,191,36,.55)" stroke-width="1" stroke-dasharray="4,3"/>`;
+  const dots=scen.map(sc=>{const x=xS(sc.S).toFixed(1),y=yS(sc.pN).toFixed(1);
+    const lab=sc.cur?`$${fn(sc.pN)} · actual`:`$${fn(sc.pN)} · ${sc.pct>=0?'+':''}${Math.round(sc.pct)}%`;
+    const anchor=sc.S>=(xMin+xMax)/2?'end':'start',dx=sc.S>=(xMin+xMax)/2?-7:7;
+    const tip=sc.cur?`GGAL hoy $${fn(sc.S)} → prima $${fn(sc.pN)} (precio actual)`:`Si GGAL va a $${fn(sc.S)}, la opción valdría $${fn(sc.pN)} (${sc.pct>=0?'+':''}${Math.round(sc.pct)}% vs la prima de hoy)`;
+    return`<circle cx="${x}" cy="${y}" r="3.2" fill="${sc.cur?'var(--amber)':'var(--green)'}"><title>${tip}</title></circle>`+
+      `<text x="${(+x+dx).toFixed(1)}" y="${(+y-7).toFixed(1)}" text-anchor="${anchor}" style="font-size:9px;font-weight:700;fill:${sc.cur?'var(--amber)':'#d7f5ea'}">${lab}</text>`;}).join('');
+  const axes=`<line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H-PB}" stroke="rgba(255,255,255,.12)"/><line x1="${PL}" y1="${H-PB}" x2="${W-PR}" y2="${H-PB}" stroke="rgba(255,255,255,.12)"/>`;
+
+  const svg=`<svg class="rtc-card-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+    ${grid}<g><title>GGAL hoy: $${fn(gSpot)}</title>${spotLine}</g>${axes}
+    <polygon points="${area}" fill="rgba(0,229,168,.10)"><title>Valor tiempo + financiamiento: la brecha entre la prima de hoy y el valor al vencimiento. Es lo que se derrite si GGAL no se mueve hasta el ${o.expiration.slice(0,10)}.</title></polygon>
+    <path d="${pathExp}" stroke="rgba(200,218,240,.45)" stroke-width="1.6" stroke-dasharray="7,5" fill="none"><title>Valor al vencimiento (${o.expiration.slice(0,10)}): lo que vale la opción el día del vto = solo valor intrínseco, máx(${isC?'GGAL−strike':'strike−GGAL'}, 0).</title></path>
+    <path d="${pathNow}" stroke="var(--green)" stroke-width="2.2" fill="none" stroke-linejoin="round"><title>Prima estimada si GGAL se mueve AHORA (mismo vto, IV ${iv!=null?Math.round(iv*100)+'%':'—'}): reprecia la opción manteniendo el valor tiempo.</title></path>
+    ${dots}${xlab}
+    <text x="${PL-52}" y="${PT+ch/2}" transform="rotate(-90 ${PL-52} ${PT+ch/2})" text-anchor="middle" style="font-size:9px;fill:rgba(200,218,240,.45)">Valor de la prima</text>
+    <text x="${PL+cw/2}" y="${H-4}" text-anchor="middle" style="font-size:9px;fill:rgba(200,218,240,.45)">Precio de GGAL</text>
+  </svg>`;
+
+  const stats=`<div class="rtc-card-stats">
+    <div class="rtc-stat" title="Precio medio bid/ask que pagás por la opción."><b>$${fn(m)}</b><span>Prima (mid)</span></div>
+    <div class="rtc-stat" title="Palanca efectiva (omega) = |Δ|·Spot/Prima. Cuánto se mueve la opción, en %, por cada 1% que se mueve GGAL. Más alta = más potencia y más riesgo."><b>${lev!=null?lev.toFixed(1)+'x':'—'}</b><span>Palanca ef.</span></div>
+    <div class="rtc-stat" title="Precio de GGAL al que no ganás ni perdés al vencimiento = strike ${isC?'+':'−'} prima = $${fn(be)}."><b>$${fn(be)}</b><span>Equilibrio</span></div>
+    <div class="rtc-stat" title="Qué parte de la prima ya es valor real hoy (${isC?'GGAL−strike':'strike−GGAL'}). El resto (${100-Math.round(intrPct)}%) es valor tiempo que se derrite."><b>${Math.round(intrPct)}%</b><span>Intrínseco</span></div>
+    <div class="rtc-stat" title="Volatilidad implícita: la vol anual que el mercado le está pagando a esta opción (calibrada desde la prima)."><b>${iv!=null?Math.round(iv*100)+'%':'—'}</b><span>IV</span></div>
+    <div class="rtc-stat" title="Delta: cuántas acciones de GGAL equivale la opción (0 a 1 para call). Sensibilidad de la prima al precio de GGAL."><b>${delta!=null?delta.toFixed(2):'—'}</b><span>Delta</span></div>
+  </div>`;
+  const legend=`<div class="rtc-card-lg">
+    <span style="color:var(--green)" title="Reprecia la opción si GGAL se mueve hoy mismo, manteniendo el valor tiempo (mismo vto, misma IV).">━ Prima si GGAL se mueve ahora</span>
+    <span title="Lo que vale la opción el día del vencimiento: solo valor intrínseco.">┄ Valor al vencimiento (${o.expiration.slice(0,10)})</span>
+    <span style="color:var(--amber)" title="Precio actual de GGAL.">┆ GGAL hoy $${fn(gSpot)}</span></div>`;
+  const hint=`<div class="rtc-card-note">💡 Pasá el cursor sobre las líneas, los puntos y los recuadros de arriba para ver qué significa cada uno.</div>`;
+  const note=iv==null?`<div class="rtc-card-note">⚠ No se pudo calibrar IV (opción ilíquida o prima fuera de rango): la curva "ahora" cae al valor intrínseco.</div>`:'';
+  box.innerHTML=hd+stats+legend+svg+hint+note;
+  ov.classList.add('on');
+};
 
 // ── Init ──────────────────────────────────────────────────────
 rtcLoad();
