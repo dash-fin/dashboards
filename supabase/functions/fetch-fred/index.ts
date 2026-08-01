@@ -6,6 +6,9 @@ const SERIES: Record<string, { display: string; unit: string; desc: string }> = 
   DFF:            { display: 'Fed Funds Rate',        unit: '%',      desc: 'Tasa de fondos federales efectiva' },
   DGS10:          { display: 'Treasury 10Y',           unit: '%',      desc: 'Rendimiento bono USA 10 años' },
   DGS2:           { display: 'Treasury 2Y',            unit: '%',      desc: 'Rendimiento bono USA 2 años' },
+  DGS1:           { display: 'Treasury 1Y',            unit: '%',      desc: 'Rendimiento bono USA 1 año' },
+  DGS3:           { display: 'Treasury 3Y',            unit: '%',      desc: 'Rendimiento bono USA 3 años' },
+  DGS5:           { display: 'Treasury 5Y',            unit: '%',      desc: 'Rendimiento bono USA 5 años' },
   T10YIE:         { display: 'Inflación esperada 10Y', unit: '%',      desc: 'Breakeven inflation 10 años' },
   CPIAUCSL:       { display: 'CPI USA',                unit: 'índice', desc: 'Consumer Price Index' },
   UNRATE:         { display: 'Desempleo USA',          unit: '%',      desc: 'Tasa de desempleo' },
@@ -110,8 +113,12 @@ Deno.serve(async (req: Request) => {
     // Backfill: 5 years back; incremental: 30 days back
     const fiveYearsAgo = new Date(today);
     fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Ventana incremental AMPLIA (400d, no 30). Las series MENSUALES (CPI/UNRATE/UMCSENT) se
+    // fechan el día 1; con 30d una corrida casi nunca cae sobre esa fecha -> observations=0 ->
+    // `continue` -> la serie nunca se actualizaba (UMCSENT quedó clavada en mayo). El merge
+    // deduplica por fecha, así que re-traer 400d es barato e idempotente (también para diarias).
+    const incrStart = new Date(today);
+    incrStart.setDate(incrStart.getDate() - 400);
 
     const results: Record<string, unknown> = {};
     const errors: Record<string, string> = {};
@@ -121,7 +128,7 @@ Deno.serve(async (req: Request) => {
         const isNew = !existingMap[seriesId];
         const startDate = isNew
           ? fiveYearsAgo.toISOString().slice(0, 10)
-          : thirtyDaysAgo.toISOString().slice(0, 10);
+          : incrStart.toISOString().slice(0, 10);
 
         console.log(`Fetching ${seriesId} from ${startDate} (${isNew ? 'backfill' : 'incremental'})`);
 
