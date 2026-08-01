@@ -2328,42 +2328,27 @@ function rrgCalcSymbol(weekMap, spyMap) {
 
 async function rrgLoad() {
   rrgLoaded = true;
-  const allSyms = ['SPY', ...RRG_SECTORS, ...RRG_ACCIONES];
-  const since = new Date(); since.setDate(since.getDate()-1500);
-  const sinceStr = since.toISOString().slice(0,10);
+  const syms = [...RRG_SECTORS, ...RRG_ACCIONES];
   document.getElementById('rrg-meta').textContent = 'Cargando datos…';
   try {
     const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
-    const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
-    const results = await Promise.all(
-      allSyms.map(sym =>
-        fetch(`${base}?select=symbol,fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=1500`, {headers:SBH})
-          .then(r => r.ok ? r.json() : [])
-      )
-    );
-    const rows = results.flat();
-    if (!rows?.length) { document.getElementById('rrg-meta').textContent='Sin datos en historico_precios.'; return; }
-    const bySymbol = {};
-    rows.forEach(r => {
-      if (!bySymbol[r.symbol]) bySymbol[r.symbol]=[];
-      bySymbol[r.symbol].push({date:r.fecha, close:r.close});
-    });
-    const spyMap = rrgWeeklyMap(bySymbol['SPY']||[]);
-    if (spyMap.size < 30) { document.getElementById('rrg-meta').textContent='Insuficientes datos de SPY.'; return; }
-    const buildTab = syms => syms.map((s,i) => {
-      const pts = bySymbol[s] ? rrgCalcSymbol(rrgWeeklyMap(bySymbol[s]), spyMap) : null;
-      return {s, c:RRG_COLORS[i%RRG_COLORS.length], p:pts||[]};
+    // RRG precocinado (fase 3b-B): coords ya cocinadas en rrg_usa (weekly+daily, cola incluida).
+    const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/rrg_usa';
+    const rows = await fetch(`${base}?select=symbol,tf,r,m,quad,tail,updated_at&symbol=in.(${syms.join(',')})`, {headers:SBH})
+      .then(r => r.ok ? r.json() : []);
+    if (!rows?.length) { document.getElementById('rrg-meta').textContent='Sin datos en rrg_usa.'; return; }
+    const idx = {weekly:{}, daily:{}};
+    rows.forEach(r => { (idx[r.tf] || (idx[r.tf]={}))[r.symbol] = r; });
+    const buildFrom = (list, tf) => list.map((s,i) => {
+      const row = idx[tf][s];
+      return {s, c:RRG_COLORS[i%RRG_COLORS.length], p:(row && Array.isArray(row.tail)) ? row.tail : []};
     }).filter(d => d.p.length > 1);
-    rrgData.sectores = buildTab(RRG_SECTORS);
-    rrgData.acciones = buildTab(RRG_ACCIONES);
-    const spyDayMap = rrgDailyMap(bySymbol['SPY']||[]);
-    const buildTabDaily = syms => syms.map((s,i) => {
-      const pts = bySymbol[s] ? rrgCalcSymbolDaily(rrgDailyMap(bySymbol[s]), spyDayMap) : null;
-      return {s, c:RRG_COLORS[i%RRG_COLORS.length], p:pts||[]};
-    }).filter(d => d.p.length > 1);
-    rrgData.sectores_d = buildTabDaily(RRG_SECTORS);
-    rrgData.acciones_d = buildTabDaily(RRG_ACCIONES);
-    const lastDate = [...spyMap.keys()].sort().pop()||'—';
+    rrgData.sectores   = buildFrom(RRG_SECTORS, 'weekly');
+    rrgData.acciones   = buildFrom(RRG_ACCIONES,'weekly');
+    rrgData.sectores_d = buildFrom(RRG_SECTORS, 'daily');
+    rrgData.acciones_d = buildFrom(RRG_ACCIONES,'daily');
+    const lastUpd = rows.map(r=>r.updated_at).filter(Boolean).sort().pop();
+    const lastDate = lastUpd ? lastUpd.slice(0,10) : '—';
     document.getElementById('rrg-meta').textContent = `Benchmark: SPY · Actualizado ${lastDate}`;
     rrgRender();
     rrgBuildLegend();
@@ -2558,23 +2543,16 @@ let rrgAddCache = null;
 async function rrgGetSymbolList() {
   if (rrgAddCache) return rrgAddCache;
   const SBH  = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
-  const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
-  // Buscar hacia atrás hasta encontrar una fecha con cobertura amplia (500+)
-  const dr = await fetch(`${base}?select=fecha&order=fecha.desc&limit=30`, {headers:SBH});
-  const dates = dr.ok ? [...new Set((await dr.json()).map(r=>r.fecha))] : [];
-  for (const d of dates) {
-    const r = await fetch(`${base}?select=symbol&fecha=eq.${d}&order=symbol.asc&limit=600`, {headers:SBH});
-    const rows = r.ok ? await r.json() : [];
-    if (rows.length >= 100) {
-      rrgAddCache = rows.map(x=>x.symbol).filter(s=>s && s!=='SPY');
-      return rrgAddCache;
-    }
+  // Universo = símbolos precocinados en rrg_usa (fase 3b-B). Paginar (máx 1000/respuesta).
+  const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/rrg_usa';
+  const syms = [];
+  for (let off = 0; ; off += 1000) {
+    const r = await fetch(`${base}?select=symbol&tf=eq.weekly&order=symbol.asc&limit=1000&offset=${off}`, {headers:SBH});
+    const page = r.ok ? await r.json() : [];
+    syms.push(...page.map(x=>x.symbol));
+    if (page.length < 1000) break;
   }
-  // Fallback: usar cualquier fecha disponible
-  if (dates.length) {
-    const r = await fetch(`${base}?select=symbol&fecha=eq.${dates[0]}&order=symbol.asc&limit=600`, {headers:SBH});
-    if (r.ok) rrgAddCache = (await r.json()).map(x=>x.symbol).filter(s=>s && s!=='SPY');
-  }
+  rrgAddCache = syms.filter(s=>s && s!=='SPY');
   return rrgAddCache || [];
 }
 
@@ -2616,6 +2594,20 @@ window.rrgAddSymbol = async function() {
   meta.textContent = `Cargando ${sym}…`;
   try {
     const SBH = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
+    // 1) Precocinado en rrg_usa (weekly+daily). Instantáneo si el ticker está en el universo.
+    const preRows = await fetch(`https://endymbpdayeidromxayb.supabase.co/rest/v1/rrg_usa?select=tf,tail&symbol=eq.${sym}`, {headers:SBH})
+      .then(r => r.ok ? r.json() : []);
+    let preW = null, preD = null;
+    (Array.isArray(preRows)?preRows:[]).forEach(row => { if(row.tf==='weekly') preW=row.tail; else if(row.tf==='daily') preD=row.tail; });
+    if (Array.isArray(preW) && preW.length > 1) {
+      const color = RRG_COLORS[rrgData.acciones.length % RRG_COLORS.length];
+      rrgData.acciones.push({s:sym, c:color, p:preW});
+      rrgData.acciones_d.push({s:sym, c:color, p:(Array.isArray(preD)?preD:[])});
+      inp.value = ''; meta.textContent = prevMeta;
+      rrgRender(); rrgBuildLegend();
+      return;
+    }
+    // 2) Fallback client-side: ticker fuera del universo -> historico + Yahoo on-demand.
     const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
     const since = new Date(); since.setDate(since.getDate()-1500);
     const sinceStr = since.toISOString().slice(0,10);
@@ -2712,36 +2704,23 @@ window.rrgScanSP500 = async function(){
   title.textContent = `Scan S&P 500 — ${qLabel[filterVal] || 'Todos'}`;
   try {
     const SBH  = {apikey:CFG.SB_KEY,'Authorization':'Bearer '+CFG.SB_KEY};
-    const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/historico_precios';
-    const allSyms = await rrgGetSymbolList();
-    if (!allSyms.length) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en historico_precios</div>'; return; }
-    meta.textContent = `${allSyms.length} símbolos · cargando histórico…`;
-    const since = new Date(); since.setDate(since.getDate()-1500);
-    const sinceStr = since.toISOString().slice(0,10);
-    const spyResp = await fetch(`${base}?select=fecha,close&symbol=eq.SPY&fecha=gte.${sinceStr}&order=fecha&limit=1500`, {headers:SBH});
-    const spyRows = spyResp.ok ? await spyResp.json() : [];
-    const spyMap = rrgWeeklyMap(spyRows.map(r=>({date:r.fecha,close:r.close})));
-    if (spyMap.size < 30) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Insuficientes datos SPY</div>'; return; }
-    const BATCH = 40;
-    const results = [];
-    for (let i = 0; i < allSyms.length; i += BATCH) {
-      const batch = allSyms.slice(i, i+BATCH);
-      const pct = Math.round((i/allSyms.length)*100);
-      meta.textContent = `${pct}% — procesando ${i}/${allSyms.length} símbolos…`;
-      const fetches = await Promise.all(
-        batch.map(sym =>
-          fetch(`${base}?select=fecha,close&symbol=eq.${sym}&fecha=gte.${sinceStr}&order=fecha&limit=1500`, {headers:SBH})
-            .then(r => r.ok ? r.json().then(rows => ({sym, rows})) : {sym, rows:[]})
-        )
-      );
-      results.push(...fetches);
+    // RRG precocinado (fase 3b-B): coords ya cocinadas en rrg_usa -> scan instantáneo (1 request).
+    const base = 'https://endymbpdayeidromxayb.supabase.co/rest/v1/rrg_usa';
+    meta.textContent = 'Cargando RRG precocinado…';
+    // PostgREST devuelve máx. 1000 filas/respuesta -> paginar (hay ~1700 semanales).
+    const rows = [];
+    for (let off = 0; ; off += 1000) {
+      const page = await fetch(`${base}?select=symbol,r,m,quad,tail&tf=eq.weekly&order=symbol&limit=1000&offset=${off}`, {headers:SBH})
+        .then(r => r.ok ? r.json() : []);
+      rows.push(...page);
+      if (page.length < 1000) break;
     }
+    if (!rows.length) { body.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Sin datos en rrg_usa</div>'; return; }
     const scanResults = [];
-    for (const {sym, rows} of results) {
-      if (!rows.length) continue;
-      const series = rows.map(r=>({date:r.fecha,close:r.close}));
-      const pts = rrgCalcSymbol(rrgWeeklyMap(series), spyMap);
-      if (!pts || pts.length < 2) continue;
+    for (const row of rows) {
+      const pts = Array.isArray(row.tail) ? row.tail : [];
+      if (pts.length < 2) continue;
+      const sym = row.symbol;
       const last = pts[pts.length-1];
       const {name, color} = rrgQ(last[0], last[1]);
       const prev = pts[pts.length-2];
@@ -2760,7 +2739,7 @@ window.rrgScanSP500 = async function(){
     const qOrder = {Improving:0,Leading:1,Weakening:2,Lagging:3};
     const filtered = filterVal === 'all' ? scanResults : scanResults.filter(r => r.name.toLowerCase() === filterVal);
     filtered.sort((a,b) => { if (a.crossLagToImp !== b.crossLagToImp) return a.crossLagToImp ? -1 : 1; const qd=(qOrder[a.name]??4)-(qOrder[b.name]??4); return qd!==0?qd:b.ratio-a.ratio; });
-    meta.textContent = `${filtered.length} símbolos en ${qLabel[filterVal]||'todos'} de ${allSyms.length} escaneados`;
+    meta.textContent = `${filtered.length} símbolos en ${qLabel[filterVal]||'todos'} de ${scanResults.length} escaneados`;
     if (!filtered.length) { body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3)">Sin símbolos en este cuadrante</div>'; return; }
     await loadCedearSet();
     const arrowR = v => v>0?`<span style="color:#00e5a8">▲</span>`:`<span style="color:#ff3f5e">▼</span>`;
