@@ -109,6 +109,21 @@ serve(async (req) => {
     const body = await req.json() as { symbols?: string[]; mode?: string; dates?: string[] };
     const { symbols, mode, dates } = body;
 
+    // ── Modo watchlist: quote live de Finnhub (/quote) para pocos tickers ──
+    if (mode === "fh-quote") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+      const FINNHUB_KEY = Deno.env.get("FINNHUB_KEY") || "";
+      const out: Record<string, unknown> = {};
+      await Promise.all(symbols.map(async (sym) => {
+        try {
+          const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${FINNHUB_KEY}`);
+          const q = r.ok ? await r.json() : null;
+          out[sym] = q ? { last: q.c, chgPct: q.dp, chg: q.d, prevClose: q.pc, high: q.h, low: q.l, open: q.o, t: q.t } : { error: "no-data" };
+        } catch (e) { out[sym] = { error: String(e) }; }
+      }));
+      return new Response(JSON.stringify(out), { headers: { ...CORS, "Content-Type": "application/json" } });
+    }
+
     // ── Modo 2: histórico local vía Rava ────────────────────
     if (mode === "rava-history") {
       if (!symbols?.length || !dates?.length) throw new Error("symbols y dates requeridos");
@@ -383,7 +398,7 @@ serve(async (req) => {
       const [chartResp, summaryResp, fhEarnings, fhRec, fhTarget, fhMetrics, saHtml] = await Promise.all([
         fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1wk&range=${range}&includePrePost=false&crumb=${encodeURIComponent(crumb)}`,
           { headers: { "User-Agent": UA, "Cookie": cookie } }),
-        fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=incomeStatementHistoryQuarterly,incomeStatementHistory,defaultKeyStatistics,price&crumb=${encodeURIComponent(crumb)}`,
+        fetch(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=incomeStatementHistoryQuarterly,incomeStatementHistory,defaultKeyStatistics,price,financialData&crumb=${encodeURIComponent(crumb)}`,
           { headers: { "User-Agent": UA, "Cookie": cookie } }),
         fhGet(`/stock/earnings?symbol=${ticker}&limit=25`),
         fhGet(`/stock/recommendation?symbol=${ticker}`),
@@ -458,6 +473,21 @@ serve(async (req) => {
       });
     }
 
+    // ── Modo debug: todos los campos de quote ───────────────
+    // POST { mode: "debug-quote", symbols: ["NOW"] }
+    // Devuelve raw de Yahoo: regularMarketPrice, prev close, post/pre prices y pcts
+    if (mode === "debug-quote") {
+      if (!symbols?.length) throw new Error("symbols requerido");
+      const { crumb: dc, cookie: dk } = await getYahooCrumb();
+      const dUrl = "https://query2.finance.yahoo.com/v7/finance/quote?symbols=" + symbols.join(",") + "&crumb=" + encodeURIComponent(dc) + "&fields=regularMarketPrice,regularMarketPreviousClose,regularMarketChangePercent,regularMarketChange,postMarketPrice,postMarketChangePercent,postMarketChange,preMarketPrice,preMarketChangePercent,preMarketChange,marketState,shortName,bid,ask,bidSize,askSize,fiftyTwoWeekLow,fiftyTwoWeekHigh";
+      const dr = await fetch(dUrl, { headers: { "User-Agent": UA, "Cookie": dk } });
+      if (!dr.ok) throw new Error("Yahoo HTTP " + dr.status);
+      const dd = await dr.json();
+      return new Response(JSON.stringify(dd?.quoteResponse?.result ?? []), {
+        headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Modo 10: pre/post market extended ─────────────────
     // POST { mode: "extended", symbols: ["AAPL","GGAL"] }
     // Response: { "AAPL": { mkt, prePct, postPct, prePrice, postPrice }, ... }
@@ -474,11 +504,13 @@ serve(async (req) => {
           const ed = await er.json();
           (ed?.quoteResponse?.result ?? []).forEach((q: any) => {
             extResult[q.symbol] = {
-              mkt:       q.marketState               ?? "REGULAR",
-              prePct:    q.preMarketChangePercent     ?? null,
-              postPct:   q.postMarketChangePercent    ?? null,
-              prePrice:  q.preMarketPrice             ?? null,
-              postPrice: q.postMarketPrice            ?? null,
+              mkt:          q.marketState               ?? "REGULAR",
+              prePct:       q.preMarketChangePercent     ?? null,
+              postPct:      q.postMarketChangePercent    ?? null,
+              prePrice:     q.preMarketPrice             ?? null,
+              postPrice:    q.postMarketPrice            ?? null,
+              preTime:      q.preMarketTime              ?? null,   // Unix seconds
+              postTime:     q.postMarketTime             ?? null,   // Unix seconds
             };
           });
         } catch { /* skip chunk */ }
