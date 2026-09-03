@@ -102,7 +102,7 @@
     const [cxp,cyp]=m(cur.growth_score,cur.inflation_score);
     const txCap = lastTx ? `<div style="text-align:center;font-size:11px;color:${(QMETA[lastTx.q]||q).col};font-weight:700;margin-top:2px">◯ último giro: ${(lastTx.date||'').slice(5)} → ${(QMETA[lastTx.q]||q).lbl}</div>` : '';
     return `
-    <svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:520px;display:block;margin:0 auto">
+    <svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:620px;display:block;margin:0">
       ${cells}
       <line x1="${S/2}" y1="0" x2="${S/2}" y2="${S}" stroke="var(--border2)"/>
       <line x1="0" y1="${S/2}" x2="${S}" y2="${S/2}" stroke="var(--border2)"/>
@@ -211,9 +211,9 @@
         </div>
 
         <div class="ic-cat">Reloj de la inversión · recorrido histórico</div>
-        <div class="ic-card" style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;justify-content:center">
-          <div style="flex:1 1 420px;min-width:280px;max-width:560px">${renderClock(cur, spiral)}</div>
-          <div style="flex:0 1 260px;min-width:200px;display:flex;flex-direction:column;gap:14px">
+        <div class="ic-card" style="display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:flex-start">
+          <div style="flex:0 1 620px;min-width:300px">${renderClock(cur, spiral)}</div>
+          <div style="flex:1 1 240px;min-width:200px;display:flex;flex-direction:column;gap:16px">
             <div><div class="ic-kpiL">Crecimiento</div><div style="font-size:34px;font-weight:800;line-height:1;color:${cur.growth_score>=0?'var(--green)':'var(--red)'}">${fmt(cur.growth_score)}</div></div>
             <div><div class="ic-kpiL">Inflación</div><div style="font-size:34px;font-weight:800;line-height:1;color:${cur.inflation_score>=0?'#f5a623':'var(--green)'}">${fmt(cur.inflation_score)}</div></div>
             <div class="ic-leg" style="flex-direction:column;gap:7px;margin-top:4px">
