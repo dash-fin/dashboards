@@ -1,0 +1,227 @@
+<div class="ic-wrap">
+  <style>
+    .ic-wrap{padding:14px 16px 60px;max-width:1100px;margin:0 auto;color:var(--text)}
+    .ic-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+    .ic-h1{font-size:20px;font-weight:800;letter-spacing:.3px}
+    .ic-sub{font-size:12px;color:var(--text2)}
+    .ic-cat{font-size:11px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--blue);margin:18px 0 8px}
+    .ic-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px}
+    .ic-grid{display:grid;gap:12px}
+    .ic-verdict{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .ic-badge{font-size:30px}
+    .ic-vq{font-size:24px;font-weight:900;line-height:1.1}
+    .ic-vmeta{font-size:12px;color:var(--text2)}
+    .ic-tesis{font-size:14px;color:var(--text);line-height:1.5;margin-top:8px}
+    .ic-warn{font-size:12px;color:#f5a623;font-weight:700;margin-top:8px}
+    .ic-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+    .ic-chip{font-size:12px;font-weight:600;padding:5px 10px;border-radius:14px;border:1px solid;background:var(--bg3)}
+    .ic-lbl{font-size:11px;font-weight:800;letter-spacing:.6px}
+    .ic-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .ic-kpis{display:flex;flex-wrap:wrap}
+    .ic-kpi{flex:1;min-width:120px;padding:6px 8px}
+    .ic-kpiL{font-size:11px;color:var(--text2)}
+    .ic-kpiV{font-size:20px;font-weight:800}
+    .ic-kpiS{font-size:10px;color:var(--text3)}
+    .ic-pring{display:flex;gap:6px}
+    .ic-pill{flex:1;height:32px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:var(--text2)}
+    .ic-baros{display:flex;margin-top:10px}
+    .ic-baro{flex:1;text-align:center}
+    .ic-foot{font-size:11px;color:var(--text3);text-align:center;margin-top:16px;line-height:1.6}
+    .ic-leg{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:12px}
+    .ic-legi{display:flex;align-items:center;gap:5px}
+    .ic-dot{width:10px;height:10px;border-radius:3px}
+    @media(max-width:640px){.ic-two{grid-template-columns:1fr}}
+  </style>
+
+  <div class="ic-h">
+    <span class="ic-h1">🕰️ Ciclo Intermercado</span>
+    <span class="ic-sub" id="ic-upd"></span>
+  </div>
+  <div id="ic-body"><div style="color:var(--text2);padding:30px 0">Cargando…</div></div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const fmt = (n,d=2) => (n==null||isNaN(n)) ? '—' : (n>0&&d>0?'+':'')+Number(n).toFixed(d);
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const QMETA = {
+    recovery:   {lbl:'Recuperación',   emoji:'🟢', col:'#10e898', win:'Acciones'},
+    overheat:   {lbl:'Sobrecalentamiento',emoji:'🟠',col:'#f5a623', win:'Commodities'},
+    stagflation:{lbl:'Estanflación',   emoji:'🔴', col:'#ff4060', win:'Cash / Oro'},
+    reflation:  {lbl:'Reflación',      emoji:'🔵', col:'#4488ff', win:'Bonos'},
+  };
+  // celdas grilla del reloj: TL, TR, BL, BR  (x=crecimiento, y=inflación)
+  const CELLS = [['stagflation',0,0],['overheat',1,0],['reflation',0,1],['recovery',1,1]];
+
+  const arrow = z => z>=0 ? '▲' : '▼';
+  const zcol  = z => z>=0 ? 'var(--green)' : 'var(--red)';
+
+  // ---- SVG helpers ----
+  function pathFrom(vals, w, h, pad=2){
+    const mn=Math.min(...vals), mx=Math.max(...vals), rng=(mx-mn)||1;
+    const n=vals.length;
+    return vals.map((v,i)=>{
+      const x=pad + i/(n-1)*(w-2*pad);
+      const y=pad + (1-(v-mn)/rng)*(h-2*pad);
+      return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);
+    }).join(' ');
+  }
+
+  // ---- Reloj con espiral ----
+  function renderClock(cur, spiral){
+    const S=260, m= (g,i)=>[clamp((g+1.5)/3,0,1)*S, (1-clamp((i+1.5)/3,0,1))*S];
+    const q = QMETA[cur.quadrant];
+    // fondos de cuadrante
+    let cells = CELLS.map(([k,cx,cy])=>{
+      const on=k===cur.quadrant, meta=QMETA[k];
+      return `<rect x="${cx*S/2}" y="${cy*S/2}" width="${S/2}" height="${S/2}" fill="${meta.col}" opacity="${on?0.16:0.05}"/>
+      <text x="${cx*S/2+S/4}" y="${cy? S-10 : 16}" text-anchor="middle" font-size="10" font-weight="700" fill="${on?meta.col:'var(--text3)'}">${meta.lbl}</text>`;
+    }).join('');
+    // espiral
+    const pts = spiral.map(r=>m(r.growth_score, r.inflation_score));
+    let poly = '';
+    if(pts.length>1){
+      const d = pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+      poly = `<path d="${d}" fill="none" stroke="var(--text2)" stroke-width="1.4" opacity="0.55" stroke-linejoin="round"/>`;
+      // puntos intermedios tenues cada ~10
+      for(let i=0;i<pts.length;i+=Math.max(1,Math.floor(pts.length/18))){
+        poly += `<circle cx="${pts[i][0].toFixed(1)}" cy="${pts[i][1].toFixed(1)}" r="1.6" fill="var(--text3)" opacity="0.5"/>`;
+      }
+    }
+    const [cxp,cyp]=m(cur.growth_score,cur.inflation_score);
+    return `
+    <svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:340px;display:block;margin:0 auto">
+      ${cells}
+      <line x1="${S/2}" y1="0" x2="${S/2}" y2="${S}" stroke="var(--border2)"/>
+      <line x1="0" y1="${S/2}" x2="${S}" y2="${S/2}" stroke="var(--border2)"/>
+      <text x="${S-4}" y="${S/2-4}" text-anchor="end" font-size="8.5" fill="var(--text3)">crecimiento →</text>
+      <text x="${S/2+4}" y="10" font-size="8.5" fill="var(--text3)">↑ inflación</text>
+      ${poly}
+      <circle cx="${cxp.toFixed(1)}" cy="${cyp.toFixed(1)}" r="6" fill="#fff" stroke="${q.col}" stroke-width="3"/>
+    </svg>
+    <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:2px">Recorrido últimos ${spiral.length} días · el punto blanco es hoy</div>`;
+  }
+
+  // ---- Overlay 4 mercados ----
+  function renderMarkets(mk){
+    const W=520,H=170;
+    const series=[['SPY','Acciones','#10e898'],['TLT','Bonos','#4488ff'],['GSCI','Commodities','#f5a623'],['DXY','Dólar','#c05cff']];
+    const all=[].concat(...series.map(s=>mk[s[0]]));
+    const mn=Math.min(...all),mx=Math.max(...all),rng=(mx-mn)||1;
+    const px=(i,n)=>2+i/(n-1)*(W-4), py=v=>2+(1-(v-mn)/rng)*(H-4);
+    let paths=series.map(([k,,c])=>{
+      const v=mk[k],n=v.length;
+      const d=v.map((val,i)=>(i?'L':'M')+px(i,n).toFixed(1)+' '+py(val).toFixed(1)).join(' ');
+      return `<path d="${d}" fill="none" stroke="${c}" stroke-width="1.6"/>`;
+    }).join('');
+    let leg=series.map(([k,lbl,c])=>{
+      const z=(mk.trend||{})[k];
+      return `<span class="ic-legi"><span class="ic-dot" style="background:${c}"></span>${lbl} <b style="color:${zcol(z)}">${arrow(z)} ${fmt(z)}</b></span>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%"><line x1="0" y1="${py(100).toFixed(1)}" x2="${W}" y2="${py(100).toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 3"/>${paths}</svg>
+      <div class="ic-leg">${leg}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">Rebased a 100 al inicio de la ventana (${mk.dates.length} ruedas). La línea punteada = base.</div>`;
+  }
+
+  // ---- Ratios (los "tells" del ciclo) ----
+  function renderRatios(rt){
+    const cards=[
+      ['SPY_TLT','Acciones ÷ Bonos','risk-on/off','#10e898'],
+      ['GSCI_TLT','Commodities ÷ Bonos','presión inflacionaria','#f5a623'],
+      ['CPER_GLD','Cobre ÷ Oro','termómetro de crecimiento','#c05cff'],
+    ];
+    return cards.map(([k,lbl,sub,c])=>{
+      const v=rt[k],z=(rt.trend||{})[k];
+      const up=z>=0;
+      return `<div class="ic-card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="ic-lbl">${lbl}</span>
+          <span style="font-weight:800;color:${zcol(z)}">${arrow(z)} ${fmt(z)}</span></div>
+        <svg viewBox="0 0 200 46" style="width:100%;margin-top:6px"><path d="${pathFrom(v,200,46)}" fill="none" stroke="${up?'var(--green)':'var(--red)'}" stroke-width="1.6"/></svg>
+        <div style="font-size:10px;color:var(--text3)">${sub}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function load(){
+    try{
+      const [curArr, spiralArr, boardArr] = await Promise.all([
+        window.sb('intermarket_regime','select=*&order=fecha.desc&limit=1'),
+        window.sb('intermarket_regime','select=fecha,growth_score,inflation_score,quadrant&order=fecha.asc&limit=400'),
+        window.sb('intermarket_board','select=*&id=eq.1'),
+      ]);
+      const cur = curArr && curArr[0];
+      const board = boardArr && boardArr[0];
+      if(!cur){ $('ic-body').innerHTML='<div class="ic-card">Sin datos del ciclo todavía.</div>'; return; }
+      const spiral = (spiralArr||[]).filter(r=>r.growth_score!=null).slice(-120);
+      const q = QMETA[cur.quadrant]||QMETA.reflation;
+      const rot = cur.rotation||{};
+      const pa = cur.pring_action||{};
+      const ls = cur.lead_signal;
+      const mur = cur.murphy||{};
+      $('ic-upd').textContent = cur.fecha ? ('· '+cur.fecha) : '';
+
+      const murRows=[['Acciones/Bonos',mur.acciones_bonos],['Commod/Bonos',mur.commod_bonos],['Oro/Bonos',mur.oro_bonos],['Dólar',mur.dolar]];
+
+      $('ic-body').innerHTML = `
+        <div class="ic-card ic-verdict" style="border-color:${q.col}66">
+          <span class="ic-badge">${q.emoji}</span>
+          <div style="flex:1;min-width:180px">
+            <div class="ic-vq" style="color:${q.col}">${cur.quadrant_label}</div>
+            <div class="ic-vmeta">gana ${q.win} · confianza ${Math.round((cur.confidence||0)*100)}%</div>
+            <div class="ic-tesis">${rot.tesis||''}</div>
+            ${cur.transition?'<div class="ic-warn">⚠️ Zona de transición: señal débil (cerca del centro del reloj). Bisagra del ciclo.</div>':''}
+          </div>
+        </div>
+
+        <div class="ic-cat">Reloj de la inversión · recorrido histórico</div>
+        <div class="ic-card">
+          ${renderClock(cur, spiral)}
+          <div class="ic-kpis" style="margin-top:6px">
+            <div class="ic-kpi"><div class="ic-kpiL">Crecimiento</div><div class="ic-kpiV" style="color:${cur.growth_score>=0?'var(--green)':'var(--red)'}">${fmt(cur.growth_score)}</div></div>
+            <div class="ic-kpi"><div class="ic-kpiL">Inflación</div><div class="ic-kpiV" style="color:${cur.inflation_score>=0?'#f5a623':'var(--green)'}">${fmt(cur.inflation_score)}</div></div>
+          </div>
+        </div>
+
+        <div class="ic-cat">Rotación sugerida</div>
+        <div class="ic-card">
+          <div class="ic-lbl" style="color:var(--green)">SOBREPONDERAR</div>
+          <div class="ic-chips">${(rot.over||[]).map(x=>`<span class="ic-chip" style="border-color:var(--green);color:var(--green)">${x}</span>`).join('')}</div>
+          <div class="ic-lbl" style="color:var(--red);margin-top:10px">REDUCIR</div>
+          <div class="ic-chips">${(rot.under||[]).map(x=>`<span class="ic-chip" style="border-color:var(--red);color:var(--red)">${x}</span>`).join('')}</div>
+        </div>
+
+        <div class="ic-cat">Los 4 mercados (interrelacionados)</div>
+        <div class="ic-card">${board?renderMarkets(board.markets):'<span style="color:var(--text3)">sin tablero</span>'}</div>
+
+        <div class="ic-cat">Los ratios que marcan el ciclo</div>
+        <div class="ic-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+          ${board?renderRatios(board.ratios):''}
+        </div>
+
+        <div class="ic-cat">Secuencia de Pring + dólar líder</div>
+        <div class="ic-card">
+          <div class="ic-pring">${[1,2,3,4,5,6].map(n=>`<div class="ic-pill" style="${n===cur.pring_stage?`background:${q.col}2e;border-color:${q.col};color:${q.col}`:''}">${n}</div>`).join('')}</div>
+          <div style="font-size:14px;font-weight:700;margin-top:8px">${cur.pring_label||''}</div>
+          ${(pa.buy||pa.sell)?`<div style="font-size:14px;margin-top:4px;font-weight:800;color:${pa.buy?'var(--green)':'var(--red)'}">${pa.buy?'🟢 Señal Pring: comprar '+pa.buy:'🔴 Señal Pring: vender '+pa.sell}</div>`:''}
+          ${(ls&&ls.code!=='neutral')?`<div style="font-size:13px;margin-top:8px;color:var(--text)">💵 ${ls.text}</div>`:''}
+          <div class="ic-baros">
+            ${[['Bonos',cur.baro_bonds],['Acciones',cur.baro_stocks],['Commodities',cur.baro_commod]].map(([l,u])=>`<div class="ic-baro"><div style="font-size:12px;color:var(--text2)">${l}</div><div style="font-size:18px;font-weight:900;color:${u?'var(--green)':'var(--red)'}">${u?'▲':'▼'}</div></div>`).join('')}
+          </div>
+        </div>
+
+        <div class="ic-cat">Confirmación (ratios de Murphy)</div>
+        <div class="ic-card ic-kpis">
+          ${murRows.map(([lbl,o])=>`<div class="ic-kpi"><div class="ic-kpiL">${lbl}</div><div class="ic-kpiV" style="font-size:16px;color:${!o?'var(--text3)':o.z>=0?'var(--green)':'var(--red)'}">${!o?'—':arrow(o.z)+' '+fmt(o.z)}</div></div>`).join('')}
+        </div>
+
+        <div class="ic-foot">Investment Clock (crecimiento × inflación) + 6 estados de Pring + ratios de Murphy.<br>
+        Dólar = DXY · Commodities = S&P GSCI (futuros) · resto ETFs/FRED · recalculado diariamente 19:05.</div>
+      `;
+    }catch(e){
+      $('ic-body').innerHTML = `<div class="ic-card" style="color:var(--red)">Error cargando: ${e.message}</div>`;
+    }
+  }
+  load();
+})();
+</script>
