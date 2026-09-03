@@ -89,7 +89,18 @@
         poly += `<circle cx="${pts[i][0].toFixed(1)}" cy="${pts[i][1].toFixed(1)}" r="1.6" fill="var(--text3)" opacity="0.5"/>`;
       }
     }
+    // marcas donde cambio de cuadrante (giros de fase del ciclo)
+    let marks='', lastTx=null;
+    for(let i=1;i<spiral.length;i++){
+      if(spiral[i].quadrant!==spiral[i-1].quadrant){
+        const p=m(spiral[i].growth_score,spiral[i].inflation_score);
+        const recent=i>spiral.length-12;
+        marks+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${recent?4.5:3}" fill="none" stroke="#fff" stroke-width="1.6" opacity="${recent?1:0.5}"/>`;
+        lastTx={date:spiral[i].fecha||'', q:spiral[i].quadrant};
+      }
+    }
     const [cxp,cyp]=m(cur.growth_score,cur.inflation_score);
+    const txCap = lastTx ? `<div style="text-align:center;font-size:11px;color:${(QMETA[lastTx.q]||q).col};font-weight:700;margin-top:2px">◯ último giro: ${(lastTx.date||'').slice(5)} → ${(QMETA[lastTx.q]||q).lbl}</div>` : '';
     return `
     <svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:340px;display:block;margin:0 auto">
       ${cells}
@@ -98,9 +109,11 @@
       <text x="${S-4}" y="${S/2-4}" text-anchor="end" font-size="8.5" fill="var(--text3)">crecimiento →</text>
       <text x="${S/2+4}" y="10" font-size="8.5" fill="var(--text3)">↑ inflación</text>
       ${poly}
+      ${marks}
       <circle cx="${cxp.toFixed(1)}" cy="${cyp.toFixed(1)}" r="6" fill="#fff" stroke="${q.col}" stroke-width="3"/>
     </svg>
-    <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:2px">Recorrido últimos ${spiral.length} días · el punto blanco es hoy</div>`;
+    <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:2px">Recorrido últimos ${spiral.length} días · ◯ = cambio de cuadrante · punto blanco = hoy</div>
+    ${txCap}`;
   }
 
   // ---- Overlay 4 mercados ----
@@ -124,21 +137,44 @@
       <div style="font-size:10px;color:var(--text3);margin-top:4px">Rebased a 100 al inicio de la ventana (${mk.dates.length} ruedas). La línea punteada = base.</div>`;
   }
 
-  // ---- Ratios (los "tells" del ciclo) ----
+  const sma=(a,n)=>{const r=[];let s=0;for(let i=0;i<a.length;i++){s+=a[i];if(i>=n)s-=a[i-n];r.push(i>=n-1?s/n:null);}return r;};
+
+  // ---- Ratios (los "tells" del ciclo) con marcas de giro (cruce vs su media) ----
   function renderRatios(rt){
     const cards=[
-      ['SPY_TLT','Acciones ÷ Bonos','risk-on/off','#10e898'],
-      ['GSCI_TLT','Commodities ÷ Bonos','presión inflacionaria','#f5a623'],
-      ['CPER_GLD','Cobre ÷ Oro','termómetro de crecimiento','#c05cff'],
+      ['SPY_TLT','Acciones ÷ Bonos','risk-on/off'],
+      ['GSCI_TLT','Commodities ÷ Bonos','presión inflacionaria'],
+      ['CPER_GLD','Cobre ÷ Oro','termómetro de crecimiento'],
     ];
-    return cards.map(([k,lbl,sub,c])=>{
-      const v=rt[k],z=(rt.trend||{})[k];
-      const up=z>=0;
+    const W=200,H=46,pad=2, MAW=20;
+    return cards.map(([k,lbl,sub])=>{
+      const v=rt[k], dates=rt.dates||[], z=(rt.trend||{})[k], up=z>=0;
+      const mn=Math.min(...v),mx=Math.max(...v),rng=(mx-mn)||1;
+      const px=i=>pad+i/(v.length-1)*(W-2*pad), py=val=>pad+(1-(val-mn)/rng)*(H-2*pad);
+      const dPath=v.map((val,i)=>(i?'L':'M')+px(i).toFixed(1)+' '+py(val).toFixed(1)).join(' ');
+      const ma=sma(v,MAW);
+      const maSeg=ma.map((val,i)=>val==null?null:px(i).toFixed(1)+' '+py(val).toFixed(1)).filter(Boolean);
+      const maPath=maSeg.length?'M'+maSeg.join(' L'):'';
+      let dots='', last=null;
+      for(let i=1;i<v.length;i++){
+        if(ma[i]==null||ma[i-1]==null)continue;
+        const a=v[i-1]-ma[i-1], b=v[i]-ma[i];
+        if((a<=0&&b>0)||(a>=0&&b<0)){
+          const uc=b>0;
+          dots+=`<circle cx="${px(i).toFixed(1)}" cy="${py(v[i]).toFixed(1)}" r="2.3" fill="${uc?'var(--green)':'var(--red)'}" stroke="var(--bg2)" stroke-width="0.6"/>`;
+          last={date:dates[i]||'', up:uc};
+        }
+      }
+      const giro = last&&last.date ? `<span style="color:${last.up?'var(--green)':'var(--red)'};font-weight:700"> · ${last.up?'▲ giro alcista':'▼ giro bajista'} ${last.date.slice(5)}</span>` : '';
       return `<div class="ic-card">
         <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="ic-lbl">${lbl}</span>
           <span style="font-weight:800;color:${zcol(z)}">${arrow(z)} ${fmt(z)}</span></div>
-        <svg viewBox="0 0 200 46" style="width:100%;margin-top:6px"><path d="${pathFrom(v,200,46)}" fill="none" stroke="${up?'var(--green)':'var(--red)'}" stroke-width="1.6"/></svg>
-        <div style="font-size:10px;color:var(--text3)">${sub}</div>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:6px">
+          ${maPath?`<path d="${maPath}" fill="none" stroke="var(--text3)" stroke-width="0.8" stroke-dasharray="2 2" opacity="0.7"/>`:''}
+          <path d="${dPath}" fill="none" stroke="${up?'var(--green)':'var(--red)'}" stroke-width="1.6"/>
+          ${dots}
+        </svg>
+        <div style="font-size:10px;color:var(--text3)">${sub}${giro}</div>
       </div>`;
     }).join('');
   }
