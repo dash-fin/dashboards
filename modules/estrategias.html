@@ -77,6 +77,11 @@
             <button class="btn btn-outline" style="font-size:9px;padding:3px 8px" onclick="esReset()">Limpiar</button>
           </div>
         </div>
+        <!-- Cargar posición del portafolio (autocompleta el payoff) -->
+        <div id="esPosSelectRow" style="display:none;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px">
+          <span style="color:var(--text3);white-space:nowrap">📂 Del portafolio:</span>
+          <select id="esPosSelect" class="es-select" style="font-size:10px;padding:3px 6px;flex:1;min-width:0" onchange="esLoadPosToSim(this.value)"></select>
+        </div>
         <!-- Header cols -->
         <div style="display:grid;grid-template-columns:80px 60px 90px 80px 52px 22px;gap:5px;padding:4px 14px;border-bottom:1px solid var(--border)">
           <div class="es-leg-lbl">Tipo</div><div class="es-leg-lbl">Opción</div>
@@ -460,6 +465,8 @@ async function esLoad(){
   document.getElementById('esFecha').value = hoy;
 
   if(esLegs.length) esRecalc();
+  // Autocompletar payoff desde el portafolio (una sola vez, si hay login+posiciones)
+  esLoadPosiciones();
 }
 
 // ══════════════════════════════════════════════════
@@ -524,6 +531,65 @@ window.esAddLeg = () => {
 };
 window.esReset = () => { esLegs=[]; esRenderLegs(); esRecalc(); };
 
+// ── Autocompletar el payoff desde las posiciones de opciones del portafolio ──
+let esPosCache = [];
+let esPosFetched = false;   // fetch de operaciones una sola vez por carga (evita egress en el poll de 15s)
+async function esLoadPosiciones(){
+  if(esPosFetched) return;
+  const row = document.getElementById('esPosSelectRow');
+  const sel = document.getElementById('esPosSelect');
+  try{
+    const session = await sbAuth.auth.getSession();
+    const token = session?.data?.session?.access_token;
+    if(!token){ if(row) row.style.display='none'; return; }   // sin login → modo manual
+    const headers = {...CFG.SBH,'Authorization':'Bearer '+token};
+    const r = await fetch(`${CFG.SB_URL}/rest/v1/operaciones?estado=eq.abierta&order=fecha.desc&select=id,nombre,subyacente,patas,fecha`, {headers});
+    if(!r.ok){ if(row) row.style.display='none'; return; }
+    esPosFetched = true;
+    const ops = await r.json();
+    esPosCache = (ops||[]).filter(o=>Array.isArray(o.patas) && o.patas.length);
+    if(!esPosCache.length){ if(row) row.style.display='none'; return; }
+    sel.innerHTML =
+      esPosCache.map((op,i)=>{
+        const resumen = op.patas.map(l=>`${l.action==='buy'?'+':'-'}${l.qty}${(l.kind||'')[0]?.toUpperCase()||''}${fmtAR(l.strike,0)}`).join(' ');
+        return `<option value="${i}">${op.nombre||'Posición '+(i+1)} · ${resumen}</option>`;
+      }).join('')
+      + `<option value="all">— Todas combinadas (${esPosCache.length}) —</option>`
+      + `<option value="">— Personalizada (vacío) —</option>`;
+    if(row) row.style.display='flex';
+    // Autocompletar: si el usuario no armó nada a mano, cargar la primera posición
+    if(!esLegs.length){ sel.value='0'; esLoadPosToSim('0'); }
+  }catch(e){ if(row) row.style.display='none'; }
+}
+
+window.esLoadPosToSim = (val)=>{
+  const mapPatas = patas => (patas||[]).map(l=>({
+    action:l.action, kind:l.kind, strike:Number(l.strike), vto:l.vto,
+    prima:Number(l.prima)||0, qty:Number(l.qty)||1, symbol:l.symbol, _locked:true
+  })).filter(l=>l.strike>0 && l.vto);
+  if(val===''){ esLegs=[]; esRenderLegs(); esRecalc(); return; }
+  let legs=[], optSz=100;
+  if(val==='all'){
+    esPosCache.forEach(op=>{ legs=legs.concat(mapPatas(op.patas)); });
+    optSz = esPosCache[0]?.patas?.[0]?.option_size || 100;
+  } else {
+    const op = esPosCache[Number(val)];
+    if(!op) return;
+    legs = mapPatas(op.patas);
+    optSz = op.patas?.[0]?.option_size || 100;
+  }
+  esLegs = legs;
+  const osz = document.getElementById('esOptSize'); if(osz) osz.value = optSz;
+  // Ajustar el slider de días al DTE (mínimo vto) de la posición cargada
+  const dtes = esLegs.map(l=>Math.round(calcT(l.vto)*365)).filter(d=>d>0);
+  if(dtes.length){
+    const dte = Math.min(365, Math.min(...dtes));
+    const sl=document.getElementById('esDiasSlider'); if(sl) sl.value=dte;
+    const dv=document.getElementById('esDiasVal'); if(dv) dv.textContent=dte+'d';
+  }
+  esRenderLegs(); esRecalc();
+};
+
 function esGetOpt(kind, strike, vto){
   return esOptsData.find(o=>o.kind===kind.toUpperCase()&&o.strike===strike&&o.vto===vto) || null;
 }
@@ -550,15 +616,20 @@ function esRenderLegs(){
   const vtosDisp = esVtosActivos();
 
   document.getElementById('esLegsContainer').innerHTML = esLegs.length ? esLegs.map((leg,i)=>{
-    const strikes = leg.kind==='call' ? strikesCall : strikesPut;
+    // Incluir SIEMPRE el strike propio de la pata (posiciones cargadas del portafolio
+    // pueden tener strikes que no están en la cadena viva actual)
+    const strikes = [...new Set([...(leg.kind==='call' ? strikesCall : strikesPut), leg.strike].filter(s=>s>0))].sort((a,b)=>a-b);
     // vtos disponibles para este kind+strike, filtrados a los próximos activos
     const legVtosAll = [...new Set(esOptsData.filter(o=>o.kind===leg.kind.toUpperCase()&&o.strike===leg.strike).map(o=>o.vto))].sort();
     const activos = esVtosActivos();
-    const legVtos = legVtosAll.filter(v=>activos.includes(v)).length
+    let legVtos = legVtosAll.filter(v=>activos.includes(v)).length
       ? legVtosAll.filter(v=>activos.includes(v))
       : legVtosAll;
+    // Incluir el vto propio aunque no esté en la cadena viva (posición cargada)
+    if(leg.vto && leg.vto!=='—' && !legVtos.includes(leg.vto)) legVtos = [...legVtos, leg.vto].sort();
     // Si el vto actual no está en los disponibles, tomar el primero futuro
-    if(legVtos.length && !legVtos.includes(leg.vto)){
+    // (NO para patas "locked" cargadas del portafolio: preservan vto y prima de entrada)
+    if(!leg._locked && legVtos.length && !legVtos.includes(leg.vto)){
       leg.vto = legVtos[0];
       const opt = esGetOpt(leg.kind, leg.strike, leg.vto);
       if(opt) leg.prima = opt.mid;
