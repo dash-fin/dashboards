@@ -100,7 +100,7 @@
         <!-- Hidden inputs para compatibilidad con esRecalc -->
         <input id="esSpotInput" type="hidden" value="6120">
         <input id="esOptSize"   type="hidden" value="100">
-        <input id="esTasa"      type="hidden" value="70">
+        <input id="esTasa"      type="hidden" value="30">
         <input id="esRango"     type="hidden" value="25">
       </div>
 
@@ -209,18 +209,44 @@
         </div>
       </div>
 
-      <!-- Escenarios -->
+      <!-- Planilla de patas (estilo El Teórico) -->
+      <style>
+      .es-plan{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px}
+      .es-plan th{padding:5px 8px;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+      .es-plan th.l{text-align:left}
+      .es-plan td{padding:5px 8px;text-align:right;border-bottom:1px solid rgba(30,37,48,.4);white-space:nowrap;color:var(--text2)}
+      .es-plan td.tipo{text-align:left;font-weight:600}
+      .es-plan .b-call{color:var(--green)} .es-plan .b-put{color:#b39dff}
+      .es-plan tr.total td{border-top:2px solid var(--border);font-weight:600;background:var(--bg2);color:var(--text)}
+      .es-plan .pos{color:var(--green)} .es-plan .neg{color:var(--red)}
+      .es-esc{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px}
+      .es-esc th{padding:5px 8px;font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);text-align:right;position:sticky;top:0;background:var(--bg2)}
+      .es-esc th.l{text-align:left}
+      .es-esc td{padding:4px 8px;text-align:right;border-bottom:1px solid rgba(30,37,48,.35)}
+      .es-esc td.l{text-align:left}
+      </style>
       <div class="es-panel">
-        <div class="es-panel-head"><div class="es-panel-title">Escenarios — P&L por precio</div></div>
-        <div class="es-scenarios" style="max-height:260px;overflow-y:auto">
-          <table>
+        <div class="es-panel-head"><div class="es-panel-title">Planilla — patas y cuentas</div></div>
+        <div style="overflow-x:auto">
+          <table class="es-plan">
             <thead><tr>
-              <th style="text-align:left">Var %</th>
-              <th>Precio</th>
-              <th>P&L vencimiento</th>
-              <th>P&L teórico</th>
-              <th>Total P&L</th>
+              <th class="l">Tipo</th><th>Cant</th><th>Base</th><th>Prima</th>
+              <th>Bruto</th><th>Neto</th><th>$ Hoy</th><th>P&L Hoy</th>
             </tr></thead>
+            <tbody id="esPlanTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Escalera de precios (Finish / Teórico) -->
+      <div class="es-panel">
+        <div class="es-panel-head">
+          <div class="es-panel-title">Escalera de precios — si sube / baja</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--text3)">Finish = al vto · Teórico = con slider días/VI</div>
+        </div>
+        <div class="es-scenarios" style="max-height:300px;overflow-y:auto">
+          <table class="es-esc">
+            <thead><tr><th class="l">Var%</th><th>Precio</th><th>Rtdo. Finish</th><th>Rtdo. Teórico</th></tr></thead>
             <tbody id="esScenariosTbody"></tbody>
           </table>
         </div>
@@ -417,10 +443,12 @@ window.esTab = (name, btn) => {
 // LOAD DATA
 // ══════════════════════════════════════════════════
 async function esLoad(){
-  const [optRows, spotRows, caucRows] = await Promise.all([
+  const [optRows, spotRows, rateRows] = await Promise.all([
     sb('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&order=strike.asc&limit=1000'),
     sb('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last'),
-    sb('mercado','symbol=ilike.CAUCIONES*&settlement=eq.24hs&select=symbol,last&limit=5'),
+    // Tasa implícita del chain (iv_atm_diaria) — reemplaza la caución muerta de `mercado`.
+    // Es la tasa que calibra ggal_chain_engine (~18-24% TNA hoy, NO el 70% viejo).
+    sb('iv_atm_diaria','subyacente=eq.GGAL&select=fecha,dias,tasa_impl&order=fecha.desc&limit=8'),
   ]);
   if(spotRows?.length){
     esSpotVal = Number(spotRows[0].last);
@@ -429,13 +457,17 @@ async function esLoad(){
     const sb = document.getElementById('esSpotBar');
     if(sb) sb.textContent = '$'+fmtAR(esSpotVal);
   }
-  if(caucRows?.length){
-    const caucTna = caucRows.reduce((s,r)=>s+Number(r.last||0),0)/caucRows.length;
-    if(caucTna>0){
+  if(rateRows?.length){
+    // Tomar la tasa del vencimiento más reciente (última fecha), plazo más cercano >20d
+    const lastFecha = rateRows[0].fecha;
+    const sameDay = rateRows.filter(r=>r.fecha===lastFecha && Number(r.tasa_impl)>0);
+    const pick = sameDay.filter(r=>r.dias>=20).sort((a,b)=>a.dias-b.dias)[0] || sameDay[0];
+    const tna = pick ? Number(pick.tasa_impl)*100 : 0;
+    if(tna>0){
       const tasaEl = document.getElementById('esTasa');
-      if(tasaEl) tasaEl.value = caucTna.toFixed(2);
+      if(tasaEl) tasaEl.value = tna.toFixed(2);
       const tb = document.getElementById('esTasaBar');
-      if(tb) tb.textContent = caucTna.toFixed(1)+'%';
+      if(tb) tb.textContent = tna.toFixed(1)+'%';
     }
   }
 
@@ -683,7 +715,7 @@ window.esSliderChange = () => {
 window.esRecalc = () => {
   if(!esLegs.length) return;
   const S      = Number(document.getElementById('esSpotInput')?.value)||esSpotVal;
-  const r      = (Number(document.getElementById('esTasa')?.value)||70)/100;
+  const r      = (Number(document.getElementById('esTasa')?.value)||30)/100;
   const optSz  = Number(document.getElementById('esOptSize')?.value)||100;
   const dias   = Number(document.getElementById('esDiasSlider')?.value)||32;
   const volAdj = Number(document.getElementById('esVolSlider')?.value||0)/100;
@@ -917,26 +949,69 @@ window.esRecalc = () => {
     }
   });
 
-  // Escenarios
-  const varPcts = [-0.30,-0.25,-0.20,-0.15,-0.10,-0.05,-0.02,0,0.02,0.05,0.10,0.15,0.20,0.25,0.30];
-  document.getElementById('esScenariosTbody').innerHTML = varPcts.map(v=>{
-    const price = S*(1+v);
-    const idx = prices.findIndex(p=>p>=price);
-    if(idx<0)return'';
-    const pvto = pnlVto[idx]??0;
-    const pteo = pnlTeo?.[idx]??pvto;
-    const clsVto = pvto>=0?'pos':'neg';
-    const clsTeo = pteo>=0?'pos':'neg';
-    const isSpot = Math.abs(v)<0.001;
-    return`<tr style="${isSpot?'background:rgba(240,165,0,.06)':''}">
-      <td style="color:${v<0?'var(--red)':v>0?'var(--green)':'var(--amber)'}">${v>=0?'+':''}${(v*100).toFixed(0)}%</td>
-      <td>$${fmtAR(price,0)}</td>
-      <td class="${clsVto}">${pvto>=0?'+':''} $${fmtAR(pvto,2)}</td>
-      <td class="${clsTeo}">${pteo>=0?'+':''} $${fmtAR(pteo,2)}</td>
-      <td class="${clsTeo}" style="font-weight:500">${pteo>=0?'+':''} $${fmtAR(pteo,2)}</td>
+  // Planilla de patas (cuentas) + escalera de precios (Finish/Teórico) — estilo El Teórico
+  esRenderPlanilla(S, r, optSz);
+  esRenderEscalera(S, prices, pnlVto, pnlTeo);
+};
+
+// ── PLANILLA: patas y cuentas (TIPO/CANT/BASE/PRIMA/BRUTO/NETO/$HOY/P&L HOY + TOTAL) ──
+const ES_COM = 0.00242;  // comisión opciones BYMA por lado
+function esRenderPlanilla(S, r, optSz){
+  const tb = document.getElementById('esPlanTbody'); if(!tb) return;
+  if(!esLegs.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:16px">Sin patas — cargá una posición del portafolio o agregá con + Pata</td></tr>'; return; }
+  const money = v => (v>=0?'+':'−')+'$'+fmtAR(Math.abs(v),0);
+  let tB=0,tN=0,tH=0,tP=0;
+  const rows = esLegs.map(l=>{
+    const sign=l.action==='buy'?1:-1, q=l.qty||1, K=l.strike, type=l.kind==='call'?'call':'put';
+    const bruto = l.prima*q*optSz;
+    const com   = bruto*ES_COM;
+    const neto  = sign>0 ? -(bruto+com) : (bruto-com);       // flujo de caja de entrada (débito/crédito)
+    // Precio actual: mid de la cadena viva si está; si no, teórico BS con IV de la prima de entrada
+    const opt = esGetOpt(l.kind, K, l.vto);
+    let cur = (opt && opt.mid>0) ? opt.mid : null;
+    if(cur==null){ const T=calcT(l.vto); let iv=ivBS(l.prima,S,K,T,r,type); if(!(iv>0)||iv>15) iv=esIVATM||0.5; cur=bsPrice(S,K,T,r,iv,type); }
+    const hoy = sign*cur*q*optSz;                             // valor actual de la posición (mark, con signo)
+    const pl  = sign*(cur-l.prima)*q*optSz;                   // P&L a hoy
+    tB+=bruto; tN+=neto; tH+=hoy; tP+=pl;
+    return `<tr>
+      <td class="tipo ${type==='call'?'b-call':'b-put'}">${type.toUpperCase()}</td>
+      <td class="${sign>0?'pos':'neg'}">${sign>0?'+':'−'}${q}</td>
+      <td>$${fmtAR(K,0)}</td>
+      <td>$${fmtAR(l.prima,2)}</td>
+      <td>$${fmtAR(bruto,0)}</td>
+      <td class="${neto>=0?'pos':'neg'}">${money(neto)}</td>
+      <td>${money(hoy)}</td>
+      <td class="${pl>=0?'pos':'neg'}" style="font-weight:600">${money(pl)}</td>
     </tr>`;
   }).join('');
-};
+  tb.innerHTML = rows + `<tr class="total">
+    <td class="tipo">TOTAL</td><td></td><td></td><td></td>
+    <td>$${fmtAR(tB,0)}</td>
+    <td class="${tN>=0?'pos':'neg'}">${money(tN)}</td>
+    <td>${money(tH)}</td>
+    <td class="${tP>=0?'pos':'neg'}" style="font-weight:700">${money(tP)}</td>
+  </tr>`;
+}
+
+// ── ESCALERA DE PRECIOS: Rtdo. Finish (al vto) vs Rtdo. Teórico (slider días/VI), coloreado ──
+function esRenderEscalera(S, prices, pnlVto, pnlTeo){
+  const tb = document.getElementById('esScenariosTbody'); if(!tb) return;
+  if(!esLegs.length){ tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:16px">Sin patas</td></tr>'; return; }
+  const varPcts=[-0.30,-0.25,-0.20,-0.15,-0.10,-0.07,-0.05,-0.03,-0.02,-0.01,0,0.01,0.02,0.03,0.05,0.07,0.10,0.15,0.20,0.25,0.30];
+  const maxAbs=Math.max(1,...pnlVto.map(Math.abs),...(pnlTeo?pnlTeo.map(Math.abs):[0]));
+  const money = v => (v>=0?'+':'−')+'$'+fmtAR(Math.abs(v),0);
+  const cellBg = val=>{ const a=Math.min(1,Math.abs(val)/maxAbs), al=(0.07+0.5*a).toFixed(3); return val>=0?`background:rgba(0,229,168,${al})`:`background:rgba(255,63,94,${al})`; };
+  tb.innerHTML = varPcts.map(v=>{
+    const price=S*(1+v); const idx=prices.findIndex(p=>p>=price); if(idx<0) return '';
+    const pf=pnlVto[idx]??0, pt=pnlTeo?.[idx]??pf, isSpot=Math.abs(v)<0.0001;
+    return `<tr${isSpot?' style="outline:1px solid rgba(240,165,0,.55)"':''}>
+      <td class="l" style="color:${v<0?'var(--red)':v>0?'var(--green)':'var(--amber)'}">${v>=0?'+':''}${(v*100).toFixed(0)}%</td>
+      <td class="l">$${fmtAR(price,0)}${isSpot?' ◄':''}</td>
+      <td style="${cellBg(pf)}">${money(pf)}</td>
+      <td style="${cellBg(pt)};font-weight:500">${money(pt)}</td>
+    </tr>`;
+  }).join('');
+}
 
 // ══════════════════════════════════════════════════
 // GUARDAR OPERACIÓN
