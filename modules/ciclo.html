@@ -179,6 +179,75 @@
     }).join('');
   }
 
+  // ---- Rotación sectorial (ciclo × RRG) ----
+  const RRGQ = {Leading:{c:'var(--green)',s:'Líder'},Improving:{c:'#4488ff',s:'Mejorando'},
+                Weakening:{c:'#f5a623',s:'Debilitando'},Lagging:{c:'var(--red)',s:'Rezagado'}};
+  const VERD = {
+    confluencia_alcista:{c:'var(--green)',t:'✅ confluencia'},
+    confluencia_bajista:{c:'var(--red)',t:'⛔ put/short'},
+    rezagado:{c:'#f5a623',t:'⏳ aún no rota'},
+    traccionando:{c:'#4488ff',t:'⚠️ desacople'},
+    neutral:{c:'var(--text3)',t:'—'},
+  };
+  const theoStars = t => t>0 ? '▲'.repeat(t) : (t<0 ? '▼'.repeat(-t) : '·');
+
+  function renderSectorsScatter(rank){
+    const S=240, rs=rank.filter(r=>r.r!=null&&r.m!=null);
+    if(!rs.length) return '';
+    const rr=rs.map(x=>x.r), mm=rs.map(x=>x.m);
+    const pad=2, lo=v=>Math.min(...v), hi=v=>Math.max(...v);
+    // ejes centrados en 100 con margen simétrico
+    const spanR=Math.max(1.2, hi(rr)-100, 100-lo(rr))*1.15, spanM=Math.max(1.2, hi(mm)-100,100-lo(mm))*1.15;
+    const px=r=>S/2+((r-100)/spanR)*(S/2-14), py=m=>S/2-((m-100)/spanM)*(S/2-14);
+    const dots=rs.map(x=>{
+      const c=(VERD[x.verdict]||VERD.neutral).c;
+      return `<circle cx="${px(x.r).toFixed(1)}" cy="${py(x.m).toFixed(1)}" r="4.5" fill="${c}" opacity="0.9"/>
+      <text x="${(px(x.r)+6).toFixed(1)}" y="${(py(x.m)+3).toFixed(1)}" font-size="8.5" font-weight="700" fill="var(--text2)">${x.sym.replace('XL','')}</text>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${S} ${S}" style="width:100%;max-width:300px;display:block">
+      <rect x="${S/2}" y="0" width="${S/2}" height="${S/2}" fill="var(--green)" opacity="0.05"/>
+      <rect x="0" y="0" width="${S/2}" height="${S/2}" fill="#4488ff" opacity="0.05"/>
+      <rect x="0" y="${S/2}" width="${S/2}" height="${S/2}" fill="var(--red)" opacity="0.05"/>
+      <rect x="${S/2}" y="${S/2}" width="${S/2}" height="${S/2}" fill="#f5a623" opacity="0.05"/>
+      <line x1="${S/2}" y1="0" x2="${S/2}" y2="${S}" stroke="var(--border2)"/>
+      <line x1="0" y1="${S/2}" x2="${S}" y2="${S/2}" stroke="var(--border2)"/>
+      <text x="${S-3}" y="12" text-anchor="end" font-size="8" fill="var(--green)">Líder</text>
+      <text x="3" y="12" font-size="8" fill="#4488ff">Mejorando</text>
+      <text x="3" y="${S-4}" font-size="8" fill="var(--red)">Rezagado</text>
+      <text x="${S-3}" y="${S-4}" text-anchor="end" font-size="8" fill="#f5a623">Debilitando</text>
+      ${dots}
+    </svg>`;
+  }
+
+  function renderSectors(sec){
+    if(!sec||!sec.ranking) return '<span style="color:var(--text3)">sin datos sectoriales</span>';
+    const rows = sec.ranking.map(x=>{
+      const v=VERD[x.verdict]||VERD.neutral, rq=RRGQ[x.rrg_quad]||{c:'var(--text3)',s:'s/RRG'};
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="width:4px;height:24px;border-radius:2px;background:${v.c};flex:0 0 auto"></span>
+        <span style="flex:1;min-width:0"><b style="font-size:13px">${x.name}</b> <span style="color:var(--text3);font-size:11px">${x.sym}</span></span>
+        <span style="font-size:11px;color:var(--text2);width:44px;text-align:center" title="sesgo del ciclo">${theoStars(x.theo)}</span>
+        <span style="font-size:10px;font-weight:700;color:${rq.c};width:78px;text-align:right">${rq.s}</span>
+        <span style="font-size:10px;font-weight:700;color:${v.c};width:92px;text-align:right">${v.t}</span>
+      </div>`;
+    }).join('');
+    const overChips=(sec.over||[]).map(o=>`<span class="ic-chip" style="border-color:var(--green);color:var(--green)">${o.name}${o.rrg_quad?` · ${(RRGQ[o.rrg_quad]||{}).s||''}`:''}</span>`).join('');
+    const shortChips=(sec.shorts||[]).map(o=>`<span class="ic-chip" style="border-color:var(--red);color:var(--red)">${o.name}</span>`).join('');
+    return `
+      <div class="ic-two" style="align-items:start">
+        <div>
+          <div class="ic-lbl" style="color:var(--green)">COMPRAR (confluencia ciclo × RRG)</div>
+          <div class="ic-chips" style="margin-bottom:8px">${overChips||'<span style="color:var(--text3);font-size:12px">sin confluencia clara</span>'}</div>
+          <div class="ic-lbl" style="color:var(--red)">EVITAR / PUTS</div>
+          <div class="ic-chips">${shortChips||'<span style="color:var(--text3);font-size:12px">—</span>'}</div>
+          ${sec.desacople?`<div class="ic-warn">🔀 Desacople en ${sec.desacople} sector(es): el reloj y la rotación real (RRG) no coinciden.</div>`:''}
+        </div>
+        <div style="display:flex;justify-content:center">${renderSectorsScatter(sec.ranking)}</div>
+      </div>
+      <div style="margin-top:12px">${rows}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px">Sesgo del ciclo (▲ favorito / ▼ evitar, modelo Stovall) cruzado con la posición RRG semanal vs SPY. Confluencia = el reloj y la rotación real apuntan al mismo lado.</div>`;
+  }
+
   async function load(){
     try{
       const [curArr, spiralArr, boardArr] = await Promise.all([
@@ -229,6 +298,9 @@
           <div class="ic-lbl" style="color:var(--red);margin-top:10px">REDUCIR</div>
           <div class="ic-chips">${(rot.under||[]).map(x=>`<span class="ic-chip" style="border-color:var(--red);color:var(--red)">${x}</span>`).join('')}</div>
         </div>
+
+        <div class="ic-cat">Rotación sectorial · ciclo × RRG</div>
+        <div class="ic-card">${renderSectors(cur.sectors)}</div>
 
         <div class="ic-cat">Los 4 mercados (interrelacionados)</div>
         <div class="ic-card">${board?renderMarkets(board.markets):'<span style="color:var(--text3)">sin tablero</span>'}</div>
