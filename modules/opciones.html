@@ -6,6 +6,7 @@
     <button class="stab"        id="ostab-hist"       onclick="oSetTab('hist',this)">GGAL · Hist OI</button>
     <button class="stab"        id="ostab-estrategias" onclick="oSetTab('estrategias',this)">GGAL · Estrat</button>
     <button class="stab"        id="ostab-cadena"     onclick="oSetTab('cadena',this)">GGAL · Cadena</button>
+    <button class="stab"        id="ostab-vol"        onclick="oSetTab('vol',this)">GGAL · Volatilidad</button>
     <button class="stab"        id="ostab-flujo"      onclick="oSetTab('flujo',this)">GGAL · Flujo</button>
   </div>
   <div class="sub-tabs">
@@ -293,6 +294,11 @@
 <!-- ── Panel 7: Cadena RT ──────────────────────────────── -->
 <div class="sub-panel" id="opanel-cadena" data-loaded="false">
   <div style="padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Cargando cadena RT...</div>
+</div>
+
+<!-- ── Panel 8: Volatilidad (sonrisa/term/cadena + IV binomial americano) ── -->
+<div class="sub-panel" id="opanel-vol" data-loaded="false">
+  <div style="padding:32px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">Cargando módulo de volatilidad...</div>
 </div>
 
 <!-- ──────────────────────────────────────────────────────────── -->
@@ -910,9 +916,9 @@ window.oSort = (field)=>{
 };
 
 window.oSetTab = async (n,b)=>{
-  document.querySelectorAll('.sub-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('[id^="opanel-"]').forEach(p=>p.classList.remove('active'));
   document.getElementById('opanel-'+n).classList.add('active');
-  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('[id^="ostab-"]').forEach(t=>t.classList.remove('active'));
   if(b) b.classList.add('active');
   else {
     const tabBtn = document.getElementById('ostab-'+n);
@@ -947,7 +953,7 @@ window.oSetTab = async (n,b)=>{
   if(n==='flujo')        { if(!flujoLoaded.local) flujoLoadData('local'); }
   if(n==='ggalusa_flujo'){ if(!flujoLoaded.usa)   flujoLoadData('usa'); }
   // Lazy-load módulos externos
-  for(const mod of ['estrategias','analisis','cadena']){
+  for(const mod of ['estrategias','analisis','cadena','vol']){
     if(n===mod){
       const panel=document.getElementById('opanel-'+mod);
       if(panel.dataset.loaded==='false'){

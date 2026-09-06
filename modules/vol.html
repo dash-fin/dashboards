@@ -10,8 +10,9 @@
 // ═══════════════════════════════════════════════════════════
 
 // ── Constantes ──────────────────────────────────────────────
-const TASA_RF = 0.70;  // tasa libre de riesgo anualizada (~70% TNA Argentina)
-const STEPS_BINOM = 100; // pasos del árbol binomial
+// var (no const) para tolerar la re-ejecución del script al re-entrar al módulo (lazy-load)
+var TASA_RF = 0.70;  // tasa libre de riesgo anualizada (~70% TNA Argentina)
+var STEPS_BINOM = 100; // pasos del árbol binomial
 
 // ── Normal CDF (aproximación Abramowitz & Stegun) ────────────
 function normCDF(x) {
@@ -365,10 +366,9 @@ window.vTab = (name, btn) => {
 // ── Load data ──
 async function vLoad() {
   // Cargar opciones RT y precio spot GGAL en paralelo
-  const [optsRows, spotRows, iamcR] = await Promise.all([
+  const [optsRows, spotRows] = await Promise.all([
     sb('opciones_rt', 'underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask&or=(last.gt.0,bid.gt.0)&limit=500'),
     sb('mercado', 'symbol=eq.GGAL&settlement=eq.24hs&select=last'),
-    sb('opciones_iamc', 'symbol=ilike.GFG*&select=symbol&limit=300'),
   ]);
 
   // Precio spot
@@ -379,12 +379,10 @@ async function vLoad() {
 
   if (!optsRows || !optsRows.length) return;
 
-  // Filtro canónico: solo bases que figuran en el informe IAMC
-  const iamcSet = new Set((iamcR||[]).map(r=>r.symbol));
-
-  // Normalizar columnas reales de opciones_rt
+  // Fuente viva = opciones_rt (Veta). Ya viene filtrada por underlying + precio>0;
+  // las IV espurias se descartan aguas abajo. (Se quitó el gate opciones_iamc: formato
+  // de símbolo obsoleto GFGC10524J vs el vivo GFGC7800OC → 0 match, mataba todo.)
   const opts = optsRows
-    .filter(o => iamcSet.size===0 || iamcSet.has(o.symbol))
     .map(o => ({
       symbol:      o.symbol,
       tipo:        (o.kind || '').toString().toLowerCase().includes('call') ? 'call' : 'put',
@@ -401,14 +399,13 @@ async function vLoad() {
   const modelo = document.getElementById('vModelo')?.value||'binom';
   vData = VolLib.calcularIV(opts, vSpot, VolLib.TASA_RF);
 
-  // Solo mostrar abril y junio — excluir marzo y otros
-  const allVtos = [...new Set(vData.map(o=>o.vencimiento).filter(Boolean))].sort();
-  // Filtrar: queremos 04/YYYY y 06/YYYY
-  const abrilJunio = allVtos.filter(v => v && (v.startsWith('04/') || v.startsWith('06/')));
-  vVtos = abrilJunio.length ? abrilJunio : allVtos.slice(0,2);
+  // Vencimientos disponibles = los que aún NO vencieron (calcT>0), ordenados por cercanía
+  const allVtos = [...new Set(vData.map(o=>o.vencimiento).filter(Boolean))];
+  const futuros = allVtos.filter(v => VolLib.calcT(v) > 0).sort((a,b)=>VolLib.calcT(a)-VolLib.calcT(b));
+  vVtos = futuros.length ? futuros : allVtos.sort();
   const sel = document.getElementById('vVto');
-  // Default: siempre abril (04/) si existe, sino el primero
-  const nearest = vVtos.find(v=>v.startsWith('04/')) || vVtos[0] || allVtos[0];
+  // Default: el vencimiento vigente más cercano
+  const nearest = vVtos[0];
   const current = (!sel.value || sel.value === 'all' || !vVtos.includes(sel.value)) ? nearest : sel.value;
   sel.innerHTML = vVtos.map(v => `<option value="${v}"${v===current?' selected':''}>${v}</option>`).join('');
   sel.value = current;
