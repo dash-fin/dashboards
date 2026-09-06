@@ -248,6 +248,35 @@
       <div style="font-size:10px;color:var(--text3);margin-top:8px">Sesgo del ciclo (▲ favorito / ▼ evitar, modelo Stovall) cruzado con la posición RRG semanal vs SPY. Confluencia = el reloj y la rotación real apuntan al mismo lado.</div>`;
   }
 
+  // ---- Régimen: coherencia intermercado (C3) + liquidez (K3) ----
+  function renderRegime(co, liq){
+    if(!co && !liq) return '';
+    let coHtml='';
+    if(co && co.coherence!=null){
+      const pct=Math.round(co.coherence*100), ok=co.code==='acoplado';
+      const c = ok?'var(--green)':'#f5a623';
+      coHtml=`<div style="flex:1;min-width:220px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span class="ic-lbl">COHERENCIA INTERMERCADO</span>
+          <span style="font-weight:900;color:${c}">${pct}% ${ok?'· acoplado':'· desacople'}</span></div>
+        <div style="height:8px;border-radius:5px;background:var(--bg3);margin:7px 0;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${c}"></div></div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.45">${co.text||''} <span style="color:var(--text3)">(${co.checks_ok}/${co.checks_total} señales alineadas)</span></div>
+      </div>`;
+    }
+    let liqHtml='';
+    if(liq && liq.level_usd_t!=null){
+      const up=liq.z>=0, st=liq.state, c= st==='expandiendo'?'var(--green)':(st==='contrayendo'?'var(--red)':'var(--text2)');
+      liqHtml=`<div style="flex:1;min-width:220px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span class="ic-lbl">LIQUIDEZ NETA (Fed − TGA − RRP)</span>
+          <span style="font-weight:900;color:${c}">$${liq.level_usd_t}T ${arrow(liq.z)} ${st}</span></div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.45;margin-top:7px">${liq.text||''}</div>
+      </div>`;
+    }
+    return `<div class="ic-card" style="display:flex;gap:24px;flex-wrap:wrap">${coHtml}${liqHtml}</div>`;
+  }
+
   async function load(){
     try{
       const [curArr, spiralArr, boardArr] = await Promise.all([
@@ -278,6 +307,8 @@
             ${cur.transition?'<div class="ic-warn">⚠️ Zona de transición: señal débil (cerca del centro del reloj). Bisagra del ciclo.</div>':''}
           </div>
         </div>
+
+        ${renderRegime(cur.coherence, cur.liquidity)}
 
         <div class="ic-cat">Reloj de la inversión · recorrido histórico</div>
         <div class="ic-card" style="display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:flex-start">
