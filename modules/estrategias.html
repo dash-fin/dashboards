@@ -151,9 +151,9 @@
           <div style="display:flex;gap:20px;flex-wrap:wrap">
             <div class="es-slider-wrap" style="flex:1;min-width:200px">
               <div class="es-slider-row">
-                <span class="es-slider-label">Días</span>
-                <input type="range" class="es-slider" id="esDiasSlider" min="0" max="365" value="32" oninput="esSliderChange()">
-                <span class="es-slider-val" id="esDiasVal">32d</span>
+                <span class="es-slider-label">Días transcurridos</span>
+                <input type="range" class="es-slider" id="esDiasSlider" min="0" max="120" value="0" oninput="esSliderChange()">
+                <span class="es-slider-val" id="esDiasVal">hoy</span>
               </div>
             </div>
             <div class="es-slider-wrap" style="flex:1;min-width:200px">
@@ -478,7 +478,9 @@ async function esLoad(){
         strike:Number(o.strike), vto:esFormatVto(o.expiration),
         expiration:o.expiration,
         last:Number(o.last||0), bid:Number(o.bid||0), ask:Number(o.ask||0),
-        mid: Number(o.last||0) || Number(o.bid||0) || Number(o.ask||0), // last > bid > ask > strike*0.05 default
+        // mid REAL: (bid+ask)/2 si hay dos puntas; si no, last > bid > ask
+        mid: (Number(o.bid)>0&&Number(o.ask)>0) ? (Number(o.bid)+Number(o.ask))/2
+             : (Number(o.last||0) || Number(o.bid||0) || Number(o.ask||0)),
       })).filter(o=>o.strike>0);
 
     // Calcular IV ATM
@@ -550,15 +552,18 @@ function esVtosActivos() {
 window.esAddLeg = () => {
   const vtos = esVtosActivos();
   const pool = vtos.length ? esOptsData.filter(o=>vtos.includes(o.vto)) : esOptsData;
-  const nearest = pool.filter(o=>o.kind==='CALL')
-    .sort((a,b)=>Math.abs(a.strike-esSpotVal)-Math.abs(b.strike-esSpotVal))[0];
-  esLegs.push({
-    action:'buy', kind:'call',
-    strike: nearest?.strike||esSpotVal,
-    vto:    nearest?.vto||'—',
-    prima:  nearest?.mid||0,
-    qty:    1,
-  });
+  const calls = pool.filter(o=>o.kind==='CALL');
+  const byDist = (a,b)=>Math.abs(a.strike-esSpotVal)-Math.abs(b.strike-esSpotVal);
+  // preferir el call LÍQUIDO (mid>0) más cercano al spot; si ninguno cotiza, el más cercano a secas
+  const nearest = calls.filter(o=>o.mid>0).sort(byDist)[0] || calls.sort(byDist)[0];
+  const K = nearest?.strike||esSpotVal, vto = nearest?.vto||'—';
+  let prima = nearest?.mid||0;
+  // NUNCA prima 0 (vto ilíquido sin puntas): usar teórico BS a la IV ATM como prima de entrada
+  if(!(prima>0)){
+    const T=calcT(vto), r=(Number(document.getElementById('esTasa')?.value)||30)/100;
+    prima = +bsPrice(esSpotVal,K,T,r,esIVATM||0.5,'call').toFixed(2);
+  }
+  esLegs.push({ action:'buy', kind:'call', strike:K, vto, prima, qty:1 });
   esRenderLegs(); esRecalc();
 };
 window.esReset = () => { esLegs=[]; esRenderLegs(); esRecalc(); };
@@ -707,7 +712,8 @@ function esRenderLegs(){
 // CÁLCULO P&L + GRIEGOS
 // ══════════════════════════════════════════════════
 window.esSliderChange = () => {
-  document.getElementById('esDiasVal').textContent = document.getElementById('esDiasSlider').value+'d';
+  const dv = Number(document.getElementById('esDiasSlider').value)||0;
+  document.getElementById('esDiasVal').textContent = dv==0?'hoy':'+'+dv+'d';
   document.getElementById('esVolVal').textContent = (document.getElementById('esVolSlider').value>=0?'+':'')+document.getElementById('esVolSlider').value+'%';
   esRecalc();
 };
@@ -717,10 +723,24 @@ window.esRecalc = () => {
   const S      = Number(document.getElementById('esSpotInput')?.value)||esSpotVal;
   const r      = (Number(document.getElementById('esTasa')?.value)||30)/100;
   const optSz  = Number(document.getElementById('esOptSize')?.value)||100;
-  const dias   = Number(document.getElementById('esDiasSlider')?.value)||32;
+  const elapsed= Number(document.getElementById('esDiasSlider')?.value)||0;   // días TRANSCURRIDOS desde hoy
+  const elapsedLbl = elapsed==0?'hoy':'+'+elapsed+'d';
   const volAdj = Number(document.getElementById('esVolSlider')?.value||0)/100;
   const showT  = document.getElementById('esShowTeorico')?.checked||false;
-  const T_teo  = dias/365;
+
+  // Mark (valor actual) + IV de mercado por pata → base ÚNICA de teórico/planilla/griegos.
+  // Garantiza "sin movimiento = 0": el mark al spot iguala la prima de entrada de una pata recién
+  // agregada (prima = mid), así el P&L teórico/HOY arranca en 0 y sólo cambia si se mueve precio/tiempo/vol.
+  esLegs.forEach(leg=>{
+    const K=leg.strike, T=calcT(leg.vto), type=leg.kind==='call'?'call':'put';
+    const opt=esGetOpt(leg.kind,K,leg.vto);
+    let vNow=(opt&&opt.mid>0)?opt.mid:null, ivMkt;
+    if(vNow!=null){ ivMkt=ivBS(vNow,S,K,T,r,type); }
+    else { ivMkt=leg.prima>0?ivBS(leg.prima,S,K,T,r,type):(esIVATM||0.5);
+           if(!(ivMkt>0)||ivMkt>=15) ivMkt=esIVATM||0.5;
+           vNow=bsPrice(S,K,T,r,ivMkt,type); }
+    leg._T=T; leg._ivMkt=ivMkt; leg._vNow=vNow;
+  });
 
   // Rango automático basado en strikes de las patas
   const strikePrices = esLegs.map(l=>l.strike).filter(s=>s>0);
@@ -742,13 +762,15 @@ window.esRecalc = () => {
     },0)
   );
 
-  // P&L teórico (BS con días restantes)
+  // P&L teórico: revalúa cada pata al PRECIO del escenario, adelantando `elapsed` días (0 = hoy) sobre
+  // su PROPIO vencimiento, con la IV de mercado ajustada. En (spot, elapsed 0, vol 0) el teórico = P&L HOY.
   const pnlTeo = showT ? prices.map(price=>
     esLegs.reduce((tot,leg)=>{
-      const K=leg.strike, T=calcT(leg.vto);
-      const ivLeg = ivBS(leg.prima,S,K,T,r,leg.kind==='call'?'call':'put');
-      const ivAdj = Math.max(ivLeg*(1+volAdj),0.01);
-      const teoPrice = T_teo>0?bsPrice(price,K,T_teo,r,ivAdj,leg.kind==='call'?'call':'put'):Math.max(leg.kind==='call'?price-K:K-price,0);
+      const K=leg.strike, type=leg.kind==='call'?'call':'put';
+      const Trem = Math.max(leg._T - elapsed/365, 0);
+      const ivAdj = Math.max(leg._ivMkt*(1+volAdj),0.01);
+      const teoPrice = Trem>0 ? bsPrice(price,K,Trem,r,ivAdj,type)
+                              : Math.max(type==='call'?price-K:K-price,0);
       return tot+(leg.action==='buy'?teoPrice-leg.prima:leg.prima-teoPrice)*leg.qty*optSz;
     },0)
   ) : null;
@@ -759,32 +781,36 @@ window.esRecalc = () => {
   const costoNeto = esLegs.reduce((s,l)=>s+(l.action==='buy'?l.prima*l.qty:-l.prima*l.qty),0)*optSz;
   const costFin = costoNeto>0?(costoNeto*(r/365)*32).toFixed(2):0;
 
-  // Break evens
-  const bes=[];
+  // Break evens: sólo cruces ESTRICTOS de signo (evita el spam de NaN en tramos planos en 0)
+  const besRaw=[];
   for(let i=1;i<pnlVto.length;i++){
-    if(pnlVto[i-1]*pnlVto[i]<=0){
-      const be=prices[i-1]+(prices[i]-prices[i-1])*(-pnlVto[i-1]/(pnlVto[i]-pnlVto[i-1]));
-      bes.push(be);
+    const a=pnlVto[i-1], b=pnlVto[i];
+    if(!isFinite(a)||!isFinite(b)) continue;
+    if((a<0&&b>0)||(a>0&&b<0)){
+      const be=prices[i-1]+(prices[i]-prices[i-1])*(-a/(b-a));
+      if(isFinite(be)) besRaw.push(be);
     }
   }
+  const bes=[]; besRaw.sort((x,y)=>x-y).forEach(b=>{ if(!bes.length||Math.abs(b-bes[bes.length-1])>S*0.002) bes.push(b); });
 
   // P&L actual (al spot actual)
   const spotIdx = prices.findIndex(p=>p>=S);
   const pnlActual = pnlTeo?.[spotIdx] ?? pnlVto[spotIdx] ?? 0;
 
-  // Griegos totales al spot actual
+  // Griegos totales al spot actual (misma IV de mercado y horizonte por pata que el teórico)
   let totDelta=0,totGamma=0,totTheta=0,totVega=0,ivNum=0,ivDen=0;
   esLegs.forEach(leg=>{
-    const K=leg.strike, T=calcT(leg.vto);
-    const iv=ivBS(leg.prima,S,K,T,r,leg.kind==='call'?'call':'put');
+    const K=leg.strike, type=leg.kind==='call'?'call':'put';
+    const Trem=Math.max(leg._T-elapsed/365,1/365);
+    const iv=leg._ivMkt;
     const ivAdj=Math.max(iv*(1+volAdj),0.01);
     const sign=leg.action==='buy'?1:-1;
-    totDelta+=sign*bsDelta(S,K,T_teo>0?T_teo:T,r,ivAdj,leg.kind==='call'?'call':'put')*leg.qty*optSz;
-    totGamma+=sign*bsGamma(S,K,T_teo>0?T_teo:T,r,ivAdj)*leg.qty*optSz;
-    totTheta+=sign*bsTheta(S,K,T_teo>0?T_teo:T,r,ivAdj,leg.kind==='call'?'call':'put')*leg.qty*optSz;
-    totVega +=sign*bsVega(S,K,T_teo>0?T_teo:T,r,ivAdj)*leg.qty*optSz;
+    totDelta+=sign*bsDelta(S,K,Trem,r,ivAdj,type)*leg.qty*optSz;
+    totGamma+=sign*bsGamma(S,K,Trem,r,ivAdj)*leg.qty*optSz;
+    totTheta+=sign*bsTheta(S,K,Trem,r,ivAdj,type)*leg.qty*optSz;
+    totVega +=sign*bsVega(S,K,Trem,r,ivAdj)*leg.qty*optSz;
     // IV de posición = promedio de IV ponderado por |vega| (vol a la que estás expuesto)
-    if(iv>0&&iv<5){ const w=Math.abs(bsVega(S,K,T_teo>0?T_teo:T,r,iv)*leg.qty*optSz); ivNum+=iv*w; ivDen+=w; }
+    if(iv>0&&iv<5){ const w=Math.abs(bsVega(S,K,Trem,r,iv)*leg.qty*optSz); ivNum+=iv*w; ivDen+=w; }
   });
   const ivPos = ivDen>0 ? ivNum/ivDen : null;
 
@@ -809,7 +835,8 @@ window.esRecalc = () => {
   document.getElementById('gCapital').textContent= costoNeto>0?'$'+fmtAR(costoNeto,2):'Crédito';
 
   // Lectura / hints del simulador
-  esRenderHints('es',{delta:totDelta,gamma:totGamma,theta:totTheta,vega:totVega,capital:costoNeto||Math.abs(totVega)*10,ivPos,dias,spot:S});
+  const dteRep = esLegs.length?Math.round(Math.min(...esLegs.map(l=>l._T))*365):32;
+  esRenderHints('es',{delta:totDelta,gamma:totGamma,theta:totTheta,vega:totVega,capital:costoNeto||Math.abs(totVega)*10,ivPos,dias:dteRep,spot:S});
 
   // Gráfico
   const spotLineIdx = prices.findIndex(p=>p>=S);
@@ -820,7 +847,7 @@ window.esRecalc = () => {
     borderWidth:2, pointRadius:0, tension:0.3, fill:true,
   }];
   if(showT&&pnlTeo) datasets.push({
-    label:`Teórico ${dias}d`,
+    label:`Teórico ${elapsedLbl}`,
     data: pnlTeo,
     borderColor:'#b39dff', backgroundColor:'rgba(179,157,255,0.04)',
     borderWidth:2, pointRadius:0, tension:0.3, fill:true, borderDash:[],
@@ -914,7 +941,7 @@ window.esRecalc = () => {
           }
         },
         ...(showT && teoXY ? [{
-          label: `Teórico ${dias}d`,
+          label: `Teórico ${elapsedLbl}`,
           data: teoXY,
           borderColor: '#b39dff', borderWidth: 1.5, pointRadius: 0,
           tension: 0.2, fill: false, borderDash: [5, 3],
@@ -966,10 +993,9 @@ function esRenderPlanilla(S, r, optSz){
     const bruto = l.prima*q*optSz;
     const com   = bruto*ES_COM;
     const neto  = sign>0 ? -(bruto+com) : (bruto-com);       // flujo de caja de entrada (débito/crédito)
-    // Precio actual: mid de la cadena viva si está; si no, teórico BS con IV de la prima de entrada
-    const opt = esGetOpt(l.kind, K, l.vto);
-    let cur = (opt && opt.mid>0) ? opt.mid : null;
-    if(cur==null){ const T=calcT(l.vto); let iv=ivBS(l.prima,S,K,T,r,type); if(!(iv>0)||iv>15) iv=esIVATM||0.5; cur=bsPrice(S,K,T,r,iv,type); }
+    // Precio actual = mismo mark que usa el teórico/escalera (leg._vNow), calculado en esRecalc
+    let cur = (l._vNow!=null) ? l._vNow : null;
+    if(cur==null){ const T=calcT(l.vto); let iv=(l._ivMkt||esIVATM||0.5); cur=bsPrice(S,K,T,r,iv,type); }
     const hoy = sign*cur*q*optSz;                             // valor actual de la posición (mark, con signo)
     const pl  = sign*(cur-l.prima)*q*optSz;                   // P&L a hoy
     tB+=bruto; tN+=neto; tH+=hoy; tP+=pl;
