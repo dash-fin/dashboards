@@ -149,6 +149,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 /* ── Legibilidad: labels chicos más grandes y con más cuerpo ── */
 .kpi-label,.card-title,.block-title,.sec-head,.gstat-label,.rank-head-title,th,.mtab{font-size:11px!important;font-weight:600}
 td,.td-val,.strip-chg,.rank-chg{font-weight:500}
+/* ── Logo de fondo (watermark tenue, se ve por los huecos entre cards) ── */
+body::after{content:'';position:fixed;right:-3%;bottom:-5%;width:min(720px,62vw);height:min(720px,62vw);background:url('finboard-main-logo.png') no-repeat center/contain;opacity:.05;filter:grayscale(.35);pointer-events:none;z-index:-1}
 body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;background:radial-gradient(ellipse 80% 60% at 50% -20%,rgba(68,136,255,.06),transparent);pointer-events:none;z-index:0}
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg2)}
@@ -156,8 +158,10 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .app{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100vh;overflow-x:hidden}
 .header{position:sticky;top:0;z-index:200;background:var(--bg2)}
 .header-top{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 8px;border-bottom:1px solid var(--border)}
-.logo{display:flex;align-items:center;cursor:pointer;user-select:none}
-.logo img{width:160px;height:38px;object-fit:cover;object-position:center 38%;border-radius:4px;display:block}
+.logo{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.logo img{height:36px;width:auto;max-width:66px;object-fit:contain;display:block;filter:drop-shadow(0 1px 4px rgba(0,0,0,.45))}
+.logo .wm{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--text);white-space:nowrap}
+.logo .wm i{font-style:normal;color:var(--accent,var(--green))}
 .header-top-right{display:flex;align-items:center;gap:12px}
 /* ── Hamburger ── */
 .ham-btn{width:34px;height:34px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;cursor:pointer;border:none;background:transparent;padding:0;flex-shrink:0;border-radius:4px;transition:background .12s}
@@ -743,7 +747,8 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <span></span><span></span><span></span>
         </button>
         <div class="logo" onclick="drawerOpen()">
-          <img src="banner.jpg" alt="Finboard">
+          <img src="finboard-main-logo.png" alt="FinBoard">
+          <span class="wm">Fin<i>Board</i></span>
         </div>
       </div>
       <div class="header-top-right">
