@@ -179,6 +179,7 @@ window.VolLib = { calcularIV, ivBS, ivBinomial, bsPrice, binomialAmerican, calcT
   <div class="sub-tabs">
     <button class="stab active" id="vstab-sonrisa"  onclick="vTab('sonrisa',this)">Sonrisa de vol.</button>
     <button class="stab"        id="vstab-surface"  onclick="vTab('surface',this)">Term structure</button>
+    <button class="stab"        id="vstab-cono"     onclick="vTab('cono',this)">Cono / IV Rank</button>
     <button class="stab"        id="vstab-monitor"  onclick="vTab('monitor',this)">Cadena</button>
   </div>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -265,6 +266,38 @@ window.VolLib = { calcularIV, ivBS, ivBinomial, bsPrice, binomialAmerican, calcT
     </div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px" id="vTermCards"></div>
+</div>
+
+<!-- ── PANEL: CONO DE VOLATILIDAD + IV RANK ── -->
+<div class="sub-panel" id="vpanel-cono">
+  <!-- IV Rank + VRP -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+    <div class="kpi" style="--accent:var(--amber)"><div class="kpi-label">IV Rank (ATM)</div><div class="kpi-val" id="ck-ivrank">—</div><div class="kpi-sub" id="ck-ivrank-sub">acumulando</div></div>
+    <div class="kpi" style="--accent:var(--purple)"><div class="kpi-label">IV ATM hoy</div><div class="kpi-val" id="ck-ivnow">—</div><div class="kpi-sub" id="ck-ivnow-sub">vencimiento cercano</div></div>
+    <div class="kpi" style="--accent:var(--cyan)"><div class="kpi-label">HV realizada (DTE)</div><div class="kpi-val" id="ck-hvdte">—</div><div class="kpi-sub" id="ck-hvdte-sub">ventana ≈ plazo</div></div>
+    <div class="kpi" style="--accent:var(--green)"><div class="kpi-label">VRP (IV − HV)</div><div class="kpi-val" id="ck-vrp">—</div><div class="kpi-sub" id="ck-vrp-sub">prima de riesgo de vol</div></div>
+  </div>
+  <div id="ck-lectura" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:10px 12px;margin-bottom:12px;line-height:1.5">—</div>
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Cono de volatilidad — HV realizada por ventana vs IV actual</div>
+      <div class="legend-row" style="font-family:'IBM Plex Mono',monospace;font-size:9px">
+        <div class="legend-item"><div class="legend-dot" style="background:#5c7090"></div>Máx/Mín</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22d3ee88"></div>P25–P75</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div>Mediana</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#00e5a8"></div>HV hoy</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f0a500"></div>IV hoy</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="empty-state" id="vConoEmpty"><div class="empty-icon">📡</div><p>Cargando historia de GGAL.BA…</p></div>
+      <div class="chart-wrap" id="vConoWrap" style="height:320px;display:none"><canvas id="vConoChart"></canvas></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px" id="vConoCards"></div>
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:var(--text3);margin-top:8px">
+    Cono = distribución de la volatilidad realizada (log-retornos, anualizada ×√252) en ventanas móviles de 20/30/40/60/90 ruedas sobre el último año. Percentiles del último año de GGAL.BA. La IV actual (ATM, modelo seleccionado) se superpone en su plazo (DTE): por encima del cono = cara, por debajo = barata.
+  </div>
 </div>
 
 <!-- ── PANEL: CADENA DE OPCIONES ── -->
@@ -451,6 +484,7 @@ window.vRerender = () => {
   vUpdateKPIs();
   if (vActiveTab === 'sonrisa') vRenderSonrisa();
   else if (vActiveTab === 'surface') vRenderTerm();
+  else if (vActiveTab === 'cono') vRenderCono();
   else if (vActiveTab === 'monitor') { try { vMonApply(); } catch(e) { console.log('vMonApply skipped:', e.message); } chainRender(); }
 };
 
@@ -627,6 +661,183 @@ function vRenderTerm() {
       <div class="gstat-val" style="color:var(--purple)">${(d.ivAtm*100).toFixed(1)}%</div>
       <div class="gstat-desc">IV ATM · ${d.dias} días</div>
     </div>`).join('');
+}
+
+// ── CONO DE VOLATILIDAD + IV RANK ──
+let _ggalCloses = null;   // cache serie GGAL.BA
+let _ivHistCache = null;  // cache iv_atm_diaria
+
+async function vFetchCloses(){
+  if(_ggalCloses) return _ggalCloses;
+  try{
+    const start = new Date(Date.now()-420*86400000).toISOString().slice(0,10); // ~14 meses
+    const r = await fetch('https://endymbpdayeidromxayb.supabase.co/functions/v1/yahoo-prices',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode:'yahoo-history',symbols:['GGAL.BA'],startDate:start})
+    });
+    const j = await r.json();
+    _ggalCloses = (Array.isArray(j['GGAL.BA'])?j['GGAL.BA']:[]).map(d=>Number(d.close)).filter(x=>x>0);
+  }catch(e){ _ggalCloses = []; }
+  return _ggalCloses;
+}
+
+// HV anualizada (fracción) de los últimos w retornos terminando en índice `end` (exclusivo)
+function _hvSlice(rets, end, w){
+  const s = rets.slice(end-w, end);
+  if(s.length < Math.min(w,5)) return null;
+  const m = s.reduce((a,b)=>a+b,0)/s.length;
+  const v = s.reduce((a,b)=>a+(b-m)*(b-m),0)/(s.length-1);
+  return Math.sqrt(v*252);
+}
+// Serie de HV rolling para ventana w sobre las últimas `lookback` ruedas
+function _rollingHV(rets, w, lookback=252){
+  const out=[]; const startEnd = Math.max(w, rets.length-lookback);
+  for(let end=startEnd; end<=rets.length; end++){ const h=_hvSlice(rets,end,w); if(h!=null) out.push(h); }
+  return out;
+}
+function _pct(sorted, p){
+  if(!sorted.length) return null;
+  const idx=(sorted.length-1)*p, lo=Math.floor(idx), hi=Math.ceil(idx);
+  return lo===hi ? sorted[lo] : sorted[lo]+(sorted[hi]-sorted[lo])*(idx-lo);
+}
+
+async function vFetchIVHist(){
+  if(_ivHistCache) return _ivHistCache;
+  try{
+    const rows = await sb('iv_atm_diaria','subyacente=eq.GGAL&select=fecha,dias,atm_iv&order=fecha.asc&limit=3000');
+    // Serie ~constant-maturity: por fecha, la fila con `dias` más cercano a 30 (y >=5)
+    const byFecha = {};
+    (rows||[]).forEach(r=>{
+      const d=Number(r.dias), iv=Number(r.atm_iv);
+      if(!(d>=5) || !(iv>0)) return;
+      const cur = byFecha[r.fecha];
+      if(!cur || Math.abs(d-30) < Math.abs(cur.d-30)) byFecha[r.fecha]={d, iv};
+    });
+    _ivHistCache = Object.entries(byFecha).sort(([a],[b])=>a.localeCompare(b)).map(([fecha,v])=>({fecha, iv:v.iv}));
+  }catch(e){ _ivHistCache = []; }
+  return _ivHistCache;
+}
+
+let _conoRendering = false;
+async function vRenderCono(){
+  if(_conoRendering) return; _conoRendering = true;
+  try{
+    const modelo = document.getElementById('vModelo')?.value||'binom';
+    const ivKey = modelo === 'bs' ? 'iv_bs' : 'iv_binom';
+
+    // IV ATM actual por vencimiento (desde vData, live) → puntos (dias, iv)
+    const byVto = {};
+    vData.filter(o=>o[ivKey]!=null && o.moneyness>=0.93 && o.moneyness<=1.07).forEach(o=>{
+      if(!byVto[o.vencimiento]) byVto[o.vencimiento]={sum:0,n:0,T:o.T};
+      byVto[o.vencimiento].sum+=o[ivKey]; byVto[o.vencimiento].n++;
+    });
+    const ivPts = Object.values(byVto).map(v=>({x:Math.round(v.T*365), y:v.sum/v.n}))
+      .filter(p=>p.x>0).sort((a,b)=>a.x-b.x);
+
+    const closes = await vFetchCloses();
+    const empty = document.getElementById('vConoEmpty');
+    const wrap  = document.getElementById('vConoWrap');
+    if(!closes || closes.length < 30){
+      if(empty){ empty.style.display='flex'; empty.querySelector('p').textContent='Sin serie de GGAL.BA para el cono.'; }
+      if(wrap) wrap.style.display='none';
+      _conoRendering=false; return;
+    }
+    if(empty) empty.style.display='none';
+    if(wrap) wrap.style.display='block';
+
+    const rets=[]; for(let i=1;i<closes.length;i++) rets.push(Math.log(closes[i]/closes[i-1]));
+    const windows=[20,30,40,60,90].filter(w=>w<rets.length);
+
+    const cono = windows.map(w=>{
+      const serie=_rollingHV(rets,w).sort((a,b)=>a-b);
+      const now=_hvSlice(rets,rets.length,w);
+      return { w, min:_pct(serie,0), p25:_pct(serie,0.25), med:_pct(serie,0.5), p75:_pct(serie,0.75), max:_pct(serie,1), now };
+    });
+
+    // datasets (fill '+1': p75 rellena hasta p25 = banda intercuartil)
+    const ds = [
+      {label:'Máx', data:cono.map(c=>({x:c.w,y:+(c.max*100).toFixed(1)})), borderColor:'#5c7090',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false,tension:.3},
+      {label:'P75', data:cono.map(c=>({x:c.w,y:+(c.p75*100).toFixed(1)})), borderColor:'#22d3ee55',borderWidth:1,backgroundColor:'#22d3ee18',pointRadius:0,fill:'+1',tension:.3},
+      {label:'P25', data:cono.map(c=>({x:c.w,y:+(c.p25*100).toFixed(1)})), borderColor:'#22d3ee55',borderWidth:1,pointRadius:0,fill:false,tension:.3},
+      {label:'Mediana', data:cono.map(c=>({x:c.w,y:+(c.med*100).toFixed(1)})), borderColor:'#22d3ee',borderWidth:2,pointRadius:0,fill:false,tension:.3},
+      {label:'Mín', data:cono.map(c=>({x:c.w,y:+(c.min*100).toFixed(1)})), borderColor:'#5c7090',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false,tension:.3},
+      {label:'HV hoy', data:cono.map(c=>({x:c.w,y:+(c.now*100).toFixed(1)})), type:'scatter',borderColor:'#00e5a8',backgroundColor:'#00e5a8',pointRadius:5,pointHoverRadius:8,showLine:true,borderWidth:1.5},
+      {label:'IV hoy', data:ivPts.map(p=>({x:p.x,y:+(p.y*100).toFixed(1)})), type:'scatter',borderColor:'#f0a500',backgroundColor:'#f0a500',pointRadius:7,pointHoverRadius:10,showLine:false,borderWidth:2},
+    ];
+    const xMax = Math.max(95, ...ivPts.map(p=>p.x));
+    if(vCharts.cono) vCharts.cono.destroy();
+    vCharts.cono = new Chart(document.getElementById('vConoChart'),{
+      type:'line',
+      data:{datasets:ds},
+      options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:true},
+        plugins:{legend:{display:false},
+          tooltip:{backgroundColor:'#0d1117',borderColor:'#28303f',borderWidth:1,titleColor:'#eef2f8',bodyColor:'#9dafc5',
+            callbacks:{title:ctx=>`${ctx[0].parsed.x} ruedas`,label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`}}},
+        scales:{
+          x:{type:'linear',min:15,max:xMax,title:{display:true,text:'Plazo / ventana (ruedas)',color:'#5c7090',font:{size:9,family:'IBM Plex Mono'}},ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'}},grid:{color:'#1e2530'}},
+          y:{title:{display:true,text:'Volatilidad anualizada (%)',color:'#5c7090',font:{size:9,family:'IBM Plex Mono'}},ticks:{color:'#5c7090',font:{size:9,family:'IBM Plex Mono'},callback:v=>v.toFixed(0)+'%'},grid:{color:'#1e2530'}},
+        }}
+    });
+
+    // Cards por ventana: HV hoy + posición en el cono
+    document.getElementById('vConoCards').innerHTML = cono.map(c=>{
+      const pos = c.max>c.min ? (c.now-c.min)/(c.max-c.min) : 0.5;  // 0=mín 1=máx
+      const clr = pos>0.75?'var(--red)':pos<0.25?'var(--green)':'var(--amber)';
+      return `<div class="gstat"><div class="gstat-label">HV ${c.w}d</div>
+        <div class="gstat-val" style="color:${clr}">${(c.now*100).toFixed(1)}%</div>
+        <div class="gstat-desc">pctil ${(pos*100).toFixed(0)} · med ${(c.med*100).toFixed(0)}%</div></div>`;
+    }).join('');
+
+    // ── IV Rank + VRP ──
+    const nearIV = ivPts[0];              // vencimiento más cercano
+    const ivNow  = nearIV ? nearIV.y : null;
+    const dteNear= nearIV ? nearIV.x : 30;
+    const wMatch = [20,30,40,60,90].reduce((b,w)=>Math.abs(w-dteNear)<Math.abs(b-dteNear)?w:b,30);
+    const hvDTE  = _hvSlice(rets, rets.length, Math.min(wMatch, rets.length-1));
+
+    const setTxt=(id,t)=>{const e=document.getElementById(id); if(e) e.textContent=t;};
+    setTxt('ck-ivnow', ivNow!=null?(ivNow*100).toFixed(1)+'%':'—');
+    setTxt('ck-ivnow-sub', nearIV?`${dteNear}d al vto`:'sin IV live');
+    setTxt('ck-hvdte', hvDTE!=null?(hvDTE*100).toFixed(1)+'%':'—');
+    setTxt('ck-hvdte-sub', `ventana ${wMatch}d`);
+    const vrp = (ivNow!=null&&hvDTE!=null)?(ivNow-hvDTE):null;
+    setTxt('ck-vrp', vrp!=null?((vrp>=0?'+':'')+(vrp*100).toFixed(1)+' pts'):'—');
+    const vrpSubEl=document.getElementById('ck-vrp-sub');
+    if(vrpSubEl) vrpSubEl.textContent = vrp==null?'—':vrp>0.03?'opciones caras vs realizada':vrp<-0.03?'opciones baratas vs realizada':'en línea';
+
+    // IV Rank sobre iv_atm_diaria (constant-maturity ~30d)
+    const ivHist = await vFetchIVHist();
+    const rankEl=document.getElementById('ck-ivrank'), rankSub=document.getElementById('ck-ivrank-sub');
+    if(ivHist && ivHist.length>=2){
+      const vals=ivHist.map(r=>r.iv);
+      const cur=vals[vals.length-1];
+      const mn=Math.min(...vals), mx=Math.max(...vals);
+      const rank = mx>mn ? (cur-mn)/(mx-mn)*100 : 50;
+      if(rankEl) rankEl.textContent = rank.toFixed(0);
+      const n=vals.length;
+      if(rankSub) rankSub.textContent = n<40 ? `${n} ruedas (poca historia)` : `${n} ruedas`;
+      if(rankEl) rankEl.style.color = rank>70?'var(--red)':rank<30?'var(--green)':'var(--amber)';
+    } else {
+      if(rankEl) rankEl.textContent='—';
+      if(rankSub) rankSub.textContent='sin iv_atm_diaria';
+    }
+
+    // Lectura
+    const lect=document.getElementById('ck-lectura');
+    if(lect){
+      let msg='';
+      if(ivNow!=null && cono.length){
+        const cRef=cono.reduce((b,c)=>Math.abs(c.w-dteNear)<Math.abs(b.w-dteNear)?c:b,cono[0]);
+        const ivPctRaw = cRef.max>cRef.min ? (ivNow-cRef.min)/(cRef.max-cRef.min)*100 : 50;
+        const ivPct = Math.max(0, Math.min(100, ivPctRaw));
+        if(ivNow>cRef.max) msg=`IV (${(ivNow*100).toFixed(0)}%) por ENCIMA del máximo histórico de HV a ${cRef.w}d (${(cRef.max*100).toFixed(0)}%): opciones MUY caras → favorece VENDER prima.`;
+        else if(ivPct>75) msg=`IV en pctil ${ivPct.toFixed(0)} del cono a ${cRef.w}d: cara → sesgo a vender prima / spreads de crédito.`;
+        else if(ivPct<25) msg=`IV en pctil ${ivPct.toFixed(0)} del cono a ${cRef.w}d: barata → sesgo a comprar opciones / debit spreads.`;
+        else msg=`IV en pctil ${ivPct.toFixed(0)} del cono a ${cRef.w}d: en línea con la vol realizada histórica.`;
+      } else { msg='Sin IV live para posicionar en el cono (mercado cerrado o sin cadena).'; }
+      lect.textContent = msg;
+    }
+  } finally { _conoRendering=false; }
 }
 
 // ── MONITOR RT ──
