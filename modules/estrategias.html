@@ -753,18 +753,17 @@ window.esRecalc = () => {
   const steps = 200;
   const prices = Array.from({length:steps+1},(_,i)=>minS+(maxS-minS)*i/steps);
 
-  // P&L al vencimiento
-  const pnlVto = prices.map(price=>
+  // Evaluadores de P&L a un precio ARBITRARIO (los usan tanto la grilla del gráfico como la escalera,
+  // que evalúa en el precio EXACTO S*(1+v) → el spot da 0 exacto y no depende de la grilla).
+  const pnlVtoAt = price =>
     esLegs.reduce((tot,leg)=>{
       const K=leg.strike;
       const payoff=leg.kind==='call'?Math.max(price-K,0):Math.max(K-price,0);
       return tot+(leg.action==='buy'?payoff-leg.prima:leg.prima-payoff)*leg.qty*optSz;
-    },0)
-  );
-
-  // P&L teórico: revalúa cada pata al PRECIO del escenario, adelantando `elapsed` días (0 = hoy) sobre
-  // su PROPIO vencimiento, con la IV de mercado ajustada. En (spot, elapsed 0, vol 0) el teórico = P&L HOY.
-  const pnlTeo = showT ? prices.map(price=>
+    },0);
+  // Teórico: revalúa cada pata al PRECIO del escenario, adelantando `elapsed` días (0 = hoy) sobre su
+  // PROPIO vencimiento, con la IV de mercado ajustada. En (spot, elapsed 0, vol 0) el teórico = P&L HOY.
+  const pnlTeoAt = !showT ? null : price =>
     esLegs.reduce((tot,leg)=>{
       const K=leg.strike, type=leg.kind==='call'?'call':'put';
       const Trem = Math.max(leg._T - elapsed/365, 0);
@@ -772,8 +771,10 @@ window.esRecalc = () => {
       const teoPrice = Trem>0 ? bsPrice(price,K,Trem,r,ivAdj,type)
                               : Math.max(type==='call'?price-K:K-price,0);
       return tot+(leg.action==='buy'?teoPrice-leg.prima:leg.prima-teoPrice)*leg.qty*optSz;
-    },0)
-  ) : null;
+    },0);
+
+  const pnlVto = prices.map(pnlVtoAt);
+  const pnlTeo = pnlTeoAt ? prices.map(pnlTeoAt) : null;
 
   // Métricas
   const maxGan  = Math.max(...pnlVto);
@@ -978,7 +979,7 @@ window.esRecalc = () => {
 
   // Planilla de patas (cuentas) + escalera de precios (Finish/Teórico) — estilo El Teórico
   esRenderPlanilla(S, r, optSz);
-  esRenderEscalera(S, prices, pnlVto, pnlTeo);
+  esRenderEscalera(S, pnlVtoAt, pnlTeoAt);
 };
 
 // ── PLANILLA: patas y cuentas (TIPO/CANT/BASE/PRIMA/BRUTO/NETO/$HOY/P&L HOY + TOTAL) ──
@@ -1020,16 +1021,17 @@ function esRenderPlanilla(S, r, optSz){
 }
 
 // ── ESCALERA DE PRECIOS: Rtdo. Finish (al vto) vs Rtdo. Teórico (slider días/VI), coloreado ──
-function esRenderEscalera(S, prices, pnlVto, pnlTeo){
+// Evalúa en el precio EXACTO de cada escalón (S*(1+v)) → spot = 0 exacto e independiente de la grilla del gráfico.
+function esRenderEscalera(S, pnlVtoAt, pnlTeoAt){
   const tb = document.getElementById('esScenariosTbody'); if(!tb) return;
   if(!esLegs.length){ tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text3);padding:16px">Sin patas</td></tr>'; return; }
   const varPcts=[-0.30,-0.25,-0.20,-0.15,-0.10,-0.07,-0.05,-0.03,-0.02,-0.01,0,0.01,0.02,0.03,0.05,0.07,0.10,0.15,0.20,0.25,0.30];
-  const maxAbs=Math.max(1,...pnlVto.map(Math.abs),...(pnlTeo?pnlTeo.map(Math.abs):[0]));
+  const rows = varPcts.map(v=>{ const price=S*(1+v); return {v, price, pf:pnlVtoAt(price), pt:pnlTeoAt?pnlTeoAt(price):pnlVtoAt(price)}; });
+  const maxAbs=Math.max(1,...rows.map(r=>Math.abs(r.pf)),...rows.map(r=>Math.abs(r.pt)));
   const money = v => (v>=0?'+':'−')+'$'+fmtAR(Math.abs(v),0);
   const cellBg = val=>{ const a=Math.min(1,Math.abs(val)/maxAbs), al=(0.07+0.5*a).toFixed(3); return val>=0?`background:rgba(0,229,168,${al})`:`background:rgba(255,63,94,${al})`; };
-  tb.innerHTML = varPcts.map(v=>{
-    const price=S*(1+v); const idx=prices.findIndex(p=>p>=price); if(idx<0) return '';
-    const pf=pnlVto[idx]??0, pt=pnlTeo?.[idx]??pf, isSpot=Math.abs(v)<0.0001;
+  tb.innerHTML = rows.map(({v,price,pf,pt})=>{
+    const isSpot=Math.abs(v)<0.0001;
     return `<tr${isSpot?' style="outline:1px solid rgba(240,165,0,.55)"':''}>
       <td class="l" style="color:${v<0?'var(--red)':v>0?'var(--green)':'var(--amber)'}">${v>=0?'+':''}${(v*100).toFixed(0)}%</td>
       <td class="l">$${fmtAR(price,0)}${isSpot?' ◄':''}</td>
