@@ -704,8 +704,15 @@ function _pct(sorted, p){
 async function vFetchIVHist(){
   if(_ivHistCache) return _ivHistCache;
   try{
+    // Fuente primaria: v_iv_atm_hist (backfill @sabrofrehley 2023+, ATM front-month, ~3 años reales).
+    // dias>=7 descarta el ruido de la semana de vencimiento (IV disparada por VE≈0).
+    const hist = await sb('v_iv_atm_hist','select=fecha,atm_iv,dias&atm_iv=gt.0&dias=gte.7&order=fecha.asc&limit=3000');
+    if(Array.isArray(hist) && hist.length>=40){
+      _ivHistCache = hist.map(r=>({fecha:r.fecha, iv:Number(r.atm_iv)})).filter(r=>r.iv>0);
+      return _ivHistCache;
+    }
+    // Fallback: iv_atm_diaria (forward, poca historia) — serie ~constant-maturity ~30d
     const rows = await sb('iv_atm_diaria','subyacente=eq.GGAL&select=fecha,dias,atm_iv&order=fecha.asc&limit=3000');
-    // Serie ~constant-maturity: por fecha, la fila con `dias` más cercano a 30 (y >=5)
     const byFecha = {};
     (rows||[]).forEach(r=>{
       const d=Number(r.dias), iv=Number(r.atm_iv);
@@ -805,21 +812,23 @@ async function vRenderCono(){
     const vrpSubEl=document.getElementById('ck-vrp-sub');
     if(vrpSubEl) vrpSubEl.textContent = vrp==null?'—':vrp>0.03?'opciones caras vs realizada':vrp<-0.03?'opciones baratas vs realizada':'en línea';
 
-    // IV Rank sobre iv_atm_diaria (constant-maturity ~30d)
+    // IV Rank: rankea la IV live (ivNow, front ATM) en la ventana de 1 año (~252 ruedas) del histórico.
     const ivHist = await vFetchIVHist();
     const rankEl=document.getElementById('ck-ivrank'), rankSub=document.getElementById('ck-ivrank-sub');
     if(ivHist && ivHist.length>=2){
-      const vals=ivHist.map(r=>r.iv);
-      const cur=vals[vals.length-1];
+      const win = ivHist.slice(-252);                 // 1 año (convención IV Rank)
+      const vals= win.map(r=>r.iv);
+      const cur = (ivNow!=null) ? ivNow : vals[vals.length-1];
       const mn=Math.min(...vals), mx=Math.max(...vals);
-      const rank = mx>mn ? (cur-mn)/(mx-mn)*100 : 50;
+      const rank = mx>mn ? Math.max(0,Math.min(100,(cur-mn)/(mx-mn)*100)) : 50;
+      const pctil = vals.filter(v=>v<=cur).length/vals.length*100;   // IV percentil
       if(rankEl) rankEl.textContent = rank.toFixed(0);
       const n=vals.length;
-      if(rankSub) rankSub.textContent = n<40 ? `${n} ruedas (poca historia)` : `${n} ruedas`;
+      if(rankSub) rankSub.textContent = `pctil ${pctil.toFixed(0)} · ${n} ruedas` + (n<40?' (poca historia)':'');
       if(rankEl) rankEl.style.color = rank>70?'var(--red)':rank<30?'var(--green)':'var(--amber)';
     } else {
       if(rankEl) rankEl.textContent='—';
-      if(rankSub) rankSub.textContent='sin iv_atm_diaria';
+      if(rankSub) rankSub.textContent='sin histórico';
     }
 
     // Lectura
