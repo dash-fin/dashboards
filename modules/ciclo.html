@@ -248,6 +248,33 @@
       <div style="font-size:10px;color:var(--text3);margin-top:8px">Sesgo del ciclo (▲ favorito / ▼ evitar, modelo Stovall) cruzado con la posición RRG semanal vs SPY. Confluencia = el reloj y la rotación real apuntan al mismo lado.</div>`;
   }
 
+  // ---- Estación Kondratieff (K1) — capa secular ----
+  const KWCOL = {primavera:'#10e898', verano:'#f5a623', otono:'#c0742e', invierno:'#4488ff'};
+  function renderKondratieff(kw){
+    if(!kw||!kw.label) return '';
+    const c=KWCOL[kw.season]||'var(--text2)';
+    const pct=(v,d=1)=>v==null?'—':(v>=0?'+':'')+(v*100).toFixed(d)+'%';
+    const metrics=[
+      ['Inflación YoY', kw.infl_yoy==null?'—':pct(kw.infl_yoy), kw.infl_accel>=0?'acelerando':'desacelerando', kw.infl_accel>=0?'#f5a623':'var(--green)'],
+      ['Tasa 10a', kw.rate_10y==null?'—':kw.rate_10y+'%', (kw.rate_trend_5y>=0?'▲':'▼')+' '+(kw.rate_trend_5y>=0?'+':'')+kw.rate_trend_5y+'pp/5a', kw.rate_trend_5y>=0?'#f5a623':'var(--green)'],
+      ['Oro / SPX 3a', kw.gold_spx_3y==null?'—':pct(kw.gold_spx_3y,0), kw.gold_spx_3y>=0?'oro gana (duro)':'acciones ganan', kw.gold_spx_3y>=0?'#f5a623':'var(--green)'],
+      ['Deuda / PBI', kw.debt_gdp==null?'—':kw.debt_gdp+'%', 'ciclo de deuda', 'var(--text3)'],
+    ];
+    return `<div class="ic-cat">Ciclo largo · estación Kondratieff (secular)</div>
+      <div class="ic-card" style="border-color:${c}55">
+        <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+          <div style="font-size:40px;line-height:1">${kw.emoji}</div>
+          <div style="flex:1;min-width:220px">
+            <div style="font-size:20px;font-weight:900;color:${c}">${kw.label}${kw.stagflationary?' · estanflación':''}</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.5;margin-top:4px">${kw.tesis||''}</div>
+          </div>
+        </div>
+        <div class="ic-kpis" style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px">
+          ${metrics.map(([l,v,s,sc])=>`<div class="ic-kpi"><div class="ic-kpiL">${l}</div><div class="ic-kpiV" style="font-size:18px">${v}</div><div class="ic-kpiS" style="color:${sc}">${s}</div></div>`).join('')}
+        </div>
+      </div>`;
+  }
+
   // ---- Régimen: coherencia intermercado (C3) + liquidez (K3) ----
   function renderRegime(co, liq){
     if(!co && !liq) return '';
@@ -308,6 +335,8 @@
           </div>
         </div>
 
+        ${renderKondratieff(cur.kondratieff)}
+
         ${renderRegime(cur.coherence, cur.liquidity)}
 
         <div class="ic-cat">Reloj de la inversión · recorrido histórico</div>
@@ -355,6 +384,7 @@
         <div class="ic-cat">Confirmación (ratios de Murphy)</div>
         <div class="ic-card ic-kpis">
           ${murRows.map(([lbl,o])=>`<div class="ic-kpi"><div class="ic-kpiL">${lbl}</div><div class="ic-kpiV" style="font-size:16px;color:${!o?'var(--text3)':o.z>=0?'var(--green)':'var(--red)'}">${!o?'—':arrow(o.z)+' '+fmt(o.z)}</div></div>`).join('')}
+          ${mur.regime_note?`<div style="flex-basis:100%;font-size:12px;color:var(--text2);line-height:1.5;margin-top:6px;border-top:1px solid var(--border);padding-top:8px">🔁 ${mur.regime_note}</div>`:''}
         </div>
 
         <div class="ic-foot">Investment Clock (crecimiento × inflación) + 6 estados de Pring + ratios de Murphy.<br>
