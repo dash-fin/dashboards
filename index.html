@@ -159,7 +159,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .header{position:sticky;top:0;z-index:200;background:var(--bg2)}
 .header-top{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 8px;border-bottom:1px solid var(--border)}
 .logo{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
-.logo img{height:36px;width:auto;max-width:66px;object-fit:contain;display:block;filter:drop-shadow(0 1px 4px rgba(0,0,0,.45))}
+.logo img{height:30px;width:auto;max-width:180px;object-fit:contain;display:block}
 .logo .wm{font-size:16px;font-weight:700;letter-spacing:-.02em;color:var(--text);white-space:nowrap}
 .logo .wm i{font-style:normal;color:var(--accent,var(--green))}
 .header-top-right{display:flex;align-items:center;gap:12px}
@@ -174,6 +174,7 @@ body::after{content:'';position:fixed;top:0;left:0;right:0;height:260px;backgrou
 .drawer.open{transform:translateX(0);box-shadow:6px 0 32px rgba(0,0,0,.6)}
 .drawer-head{display:flex;align-items:center;gap:10px;padding:16px 16px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
 .dh-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent,var(--green)),#0f7fa0);display:flex;align-items:center;justify-content:center;color:#06131a;font-weight:800;font-size:12px;letter-spacing:-.5px;flex-shrink:0}
+.dh-logo{height:24px;width:auto;max-width:150px;object-fit:contain;display:block}
 .dh-name{font-size:16px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
 .dh-name i{font-style:normal;color:var(--accent,var(--green))}
 .dh-st{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--green)}
@@ -576,17 +577,20 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 <!-- Drawer -->
 <div class="drawer" id="drawer">
       <div class="drawer-head">
-        <div class="dh-mark">FB</div>
-        <div class="dh-name">Fin<i>Board</i></div>
+        <img class="dh-logo" src="finboard-wordmark.png" alt="FinBoard">
         <div class="dh-st"></div>
         <button class="drawer-head-close" onclick="drawerClose()">✕</button>
       </div>
       <div class="drawer-body">
 
-        <!-- ── INICIO (arriba de todo, sin sección) ── -->
-        <button class="dmod active" id="dmod-home" onclick="dmodGo('home',this)" style="margin-bottom:6px">
-          <div class="dmod-accent" style="background:#10e898"></div>
+        <!-- ── OVERVIEW ── -->
+        <div class="dsec-hdr"><div class="dsec-pipe" style="background:var(--accent,#38c3ec)"></div><span class="dsec-lbl" style="color:var(--accent,#38c3ec)">Overview</span></div>
+
+        <button class="dmod active" id="dmod-home" onclick="dmodGo('home',this)">
           <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg></span><span class="dmod-label">Home</span></div>
+        </button>
+        <button class="dmod" id="dmod-ciclo" onclick="dmodGo('ciclo',this)">
+          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="dmod-label">Ciclo</span></div>
         </button>
 
         <!-- ── ARGENTINA ── -->
@@ -594,11 +598,12 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
 
         <button class="dmod" id="dmod-opciones" onclick="dmodToggle(this,'opciones')">
           <div class="dmod-accent" style="background:#f5a623"></div>
-          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><path d="M9 5v4"/><rect width="4" height="6" x="7" y="9" rx="1"/><path d="M9 15v2"/><path d="M17 3v2"/><rect width="4" height="8" x="15" y="5" rx="1"/><path d="M17 13v3"/><path d="M3 3v18h18"/></svg></span><span class="dmod-label">Options</span><span class="dmod-chevron">▶</span></div>
+          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><path d="M9 5v4"/><rect width="4" height="6" x="7" y="9" rx="1"/><path d="M9 15v2"/><path d="M17 3v2"/><rect width="4" height="8" x="15" y="5" rx="1"/><path d="M17 13v3"/><path d="M3 3v18h18"/></svg></span><span class="dmod-label">Options · GGAL</span><span class="dmod-chevron">▶</span></div>
         </button>
         <div class="dsubs" id="dsubs-opciones">
           <div class="dsub-grp">GGAL local</div>
           <button class="dsub" onclick="drawerNav('opciones','cadena')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Chain RT</span></button>
+          <button class="dsub" onclick="drawerNav('opciones','vol')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Volatilidad</span></button>
           <button class="dsub" onclick="drawerNav('opciones','iamc')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · OI Dist.</span></button>
           <button class="dsub" onclick="drawerNav('opciones','gex')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Gamma</span></button>
           <button class="dsub" onclick="drawerNav('opciones','tabla')"><span class="dsub-dot"></span><span class="dsub-label">GGAL · Detail</span></button>
@@ -651,20 +656,13 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <button class="dsub" onclick="drawerNav('market','topology')"><span class="dsub-dot"></span><span class="dsub-label">Topology</span></button>
         </div>
 
-        <button class="dmod" id="dmod-ciclo" onclick="drawerNav('ciclo')">
-          <div class="dmod-accent" style="background:#4488ff"></div>
-          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="dmod-label">Ciclo</span></div>
+        <button class="dmod" id="dmod-usaoptions" onclick="dmodToggle(this,'usaoptions')">
+          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="dmod-label">Options · US</span><span class="dmod-chevron">▶</span></div>
         </button>
-
-        <button class="dmod" id="dmod-radar" onclick="drawerNav('radar')">
-          <div class="dmod-accent" style="background:#4488ff"></div>
-          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span><span class="dmod-label">Radar</span></div>
-        </button>
-
-        <button class="dmod" id="dmod-elliott" onclick="drawerNav('elliott')">
-          <div class="dmod-accent" style="background:#4488ff"></div>
-          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span><span class="dmod-label">Screener</span></div>
-        </button>
+        <div class="dsubs" id="dsubs-usaoptions">
+          <button class="dsub" onclick="drawerNav('usaoptions','gex')"><span class="dsub-dot"></span><span class="dsub-label">GEX SPY</span></button>
+          <button class="dsub" onclick="drawerNav('usaoptions','stocks')"><span class="dsub-dot"></span><span class="dsub-label">Stock Options</span></button>
+        </div>
 
         <button class="dmod" id="dmod-analysis" onclick="dmodToggle(this,'analysis')">
           <div class="dmod-accent" style="background:#4488ff"></div>
@@ -680,14 +678,15 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <button class="dsub" onclick="drawerNav('media')"><span class="dsub-dot"></span><span class="dsub-label">Media Analytics</span></button>
         </div>
 
-        <button class="dmod" id="dmod-usaoptions" onclick="dmodToggle(this,'usaoptions')">
-          <div class="dmod-accent" style="background:#4488ff"></div>
-          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="dmod-label">Options</span><span class="dmod-chevron">▶</span></div>
+        <!-- ── TOOLS ── -->
+        <div class="dsec-hdr" style="margin-top:4px"><div class="dsec-pipe" style="background:#9a8cff"></div><span class="dsec-lbl" style="color:#9a8cff">Tools</span></div>
+
+        <button class="dmod" id="dmod-radar" onclick="dmodGo('radar',this)">
+          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></span><span class="dmod-label">Radar</span></div>
         </button>
-        <div class="dsubs" id="dsubs-usaoptions">
-          <button class="dsub" onclick="drawerNav('usaoptions','gex')"><span class="dsub-dot"></span><span class="dsub-label">GEX SPY</span></button>
-          <button class="dsub" onclick="drawerNav('usaoptions','stocks')"><span class="dsub-dot"></span><span class="dsub-label">Stock Options</span></button>
-        </div>
+        <button class="dmod" id="dmod-elliott" onclick="dmodGo('elliott',this)">
+          <div class="dmod-inner"><span class="dmod-icon"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span><span class="dmod-label">Screener</span></div>
+        </button>
 
         <!-- ── PORTFOLIO ── -->
         <div class="dsec-hdr" style="margin-top:4px"><div class="dsec-pipe" style="background:#10e898"></div><span class="dsec-lbl" style="color:#10e898">Portfolio</span></div>
@@ -747,8 +746,7 @@ tr:hover td{background:rgba(255,255,255,.02);color:var(--text)}
           <span></span><span></span><span></span>
         </button>
         <div class="logo" onclick="drawerOpen()">
-          <img src="finboard-main-logo.png" alt="FinBoard">
-          <span class="wm">Fin<i>Board</i></span>
+          <img src="finboard-wordmark.png" alt="FinBoard">
         </div>
       </div>
       <div class="header-top-right">
