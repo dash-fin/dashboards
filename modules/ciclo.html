@@ -304,6 +304,81 @@
     return `<div class="ic-card" style="display:flex;gap:24px;flex-wrap:wrap">${coHtml}${liqHtml}</div>`;
   }
 
+  // ---- Ciclo de deuda (K5) ----
+  const DCMETA = {
+    euforia:{s:'Euforia · otoño tardío',c:'#f5a623'},
+    desapalancamiento:{s:'Desapalancamiento',c:'var(--red)'},
+    apalancando:{s:'Apalancando',c:'#4488ff'},
+    estable:{s:'Estable',c:'var(--text3)'},
+  };
+  function renderDebt(dc){
+    if(!dc||!dc.stage) return '';
+    const m=DCMETA[dc.stage]||DCMETA.estable;
+    const dir = dc.debt_dir_1y>=0?('▲ +'+dc.debt_dir_1y):('▼ '+dc.debt_dir_1y);
+    return `<div class="ic-card" style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;border-color:${m.c}44;margin-top:12px">
+      <div style="flex:1;min-width:220px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span class="ic-lbl">🏦 CICLO DE DEUDA</span>
+          <span style="font-weight:900;color:${m.c}">${m.s}</span></div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.45;margin-top:7px">${dc.text||''}</div>
+      </div>
+      <div class="ic-kpis" style="flex:0 1 320px">
+        <div class="ic-kpi"><div class="ic-kpiL">Deuda / PBI</div><div class="ic-kpiV" style="font-size:18px">${dc.debt_gdp!=null?dc.debt_gdp+'%':'—'}</div><div class="ic-kpiS">${dir}pp/1a</div></div>
+        <div class="ic-kpi"><div class="ic-kpiL">Spread HY</div><div class="ic-kpiV" style="font-size:18px">${dc.hy_spread!=null?dc.hy_spread+'%':'—'}</div><div class="ic-kpiS" style="color:${dc.hy_spread_z>=0?'var(--red)':'var(--green)'}">${dc.hy_spread_z!=null?(arrow(dc.hy_spread_z)+' '+fmt(dc.hy_spread_z)):'crédito'}</div></div>
+      </div>
+    </div>`;
+  }
+
+  // ---- Señales líderes del ciclo (C4 divergencia · C5 dólar salto · C6 commodities adelantado) ----
+  function sigCard(icon, title, status, col, text, extra){
+    return `<div class="ic-card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <span class="ic-lbl">${icon} ${title}</span>
+        <span style="font-weight:800;color:${col};text-align:right;font-size:12px">${status}</span></div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.45;margin-top:7px">${text||''}</div>
+      ${extra||''}</div>`;
+  }
+  const DVMETA = {
+    flight_to_quality:{s:'Flight-to-quality',c:'var(--red)'},
+    early_warning:{s:'Alerta temprana',c:'#f5a623'},
+    risk_on:{s:'Risk-ON',c:'var(--green)'},
+    aligned:{s:'Sin divergencia',c:'var(--text3)'},
+  };
+  const DJMETA = {
+    breakout_up:{s:'Salto ▲ (techo)',c:'#f5a623'},
+    breakout_down:{s:'Salto ▼ (piso)',c:'var(--green)'},
+    coiling_high:{s:'Comprimido · techo',c:'var(--text2)'},
+    coiling_low:{s:'Comprimido · piso',c:'var(--text2)'},
+    in_range:{s:'En rango',c:'var(--text3)'},
+  };
+  function renderSignals(cur){
+    const dv=cur.divergence, dj=cur.dollar_jump, cl=cur.commod_lead;
+    if(!dv && !dj && !cl) return '';
+    let cards='';
+    if(dv){
+      const m=DVMETA[dv.code]||DVMETA.aligned;
+      cards+=sigCard('🪂','Bonos vs Acciones', m.s, m.c, dv.text,
+        `<div style="font-size:10px;color:var(--text3);margin-top:6px">Acciones ${fmt(dv.spy_z)} · Bonos ${fmt(dv.tlt_z)} · Commod ${fmt(dv.commod_z)}</div>`);
+    }
+    if(dj){
+      const m=DJMETA[dj.code]||DJMETA.in_range;
+      const pos=clamp(dj.pos||0,0,1)*100;
+      const bar=`<div style="margin-top:8px"><div style="height:6px;border-radius:4px;background:var(--bg3);position:relative">
+        <div style="position:absolute;left:${pos.toFixed(0)}%;top:-2px;width:3px;height:10px;border-radius:2px;background:${m.c}"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);margin-top:2px"><span>${dj.lo}</span><span style="color:${m.c};font-weight:700">DXY ${dj.last}</span><span>${dj.hi}</span></div></div>`;
+      cards+=sigCard('💵','Dólar · salto de rango', m.s, m.c, dj.text, bar);
+    }
+    if(cl){
+      const fc = cl.forward==='up'?'#f5a623':(cl.forward==='down'?'var(--green)':'var(--text3)');
+      const fs = cl.forward==='up'?'Inflación forward ▲':(cl.forward==='down'?'Inflación forward ▼':'Alineado');
+      const bridge = cl.bridge?`<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--bg3);border:1px solid #c05cff55;font-size:12px;color:var(--text);line-height:1.45">♟️ ${cl.bridge}</div>`:'';
+      cards+=sigCard('🛢️','Commodities adelantan inflación', fs, fc, cl.text,
+        `<div style="font-size:10px;color:var(--text3);margin-top:6px">Commod ${fmt(cl.commod_z)} · breakevens ${fmt(cl.breakeven_z)} · gap ${fmt(cl.lead_gap)}</div>${bridge}`);
+    }
+    return `<div class="ic-cat">Señales líderes del ciclo</div>
+      <div class="ic-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">${cards}</div>`;
+  }
+
   async function load(){
     try{
       const [curArr, spiralArr, boardArr] = await Promise.all([
@@ -336,8 +411,11 @@
         </div>
 
         ${renderKondratieff(cur.kondratieff)}
+        ${renderDebt(cur.debt_cycle)}
 
         ${renderRegime(cur.coherence, cur.liquidity)}
+
+        ${renderSignals(cur)}
 
         <div class="ic-cat">Reloj de la inversión · recorrido histórico</div>
         <div class="ic-card" style="display:flex;gap:28px;align-items:center;flex-wrap:wrap;justify-content:flex-start">
