@@ -634,7 +634,7 @@ const SBKEY = 'sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
 async function oLoadData(){
   try {
     const [rows, mercRows, rava] = await Promise.all([
-      sb('opciones_iamc', 'select=*'),
+      sb('iamc_opciones_chain', 'select=*&underlying=eq.GGAL&order=fecha_informe.desc'),
       sb('mercado', 'select=symbol,last,settlement&symbol=in.(GGAL,AL30,AL30C)&settlement=eq.24hs').catch(()=>[]),
       fetch(EDGE, {
         method:'POST',
@@ -646,23 +646,24 @@ async function oLoadData(){
 
     if(!rows?.length) return;
 
-    // Corrección IAMC: el parser de Claude a veces omite la coma decimal del PDF argentino.
-    // Ejemplo: "6.348,7" → "63487" (incorrecto) o "4.574,0" → "45740" (incorrecto).
-    // Strikes con 5+ dígitos son 10x el valor real → dividir por 10.
-    // Corrección IAMC: "4.348,7" en PDF argentino → Claude parsea como 43487 (10x).
-    // Los strikes 10000-11999 son correctos (range real ~11000 máximo).
-    // Desde 20000+ tienen la coma decimal omitida → dividir por 10.
+    // iamc_opciones_chain es histórica (varias fecha_informe): usar solo el último informe.
+    const lastInforme = rows[0].fecha_informe;   // query viene ordenada fecha_informe.desc
+    const chain = rows.filter(r => r.fecha_informe === lastInforme);
+
+    // El strike ya viene en escala correcta desde iamc_daily.py; guarda por si aparece un 10x.
     const fixStrike = v => { const n = parseFloat(v); return (n >= 20000) ? n / 10 : n; };
 
-    oAllRows = rows.map(r => ({
+    // iamc_opciones_chain no separa cubierto/descubierto (el informe Power BI los perdió):
+    // todo el OI (open_interest) va a la barra de distribución.
+    oAllRows = chain.map(r => ({
       tipo:        r.kind.toLowerCase(),
       vencimiento: r.expiration,
       base:        fixStrike(r.strike),
-      cubierto:    Number(r.cubierto    || 0),
-      descubierto: Number(r.descubierto || 0),
+      cubierto:    0,
+      descubierto: Number(r.open_interest || 0),
       total:       Number(r.open_interest || 0),
-      volume:      Number(r.volume      || 0),
-      updated_at:  r.updated_at
+      volume:      Number(r.volumen_efectivo || 0),
+      updated_at:  r.created_at
     })).filter(r => r.base > 0 && isFinite(r.base));
 
     // Spot GGAL y CCL = AL30_ARS / AL30C_USD
@@ -705,7 +706,7 @@ async function oLoadData(){
       vtos.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
 
     oApplyFilters();
-    document.getElementById('oDateMeta').textContent = 'Act. '+new Date(rows[0].updated_at).toLocaleTimeString();
+    document.getElementById('oDateMeta').textContent = 'Informe IAMC '+lastInforme;
   } catch(e){ console.error('[opciones]', e); }
 }
 
@@ -1005,7 +1006,7 @@ async function hLoadData() {
     // absorber variaciones de parseo de Claude entre distintos PDFs del backfill.
     const fixSH = v => Math.round(Number(v) >= 20000 ? Number(v) / 10 : Number(v));
 
-    // Conjunto canónico de strikes del snapshot actual (opciones_iamc, solapa Distribución).
+    // Conjunto canónico de strikes del snapshot actual (iamc_opciones_chain, solapa Distribución).
     // Se usa como filtro autorizado: solo mostrar en el histórico strikes que existen hoy.
     const canonSet = oAllRows?.length
       ? new Set(oAllRows.filter(r => r.vencimiento === activeExp).map(r => Math.round(r.base)))
