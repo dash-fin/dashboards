@@ -1359,7 +1359,38 @@ sbAuth.auth.onAuthStateChange((event, session) => {
 // (handled inline in renderHome via loadModuleAuth)
 
 // ── Global helpers ──
+// Cache local (localStorage) para que un corte de cuota egress no deje el dashboard sin datos:
+// si el fetch falla, se sirve la última respuesta buena guardada + se prende un aviso.
+function sbCacheGet(key){
+  try{ const raw=localStorage.getItem('sbcache:'+key); return raw?JSON.parse(raw):null; }catch{ return null; }
+}
+function sbCacheSet(key,data){
+  try{ localStorage.setItem('sbcache:'+key, JSON.stringify(data)); }catch{ /* storage llena o deshabilitado, ignorar */ }
+}
+window.sbShowStaleBanner=(msg)=>{
+  let b=document.getElementById('sbStaleBanner');
+  if(!b){
+    b=document.createElement('div');
+    b.id='sbStaleBanner';
+    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#5a3a00;color:#ffcc66;font-size:12px;text-align:center;padding:6px 10px;font-family:inherit';
+    document.body.prepend(b);
+  }
+  b.textContent=msg||'⚠ Sin conexión a datos en vivo (cuota Supabase agotada u otro error) — mostrando la última info guardada localmente.';
+};
+window.sbHideStaleBanner=()=>{document.getElementById('sbStaleBanner')?.remove();};
+
+// Proyecto B (fallback, org separada con cupo propio) — solo anon key, sin sesion de auth
+const SB_FALLBACK={
+  url:'https://nndumlxlptodsdefntom.supabase.co',
+  key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uZHVtbHhscHRvZHNkZWZudG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA3MTgyMjksImV4cCI6MjEwNjI5NDIyOX0.jA5WUfIovY-uJ6Tho7H29_4INssIA6VJYi1cMHMGPHQ',
+};
+// Tablas ya migradas/espejadas al proyecto B (ver sb_dual.py) -- las demas solo intentan A
+const SB_FALLBACK_TABLES=new Set(['mercado','mercado_usa','sectores_usa','breadth_usa',
+  'portafolio_live_status','posiciones_live','opciones_rt','cauciones','futuros',
+  'opciones_flow','opciones_flow_1m']);
+
 window.sb = async (table, params='') => {
+  const cacheKey = table+'?'+params;
   try {
     const session = await sbAuth.auth.getSession();
     const token = session?.data?.session?.access_token;
@@ -1367,9 +1398,28 @@ window.sb = async (table, params='') => {
       ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token }
       : CFG.SBH;
     const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {headers});
-    if(!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
+    if(r.ok){
+      const data = await r.json();
+      sbCacheSet(cacheKey, data);
+      window.sbHideStaleBanner();
+      return data;
+    }
+  } catch {}
+  // Proyecto A fallo (402 u otro error) -> intentar proyecto B si esta tabla esta espejada
+  if(SB_FALLBACK_TABLES.has(table)){
+    try {
+      const r2 = await fetch(`${SB_FALLBACK.url}/rest/v1/${table}?${params}`,
+        {headers:{apikey:SB_FALLBACK.key, Authorization:'Bearer '+SB_FALLBACK.key}});
+      if(r2.ok){
+        const data = await r2.json();
+        sbCacheSet(cacheKey, data);
+        window.sbShowStaleBanner('⚠ Cuota del proyecto principal agotada — mostrando datos del proyecto de respaldo.');
+        return data;
+      }
+    } catch {}
+  }
+  window.sbShowStaleBanner();
+  return sbCacheGet(cacheKey);
 };
 
 // Funcion para traer mas de 1000 filas (paginacion automatica)
@@ -1527,6 +1577,13 @@ async function loadStrip(){
 let currentModule='home';
 let _moduleReady=Promise.resolve();
 window.moduleTimers={};
+
+// ── Pausa de polling con pestaña oculta (ahorro egress) ──
+window.tabVisible=!document.hidden;
+document.addEventListener('visibilitychange',()=>{
+  window.tabVisible=!document.hidden;
+  if(window.tabVisible&&currentModule==='home'){loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();}
+});
 
 // ── Drawer ────────────────────────────────────────────────────
 window.drawerOpen=()=>{document.getElementById('drawer').classList.add('open');document.getElementById('drawerOverlay').classList.add('open');};
@@ -1743,9 +1800,10 @@ async function renderHome(){
     <div id="h-earncal"><div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Cargando...</div></div>
   </div>`;
 
-  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();
-  window.moduleTimers.home=setInterval(()=>{loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();},30000);
-  setInterval(()=>{loadEarnings();},600000);
+  loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();loadEarnings();loadHomeBreadth();
+  window.moduleTimers.home=setInterval(()=>{if(!window.tabVisible)return;loadHomeKPIs();loadHomePortfolio();loadHomeDolar();loadHomeSectores();loadHomeUSA();loadHomeRentaFija();loadHomeNews();},30000);
+  window.moduleTimers.homeBreadth=setInterval(()=>{if(!window.tabVisible)return;loadHomeBreadth();},300000);
+  window.moduleTimers.homeEarnings=setInterval(()=>{if(!window.tabVisible)return;loadEarnings();},600000);
 }
 
 // ── Home: Earnings Calendar visual ──
@@ -2020,58 +2078,13 @@ async function loadHomeDolar(){
   el.innerHTML=rows.map(r=>`<div class="dl-row${r.hl?' dl-mep':''}"><span class="dl-name">${r.l}</span><div class="dl-right"><span class="dl-val">${r.v?'$'+fmtAR(r.v,0):'—'}</span></div></div>`).join('')||'<div style="padding:12px;text-align:center;font-size:11px;color:var(--text3)">Sin datos</div>';
 }
 
-// ── Home: Sectores USA + Breadth ──
+// ── Home: Sectores USA ──
 async function loadHomeSectores(){
   const el=document.getElementById('h-sectores');if(!el)return;
   const [secRows,comRows]=await Promise.all([
     sb('mercado_usa','select=symbol,sector,last,change_pct&sector=eq.ETF%20Sector&order=change_pct.desc.nullslast'),
     sb('mercado_usa','symbol=in.("GLD","SLV","USO")&select=symbol,last,change_pct'),
   ]);
-
-  // Breadth — desde mercado_usa (557 stocks reales)
-  sb('mercado_usa','select=symbol,change_pct,above_sma200,above_sma50,rsi_14').then(allStocks=>{
-    if(!allStocks||!allStocks.length)return;
-    const total=allStocks.length;
-    const advancing=allStocks.filter(r=>Number(r.change_pct||0)>0).length;
-    const advPct=Math.round(advancing/total*100);
-    const aEl=document.getElementById('h-b-adv'),aNEl=document.getElementById('h-b-adv-n');
-    if(aEl){aEl.textContent=advPct+'%';aEl.style.color=advPct>=50?'var(--green)':'var(--red)';}
-    if(aNEl)aNEl.textContent='de '+total+' stocks';
-    const rEl=document.getElementById('h-breadth-regime');
-    const regime=advPct>=60?'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(16,232,152,.1);color:var(--green);border:1px solid rgba(16,232,152,.25)">● Alcista</span>':advPct>=40?'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.25)">⚠ Cautious</span>':'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(255,64,96,.1);color:var(--red);border:1px solid rgba(255,64,96,.25)">● Bajista</span>';
-    if(rEl)rEl.innerHTML=regime;
-    const aboveSma200=allStocks.filter(r=>r.above_sma200===true).length;
-    const aboveSma50=allStocks.filter(r=>r.above_sma50===true).length;
-    const rsiOB=allStocks.filter(r=>Number(r.rsi_14||0)>70).length;
-    const hasSma200=allStocks.some(r=>r.above_sma200!==null&&r.above_sma200!==undefined);
-    const hasSma50=allStocks.some(r=>r.above_sma50!==null&&r.above_sma50!==undefined);
-    const hasRsi=allStocks.some(r=>r.rsi_14!=null);
-    const e200=document.getElementById('h-b-sma200'),en200=document.getElementById('h-b-sma200-n');
-    const e50=document.getElementById('h-b-sma50'),en50=document.getElementById('h-b-sma50-n');
-    const eRsi=document.getElementById('h-b-rsi');
-    if(hasSma200){
-      const pct200=Math.round(aboveSma200/total*100);
-      if(e200){e200.textContent=pct200+'%';e200.style.color=pct200>=50?'var(--green)':'var(--red)';}
-      if(en200)en200.textContent='n='+aboveSma200;
-    }else{
-      if(e200){e200.textContent='N/D';e200.style.color='var(--text3)';}
-      if(en200)en200.textContent='sin datos';
-    }
-    if(hasSma50){
-      const pct50=Math.round(aboveSma50/total*100);
-      if(e50){e50.textContent=pct50+'%';e50.style.color=pct50>=50?'var(--cyan)':'var(--amber)';}
-      if(en50)en50.textContent='n='+aboveSma50;
-    }else{
-      if(e50){e50.textContent='N/D';e50.style.color='var(--text3)';}
-      if(en50)en50.textContent='sin datos';
-    }
-    if(hasRsi){
-      const pctRsi=Math.round(rsiOB/total*100);
-      if(eRsi){eRsi.textContent=pctRsi+'%';eRsi.style.color='var(--amber)';}
-    }else{
-      if(eRsi){eRsi.textContent='N/D';eRsi.style.color='var(--text3)';}
-    }
-  });
 
   if(!secRows||!secRows.length){el.innerHTML='<div style="padding:14px;text-align:center;font-size:11px;color:var(--text3)">Sin datos</div>';return;}
   const comMap={};if(comRows)comRows.forEach(r=>{comMap[r.symbol]=r;});
@@ -2095,6 +2108,52 @@ async function loadHomeSectores(){
 
   el.innerHTML=pos.map(row).join('')+(pos.length&&neg.length?'<div class="sec-sep"></div>':'')+neg.map(row).join('');
   setTimeout(()=>{el.querySelectorAll('[data-w]').forEach((b,i)=>{setTimeout(()=>{b.style.width=b.dataset.w+'%';},i*25);});},60);
+}
+
+// ── Home: Breadth USA (SMA/RSI cambian poco intradía -> cadencia propia, mas lenta que sectores) ──
+async function loadHomeBreadth(){
+  const allStocks=await sb('mercado_usa','select=symbol,change_pct,above_sma200,above_sma50,rsi_14').catch(()=>null);
+  if(!allStocks||!allStocks.length)return;
+  const total=allStocks.length;
+  const advancing=allStocks.filter(r=>Number(r.change_pct||0)>0).length;
+  const advPct=Math.round(advancing/total*100);
+  const aEl=document.getElementById('h-b-adv'),aNEl=document.getElementById('h-b-adv-n');
+  if(aEl){aEl.textContent=advPct+'%';aEl.style.color=advPct>=50?'var(--green)':'var(--red)';}
+  if(aNEl)aNEl.textContent='de '+total+' stocks';
+  const rEl=document.getElementById('h-breadth-regime');
+  const regime=advPct>=60?'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(16,232,152,.1);color:var(--green);border:1px solid rgba(16,232,152,.25)">● Alcista</span>':advPct>=40?'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.25)">⚠ Cautious</span>':'<span style="display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:20px;background:rgba(255,64,96,.1);color:var(--red);border:1px solid rgba(255,64,96,.25)">● Bajista</span>';
+  if(rEl)rEl.innerHTML=regime;
+  const aboveSma200=allStocks.filter(r=>r.above_sma200===true).length;
+  const aboveSma50=allStocks.filter(r=>r.above_sma50===true).length;
+  const rsiOB=allStocks.filter(r=>Number(r.rsi_14||0)>70).length;
+  const hasSma200=allStocks.some(r=>r.above_sma200!==null&&r.above_sma200!==undefined);
+  const hasSma50=allStocks.some(r=>r.above_sma50!==null&&r.above_sma50!==undefined);
+  const hasRsi=allStocks.some(r=>r.rsi_14!=null);
+  const e200=document.getElementById('h-b-sma200'),en200=document.getElementById('h-b-sma200-n');
+  const e50=document.getElementById('h-b-sma50'),en50=document.getElementById('h-b-sma50-n');
+  const eRsi=document.getElementById('h-b-rsi');
+  if(hasSma200){
+    const pct200=Math.round(aboveSma200/total*100);
+    if(e200){e200.textContent=pct200+'%';e200.style.color=pct200>=50?'var(--green)':'var(--red)';}
+    if(en200)en200.textContent='n='+aboveSma200;
+  }else{
+    if(e200){e200.textContent='N/D';e200.style.color='var(--text3)';}
+    if(en200)en200.textContent='sin datos';
+  }
+  if(hasSma50){
+    const pct50=Math.round(aboveSma50/total*100);
+    if(e50){e50.textContent=pct50+'%';e50.style.color=pct50>=50?'var(--cyan)':'var(--amber)';}
+    if(en50)en50.textContent='n='+aboveSma50;
+  }else{
+    if(e50){e50.textContent='N/D';e50.style.color='var(--text3)';}
+    if(en50)en50.textContent='sin datos';
+  }
+  if(hasRsi){
+    const pctRsi=Math.round(rsiOB/total*100);
+    if(eRsi){eRsi.textContent=pctRsi+'%';eRsi.style.color='var(--amber)';}
+  }else{
+    if(eRsi){eRsi.textContent='N/D';eRsi.style.color='var(--text3)';}
+  }
 }
 
 // ── Home: Earnings Season ──
@@ -2458,7 +2517,7 @@ async function checkBdUpdate(){
   }catch(e){}
 }
 checkBdUpdate();
-setInterval(checkBdUpdate, 15000); // chequear cada 15 segundos
+setInterval(()=>{if(window.tabVisible)checkBdUpdate();}, 15000);
 
 // ── Feed USA — última actualización mercado_usa ──
 async function checkUsaUpdate(){
@@ -2488,10 +2547,10 @@ async function checkUsaUpdate(){
   }catch(e){}
 }
 checkUsaUpdate();
-setInterval(checkUsaUpdate, 15000);
+setInterval(()=>{if(window.tabVisible)checkUsaUpdate();}, 15000);
 
 // ── Init ──
-loadStrip();setInterval(loadStrip,60000);
+loadStrip();setInterval(()=>{if(window.tabVisible)loadStrip();},60000);
 loadModule('home',document.getElementById('mtab-home'));
 if(location.hash){const mod=location.hash.replace('#','');const btn=document.getElementById('mtab-'+mod);if(btn&&!btn.classList.contains('disabled'))loadModule(mod,btn);}
 
