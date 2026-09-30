@@ -1373,13 +1373,24 @@ function sbCacheSet(key,data){
 }
 window.sbShowStaleBanner=(msg)=>{
   let b=document.getElementById('sbStaleBanner');
+  let txt;
   if(!b){
     b=document.createElement('div');
     b.id='sbStaleBanner';
-    b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#5a3a00;color:#ffcc66;font-size:12px;text-align:center;padding:6px 10px;font-family:inherit';
+    b.style.cssText='position:relative;z-index:50;background:#5a3a00;color:#ffcc66;font-size:11px;text-align:center;padding:6px 30px;font-family:inherit;line-height:1.4';
+    txt=document.createElement('span');
+    txt.id='sbStaleBannerTxt';
+    const x=document.createElement('span');
+    x.textContent='✕';
+    x.style.cssText='position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:12px;opacity:.8';
+    x.onclick=()=>b.remove();
+    b.appendChild(txt);
+    b.appendChild(x);
     document.body.prepend(b);
+  }else{
+    txt=document.getElementById('sbStaleBannerTxt');
   }
-  b.textContent=msg||'⚠ Sin conexión a datos en vivo (cuota Supabase agotada u otro error) — mostrando la última info guardada localmente.';
+  txt.textContent=msg||'⚠ Sin conexión a datos en vivo (cuota Supabase agotada u otro error) — mostrando la última info guardada localmente.';
 };
 window.sbHideStaleBanner=()=>{document.getElementById('sbStaleBanner')?.remove();};
 
