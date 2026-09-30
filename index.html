@@ -1405,24 +1405,25 @@ const SB_FALLBACK_TABLES=new Set(['mercado','mercado_usa','sectores_usa','breadt
   'portafolio_live_status','posiciones_live','opciones_rt','cauciones','futuros',
   'opciones_flow','opciones_flow_1m','alertas','alertas_historial','avwap_anchors',
   'biblioteca','biblioteca_indices','cache_finra_margin','cache_finra_short_volume',
-  'cache_finra_si','cache_fred','campania_kpi','campania_realized','cauciones_tomadas',
+  'cache_finra_si','cache_fred','campania_kpi','cauciones_tomadas',
   'cedear_ratios','cedears_ref','cftc_cot','dolar_historico','earnings_season',
   'econ_events','elliott_combos','elliott_signals','etf_betas','etf_holdings','fills',
   'flujo_alertas_config','flujo_firmado_diario','flujo_usa','ggal_chain_rt',
   'hermes_signals','historico_precios','hs_live','iamc_opciones_chain',
   'intermarket_board','intermarket_regime','iv_atm_diaria','iv_usa_diaria','l2_requests',
   'mep_historico','movimientos_broker','noticias','opciones_flow_alertas',
-  'opciones_hist','opciones_historico','opciones_iamc','opciones_oi_snap','opciones_usa',
+  'opciones_hist','opciones_historico','opciones_oi_snap','opciones_usa',
   'opciones_usa_flow_intra','opciones_usa_historico','opciones_usa_rt',
-  'opciones_usa_signals','opciones_watchlist_usa','pnl_diario','polymarket_sentiment',
-  'portafolio_resumen','posiciones_abiertas_aunesa','posiciones_aunesa',
-  'posiciones_broker','posiciones_lotes','price_cache','push_tokens','radar_opciones',
+  'opciones_usa_signals','opciones_watchlist_usa','polymarket_sentiment',
+  'posiciones_abiertas_aunesa','posiciones_aunesa',
+  'posiciones_lotes','price_cache','push_tokens','radar_opciones',
   'resumen_broker','rrg_usa','screener_usa','tenencia_diaria','usa_meta','vix_regime',
   'x_sentiment','x_trending','x_worker_status']);
 
 // Tablas con RLS por usuario (financieras/personales): la anon key de B no alcanza,
 // necesitan una sesion real logueada contra B. "Modo respaldo" la activa a mano.
-const SB_SENSITIVE_TABLES=new Set(['operaciones','trades','portafolio','journal','movimientos_capital']);
+const SB_SENSITIVE_TABLES=new Set(['operaciones','trades','portafolio','journal','movimientos_capital',
+  'pnl_diario','portafolio_resumen','posiciones_broker','campania_realized','opciones_iamc']);
 let _sbBackupSession=null; // {access_token} contra el proyecto B, solo en memoria (no localStorage)
 
 window.sbActivarModoRespaldo=async()=>{
