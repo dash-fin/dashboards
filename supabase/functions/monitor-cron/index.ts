@@ -24,7 +24,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, apikey, content-type",
 };
 
-const SB_URL = "https://endymbpdayeidromxayb.supabase.co";
+const SB_URL = Deno.env.get("SUPABASE_URL") ?? "https://endymbpdayeidromxayb.supabase.co";
 const SB_KEY = Deno.env.get("SB_ANON_KEY") || "";
 const SB_SR  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const TG_TOKEN = Deno.env.get("TG_TOKEN") || "";
@@ -51,8 +51,13 @@ async function tgSend(text: string) {
 
 // 1. Watchdog ARS
 async function watchdogArs(_p?: Record<string, any>) {
+  // not.is.null: una fila con updated_at NULL ordena PRIMERO en DESC (NULLS FIRST es el
+  // default de Postgres para DESC) -> sin este filtro el watchdog toma esa fila como "la
+  // mas reciente" y calcula la edad contra epoch (new Date(null)=1970) -> falsa alarma
+  // de "stale" permanente. Pasó en vivo con mercado_usa (ver sesion-2026-09-30).
   const { data } = await sb.from("mercado")
-    .select("updated_at").order("updated_at", { ascending: false }).limit(1);
+    .select("updated_at").not("updated_at", "is", null)
+    .order("updated_at", { ascending: false }).limit(1);
   if (!data?.length) return { ok: false, msg: "Sin datos en mercado" };
   const ageMin = (Date.now() - new Date(data[0].updated_at).getTime()) / 60000;
   if (ageMin > 8) {
@@ -65,7 +70,8 @@ async function watchdogArs(_p?: Record<string, any>) {
 // 2. Watchdog USA
 async function watchdogUsa(_p?: Record<string, any>) {
   const { data } = await sb.from("mercado_usa")
-    .select("updated_at").order("updated_at", { ascending: false }).limit(1);
+    .select("updated_at").not("updated_at", "is", null)
+    .order("updated_at", { ascending: false }).limit(1);
   if (!data?.length) return { ok: false, msg: "Sin datos en mercado_usa" };
   const ageMin = (Date.now() - new Date(data[0].updated_at).getTime()) / 60000;
   if (ageMin > 8) {
@@ -313,13 +319,12 @@ async function healthCheck(_p?: Record<string, any>) {
 
 // 8. Historico refresh
 async function historicoRefresh(_p?: Record<string, any>) {
-  const { data: latest } = await sb.from("historico_precios")
-    .select("fecha").order("fecha", { ascending: false }).limit(1);
-  const lastFecha = latest?.[0]?.fecha || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  // Ventana fija de 45 días (no el máximo global): así cualquier símbolo que
+  // quede rezagado (ej. GGAL freezado un mes) se rellena solo. Upsert idempotente.
   const { data: uni } = await sb.from("mercado_usa").select("symbol");
   const syms = (uni || []).map((r: any) => r.symbol).filter(Boolean);
   if (!syms.length) return { ok: false, msg: "Sin universo" };
-  const from = lastFecha;
+  const from = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);
   const to = new Date().toISOString().slice(0, 10);
   const BATCH = 10;
   let totalRows = 0;
