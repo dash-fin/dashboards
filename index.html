@@ -1425,6 +1425,24 @@ const SB_FALLBACK_TABLES=new Set(['mercado','mercado_usa','sectores_usa','breadt
 const SB_SENSITIVE_TABLES=new Set(['operaciones','trades','portafolio','journal','movimientos_capital',
   'pnl_diario','portafolio_resumen','posiciones_broker','campania_realized','opciones_iamc']);
 let _sbBackupSession=null; // {access_token} contra el proyecto B, solo en memoria (no localStorage)
+// uuid del usuario espejo en B (Auth es por-proyecto, distinto uuid que en A) -- las tablas
+// con RLS por user_id necesitan esta traduccion al escribir en B. Ver sb_dual.py (misma logica).
+const _A_USER_ID='96e71e4c-54a5-449e-9511-fc6acb131535';
+const _B_USER_ID='d3d31230-6891-47d9-b510-6360b976c1bf';
+const _sbTranslateUserId=(body)=>{
+  const fix=(row)=>(row&&typeof row==='object'&&row.user_id===_A_USER_ID?{...row,user_id:_B_USER_ID}:row);
+  return Array.isArray(body)?body.map(fix):fix(body);
+};
+
+// Circuit breaker: mientras A esta caido (cuota agotada), cada llamada pagaba el viaje
+// completo a A (que siempre falla) antes de recien arrancar el viaje a B -> duplicaba la
+// latencia de toda la navegacion durante el corte. Si A fallo hace poco, saltar directo a
+// B; reintentar A cada A_RETRY_MS para detectar la recuperacion sola cuando el cupo resetee.
+let _aDownUntil=0;
+const _A_RETRY_MS=60000;
+const _aIsDown=()=>Date.now()<_aDownUntil;
+const _markADown=()=>{_aDownUntil=Date.now()+_A_RETRY_MS;};
+const _markAUp=()=>{_aDownUntil=0;};
 
 window.sbActivarModoRespaldo=async()=>{
   const pass=prompt('Modo respaldo: ingresá tu contraseña del proyecto de respaldo (te la paso yo aparte).');
@@ -1445,20 +1463,24 @@ window.sbActivarModoRespaldo=async()=>{
 
 window.sb = async (table, params='') => {
   const cacheKey = table+'?'+params;
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token = session?.data?.session?.access_token;
-    const headers = token
-      ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token }
-      : CFG.SBH;
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {headers});
-    if(r.ok){
-      const data = await r.json();
-      sbCacheSet(cacheKey, data);
-      window.sbHideStaleBanner();
-      return data;
-    }
-  } catch {}
+  if(!_aIsDown()){
+    try {
+      const session = await sbAuth.auth.getSession();
+      const token = session?.data?.session?.access_token;
+      const headers = token
+        ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token }
+        : CFG.SBH;
+      const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {headers});
+      if(r.ok){
+        const data = await r.json();
+        sbCacheSet(cacheKey, data);
+        window.sbHideStaleBanner();
+        _markAUp();
+        return data;
+      }
+      _markADown();
+    } catch { _markADown(); }
+  }
   // Proyecto A fallo (402 u otro error) -> intentar proyecto B si esta tabla esta espejada
   if(SB_FALLBACK_TABLES.has(table)){
     try {
@@ -1494,6 +1516,7 @@ window.sb = async (table, params='') => {
 
 // Funcion para traer mas de 1000 filas (paginacion automatica)
 window.sbAll = async (table, params='', maxRows=10000) => {
+  if(_aIsDown()) return null;
   try {
     const session = await sbAuth.auth.getSession();
     const token = session?.data?.session?.access_token;
@@ -1506,60 +1529,117 @@ window.sbAll = async (table, params='', maxRows=10000) => {
       const r = await fetch(
         `${CFG.SB_URL}/rest/v1/${table}?${params}&limit=${pageSize}&offset=${offset}`,
         {headers});
-      if(!r.ok) break;
+      if(!r.ok) { _markADown(); break; }
       const rows = await r.json();
       if(!rows.length) break;
       all = all.concat(rows);
       if(rows.length < pageSize) break;
       offset += pageSize;
     }
+    _markAUp();
     return all;
-  } catch { return null; }
+  } catch { _markADown(); return null; }
 };
-// ── Helpers de escritura (INSERT / PATCH / DELETE) ──
+// ── Helpers de escritura (INSERT / PATCH / DELETE), dual A/B con el mismo criterio que sb() ──
+// Si A esta caido (402/red) y la tabla esta espejada en B, reintenta ahi (anon key para
+// publicas, sesion de Modo respaldo + traduccion de uuid para las sensibles). Si la tabla
+// sensible no tiene sesion de respaldo activa, no hay forma segura de escribir -> propaga el
+// error de A tal cual (no se inventa un "exito" fantasma).
+async function _sbFallbackWrite(table, method, filter, body) {
+  if (SB_SENSITIVE_TABLES.has(table)) {
+    if (!_sbBackupSession) return null; // sin sesion de respaldo, no hay a donde escribir
+    return { url: SB_FALLBACK.url, token: _sbBackupSession.access_token, body: _sbTranslateUserId(body) };
+  }
+  if (SB_FALLBACK_TABLES.has(table)) {
+    return { url: SB_FALLBACK.url, token: SB_FALLBACK.key, body };
+  }
+  return null;
+}
 window.sbInsert = async (table, body, params='') => {
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token   = session?.data?.session?.access_token;
-    const headers = {
-      ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
-    };
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, {
-      method: 'POST', headers, body: JSON.stringify(body),
-    });
-    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
-    return await r.json();
-  } catch(e) { throw e; }
+  if (!_aIsDown()) {
+    let r = null;
+    try {
+      const session = await sbAuth.auth.getSession();
+      const token   = session?.data?.session?.access_token;
+      const headers = {
+        ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
+        'Content-Type': 'application/json', 'Prefer': 'return=representation',
+      };
+      r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, { method: 'POST', headers, body: JSON.stringify(body) });
+    } catch { r = null; } // fallo de red -> cae al fallback
+    if (r) {
+      if (r.ok) { _markAUp(); return await r.json(); }
+      if (r.status !== 402 && r.status !== 429 && r.status < 500) {
+        const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); // rechazo legitimo, no es A caido
+      }
+    }
+    _markADown();
+  }
+  const fb = await _sbFallbackWrite(table, 'POST', params, body);
+  if (!fb) throw new Error(`A caído y "${table}" no tiene fallback de escritura disponible`);
+  const r2 = await fetch(`${fb.url}/rest/v1/${table}?${params}`, {
+    method: 'POST', headers: { apikey: SB_FALLBACK.key, Authorization: 'Bearer ' + fb.token, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify(fb.body),
+  });
+  if (!r2.ok) { const e = await r2.json().catch(()=>null); throw new Error(e?.message || r2.status); }
+  window.sbShowStaleBanner('⚠ Escribiendo en el proyecto de respaldo (cuota principal agotada).');
+  return await r2.json();
 };
 window.sbPatch = async (table, filter, body) => {
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token   = session?.data?.session?.access_token;
-    const headers = {
-      ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal',
-    };
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, {
-      method: 'PATCH', headers, body: JSON.stringify(body),
-    });
-    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
-    return true;
-  } catch(e) { throw e; }
+  if (!_aIsDown()) {
+    let r = null;
+    try {
+      const session = await sbAuth.auth.getSession();
+      const token   = session?.data?.session?.access_token;
+      const headers = {
+        ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      };
+      r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers, body: JSON.stringify(body) });
+    } catch { r = null; }
+    if (r) {
+      if (r.ok) { _markAUp(); return true; }
+      if (r.status !== 402 && r.status !== 429 && r.status < 500) {
+        const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status);
+      }
+    }
+    _markADown();
+  }
+  const fb = await _sbFallbackWrite(table, 'PATCH', filter, body);
+  if (!fb) throw new Error(`A caído y "${table}" no tiene fallback de escritura disponible`);
+  const r2 = await fetch(`${fb.url}/rest/v1/${table}?${filter}`, {
+    method: 'PATCH', headers: { apikey: SB_FALLBACK.key, Authorization: 'Bearer ' + fb.token, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(fb.body),
+  });
+  if (!r2.ok) { const e = await r2.json().catch(()=>null); throw new Error(e?.message || r2.status); }
+  window.sbShowStaleBanner('⚠ Escribiendo en el proyecto de respaldo (cuota principal agotada).');
+  return true;
 };
 window.sbDelete = async (table, filter) => {
-  try {
-    const session = await sbAuth.auth.getSession();
-    const token   = session?.data?.session?.access_token;
-    const headers = token
-      ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token }
-      : CFG.SBH;
-    const r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers });
-    if (!r.ok) { const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status); }
-    return true;
-  } catch(e) { throw e; }
+  if (!_aIsDown()) {
+    let r = null;
+    try {
+      const session = await sbAuth.auth.getSession();
+      const token   = session?.data?.session?.access_token;
+      const headers = token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH;
+      r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers });
+    } catch { r = null; }
+    if (r) {
+      if (r.ok) { _markAUp(); return true; }
+      if (r.status !== 402 && r.status !== 429 && r.status < 500) {
+        const e = await r.json().catch(()=>null); throw new Error(e?.message || r.status);
+      }
+    }
+    _markADown();
+  }
+  const fb = await _sbFallbackWrite(table, 'DELETE', filter, null);
+  if (!fb) throw new Error(`A caído y "${table}" no tiene fallback de escritura disponible`);
+  const r2 = await fetch(`${fb.url}/rest/v1/${table}?${filter}`, {
+    method: 'DELETE', headers: { apikey: SB_FALLBACK.key, Authorization: 'Bearer ' + fb.token },
+  });
+  if (!r2.ok) { const e = await r2.json().catch(()=>null); throw new Error(e?.message || r2.status); }
+  window.sbShowStaleBanner('⚠ Borrando en el proyecto de respaldo (cuota principal agotada).');
+  return true;
 };
 
 window.fmtAR = (n,dec=2) => {
