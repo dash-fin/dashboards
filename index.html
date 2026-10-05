@@ -1256,7 +1256,10 @@ window.authSubmit = async () => {
   try {
     if (authMode === 'login') {
       let { error } = await sbAuth.auth.signInWithPassword({ email, password });
-      if (error && esFalloDeInfraestructura(error)) {
+      // El fallback a B solo existe para la cuenta espejo (elyagui@gmail.com). Hay otras
+      // cuentas reales en A (Juan, Nicolas, etc.) sin mirror en B -- si se intentara el
+      // fallback para ellas, quedarian logueadas como elyagui y verian sus datos.
+      if (error && esFalloDeInfraestructura(error) && email.toLowerCase() === 'elyagui@gmail.com') {
         try {
           const r = await fetch(`${SB_FALLBACK.url}/auth/v1/token?grant_type=password`, {
             method: 'POST',
