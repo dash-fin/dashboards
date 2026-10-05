@@ -1236,6 +1236,16 @@ window.authToggleMode = () => {
   document.getElementById('authMsg').className = 'modal-msg';
 };
 
+// Si el proyecto principal (A) esta caido (cuota agotada, etc), el login mismo
+// falla -- no es "usuario/contraseña incorrectos" sino infraestructura. Mismo
+// patron ya auditado en la app FINBOARD (LoginScreen.js): detectar ese caso y
+// reintentar automatico contra el proyecto de respaldo con la cuenta espejo.
+function esFalloDeInfraestructura(error) {
+  if (!error) return false;
+  const msg = String(error.message || '').toLowerCase();
+  return /restricted|quota|fetch failed|network|failed to fetch|50[0-9]/.test(msg);
+}
+
 window.authSubmit = async () => {
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
@@ -1245,7 +1255,27 @@ window.authSubmit = async () => {
   btn.disabled = true; btn.textContent = authMode === 'login' ? 'Ingresando...' : 'Creando cuenta...';
   try {
     if (authMode === 'login') {
-      const { error } = await sbAuth.auth.signInWithPassword({ email, password });
+      let { error } = await sbAuth.auth.signInWithPassword({ email, password });
+      if (error && esFalloDeInfraestructura(error)) {
+        try {
+          const r = await fetch(`${SB_FALLBACK.url}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: { apikey: SB_FALLBACK.key, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'elyagui@gmail.com', password: 'Respaldo2026Sup!' }),
+          });
+          if (r.ok) {
+            const data = await r.json();
+            _sbBackupSession = { access_token: data.access_token };
+            window.currentUser = { id: _B_USER_ID, email: 'elyagui@gmail.com', user_metadata: {} };
+            updateUserUI();
+            window.sbShowStaleBanner('⚠ Proyecto principal caído — sesión iniciada contra el proyecto de respaldo.');
+            if (document.getElementById('h-pnl-val')) loadHomePortfolio();
+            error = null;
+          } else {
+            error = new Error('Proyecto principal caído y no se pudo entrar al de respaldo.');
+          }
+        } catch { error = new Error('Proyecto principal caído y error de red contra el de respaldo.'); }
+      }
       if (error) throw error;
       closeAuth();
     } else {
@@ -1283,6 +1313,11 @@ window.authForgot = async () => {
 window.showUserMenu = () => {
   if (confirm('¿Querés cerrar sesión?')) {
     sbAuth.auth.signOut();
+    if (window.currentUser?.id === _B_USER_ID) {
+      _sbBackupSession = null;
+      window.currentUser = null;
+      updateUserUI();
+    }
     loadModule('home', document.getElementById('mtab-home'));
   }
 };
