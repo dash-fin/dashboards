@@ -1256,34 +1256,30 @@ window.authSubmit = async () => {
   try {
     if (authMode === 'login') {
       let { error } = await sbAuth.auth.signInWithPassword({ email, password });
-      // El fallback a B solo existe para cuentas con mirror en B (_MIRROR_USERS). Cualquier
-      // otra cuenta real en A sin mirror ve el error real -- si se intentara el fallback para
-      // ellas, quedarian logueadas con otra identidad y verian datos ajenos. El password de
-      // respaldo NUNCA se guarda en el codigo (se serviria publico via GitHub Pages) -- se pide
-      // por prompt, igual que el boton manual "Modo respaldo" de siempre.
+      // El fallback a B solo existe para cuentas con mirror en B (_MIRROR_USERS), y la cuenta
+      // espejo tiene la MISMA contraseña que la cuenta real en A -- asi que si A falla por
+      // infraestructura, reintenta con el mismo email/password que la persona ya tipeo, sin
+      // pedir ni guardar nada aparte. Cualquier otra cuenta real en A sin mirror ve el error real.
       const mirror = _MIRROR_USERS[email.toLowerCase()];
       if (error && esFalloDeInfraestructura(error) && mirror) {
-        const bpass = prompt('El proyecto principal está caído. Ingresá tu contraseña de respaldo para entrar igual:');
-        if (bpass) {
-          try {
-            const r = await fetch(`${SB_FALLBACK.url}/auth/v1/token?grant_type=password`, {
-              method: 'POST',
-              headers: { apikey: SB_FALLBACK.key, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: email.toLowerCase(), password: bpass }),
-            });
-            if (r.ok) {
-              const data = await r.json();
-              _sbBackupSession = { access_token: data.access_token };
-              window.currentUser = { id: mirror.bId, email: email.toLowerCase(), user_metadata: {} };
-              updateUserUI();
-              window.sbShowStaleBanner('⚠ Proyecto principal caído — sesión iniciada contra el proyecto de respaldo.');
-              if (document.getElementById('h-pnl-val')) loadHomePortfolio();
-              error = null;
-            } else {
-              error = new Error('No se pudo entrar al proyecto de respaldo (contraseña incorrecta).');
-            }
-          } catch { error = new Error('Proyecto principal caído y error de red contra el de respaldo.'); }
-        }
+        try {
+          const r = await fetch(`${SB_FALLBACK.url}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: { apikey: SB_FALLBACK.key, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.toLowerCase(), password }),
+          });
+          if (r.ok) {
+            const data = await r.json();
+            _sbBackupSession = { access_token: data.access_token };
+            window.currentUser = { id: mirror.bId, email: email.toLowerCase(), user_metadata: {} };
+            updateUserUI();
+            window.sbShowStaleBanner('⚠ Proyecto principal caído — sesión iniciada contra el proyecto de respaldo.');
+            if (document.getElementById('h-pnl-val')) loadHomePortfolio();
+            error = null;
+          } else {
+            error = new Error('Proyecto principal caído y no se pudo entrar al de respaldo.');
+          }
+        } catch { error = new Error('Proyecto principal caído y error de red contra el de respaldo.'); }
       }
       if (error) throw error;
       closeAuth();
