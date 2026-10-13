@@ -1593,6 +1593,30 @@ window.sbAll = async (table, params='', maxRows=10000) => {
 // publicas, sesion de Modo respaldo + traduccion de uuid para las sensibles). Si la tabla
 // sensible no tiene sesion de respaldo activa, no hay forma segura de escribir -> propaga el
 // error de A tal cual (no se inventa un "exito" fantasma).
+//
+// _sbAuthedFetch: getSession() puede devolver un access_token ya vencido si el refresh
+// automatico de supabase-js no corrio (pestaña en background mucho tiempo, refresh_token
+// invalidado por rotacion en otra pestaña/dispositivo, etc). Antes esto se colaba tal cual
+// a la UI como error "JWT expired" (caso Juan, 09-oct). Si el primer intento da 401, se
+// fuerza un refreshSession() y se reintenta UNA vez con el token nuevo antes de rendirse.
+async function _sbAuthedFetch(url, method, body, extraHeaders) {
+  const buildHeaders = (token) => ({
+    ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
+    ...extraHeaders,
+  });
+  const session = await sbAuth.auth.getSession();
+  let token = session?.data?.session?.access_token;
+  const opts = (h) => ({ method, headers: h, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
+  let r = await fetch(url, opts(buildHeaders(token)));
+  if (r.status === 401) {
+    const { data } = await sbAuth.auth.refreshSession();
+    const freshToken = data?.session?.access_token;
+    if (freshToken && freshToken !== token) {
+      r = await fetch(url, opts(buildHeaders(freshToken)));
+    }
+  }
+  return r;
+}
 async function _sbFallbackWrite(table, method, filter, body) {
   if (SB_SENSITIVE_TABLES.has(table)) {
     if (!_sbBackupSession) return null; // sin sesion de respaldo, no hay a donde escribir
@@ -1607,13 +1631,8 @@ window.sbInsert = async (table, body, params='') => {
   if (!_aIsDown()) {
     let r = null;
     try {
-      const session = await sbAuth.auth.getSession();
-      const token   = session?.data?.session?.access_token;
-      const headers = {
-        ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
-        'Content-Type': 'application/json', 'Prefer': 'return=representation',
-      };
-      r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, { method: 'POST', headers, body: JSON.stringify(body) });
+      r = await _sbAuthedFetch(`${CFG.SB_URL}/rest/v1/${table}?${params}`, 'POST', body,
+        { 'Content-Type': 'application/json', 'Prefer': 'return=representation' });
     } catch { r = null; } // fallo de red -> cae al fallback
     if (r) {
       if (r.ok) { _markAUp(); return await r.json(); }
@@ -1637,13 +1656,8 @@ window.sbPatch = async (table, filter, body) => {
   if (!_aIsDown()) {
     let r = null;
     try {
-      const session = await sbAuth.auth.getSession();
-      const token   = session?.data?.session?.access_token;
-      const headers = {
-        ...(token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH),
-        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
-      };
-      r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, { method: 'PATCH', headers, body: JSON.stringify(body) });
+      r = await _sbAuthedFetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, 'PATCH', body,
+        { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' });
     } catch { r = null; }
     if (r) {
       if (r.ok) { _markAUp(); return true; }
@@ -1667,10 +1681,7 @@ window.sbDelete = async (table, filter) => {
   if (!_aIsDown()) {
     let r = null;
     try {
-      const session = await sbAuth.auth.getSession();
-      const token   = session?.data?.session?.access_token;
-      const headers = token ? { 'apikey': CFG.SB_KEY, 'Authorization': 'Bearer ' + token } : CFG.SBH;
-      r = await fetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, { method: 'DELETE', headers });
+      r = await _sbAuthedFetch(`${CFG.SB_URL}/rest/v1/${table}?${filter}`, 'DELETE', undefined, {});
     } catch { r = null; }
     if (r) {
       if (r.ok) { _markAUp(); return true; }
