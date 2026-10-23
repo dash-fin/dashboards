@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cooperadora 923 — App Android (Mock)</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Roboto',system-ui,sans-serif;background:linear-gradient(145deg,#0a1628 0%,#0f2744 55%,#0d2136 100%);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 20px 48px;color:#1c1b1f}
+
+/* ── PAGE HEADER ─────────────────────────────────────── */
+.ph{text-align:center;margin-bottom:28px;color:rgba(255,255,255,.85)}
+.ph h1{font-size:22px;font-weight:300;letter-spacing:3px;margin-bottom:6px}
+.ph p{font-size:12px;opacity:.5;letter-spacing:.5px}
+
+/* ── PHONE FRAME ─────────────────────────────────────── */
+.phone-wrap{position:relative}
+.phone{width:390px;background:#111;border-radius:52px;padding:13px;box-shadow:0 40px 100px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06),inset 0 0 0 1px rgba(255,255,255,.04);position:relative}
+.phone::before{content:'';position:absolute;top:19px;left:50%;transform:translateX(-50%);width:11px;height:11px;background:#1c1c1e;border-radius:50%;z-index:20;box-shadow:0 0 0 1.5px #000}
+.screen-shell{width:100%;height:756px;background:#f6f8fa;border-radius:40px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+
+/* ── STATUS BAR ──────────────────────────────────────── */
+.status{height:38px;display:flex;align-items:center;justify-content:space-between;padding:10px 22px 0;flex-shrink:0;z-index:10;position:relative}
+.status .time{font-size:13px;font-weight:700}
+.status .icons{display:flex;align-items:center;gap:4px;font-size:12px}
+
+/* ── APP CONTENT ─────────────────────────────────────── */
+.app-body{flex:1;position:relative;overflow:hidden}
+.sc{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.sc.active{display:flex;animation:fadeUp .22s ease}
+@keyframes fadeUp{from{opacity:.6;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.sc-scroll{flex:1;overflow-y:auto;padding-bottom:8px;scrollbar-width:none}
+.sc-scroll::-webkit-scrollbar{display:none}
+
+/* ── BOTTOM NAV ──────────────────────────────────────── */
+.bnav{height:62px;background:#fff;border-top:1px solid #f0f0f0;display:flex;flex-shrink:0;box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+.nt{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:2px;padding:6px 4px;-webkit-tap-highlight-color:transparent;transition:all .15s}
+.nt-pip{width:48px;height:30px;border-radius:99px;background:transparent;display:flex;align-items:center;justify-content:center;font-size:20px;transition:background .2s;filter:grayscale(1) opacity(.45)}
+.nt-lbl{font-size:10px;font-weight:600;color:#9e9e9e;letter-spacing:.3px;transition:color .2s}
+.nt.active .nt-pip{background:#dbeafe;filter:none}
+.nt.active .nt-lbl{color:#1d4ed8}
+.gesture{height:20px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gesture::after{content:'';width:108px;height:4px;background:#1c1b1f;border-radius:99px;opacity:.12}
+
+/* ── COMMON COMPONENTS ───────────────────────────────── */
+.app-bar{background:#fff;padding:12px 20px 10px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f0f0f0;flex-shrink:0}
+.app-bar .back{font-size:20px;cursor:pointer;color:#005faf;padding:4px;margin:-4px}
+.app-bar-text{flex:1;min-width:0}
+.app-bar .title{font-size:19px;font-weight:500;color:#1c1b1f}
+.app-bar .sub{font-size:12px;color:#6b6b6b}
+.av{width:34px;height:34px;border-radius:99px;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.av.purple{background:#7c3aed}
+.av.green{background:#059669}
+
+.card{background:#fff;border-radius:16px;margin:0 14px 10px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.sec-title{padding:14px 18px 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b6b6b}
+
+.li{display:flex;align-items:center;gap:11px;padding:11px 16px;border-bottom:1px solid #f5f5f5}
+.li:last-child{border-bottom:none}
+.li-dot{width:38px;height:38px;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.ld-green{background:#d1fae5}.ld-red{background:#fee2e2}.ld-amber{background:#fef3c7}.ld-blue{background:#dbeafe}.ld-purple{background:#ede9fe}.ld-gray{background:#f1f5f9}
+.li-text{flex:1;min-width:0}
+.li-main{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li-hint{font-size:12px;color:#6b6b6b;margin-top:1px}
+.li-right{text-align:right;flex-shrink:0}
+.li-amt{font-size:14px;font-weight:700}
+.li-amt-i{color:#047857}.li-amt-e{color:#b91c1c}
+.li-when{font-size:11px;color:#9e9e9e;margin-top:2px}
+
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
+.b-green{background:#d1fae5;color:#047857}.b-red{background:#fee2e2;color:#b91c1c}.b-amber{background:#fef3c7;color:#92400e}.b-blue{background:#dbeafe;color:#1d4ed8}.b-purple{background:#ede9fe;color:#6d28d9}.b-gray{background:#f1f5f9;color:#475569}
+
+/* ── SCREEN 1: INICIO ────────────────────────────────── */
+.hero{margin:12px 14px;border-radius:22px;background:linear-gradient(135deg,#1d4ed8 0%,#0ea5e9 100%);color:#fff;padding:20px 18px 18px;box-shadow:0 6px 24px rgba(29,78,216,.35)}
+.hero .h-lbl{font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.hero .h-val{font-size:36px;font-weight:700;margin:6px 0 3px;font-family:'Roboto Mono',monospace}
+.hero .h-sub{font-size:12px;opacity:.65}
+.hero-chips{display:flex;gap:8px;margin-top:14px}
+.hc{background:rgba(255,255,255,.18);border-radius:10px;padding:7px 10px;flex:1;text-align:center}
+.hc .hcv{font-size:15px;font-weight:700;font-family:'Roboto Mono',monospace}
+.hc .hcl{font-size:9px;opacity:.7;margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+
+.alert-strip{display:flex;align-items:center;gap:10px;background:#fff8e6;border:1px solid #fcd34d;border-radius:14px;margin:0 14px 10px;padding:11px 14px;cursor:pointer}
+.as-icon{font-size:20px;flex-shrink:0}
+.as-text .ast{font-size:13px;font-weight:600;color:#92400e}
+.as-text .ass{font-size:11px;color:#a16207;margin-top:1px}
+.as-arr{margin-left:auto;color:#a16207;font-size:16px}
+
+.qa-row{display:flex;gap:8px;padding:0 14px 10px}
+.qa{flex:1;background:#fff;border-radius:14px;padding:13px 8px;text-align:center;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.07);transition:transform .1s}
+.qa:active{transform:scale(.94)}
+.qa .qa-i{font-size:22px}
+.qa .qa-l{font-size:10px;font-weight:600;color:#444;margin-top:4px}
+
+/* ── SCREEN 2: COBRAR ────────────────────────────────── */
+.cobrar-head{background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;padding:14px 18px 18px;flex-shrink:0}
+.ch-name{font-size:19px;font-weight:700;margin:4px 0 2px}
+.ch-sala{font-size:12px;opacity:.7}
+.ch-chips{display:flex;gap:8px;margin-top:12px}
+.chc{flex:1;background:rgba(255,255,255,.18);border-radius:12px;padding:8px;text-align:center}
+.chc .cv{font-size:16px;font-weight:700;font-family:'Roboto Mono',monospace}
+.chc .cl{font-size:9px;opacity:.7;margin-top:2px;text-transform:uppercase;letter-spacing:.3px}
+
+.pay-sec-title{padding:12px 16px 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#6b6b6b}
+.pay-item{display:flex;align-items:center;gap:10px;background:#fff;border-radius:12px;margin:0 14px 6px;padding:12px 14px;border:2px solid #e8e8e8;cursor:pointer;transition:all .15s}
+.pay-item:active{transform:scale(.98)}
+.pay-item.sel{border-color:#1d4ed8;background:#eff6ff}
+.pay-item.done{border-color:#a7f3d0;background:#f0fdf4;opacity:.75;cursor:default}
+.pi-cb{width:22px;height:22px;border-radius:99px;border:2px solid #d0d0d0;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all .15s}
+.pay-item.sel .pi-cb{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+.pay-item.done .pi-cb{background:#10b981;border-color:#10b981;color:#fff}
+.pi-info{flex:1;min-width:0}
+.pi-label{font-size:14px;font-weight:500}
+.pi-sub{font-size:11px;color:#9e9e9e;margin-top:1px}
+.pi-price{font-size:14px;font-weight:700;color:#1d4ed8;font-family:'Roboto Mono',monospace}
+.pay-item.done .pi-price{color:#059669}
+
+.cobrar-sticky{background:#fff;border-top:1px solid #f0f0f0;padding:12px 16px 10px;flex-shrink:0}
+.cs-row{display:flex;justify-content:space-between;align-items:baseline}
+.cs-lbl{font-size:13px;color:#6b6b6b}
+.cs-amt{font-size:26px;font-weight:800;color:#1d4ed8;font-family:'Roboto Mono',monospace}
+.btn-cobrar{width:100%;background:#1d4ed8;color:#fff;border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:700;font-family:'Roboto',sans-serif;cursor:pointer;margin-top:10px;transition:opacity .15s;letter-spacing:.3px}
+.btn-cobrar:active{opacity:.85}
+.btn-cobrar:disabled{background:#94a3b8;cursor:not-allowed}
+
+/* ── SCREEN 3: MOVIMIENTO ────────────────────────────── */
+.tipo-row{display:flex;gap:8px;padding:12px 14px 6px}
+.tc{flex:1;border-radius:16px;padding:14px 8px;text-align:center;border:2px solid #e8e8e8;cursor:pointer;transition:all .18s}
+.tc .tci{font-size:26px}
+.tc .tcl{font-size:13px;font-weight:700;margin-top:5px;color:#9e9e9e;transition:color .15s}
+.tc.ing.on{border-color:#10b981;background:#f0fdf4}.tc.ing.on .tcl{color:#047857}
+.tc.eg.on{border-color:#ef4444;background:#fef2f2}.tc.eg.on .tcl{color:#b91c1c}
+
+.m3f{background:#fff;border-radius:12px;margin:0 14px 8px;overflow:hidden;border:1.5px solid #e8e8e8;transition:border-color .15s}
+.m3f:focus-within{border-color:#1d4ed8}
+.m3f label{display:block;padding:9px 14px 0;font-size:10px;font-weight:700;color:#6b6b6b;text-transform:uppercase;letter-spacing:.8px}
+.m3f input,.m3f select{width:100%;border:none;outline:none;padding:4px 14px 11px;font-size:15px;font-family:'Roboto',sans-serif;color:#1c1b1f;background:transparent;-webkit-appearance:none}
+
+.monto-big{margin:0 14px 8px;background:#fff;border-radius:12px;padding:16px 14px;text-align:center;border:1.5px solid #e8e8e8}
+.mb-val{font-size:44px;font-weight:800;color:#1c1b1f;font-family:'Roboto Mono',monospace;line-height:1}
+.mb-val.ingreso{color:#047857}.mb-val.egreso{color:#b91c1c}
+.mb-hint{font-size:11px;color:#9e9e9e;margin-top:5px}
+
+.foto-row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;margin:0 14px 8px;padding:13px;border:2px dashed #d0d0d0;cursor:pointer}
+.foto-row .fri{font-size:22px}
+.foto-row .frt{font-size:13px;color:#6b6b6b;font-weight:500}
+
+.btn-reg{margin:6px 14px 0;width:calc(100% - 28px);background:#1c1b1f;color:#fff;border:none;border-radius:14px;padding:16px;font-size:15px;font-weight:700;font-family:'Roboto',sans-serif;cursor:pointer;transition:opacity .15s}
+.btn-reg.ingreso{background:#059669}
+.btn-reg.egreso{background:#dc2626}
+.btn-reg:active{opacity:.85}
+.btn-reg:disabled{background:#94a3b8;cursor:not-allowed}
+
+/* ── SCREEN 4: MI CUENTA ─────────────────────────────── */
+.familiar-head{background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff;padding:16px 18px 20px}
+.fh-badge{background:rgba(255,255,255,.2);border-radius:99px;padding:4px 12px;font-size:11px;font-weight:600;display:inline-block;margin-bottom:10px}
+.fh-name{font-size:21px;font-weight:700}
+.fh-sala{font-size:12px;opacity:.7;margin-top:2px}
+.fh-stats{display:flex;gap:8px;margin-top:14px}
+.fhs{flex:1;background:rgba(255,255,255,.16);border-radius:12px;padding:9px;text-align:center}
+.fhs .fhsv{font-size:18px;font-weight:800;font-family:'Roboto Mono',monospace}
+.fhs .fhsl{font-size:9px;opacity:.7;margin-top:2px;text-transform:uppercase;letter-spacing:.3px}
+
+.mes-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:0 14px;margin-bottom:10px}
+.mg-cell{border-radius:10px;padding:7px 3px;text-align:center;cursor:default}
+.mg-cell .mgn{font-size:10px;font-weight:700}
+.mg-cell .mgs{font-size:15px;margin-top:3px}
+.mg-cell.paid{background:#d1fae5}.mg-cell.paid .mgn{color:#047857}
+.mg-cell.late{background:#fee2e2}.mg-cell.late .mgn{color:#b91c1c}
+.mg-cell.ok{background:#dbeafe}.mg-cell.ok .mgn{color:#1d4ed8}
+.mg-cell.future{background:#f1f5f9}.mg-cell.future .mgn{color:#94a3b8}
+
+.recibo-btn{display:flex;align-items:center;gap:10px;background:#fff;border-radius:12px;margin:0 14px 6px;padding:12px 14px;border:1.5px solid #e8e8e8;cursor:pointer}
+.rb-icon{width:36px;height:36px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.rb-text{flex:1}.rb-title{font-size:13px;font-weight:600}.rb-sub{font-size:11px;color:#9e9e9e;margin-top:1px}
+.rb-arr{color:#94a3b8;font-size:16px}
+
+/* ── FAB ─────────────────────────────────────────────── */
+.fab{position:absolute;bottom:76px;right:16px;width:54px;height:54px;border-radius:16px;background:#1d4ed8;color:#fff;font-size:24px;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(29,78,216,.4);cursor:pointer;z-index:10;transition:transform .15s}
+.fab:active{transform:scale(.92)}
+
+/* ── SCREEN SWITCHER PILLS ───────────────────────────── */
+.switcher{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap;justify-content:center}
+.sw-pill{background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.1);padding:7px 16px;border-radius:99px;font-size:12px;cursor:pointer;transition:all .15s;font-family:'Roboto',sans-serif}
+.sw-pill:hover,.sw-pill.on{background:rgba(255,255,255,.16);color:#fff;border-color:rgba(255,255,255,.25)}
+
+/* ── ROLE CHIP (top of inicio) ───────────────────────── */
+.role-chip{display:inline-flex;align-items:center;gap:6px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:99px;padding:5px 12px;font-size:11px;font-weight:600;color:#1d4ed8;margin:10px 14px 6px;cursor:pointer}
+.role-chip .dot{width:7px;height:7px;border-radius:50%;background:#1d4ed8}
+</style>
+</head>
+<body>
+
+<div class="ph">
+  <h1>COOPERADORA J.I. Nº 923</h1>
+  <p>MOCK — App Android · Material Design 3 · Ciclo 2025/2026</p>
+</div>
+
+<!-- ═══════════════════════ PHONE ════════════════════════ -->
+<div class="phone-wrap">
+<div class="phone">
+<div class="screen-shell">
+
+  <!-- Status bar -->
+  <div class="status" id="status-bar">
+    <span class="time">18:42</span>
+    <span class="icons">📶 🔋</span>
+  </div>
+
+  <!-- App screens -->
+  <div class="app-body">
+
+    <!-- ═══════════ SCREEN: INICIO ═══════════ -->
+    <div class="sc active" id="sc-inicio">
+      <div class="app-bar">
+        <div class="app-bar-text">
+          <div class="title">Buenos días, María 👋</div>
+          <div class="sub">Jueves 5 de junio · Tesorera</div>
+        </div>
+        <div class="av">MG</div>
+      </div>
+      <div class="sc-scroll">
+        <div class="role-chip" onclick="navTo('sc-cuenta')">
+          <span class="dot"></span> Vista de Familiar →
+        </div>
+
+        <div class="hero">
+          <div class="h-lbl">Saldo Actual</div>
+          <div class="h-val">$387.500</div>
+          <div class="h-sub">Actualizado hoy · caja + cuenta</div>
+          <div class="hero-chips">
+            <div class="hc"><div class="hcv">+$145k</div><div class="hcl">Ingresos Jun</div></div>
+            <div class="hc"><div class="hcv">-$52k</div><div class="hcl">Egresos Jun</div></div>
+            <div class="hc"><div class="hcv">61%</div><div class="hcl">Al día</div></div>
+          </div>
+        </div>
+
+        <div class="alert-strip" onclick="navTo('sc-cobrar')">
+          <span class="as-icon">⚠️</span>
+          <div class="as-text">
+            <div class="ast">12 socios con 2+ meses sin pagar</div>
+            <div class="ass">Tocá para ver la lista de morosos</div>
+          </div>
+          <span class="as-arr">›</span>
+        </div>
+
+        <div class="qa-row">
+          <div class="qa" onclick="navTo('sc-cobrar')"><div class="qa-i">💳</div><div class="qa-l">Cobrar</div></div>
+          <div class="qa" onclick="navTo('sc-movimiento')"><div class="qa-i">📒</div><div class="qa-l">Movimiento</div></div>
+          <div class="qa" onclick=""><div class="qa-i">📊</div><div class="qa-l">Balance</div></div>
+          <div class="qa" onclick=""><div class="qa-i">👥</div><div class="qa-l">Socios</div></div>
+        </div>
+
+        <div class="sec-title">Movimientos de hoy</div>
+        <div class="card">
+          <div class="li">
+            <div class="li-dot ld-green">💳</div>
+            <div class="li-text"><div class="li-main">Torres Milena — Cuota Junio</div><div class="li-hint">Cuota Social</div></div>
+            <div class="li-right"><div class="li-amt li-amt-i">+$4.000</div><div class="li-when">18:31</div></div>
+          </div>
+          <div class="li">
+            <div class="li-dot ld-green">💳</div>
+            <div class="li-text"><div class="li-main">Andreoli Fausto — Mat. Junio</div><div class="li-hint">Materiales</div></div>
+            <div class="li-right"><div class="li-amt li-amt-i">+$7.000</div><div class="li-when">17:55</div></div>
+          </div>
+          <div class="li">
+            <div class="li-dot ld-red">🧾</div>
+            <div class="li-text"><div class="li-main">Librería El Estudiante</div><div class="li-hint">Gastos Escuela - Librería</div></div>
+            <div class="li-right"><div class="li-amt li-amt-e">-$12.400</div><div class="li-when">15:10</div></div>
+          </div>
+          <div class="li">
+            <div class="li-dot ld-green">💳</div>
+            <div class="li-text"><div class="li-main">Russomano María — Cuaderno</div><div class="li-hint">Cuaderno de comunicaciones</div></div>
+            <div class="li-right"><div class="li-amt li-amt-i">+$4.000</div><div class="li-when">14:22</div></div>
+          </div>
+          <div class="li">
+            <div class="li-dot ld-red">🔧</div>
+            <div class="li-text"><div class="li-main">Ferretería Rossi — Cerradura</div><div class="li-hint">Gastos Escuela - Ferretería</div></div>
+            <div class="li-right"><div class="li-amt li-amt-e">-$8.500</div><div class="li-when">11:05</div></div>
+          </div>
+        </div>
+
+        <div class="sec-title">Morosos — Prioridad</div>
+        <div class="card">
+          <div class="li">
+            <div class="li-dot ld-red">👤</div>
+            <div class="li-text"><div class="li-main">Cardozo Daniel</div><div class="li-hint">Sala Celeste Tarde</div></div>
+            <div class="li-right"><span class="badge b-red">4 meses</span></div>
+          </div>
+          <div class="li">
+            <div class="li-dot ld-amber">👤</div>
+            <div class="li-text"><div class="li-main">Barreto Lionel</div><div class="li-hint">Sala Celeste Mañana</div></div>
+            <div class="li-right"><span class="badge b-amber">3 meses</span></div>
+          </div>
+          <div class="li">
+            <div class="li-dot ld-amber">👤</div>
+            <div class="li-text"><div class="li-main">Pane Cataleya</div><div class="li-hint">Sala Roja Mañana</div></div>
+            <div class="li-right"><span class="badge b-amber">3 meses</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ SCREEN: COBRAR ════════════ -->
+    <div class="sc" id="sc-cobrar">
+      <div class="app-bar" style="background:#1d4ed8;border-bottom:none">
+        <span class="back" style="color:rgba(255,255,255,.8)" onclick="navTo('sc-inicio')">‹</span>
+        <div class="app-bar-text"><div class="title" style="color:#fff">Cobrar</div><div class="sub" style="color:rgba(255,255,255,.65)">Sala Celeste Mañana</div></div>
+      </div>
+      <div class="cobrar-head">
+        <div class="ch-name">Burgos Isabella</div>
+        <div class="ch-sala">Sala Celeste Mañana · Turno Mañana</div>
+        <div class="ch-chips">
+          <div class="chc"><div class="cv">3/10</div><div class="cl">Cuotas pagas</div></div>
+          <div class="chc"><div class="cv">6/10</div><div class="cl">Materiales</div></div>
+          <div class="chc"><div class="cv">$65k</div><div class="cl">Total pagado</div></div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div class="sc-scroll" id="pay-list">
+          <div class="pay-sec-title">CUOTA SOCIAL</div>
+          <div class="pay-item done"><div class="pi-cb">✓</div><div class="pi-info"><div class="pi-label">Cuota Abril</div><div class="pi-sub">Pagado</div></div><div class="pi-price">$3.000</div></div>
+          <div class="pay-item done"><div class="pi-cb">✓</div><div class="pi-info"><div class="pi-label">Cuota Mayo</div><div class="pi-sub">Pagado</div></div><div class="pi-price">$4.000</div></div>
+          <div class="pay-item sel" onclick="togglePay(this,4000)" data-price="4000"><div class="pi-cb">✓</div><div class="pi-info"><div class="pi-label">Cuota Junio</div><div class="pi-sub">Pendiente</div></div><div class="pi-price">$4.000</div></div>
+          <div class="pay-item" onclick="togglePay(this,4000)" data-price="4000"><div class="pi-cb"></div><div class="pi-info"><div class="pi-label">Cuota Julio</div><div class="pi-sub">Pendiente</div></div><div class="pi-price">$4.000</div></div>
+
+          <div class="pay-sec-title">MATERIALES</div>
+          <div class="pay-item done"><div class="pi-cb">✓</div><div class="pi-info"><div class="pi-label">Materiales Mayo</div><div class="pi-sub">Pagado</div></div><div class="pi-price">$7.000</div></div>
+          <div class="pay-item done"><div class="pi-cb">✓</div><div class="pi-info"><div class="pi-label">Materiales Junio</div><div class="pi-sub">Pagado</div></div><div class="pi-price">$7.000</div></div>
+          <div class="pay-item sel" onclick="togglePay(this,7000)" data-price="7000"><div class="pi-cb">✓</div><div class="pi-info"><div class="pi-label">Materiales Julio</div><div class="pi-sub">Pendiente</div></div><div class="pi-price">$7.000</div></div>
+          <div class="pay-item" onclick="togglePay(this,7000)" data-price="7000"><div class="pi-cb"></div><div class="pi-info"><div class="pi-label">Materiales Agosto</div><div class="pi-sub">Pendiente</div></div><div class="pi-price">$7.000</div></div>
+
+          <div class="pay-sec-title">OTROS</div>
+          <div class="pay-item done"><div class="pi-cb">✓</div><div class="pi-info"><div class="pi-label">Cuaderno de Comunicaciones</div><div class="pi-sub">Pagado</div></div><div class="pi-price">$4.000</div></div>
+          <div class="pay-item" onclick="togglePay(this,5000)" data-price="5000"><div class="pi-cb"></div><div class="pi-info"><div class="pi-label">Emergencia — Cuota 1</div><div class="pi-sub">Pendiente</div></div><div class="pi-price">$5.000</div></div>
+        </div>
+        <div class="cobrar-sticky">
+          <div class="cs-row"><span class="cs-lbl">Total a cobrar</span><span class="cs-amt" id="cobrar-total">$11.000</span></div>
+          <button class="btn-cobrar" id="btn-cobrar" onclick="mockCobrar()">REGISTRAR COBRO</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ SCREEN: MOVIMIENTO ════════ -->
+    <div class="sc" id="sc-movimiento">
+      <div class="app-bar">
+        <span class="back" onclick="navTo('sc-inicio')">‹</span>
+        <div class="app-bar-text"><div class="title">Nuevo Movimiento</div></div>
+      </div>
+      <div class="sc-scroll">
+        <div class="tipo-row">
+          <div class="tc ing" id="tc-ing" onclick="setTipo('INGRESO')">
+            <div class="tci">⬆️</div><div class="tcl">INGRESO</div>
+          </div>
+          <div class="tc eg" id="tc-eg" onclick="setTipo('EGRESO')">
+            <div class="tci">⬇️</div><div class="tcl">EGRESO</div>
+          </div>
+        </div>
+
+        <div class="m3f">
+          <label>Categoría</label>
+          <select id="sel-cat-mov" onchange="valMov()">
+            <option value="">— Elegí el tipo primero —</option>
+          </select>
+        </div>
+
+        <div class="m3f">
+          <label>Descripción / Proveedor</label>
+          <input type="text" id="inp-desc-mov" placeholder='Ej: Librería "Carolina"' oninput="valMov()">
+        </div>
+
+        <div class="monto-big">
+          <div class="mb-val" id="mb-val">$0</div>
+          <div class="mb-hint">Ingresá el monto</div>
+          <input type="number" style="position:absolute;opacity:0;pointer-events:none" id="inp-monto-mov">
+        </div>
+
+        <!-- Keypad simulado -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 14px 8px">
+          <div class="qa" onclick="kp('1')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">1</div></div>
+          <div class="qa" onclick="kp('2')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">2</div></div>
+          <div class="qa" onclick="kp('3')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">3</div></div>
+          <div class="qa" onclick="kp('4')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">4</div></div>
+          <div class="qa" onclick="kp('5')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">5</div></div>
+          <div class="qa" onclick="kp('6')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">6</div></div>
+          <div class="qa" onclick="kp('7')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">7</div></div>
+          <div class="qa" onclick="kp('8')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">8</div></div>
+          <div class="qa" onclick="kp('9')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">9</div></div>
+          <div class="qa" onclick="kp('000')"><div class="qa-i" style="font-size:14px;font-family:'Roboto Mono'">000</div></div>
+          <div class="qa" onclick="kp('0')"><div class="qa-i" style="font-size:18px;font-family:'Roboto Mono'">0</div></div>
+          <div class="qa" onclick="kp('del')"><div class="qa-i">⌫</div></div>
+        </div>
+
+        <div class="foto-row" onclick="">
+          <span class="fri">📸</span>
+          <span class="frt">Adjuntar comprobante (opcional)</span>
+        </div>
+
+        <button class="btn-reg" id="btn-reg" disabled onclick="mockMov()">Registrar movimiento</button>
+      </div>
+    </div>
+
+    <!-- ═══════════ SCREEN: MI CUENTA ═════════ -->
+    <div class="sc" id="sc-cuenta">
+      <div class="app-bar" style="background:#6d28d9;border-bottom:none">
+        <span class="back" style="color:rgba(255,255,255,.8)" onclick="navTo('sc-inicio')">‹</span>
+        <div class="app-bar-text"><div class="title" style="color:#fff">Mi Cuenta</div><div class="sub" style="color:rgba(255,255,255,.6)">Portal del Familiar</div></div>
+        <div class="av purple">AB</div>
+      </div>
+      <div class="familiar-head">
+        <div class="fh-badge">👤 Familiar — Vista de socio</div>
+        <div class="fh-name">Burgos Isabella</div>
+        <div class="fh-sala">Sala Celeste Mañana · Turno Mañana</div>
+        <div class="fh-stats">
+          <div class="fhs"><div class="fhsv">$65k</div><div class="fhsl">Pagado</div></div>
+          <div class="fhs"><div class="fhsv">$35k</div><div class="fhsl">Pendiente</div></div>
+          <div class="fhs"><div class="fhsv">65%</div><div class="fhsl">Al día</div></div>
+        </div>
+      </div>
+      <div class="sc-scroll">
+        <div class="sec-title">Estado de cuotas</div>
+        <div class="mes-grid">
+          <div class="mg-cell paid"><div class="mgn">MAR</div><div class="mgs">✅</div></div>
+          <div class="mg-cell paid"><div class="mgn">ABR</div><div class="mgs">✅</div></div>
+          <div class="mg-cell paid"><div class="mgn">MAY</div><div class="mgs">✅</div></div>
+          <div class="mg-cell late"><div class="mgn">JUN</div><div class="mgs">❌</div></div>
+          <div class="mg-cell late"><div class="mgn">JUL</div><div class="mgs">❌</div></div>
+          <div class="mg-cell future"><div class="mgn">AGO</div><div class="mgs">·</div></div>
+          <div class="mg-cell future"><div class="mgn">SEP</div><div class="mgs">·</div></div>
+          <div class="mg-cell future"><div class="mgn">OCT</div><div class="mgs">·</div></div>
+          <div class="mg-cell future"><div class="mgn">NOV</div><div class="mgs">·</div></div>
+          <div class="mg-cell future"><div class="mgn">DIC</div><div class="mgs">·</div></div>
+        </div>
+
+        <div class="sec-title">Estado de materiales</div>
+        <div class="mes-grid">
+          <div class="mg-cell paid"><div class="mgn">MAR</div><div class="mgs">✅</div></div>
+          <div class="mg-cell paid"><div class="mgn">ABR</div><div class="mgs">✅</div></div>
+          <div class="mg-cell paid"><div class="mgn">MAY</div><div class="mgs">✅</div></div>
+          <div class="mg-cell paid"><div class="mgn">JUN</div><div class="mgs">✅</div></div>
+          <div class="mg-cell paid"><div class="mgn">JUL</div><div class="mgs">✅</div></div>
+          <div class="mg-cell paid"><div class="mgn">AGO</div><div class="mgs">✅</div></div>
+          <div class="mg-cell late"><div class="mgn">SEP</div><div class="mgs">❌</div></div>
+          <div class="mg-cell future"><div class="mgn">OCT</div><div class="mgs">·</div></div>
+          <div class="mg-cell future"><div class="mgn">NOV</div><div class="mgs">·</div></div>
+          <div class="mg-cell future"><div class="mgn">DIC</div><div class="mgs">·</div></div>
+        </div>
+
+        <div class="sec-title">Historial de recibos</div>
+        <div class="recibo-btn"><div class="rb-icon">🧾</div><div class="rb-text"><div class="rb-title">Recibo Nº 00087 — Materiales Ago.</div><div class="rb-sub">$7.000 · 04/06/2026</div></div><span class="rb-arr">›</span></div>
+        <div class="recibo-btn"><div class="rb-icon">🧾</div><div class="rb-text"><div class="rb-title">Recibo Nº 00065 — Cuota Mayo</div><div class="rb-sub">$4.000 · 10/05/2026</div></div><span class="rb-arr">›</span></div>
+        <div class="recibo-btn"><div class="rb-icon">🧾</div><div class="rb-text"><div class="rb-title">Recibo Nº 00031 — Mat. Marzo–Junio</div><div class="rb-sub">$28.000 · 08/05/2026</div></div><span class="rb-arr">›</span></div>
+
+        <div style="padding:14px 14px 0">
+          <div style="background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:14px;padding:14px;display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">📲</span>
+            <div><div style="font-size:13px;font-weight:600;color:#047857">Compartir historial por WhatsApp</div><div style="font-size:11px;color:#059669;margin-top:2px">Enviar comprobantes al celular</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /app-body -->
+
+  <!-- FAB (solo en inicio y movimientos) -->
+  <div class="fab" id="fab" onclick="navTo('sc-movimiento')">＋</div>
+
+  <!-- Bottom nav -->
+  <div class="bnav">
+    <div class="nt active" id="nt-inicio" onclick="navTo('sc-inicio')">
+      <div class="nt-pip">🏠</div><div class="nt-lbl">Inicio</div>
+    </div>
+    <div class="nt" id="nt-cobrar" onclick="navTo('sc-cobrar')">
+      <div class="nt-pip">💳</div><div class="nt-lbl">Cobrar</div>
+    </div>
+    <div class="nt" id="nt-movimiento" onclick="navTo('sc-movimiento')">
+      <div class="nt-pip">📒</div><div class="nt-lbl">Movimiento</div>
+    </div>
+    <div class="nt" id="nt-cuenta" onclick="navTo('sc-cuenta')">
+      <div class="nt-pip">👤</div><div class="nt-lbl">Mi Cuenta</div>
+    </div>
+  </div>
+
+  <div class="gesture"></div>
+</div><!-- /screen-shell -->
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+
+<!-- Screen labels -->
+<div class="switcher">
+  <div class="sw-pill on" onclick="navTo('sc-inicio')">🏠 Inicio — Tesorera</div>
+  <div class="sw-pill" onclick="navTo('sc-cobrar')">💳 Cobrar alumno</div>
+  <div class="sw-pill" onclick="navTo('sc-movimiento')">📒 Nuevo movimiento</div>
+  <div class="sw-pill" onclick="navTo('sc-cuenta')">👤 Portal Familiar</div>
+</div>
+
+<!-- ═══════════════════════ SCRIPTS ══════════════════════ -->
+<script>
+const CATS_ING = ["Cuota Social","Materiales","Cuaderno","Bono Contribución","Rifas","Festival/Kermesse","Kiosco","Subsidio Municipio","Subsidio Provincial","Otros Ingresos"];
+const CATS_EG  = ["Gastos Alumno - Golosinas","Gastos Alumno - Fotocopias","Gastos Alumno - Librería/Útiles","Gastos Alumno - Excursiones","Gastos Escuela - Material Didáctico","Gastos Escuela - Mantenimiento","Gastos Escuela - Limpieza","Gastos Escuela - Ferretería","Gastos Escuela - Mat. Eléctrico","Gastos Escuela - Combustible","Gastos Entidad - Impuestos","Gastos Entidad - Otros"];
+
+const navMap = { 'sc-inicio':'nt-inicio', 'sc-cobrar':'nt-cobrar', 'sc-movimiento':'nt-movimiento', 'sc-cuenta':'nt-cuenta' };
+
+function navTo(id) {
+  document.querySelectorAll('.sc').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nt').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.sw-pill').forEach(p => p.classList.remove('on'));
+  document.getElementById(id).classList.add('active');
+  const nt = navMap[id];
+  if (nt) document.getElementById(nt).classList.add('active');
+  // Sync switcher pills
+  const idx = ['sc-inicio','sc-cobrar','sc-movimiento','sc-cuenta'].indexOf(id);
+  document.querySelectorAll('.sw-pill')[idx]?.classList.add('on');
+  // FAB visibility
+  document.getElementById('fab').style.display = (id === 'sc-inicio' || id === 'sc-movimiento') ? 'flex' : 'none';
+  // Status bar tint
+  const dark = ['sc-cobrar','sc-cuenta'];
+  document.getElementById('status-bar').style.background = dark.includes(id) ? (id==='sc-cuenta'?'#6d28d9':'#1d4ed8') : 'transparent';
+  document.getElementById('status-bar').querySelectorAll('*').forEach(el => el.style.color = dark.includes(id) ? 'rgba(255,255,255,.9)' : '#1c1b1f');
+}
+
+// ── Cobrar interactions ─────────────────────────────────
+function togglePay(el, price) {
+  if (el.classList.contains('done')) return;
+  el.classList.toggle('sel');
+  calcTotal();
+}
+
+function calcTotal() {
+  let t = 0;
+  document.querySelectorAll('#pay-list .pay-item.sel').forEach(el => t += parseInt(el.dataset.price));
+  document.getElementById('cobrar-total').textContent = '$' + t.toLocaleString('es-AR');
+  document.getElementById('btn-cobrar').disabled = t === 0;
+}
+
+function mockCobrar() {
+  const amt = document.getElementById('cobrar-total').textContent;
+  document.querySelectorAll('#pay-list .pay-item.sel').forEach(el => {
+    el.classList.remove('sel'); el.classList.add('done');
+    el.querySelector('.pi-cb').textContent = '✓';
+    el.querySelector('.pi-sub').textContent = 'Pagado';
+    el.onclick = null;
+  });
+  calcTotal();
+  showSnack('✓ Cobro de ' + amt + ' registrado');
+}
+
+// ── Movimiento interactions ─────────────────────────────
+let montoStr = '';
+let tipoMov = null;
+
+function setTipo(t) {
+  tipoMov = t;
+  document.getElementById('tc-ing').classList.toggle('on', t==='INGRESO');
+  document.getElementById('tc-eg').classList.toggle('on', t==='EGRESO');
+  const sel = document.getElementById('sel-cat-mov');
+  sel.innerHTML = '<option value="">— Elegí una categoría —</option>';
+  (t==='INGRESO' ? CATS_ING : CATS_EG).forEach(c => sel.innerHTML += `<option>${c}</option>`);
+  const mv = document.getElementById('mb-val');
+  mv.className = 'mb-val ' + t.toLowerCase();
+  valMov();
+}
+
+function kp(v) {
+  if (v === 'del') { montoStr = montoStr.slice(0,-1) || ''; }
+  else if (v === '000') { montoStr = montoStr ? montoStr + '000' : ''; }
+  else { montoStr += v; }
+  const n = parseInt(montoStr) || 0;
+  document.getElementById('mb-val').textContent = '$' + n.toLocaleString('es-AR');
+  valMov();
+}
+
+function valMov() {
+  const ok = tipoMov && document.getElementById('sel-cat-mov').value && (parseInt(montoStr)||0) > 0;
+  const btn = document.getElementById('btn-reg');
+  btn.disabled = !ok;
+  if (ok) btn.className = 'btn-reg ' + tipoMov.toLowerCase();
+  else btn.className = 'btn-reg';
+}
+
+function mockMov() {
+  const cat = document.getElementById('sel-cat-mov').value;
+  const n = parseInt(montoStr) || 0;
+  showSnack((tipoMov==='INGRESO'?'↑':'↓') + ' $' + n.toLocaleString('es-AR') + ' registrado');
+  montoStr = ''; tipoMov = null;
+  document.getElementById('mb-val').textContent = '$0';
+  document.getElementById('mb-val').className = 'mb-val';
+  document.getElementById('sel-cat-mov').innerHTML = '<option>— Elegí el tipo primero —</option>';
+  document.getElementById('inp-desc-mov').value = '';
+  document.getElementById('tc-ing').classList.remove('on');
+  document.getElementById('tc-eg').classList.remove('on');
+  document.getElementById('btn-reg').disabled = true;
+  document.getElementById('btn-reg').className = 'btn-reg';
+}
+
+// ── Snackbar ────────────────────────────────────────────
+let snackEl;
+function showSnack(msg) {
+  if (!snackEl) {
+    snackEl = document.createElement('div');
+    snackEl.style.cssText = 'position:absolute;bottom:72px;left:14px;right:14px;background:#1c1b1f;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:500;z-index:100;transition:opacity .3s;border-left:4px solid #10b981';
+    document.querySelector('.screen-shell').appendChild(snackEl);
+  }
+  snackEl.textContent = msg;
+  snackEl.style.opacity = '1';
+  clearTimeout(snackEl._t);
+  snackEl._t = setTimeout(() => snackEl.style.opacity = '0', 2800);
+}
+
+// init
+calcTotal();
+</script>
+</body>
+</html>

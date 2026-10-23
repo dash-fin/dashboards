@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cooperadora J.I. Nº 923 — Sistema de Gestión</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0f2744;--navy-h:#1a3a5c;
+  --cyan:#0ea5e9;--cyan-bg:#e0f2fe;
+  --green:#10b981;--green-bg:#d1fae5;
+  --red:#ef4444;--red-bg:#fee2e2;
+  --amber:#f59e0b;--amber-bg:#fef3c7;
+  --bg:#f1f5f9;--card:#fff;
+  --text:#0f172a;--muted:#64748b;--border:#e2e8f0;
+  --sw:240px;
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;min-height:100vh;font-size:14px;line-height:1.5}
+
+/* ── SIDEBAR ── */
+#sidebar{width:var(--sw);background:var(--navy);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+.sb-logo{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-logo .school{font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:1.2px;font-weight:600}
+.sb-logo .org{font-size:14px;font-weight:800;color:#fff;margin-top:5px;line-height:1.25}
+.sb-logo .ciclo{font-size:11px;color:var(--cyan);margin-top:4px;font-weight:500}
+.sb-nav{padding:10px 0;flex:1}
+.sb-section{padding:10px 18px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.28);font-weight:700}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 18px;color:rgba(255,255,255,.6);cursor:pointer;transition:all .15s;font-size:13px;font-weight:500;border-left:3px solid transparent;text-decoration:none}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item.active{background:rgba(14,165,233,.18);color:#fff;border-left-color:var(--cyan)}
+.nav-item .ni{font-size:16px;width:22px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px}
+.nav-item.disabled{opacity:.4;pointer-events:none}
+.sb-footer{padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.35)}
+.sb-footer strong{color:rgba(255,255,255,.65);display:block;margin-bottom:2px}
+
+/* ── MAIN ── */
+#main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-left .title{font-size:15px;font-weight:700}
+.topbar-left .sub{font-size:11px;color:var(--muted)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.avatar{width:34px;height:34px;border-radius:99px;background:var(--navy);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.tag-ciclo{background:var(--cyan-bg);color:#0369a1;font-size:11px;font-weight:700;padding:4px 10px;border-radius:99px}
+.content{padding:24px;flex:1}
+.section{display:none}.section.active{display:block}
+.page-title{font-size:20px;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+
+/* ── CARDS ── */
+.card{background:var(--card);border-radius:12px;border:1px solid var(--border);padding:20px}
+.card-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px}
+
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.kpi.k-saldo::before{background:var(--cyan)}
+.kpi.k-ing::before{background:var(--green)}
+.kpi.k-eg::before{background:var(--red)}
+.kpi.k-soc::before{background:var(--amber)}
+.kpi-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:8px}
+.kpi-val{font-size:26px;font-weight:800;line-height:1}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.kpi-badge{display:inline-flex;align-items:center;gap:2px;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:700;margin-top:4px}
+.kb-up{background:var(--green-bg);color:#047857}.kb-dn{background:var(--red-bg);color:#b91c1c}.kb-n{background:var(--amber-bg);color:#92400e}
+
+/* ── GRIDS ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.g31{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--border);background:#fafbfc}
+.tbl td{padding:10px 12px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#fafbff}
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.b-green{background:var(--green-bg);color:#047857}.b-red{background:var(--red-bg);color:#b91c1c}.b-amber{background:var(--amber-bg);color:#92400e}.b-blue{background:var(--cyan-bg);color:#0369a1}.b-gray{background:#f1f5f9;color:#475569}
+.amt{font-variant-numeric:tabular-nums;font-weight:600}
+.amt-i{color:#047857}.amt-e{color:#b91c1c}
+
+/* ── PROGRESS ── */
+.prog-bar{background:var(--border);border-radius:99px;height:8px;overflow:hidden;margin-top:6px}
+.prog-fill{height:100%;border-radius:99px;background:var(--cyan);transition:width .6s}
+
+/* ── COBROS ── */
+.cobros-wrap{display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start}
+.form-grp{margin-bottom:14px}
+.form-lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px}
+.form-sel,.form-inp{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;color:var(--text);background:#fafbfc;outline:none;-webkit-appearance:none;transition:border-color .15s}
+.form-sel:focus,.form-inp:focus{border-color:var(--cyan);background:#fff}
+.form-sel:disabled{opacity:.5;cursor:not-allowed}
+
+.alumno-card{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-top:16px}
+.ac-head{background:var(--navy);color:#fff;padding:14px 16px}
+.ac-head .name{font-size:14px;font-weight:700}.ac-head .sala{font-size:11px;color:rgba(255,255,255,.55);margin-top:2px}
+.ac-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);font-size:12px}
+.ac-row:last-child{border-bottom:none}
+.ac-lbl{color:var(--muted)}.ac-val{font-weight:600}
+
+.mes-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px}
+.mes-btn{border:1.5px solid var(--border);padding:8px 3px;border-radius:8px;text-align:center;cursor:pointer;font-size:11px;font-weight:600;transition:all .15s;background:#fafbfc;user-select:none;position:relative}
+.mes-btn:hover:not(.pagado):not(.sel){border-color:var(--cyan);background:var(--cyan-bg)}
+.mes-btn.sel{background:var(--navy);color:#fff;border-color:var(--navy)}
+.mes-btn.pagado{background:var(--green-bg);color:#047857;border-color:#a7f3d0;cursor:default}
+.mes-btn.pagado::after{content:'✓';position:absolute;top:-5px;right:-3px;font-size:9px;background:var(--green);color:#fff;border-radius:99px;width:14px;height:14px;display:flex;align-items:center;justify-content:center;line-height:14px}
+
+.chk-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s}
+.chk-item:hover:not(.disabled){border-color:var(--cyan);background:var(--cyan-bg)}
+.chk-item input{width:16px;height:16px;accent-color:var(--navy);cursor:pointer}
+.chk-item label{font-size:13px;font-weight:500;cursor:pointer;flex:1}
+.chk-item .price{font-size:11px;color:var(--muted);font-weight:600}
+.chk-item.checked{border-color:var(--navy);background:#f0f7ff}
+.chk-item.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+
+.total-box{background:var(--navy);color:#fff;border-radius:10px;padding:16px;text-align:center;margin-top:14px}
+.total-box .lbl{font-size:10px;opacity:.55;text-transform:uppercase;letter-spacing:1px}
+.total-box .val{font-size:36px;font-weight:800;margin-top:2px}
+
+/* ── BUTTONS ── */
+.btn{border:none;padding:12px;width:100%;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;transition:opacity .15s;font-family:inherit}
+.btn-cyan{background:var(--cyan);color:#fff}.btn-cyan:hover{opacity:.85}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{opacity:.85}
+.btn-red{background:#dc2626;color:#fff}.btn-red:hover{opacity:.85}
+.btn:disabled{background:#cbd5e1;cursor:not-allowed;opacity:1}
+
+/* ── MOVIMIENTOS ── */
+.mov-wrap{display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start}
+.tipo-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px}
+.tipo-btn{padding:13px;border:2px solid var(--border);border-radius:10px;text-align:center;cursor:pointer;font-weight:700;font-size:14px;transition:all .15s;background:#fafbfc;color:var(--muted)}
+.tipo-btn.ing.activo{border-color:var(--green);background:var(--green-bg);color:#047857}
+.tipo-btn.eg.activo{border-color:var(--red);background:var(--red-bg);color:#b91c1c}
+.monto-disp{text-align:center;font-size:42px;font-weight:800;color:var(--text);padding:6px 0;font-variant-numeric:tabular-nums}
+.monto-disp.ingreso{color:#047857}.monto-disp.egreso{color:#b91c1c}
+.foto-zone{border:2px dashed var(--border);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all .15s}
+.foto-zone:hover{border-color:var(--cyan);background:var(--cyan-bg)}
+.foto-zone .fz-icon{font-size:26px}.foto-zone .fz-txt{font-size:12px;color:var(--muted);margin-top:5px}
+.foto-preview{display:none;margin-top:10px;position:relative;border-radius:8px;overflow:hidden;border:2px solid var(--cyan)}
+.foto-preview img{width:100%;display:block}
+.foto-preview button{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:99px;width:26px;height:26px;font-size:14px;cursor:pointer}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:24px;right:24px;background:#1e293b;color:#fff;padding:13px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 10px 40px rgba(0,0,0,.2);transform:translateY(80px);opacity:0;transition:all .3s;z-index:9999;max-width:300px;border-left:4px solid transparent}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.t-ok{border-left-color:var(--green)}
+#toast.t-err{border-left-color:var(--red)}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:40px 24px;color:var(--muted)}
+.empty .ei{font-size:44px;margin-bottom:10px}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  #sidebar{transform:translateX(-100%);transition:transform .3s}
+  #sidebar.open{transform:translateX(0)}
+  #main{margin-left:0;padding-bottom:60px}
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .cobros-wrap,.mov-wrap,.g2,.g31{grid-template-columns:1fr}
+  .content{padding:14px}
+  #mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--navy);height:58px;z-index:100;border-top:1px solid rgba(255,255,255,.1)}
+}
+@media(min-width:769px){#mob-nav{display:none}}
+.mn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.45);cursor:pointer;font-size:9px;gap:3px;transition:color .15s;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.mn-item.active{color:var(--cyan)}
+.mn-item .mi{font-size:20px}
+
+/* ── DIVIDERS ── */
+.section-divider{height:1px;background:var(--border);margin:20px 0}
+.inline-flex{display:flex;align-items:center;gap:8px}
+.spacer{flex:1}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ SIDEBAR ═══ -->
+<aside id="sidebar">
+  <div class="sb-logo">
+    <div class="school">Cooperadora Escolar</div>
+    <div class="org">Jardín de Infantes Nº 923</div>
+    <div class="ciclo">Ciclo 2025 / 2026</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-section">Principal</div>
+    <div class="nav-item active" onclick="navTo('dashboard',this)"><span class="ni">📊</span> Dashboard</div>
+    <div class="nav-item" onclick="navTo('cobros',this)"><span class="ni">💳</span> Cobros a Socios</div>
+    <div class="nav-item" onclick="navTo('movimientos',this)"><span class="ni">📒</span> Movimientos</div>
+    <div class="sb-section">Reportes</div>
+    <div class="nav-item disabled"><span class="ni">👥</span> Libro de Socios</div>
+    <div class="nav-item disabled"><span class="ni">📅</span> Balance Mensual</div>
+    <div class="nav-item disabled"><span class="ni">📈</span> Balance Anual</div>
+    <div class="sb-section">Administración</div>
+    <div class="nav-item disabled"><span class="ni">🏫</span> Salas y Alumnos</div>
+    <div class="nav-item disabled"><span class="ni">⚙️</span> Configuración</div>
+    <div class="nav-item disabled"><span class="ni">👤</span> Usuarios y Roles</div>
+  </nav>
+  <div class="sb-footer">
+    <strong>María González</strong>Tesorera · Ciclo 2025/2026
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════ MAIN ══════ -->
+<div id="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="title" id="topbar-title">Dashboard</div>
+      <div class="sub" id="topbar-sub">Resumen general — Junio 2026</div>
+    </div>
+    <div class="topbar-right">
+      <span class="tag-ciclo">2025 / 2026</span>
+      <div class="avatar">MG</div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ══════════════════════════ DASHBOARD ══ -->
+    <section id="s-dashboard" class="section active">
+
+      <div class="kpi-grid">
+        <div class="kpi k-saldo">
+          <div class="kpi-lbl">Saldo Actual</div>
+          <div class="kpi-val">$387.500</div>
+          <div class="kpi-sub">Caja + cuenta bancaria</div>
+          <span class="kpi-badge kb-up">↑ vs mes anterior</span>
+        </div>
+        <div class="kpi k-ing">
+          <div class="kpi-lbl">Ingresos — Junio</div>
+          <div class="kpi-val">$145.000</div>
+          <div class="kpi-sub">Cuotas, materiales y cuadernos</div>
+          <span class="kpi-badge kb-up">↑ 12% vs Mayo</span>
+        </div>
+        <div class="kpi k-eg">
+          <div class="kpi-lbl">Egresos — Junio</div>
+          <div class="kpi-val">$52.300</div>
+          <div class="kpi-sub">Gastos escuela y alumnos</div>
+          <span class="kpi-badge kb-dn">↑ 8% vs Mayo</span>
+        </div>
+        <div class="kpi k-soc">
+          <div class="kpi-lbl">Socios al Día</div>
+          <div class="kpi-val">87 / 143</div>
+          <div class="kpi-sub" style="margin-bottom:2px">61% de la matrícula</div>
+          <div class="prog-bar"><div class="prog-fill" style="width:61%;background:var(--amber)"></div></div>
+        </div>
+      </div>
+
+      <div class="g31">
+        <div class="card">
+          <div class="card-title">Ingresos vs Egresos — Últimos 6 meses</div>
+          <canvas id="chartBar" height="110"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Distribución de Ingresos</div>
+          <canvas id="chartDona" height="170"></canvas>
+          <div id="dona-legend" style="margin-top:10px;font-size:11px;display:flex;flex-direction:column;gap:5px"></div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Últimos movimientos</div>
+          <table class="tbl">
+            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Tipo</th><th style="text-align:right">Monto</th></tr></thead>
+            <tbody id="tbl-ultimos"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title">Morosos — últimos 2+ meses sin pagar</div>
+          <table class="tbl">
+            <thead><tr><th>Alumno</th><th>Sala</th><th>Meses debe</th></tr></thead>
+            <tbody id="tbl-morosos"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ══════════════════════════ COBROS ═══════ -->
+    <section id="s-cobros" class="section">
+      <div class="page-title">Cobros a Socios</div>
+      <div class="page-sub">Registrá el pago de cuotas, materiales, cuaderno y emergencias por alumno.</div>
+
+      <div class="cobros-wrap">
+
+        <!-- Panel izquierdo: selección + totales -->
+        <div>
+          <div class="card">
+            <div class="card-title">Selección de Alumno</div>
+            <div class="form-grp">
+              <label class="form-lbl">Sala</label>
+              <select class="form-sel" id="sel-sala" onchange="loadAlumnos()">
+                <option value="">— Seleccioná una sala —</option>
+              </select>
+            </div>
+            <div class="form-grp" style="margin-bottom:0">
+              <label class="form-lbl">Alumno / a</label>
+              <select class="form-sel" id="sel-alumno" disabled onchange="checkEstado()">
+                <option value="">— Primero elegí la sala —</option>
+              </select>
+            </div>
+            <div id="alumno-info" class="alumno-card" style="display:none">
+              <div class="ac-head">
+                <div class="name" id="info-nombre">—</div>
+                <div class="sala" id="info-sala">—</div>
+              </div>
+              <div class="ac-row"><span class="ac-lbl">Cuaderno</span><span id="info-cuaderno" class="ac-val">—</span></div>
+              <div class="ac-row"><span class="ac-lbl">Cuotas pagas</span><span id="info-cuotas" class="ac-val">—</span></div>
+              <div class="ac-row"><span class="ac-lbl">Materiales pagos</span><span id="info-mat" class="ac-val">—</span></div>
+              <div class="ac-row"><span class="ac-lbl">Total pagado</span><span id="info-total" class="ac-val">—</span></div>
+            </div>
+          </div>
+
+          <div class="total-box" id="cobro-total" style="display:none">
+            <div class="lbl">Total a cobrar</div>
+            <div class="val" id="val-total">$0</div>
+          </div>
+          <button class="btn btn-green" id="btn-cobrar" style="display:none;margin-top:10px" onclick="registrarCobro()">✓ REGISTRAR COBRO</button>
+        </div>
+
+        <!-- Panel derecho: opciones de pago -->
+        <div id="panel-pago" style="display:none">
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title">Items del cobro</div>
+
+            <div class="form-lbl" style="margin-bottom:6px">CUADERNO Y EMERGENCIAS</div>
+            <div class="chk-item" id="ci-cuaderno" onclick="toggleChk(this,'cuaderno',4000)">
+              <input type="checkbox" id="chk-cuaderno"><label for="chk-cuaderno">Cuaderno de Comunicaciones</label><span class="price">$4.000</span>
+            </div>
+            <div class="chk-item" onclick="toggleChk(this,'e0',20000)">
+              <input type="checkbox"><label>Emergencia — Pago único</label><span class="price">$20.000</span>
+            </div>
+            <div class="chk-item" onclick="toggleChk(this,'e1',5000)">
+              <input type="checkbox"><label>Emergencia — Cuota 1</label><span class="price">$5.000</span>
+            </div>
+            <div class="chk-item" onclick="toggleChk(this,'e2',5000)">
+              <input type="checkbox"><label>Emergencia — Cuota 2</label><span class="price">$5.000</span>
+            </div>
+            <div class="chk-item" onclick="toggleChk(this,'e3',5000)">
+              <input type="checkbox"><label>Emergencia — Cuota 3</label><span class="price">$5.000</span>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title">Cuota Social — Mar/Abr $3.000 · May–Dic $4.000</div>
+            <div class="mes-grid" id="grid-cuota"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Materiales Mensuales — $7.000 c/u · Anual $60.000</div>
+            <div class="chk-item" id="ci-matanual" onclick="toggleMatAnual(this)">
+              <input type="checkbox" id="chk-matanual"><label for="chk-matanual"><strong>PAGO ANUAL COMPLETO</strong></label><span class="price">$60.000</span>
+            </div>
+            <div class="mes-grid" id="grid-mat"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ MOVIMIENTOS ═══ -->
+    <section id="s-movimientos" class="section">
+      <div class="page-title">Registrar Movimiento</div>
+      <div class="page-sub">Ingresos y egresos generales de la cooperadora con comprobante opcional.</div>
+
+      <div class="mov-wrap">
+
+        <!-- Formulario -->
+        <div>
+          <div class="card">
+            <div class="card-title">Tipo de Movimiento</div>
+            <div class="tipo-toggle">
+              <div class="tipo-btn ing" id="tbtn-ing" onclick="setTipo('INGRESO')">⬆ INGRESO</div>
+              <div class="tipo-btn eg" id="tbtn-eg" onclick="setTipo('EGRESO')">⬇ EGRESO</div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="card-title">Categoría</div>
+            <div class="form-grp" style="margin-bottom:0">
+              <select class="form-sel" id="sel-cat" onchange="valMov()">
+                <option value="">— Primero elegí el tipo —</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="card-title">Detalle</div>
+            <div class="form-grp">
+              <label class="form-lbl">Descripción / Proveedor</label>
+              <input class="form-inp" id="inp-desc" placeholder='Ej: Librería "Carolina"' oninput="valMov()">
+            </div>
+            <div class="form-grp" style="margin-bottom:0">
+              <label class="form-lbl">N° Comprobante (opcional)</label>
+              <input class="form-inp" id="inp-nro" placeholder="Ej: 0001-00000076">
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="card-title">Monto</div>
+            <input class="form-inp" id="inp-monto" type="number" min="0" step="1" placeholder="0" oninput="updMonto()" style="font-size:22px;font-weight:700;text-align:right">
+            <div class="monto-disp" id="disp-monto">$ 0</div>
+          </div>
+
+          <div class="card" style="margin-top:14px">
+            <div class="card-title">📷 Comprobante (opcional)</div>
+            <div class="foto-zone" onclick="document.getElementById('inp-foto').click()">
+              <div class="fz-icon">📸</div>
+              <div class="fz-txt">Tocá para tomar foto o elegir de galería</div>
+            </div>
+            <input type="file" id="inp-foto" accept="image/*" style="display:none" onchange="prevFoto(this)">
+            <div class="foto-preview" id="foto-prev">
+              <img id="foto-img" src="" alt="">
+              <button onclick="clearFoto()">✕</button>
+            </div>
+          </div>
+
+          <button class="btn btn-cyan" id="btn-mov" onclick="registrarMov()" disabled>Registrar movimiento</button>
+        </div>
+
+        <!-- Tabla de hoy -->
+        <div class="card">
+          <div class="card-title inline-flex">Movimientos de hoy <span class="spacer"></span><span class="badge b-blue" id="cnt-hoy">0 registros</span></div>
+          <div id="mov-hoy-wrap">
+            <div class="empty"><div class="ei">📋</div><p>Sin movimientos registrados hoy.</p></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ═══════════ MOBILE NAV ═══ -->
+<nav id="mob-nav">
+  <div class="mn-item active" onclick="navTo('dashboard',this,true)"><span class="mi">📊</span>Dashboard</div>
+  <div class="mn-item" onclick="navTo('cobros',this,true)"><span class="mi">💳</span>Cobros</div>
+  <div class="mn-item" onclick="navTo('movimientos',this,true)"><span class="mi">📒</span>Movimientos</div>
+</nav>
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════ SCRIPTS ═══ -->
+<script>
+// ── DATA ──────────────────────────────────────────────────────
+const SALAS = {
+  "Celeste Mañana": ["Barreto Lionel","Burgos Isabella","Espinoza Nicolas","Gaitan Bastian","Juares Diana","Otero Isabella","Paniagua Aymara","Pereyra Enzo","Torres Lionel","Valle Sofia","Villasanti Eneas"],
+  "Roja Mañana":    ["Aldeano Ambar","Barraza Ulises","Britos Milena","Carballo Guillermina","Diaz Elena","Esquivel Josefina","Martinez Oriana","Pane Cataleya","Savino Roma","Valenzuela Catalina"],
+  "Naranja Mañana": ["Barrera Luna","Correa Barone","Cuello Antonio","Gimenez Valentina","Guzman Matias","Martinez Joaquin","Ocker Valentin","Paniagua Emma","Pesce Ian","Pincen Jazmin"],
+  "Verde Mañana":   ["Benes Paulo","Bragazzi Mateo","Juarez Lohan","Martinez Abby","Miranda Julieta","Perez Serena","Ramos Zoe","Romano Vittorio","Ruiz Felicitas","Taritolay Lucio"],
+  "Celeste Tarde":  ["Banega Salvador","Cardozo Daniel","Coria Victoria","Fabre Alvaro","Falino Renata","Fernandez Matilda","Gesualdi Lucas","Llano Lucia","Palacios Gianluca","Rodriguez Federico"],
+  "Roja Tarde":     ["Alegre Lara","Andreoli Fausto","Arias Bruno","Brizuela Olivia","Espinoza Elias","Gonzalez Cipriano","Luquez Felipe","Maidana Amira","Palacio Luz","Rey Emma"],
+  "Naranja Tarde":  ["Blanco Roma","Bordino Lorenzo","Espindola Eliseo","Figueroa Olivia","Gordillo Luz","Maidana Chloe","Pinto Isabella","Ramirez Emilia","Sanchez Blanca","Vaccaro Bruno"],
+  "Verde Tarde":    ["Agüero Nahitan","Aguilera Francisco","Cardelle Tomas","Coronel Matias","Drago Liam","Franzetti Camila","Gaona Barbara","Moris Lucio","Russo Benjamin","Torres Milena"]
+};
+
+const MESES = [
+  {n:"Marzo",   pc:3000, pm:7000},
+  {n:"Abril",   pc:3000, pm:7000},
+  {n:"Mayo",    pc:4000, pm:7000},
+  {n:"Junio",   pc:4000, pm:7000},
+  {n:"Julio",   pc:4000, pm:7000},
+  {n:"Agosto",  pc:4000, pm:7000},
+  {n:"Septiembre",pc:4000,pm:7000},
+  {n:"Octubre", pc:4000, pm:7000},
+  {n:"Noviembre",pc:4000,pm:7000},
+  {n:"Diciembre",pc:4000,pm:7000},
+];
+
+const PAGOS_MOCK = {
+  "Burgos Isabella":  { cuotas:["Marzo","Abril","Mayo"], mat:["Marzo","Abril","Mayo","Junio","Julio","Agosto"], cuaderno:true,  total:65000 },
+  "Valle Sofia":      { cuotas:["Marzo","Abril","Mayo"], mat:["Marzo","Abril"],                                cuaderno:true,  total:35000 },
+  "Espinoza Nicolas": { cuotas:["Marzo","Abril"],        mat:["Marzo"],                                        cuaderno:false, total:17000 },
+  "Pereyra Enzo":     { cuotas:["Marzo"],                mat:[],                                               cuaderno:false, total:3000  },
+  "Torres Lionel":    { cuotas:["Marzo","Abril","Mayo","Junio"], mat:["Marzo","Abril","Mayo","Junio"],          cuaderno:true,  total:50000 },
+};
+
+const CATS_ING = ["Cuota Social","Materiales","Cuaderno","Bono Contribución","Rifas","Festival/Evento/Quermese","Kiosco","Subsidio Municipio","Subsidio Provincial","Donaciones","Otros Ingresos"];
+const CATS_EG  = ["Gastos Alumno - Golosinas/Medallas","Gastos Alumno - Fotocopias","Gastos Alumno - Librería/Útiles","Gastos Alumno - Excursiones","Gastos Escuela - Material Didáctico","Gastos Escuela - Mantenimiento/Mejoras","Gastos Escuela - Art. Limpieza","Gastos Escuela - Ferretería","Gastos Escuela - Mat. Eléctrico","Gastos Escuela - Librería/Fotocopia","Gastos Escuela - Combustible/Calef.","Gastos Escuela - Mobiliario","Gastos Entidad - Impuestos Bancarios","Gastos Entidad - Otros"];
+
+const MOV_HOY = [];
+let tipoActual = null, fotoB64 = null;
+
+// ── NAVIGATION ────────────────────────────────────────────────
+const TOPBAR_INFO = {
+  dashboard:   ["Dashboard",      "Resumen general — Junio 2026"],
+  cobros:      ["Cobros a Socios","Registrá pagos por alumno"],
+  movimientos: ["Movimientos",    "Registrá ingresos y egresos generales"],
+};
+
+function navTo(id, el, isMobile) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('s-'+id).classList.add('active');
+  document.querySelectorAll(isMobile ? '.mn-item' : '.nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  const [t,s] = TOPBAR_INFO[id] || ['',''];
+  document.getElementById('topbar-title').textContent = t;
+  document.getElementById('topbar-sub').textContent = s;
+}
+
+// ── DASHBOARD CHARTS ──────────────────────────────────────────
+function initCharts() {
+  const barCtx = document.getElementById('chartBar').getContext('2d');
+  new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Enero','Febrero','Marzo','Abril','Mayo','Junio'],
+      datasets: [
+        { label:'Ingresos', data:[0,0,82000,126000,138000,145000], backgroundColor:'rgba(16,185,129,.75)', borderRadius:5 },
+        { label:'Egresos',  data:[0,0,31000, 48500, 61000, 52300], backgroundColor:'rgba(239,68,68,.65)',  borderRadius:5 }
+      ]
+    },
+    options: { plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}, scales:{ x:{grid:{display:false}}, y:{ticks:{callback:v=>'$'+v.toLocaleString('es-AR')},grid:{color:'#f1f5f9'}} }, responsive:true, maintainAspectRatio:true }
+  });
+
+  const donaCtx = document.getElementById('chartDona').getContext('2d');
+  const donaData = { labels:['Cuota Social','Materiales','Cuadernos','Eventos','Subsidios','Otros'], data:[51000,49000,16000,12000,10000,7000] };
+  const colors = ['#0ea5e9','#10b981','#f59e0b','#8b5cf6','#ef4444','#64748b'];
+  new Chart(donaCtx, {
+    type: 'doughnut',
+    data: { labels: donaData.labels, datasets:[{ data:donaData.data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options: { plugins:{legend:{display:false}}, cutout:'65%', responsive:true, maintainAspectRatio:true }
+  });
+  const leg = document.getElementById('dona-legend');
+  donaData.labels.forEach((l,i) => {
+    const tot = donaData.data.reduce((a,b)=>a+b,0);
+    const pct = Math.round(donaData.data[i]/tot*100);
+    leg.innerHTML += `<div style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:${colors[i]};flex-shrink:0"></span><span>${l}</span><span style="margin-left:auto;font-weight:600">$${donaData.data[i].toLocaleString('es-AR')} <span style="color:var(--muted);font-weight:400">(${pct}%)</span></span></div>`;
+  });
+
+  // Últimos movimientos
+  const movs = [
+    {f:'06/06/2026',d:'Burgos Isabella — Cuota Junio',         cat:'Cuota Social',           t:'INGRESO',m:4000},
+    {f:'06/06/2026',d:'Andreoli Fausto — Materiales Junio',    cat:'Materiales',              t:'INGRESO',m:7000},
+    {f:'05/06/2026',d:'Ferretería Rossi — Cerradura puerta',   cat:'Gastos Escuela - Ferretería',t:'EGRESO',m:8500},
+    {f:'05/06/2026',d:'Torres Milena — Cuota + Mat Junio',     cat:'Cuota Social',            t:'INGRESO',m:11000},
+    {f:'04/06/2026',d:'Artículos de limpieza — El Faro',       cat:'Gastos Escuela - Art. Limpieza',t:'EGRESO',m:14800},
+    {f:'04/06/2026',d:'Russomano María — Cuota Junio',         cat:'Cuota Social',            t:'INGRESO',m:4000},
+    {f:'03/06/2026',d:'Fotocopias para acto',                  cat:'Gastos Alumno - Fotocopias',t:'EGRESO',m:3200},
+    {f:'03/06/2026',d:'Coronel Matias — Cuaderno',             cat:'Cuaderno',                t:'INGRESO',m:4000},
+  ];
+  const tb = document.getElementById('tbl-ultimos');
+  movs.forEach(m => {
+    const signo = m.t==='INGRESO' ? '+' : '-';
+    const cls   = m.t==='INGRESO' ? 'amt-i' : 'amt-e';
+    const badge = m.t==='INGRESO' ? 'b-green' : 'b-red';
+    tb.innerHTML += `<tr>
+      <td style="color:var(--muted);white-space:nowrap">${m.f}</td>
+      <td>${m.d}</td>
+      <td><span class="badge b-gray">${m.cat}</span></td>
+      <td><span class="badge ${badge}">${m.t}</span></td>
+      <td style="text-align:right" class="amt ${cls}">${signo}$${m.m.toLocaleString('es-AR')}</td>
+    </tr>`;
+  });
+
+  // Morosos
+  const morosos = [
+    {a:'Barreto Lionel',   s:'Celeste Mañana', meses:3},
+    {a:'Espinoza Nicolas', s:'Celeste Mañana', meses:2},
+    {a:'Pane Cataleya',    s:'Roja Mañana',    meses:3},
+    {a:'Ocker Valentin',   s:'Naranja Mañana', meses:2},
+    {a:'Cardozo Daniel',   s:'Celeste Tarde',  meses:4},
+    {a:'Espindola Eliseo', s:'Naranja Tarde',  meses:2},
+  ];
+  const tm = document.getElementById('tbl-morosos');
+  morosos.forEach(r => {
+    const badge = r.meses >= 3 ? 'b-red' : 'b-amber';
+    tm.innerHTML += `<tr><td>${r.a}</td><td style="color:var(--muted)">${r.s}</td><td><span class="badge ${badge}">${r.meses} meses</span></td></tr>`;
+  });
+}
+
+// ── COBROS ────────────────────────────────────────────────────
+function initCobros() {
+  const sel = document.getElementById('sel-sala');
+  Object.keys(SALAS).forEach(s => sel.innerHTML += `<option value="${s}">${s}</option>`);
+  buildMesGrids();
+}
+
+function loadAlumnos() {
+  const sala = document.getElementById('sel-sala').value;
+  const sel  = document.getElementById('sel-alumno');
+  sel.innerHTML = '<option value="">— Seleccioná un alumno —</option>';
+  sel.disabled = !sala;
+  if (sala) SALAS[sala].forEach(a => sel.innerHTML += `<option value="${a}">${a}</option>`);
+  document.getElementById('alumno-info').style.display = 'none';
+  document.getElementById('panel-pago').style.display = 'none';
+  document.getElementById('cobro-total').style.display = 'none';
+  document.getElementById('btn-cobrar').style.display = 'none';
+}
+
+function checkEstado() {
+  const alumno = document.getElementById('sel-alumno').value;
+  if (!alumno) return;
+  const sala = document.getElementById('sel-sala').value;
+  const pagos = PAGOS_MOCK[alumno] || { cuotas:[], mat:[], cuaderno:false, total:0 };
+
+  document.getElementById('info-nombre').textContent = alumno;
+  document.getElementById('info-sala').textContent = 'Sala ' + sala;
+  document.getElementById('info-cuaderno').innerHTML = pagos.cuaderno ? '<span class="badge b-green">✓ Pagado</span>' : '<span class="badge b-amber">Pendiente</span>';
+  document.getElementById('info-cuotas').textContent = pagos.cuotas.length + ' / 10 meses';
+  document.getElementById('info-mat').textContent = pagos.mat.length + ' / 10 meses';
+  document.getElementById('info-total').textContent = '$' + pagos.total.toLocaleString('es-AR');
+  document.getElementById('alumno-info').style.display = 'block';
+
+  // Marcar meses pagados en grids
+  document.querySelectorAll('.mes-btn').forEach(b => {
+    b.classList.remove('pagado','sel');
+    const esCuota = b.dataset.tipo === 'c';
+    const arr = esCuota ? pagos.cuotas : pagos.mat;
+    if (arr.includes(b.dataset.mes)) b.classList.add('pagado');
+  });
+
+  // Deshabilitar cuaderno si ya está pagado
+  const ciCuad = document.getElementById('ci-cuaderno');
+  ciCuad.classList.toggle('disabled', pagos.cuaderno);
+  document.getElementById('chk-cuaderno').checked = false;
+
+  document.getElementById('panel-pago').style.display = 'block';
+  document.getElementById('cobro-total').style.display = 'block';
+  document.getElementById('btn-cobrar').style.display = 'block';
+  calcTotal();
+}
+
+function buildMesGrids() {
+  const gc = document.getElementById('grid-cuota');
+  const gm = document.getElementById('grid-mat');
+  MESES.forEach(m => {
+    gc.innerHTML += `<div class="mes-btn" onclick="toggleMes(this)" data-mes="${m.n}" data-tipo="c" data-price="${m.pc}">${m.n.substring(0,3)}</div>`;
+    gm.innerHTML += `<div class="mes-btn" onclick="toggleMes(this)" data-mes="${m.n}" data-tipo="m" data-price="${m.pm}">${m.n.substring(0,3)}</div>`;
+  });
+}
+
+function toggleMes(el) {
+  if (el.classList.contains('pagado')) return;
+  el.classList.toggle('sel');
+  calcTotal();
+}
+
+let cobroItems = {};
+
+function toggleChk(el, key, price) {
+  if (el.classList.contains('disabled')) return;
+  const cb = el.querySelector('input');
+  cb.checked = !cb.checked;
+  el.classList.toggle('checked', cb.checked);
+  if (cb.checked) cobroItems[key] = price;
+  else delete cobroItems[key];
+  calcTotal();
+}
+
+function toggleMatAnual(el) {
+  const cb = el.querySelector('input');
+  cb.checked = !cb.checked;
+  el.classList.toggle('checked', cb.checked);
+  const grid = document.getElementById('grid-mat');
+  if (cb.checked) {
+    cobroItems['matanual'] = 60000;
+    grid.style.opacity = '.35';
+    grid.style.pointerEvents = 'none';
+    document.querySelectorAll('.mes-btn[data-tipo="m"]').forEach(b => b.classList.remove('sel'));
+  } else {
+    delete cobroItems['matanual'];
+    grid.style.opacity = '1';
+    grid.style.pointerEvents = 'auto';
+  }
+  calcTotal();
+}
+
+function calcTotal() {
+  let total = 0;
+  // items checkbox
+  Object.values(cobroItems).forEach(v => total += v);
+  // meses seleccionados
+  document.querySelectorAll('.mes-btn.sel').forEach(b => total += parseInt(b.dataset.price));
+  document.getElementById('val-total').textContent = '$' + total.toLocaleString('es-AR');
+}
+
+function registrarCobro() {
+  const alumno = document.getElementById('sel-alumno').value;
+  let total = 0;
+  Object.values(cobroItems).forEach(v => total += v);
+  document.querySelectorAll('.mes-btn.sel').forEach(b => total += parseInt(b.dataset.price));
+  if (total === 0) { toast('Seleccioná al menos un ítem para cobrar','t-err'); return; }
+  showToast(`✓ Cobro de $${total.toLocaleString('es-AR')} registrado para ${alumno}`, 't-ok');
+  // mock: marcar seleccionados como pagados
+  document.querySelectorAll('.mes-btn.sel').forEach(b => { b.classList.remove('sel'); b.classList.add('pagado'); });
+  Object.keys(cobroItems).forEach(k => {
+    const ci = document.querySelector(`.chk-item input[type="checkbox"]:checked`);
+    if (ci) { ci.checked = false; ci.parentElement.classList.remove('checked'); }
+  });
+  cobroItems = {};
+  calcTotal();
+}
+
+// ── MOVIMIENTOS ───────────────────────────────────────────────
+function setTipo(tipo) {
+  tipoActual = tipo;
+  document.getElementById('tbtn-ing').classList.toggle('activo', tipo==='INGRESO');
+  document.getElementById('tbtn-eg').classList.toggle('activo', tipo==='EGRESO');
+  const cats = tipo==='INGRESO' ? CATS_ING : CATS_EG;
+  const sel = document.getElementById('sel-cat');
+  sel.innerHTML = '<option value="">— Elegí una categoría —</option>';
+  cats.forEach(c => sel.innerHTML += `<option value="${c}">${c}</option>`);
+  const md = document.getElementById('disp-monto');
+  md.className = 'monto-disp ' + tipo.toLowerCase();
+  valMov();
+}
+
+function updMonto() {
+  const v = parseFloat(document.getElementById('inp-monto').value) || 0;
+  document.getElementById('disp-monto').textContent = '$ ' + v.toLocaleString('es-AR');
+  valMov();
+}
+
+function valMov() {
+  const ok = tipoActual && document.getElementById('sel-cat').value && (parseFloat(document.getElementById('inp-monto').value)||0) > 0;
+  const btn = document.getElementById('btn-mov');
+  btn.disabled = !ok;
+  if (ok) btn.className = 'btn ' + (tipoActual==='INGRESO' ? 'btn-green' : 'btn-red');
+  else btn.className = 'btn';
+}
+
+function prevFoto(input) {
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    fotoB64 = e.target.result;
+    document.getElementById('foto-img').src = fotoB64;
+    document.getElementById('foto-prev').style.display = 'block';
+  };
+  r.readAsDataURL(f);
+}
+function clearFoto() {
+  fotoB64 = null;
+  document.getElementById('foto-img').src = '';
+  document.getElementById('foto-prev').style.display = 'none';
+  document.getElementById('inp-foto').value = '';
+}
+
+function registrarMov() {
+  const tipo = tipoActual;
+  const cat  = document.getElementById('sel-cat').value;
+  const desc = document.getElementById('inp-desc').value.trim();
+  const monto = parseFloat(document.getElementById('inp-monto').value) || 0;
+  const now = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const signo = tipo==='INGRESO' ? '+' : '-';
+  const cls   = tipo==='INGRESO' ? 'amt-i' : 'amt-e';
+  const badge = tipo==='INGRESO' ? 'b-green' : 'b-red';
+
+  MOV_HOY.unshift({tipo, cat, desc, monto, hora: now});
+  const wrap = document.getElementById('mov-hoy-wrap');
+  wrap.innerHTML = `<table class="tbl"><thead><tr><th>Hora</th><th>Categoría</th><th>Descripción</th><th>Tipo</th><th style="text-align:right">Monto</th></tr></thead><tbody>
+    ${MOV_HOY.map(m=>`<tr>
+      <td style="color:var(--muted)">${m.hora}</td>
+      <td><span class="badge b-gray" style="font-size:10px">${m.cat}</span></td>
+      <td>${m.desc||'—'}</td>
+      <td><span class="badge ${m.tipo==='INGRESO'?'b-green':'b-red'}">${m.tipo}</span></td>
+      <td style="text-align:right" class="amt ${m.tipo==='INGRESO'?'amt-i':'amt-e'}">${m.tipo==='INGRESO'?'+':'-'}$${m.monto.toLocaleString('es-AR')}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+  document.getElementById('cnt-hoy').textContent = MOV_HOY.length + ' registros';
+
+  showToast(`${signo === '+' ? '↑ Ingreso' : '↓ Egreso'} de $${monto.toLocaleString('es-AR')} registrado`, 't-ok');
+
+  // Reset form
+  tipoActual = null;
+  document.getElementById('tbtn-ing').classList.remove('activo');
+  document.getElementById('tbtn-eg').classList.remove('activo');
+  document.getElementById('sel-cat').innerHTML = '<option value="">— Primero elegí el tipo —</option>';
+  document.getElementById('inp-desc').value = '';
+  document.getElementById('inp-nro').value = '';
+  document.getElementById('inp-monto').value = '';
+  document.getElementById('disp-monto').textContent = '$ 0';
+  document.getElementById('disp-monto').className = 'monto-disp';
+  clearFoto();
+  document.getElementById('btn-mov').disabled = true;
+  document.getElementById('btn-mov').className = 'btn';
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type||'t-ok');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = '', 3200);
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+initCharts();
+initCobros();
+</script>
+</body>
+</html>
