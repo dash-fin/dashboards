@@ -169,8 +169,11 @@ window.anlRender=()=>{
   </div>`;
   const sub=t=>`<div class="anl-sub-hdr">${t}</div>`;
 
+  const A=secArbitraje(rows,T,days);
   body.innerHTML=
-    group('🐂 Alcistas','sube el subyacente','var(--green)',
+    (A?group('🧮 Valor teórico y arbitraje','Black-Scholes · barato/caro · paridad','var(--cyan)',
+      `${A.top}<div class="anl-grid2">${A.calls}${A.puts}</div><div style="margin-top:10px">${A.parity}</div>`):'')
+    +group('🐂 Alcistas','sube el subyacente','var(--green)',
       `${sub('Verticales débito/crédito')}
        <div class="anl-grid2">${C.bullCallSpread}${C.bullCallSpread1}</div>
        <div class="anl-grid2" style="margin-top:10px">${P.bullPutSpread}${P.bullPutSpread1}</div>
@@ -534,6 +537,92 @@ function secMultiPata(calls,puts,T){
   </div>`;
 
   return{ironCondor:icHtml,jadeLizard:jlHtml};
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECCIÓN 0 — VALOR TEÓRICO (BS) + PARIDAD PUT-CALL
+// ══════════════════════════════════════════════════════════════
+const ARB_OP=0.02, ARB_MID=0.05;
+let gCauc=parseFloat(localStorage.getItem('anl_cauc'))||19.9, gCost=parseFloat(localStorage.getItem('anl_cost')); if(isNaN(gCost))gCost=0.6;
+window.anlSetP=()=>{const c=parseFloat(document.getElementById('anlCauc').value),k=parseFloat(document.getElementById('anlCost').value);if(!isNaN(c)){gCauc=c;localStorage.setItem('anl_cauc',c)}if(!isNaN(k)){gCost=k;localStorage.setItem('anl_cost',k)}anlRender()};
+const bsR=(S,K,T,s,isC,r)=>{if(T<=0||s<=0)return Math.max(isC?S-K:K-S,0);const q=Math.sqrt(T),d1=(Math.log(S/K)+(r+0.5*s*s)*T)/(s*q),d2=d1-q*s,D=Math.exp(-r*T);return isC?S*normCDF(d1)-K*D*normCDF(d2):K*D*normCDF(-d2)-S*normCDF(-d1)};
+const ivR=(price,S,K,T,isC,r)=>{if(!(price>0)||T<=0)return null;const D=K*Math.exp(-r*T);if(price<=Math.max(isC?S-D:D-S,0)+1e-6)return null;let a=0.01,b=5;for(let i=0;i<50;i++){const m=(a+b)/2;if(bsR(S,K,T,m,isC,r)>price)b=m;else a=m}const v=(a+b)/2;return v>0.02&&v<4.9?v:null};
+function fitSmile(pts){
+  const solve=P=>{const s=[0,0,0,0,0],t=[0,0,0];P.forEach(p=>{let xp=1;for(let i=0;i<5;i++){s[i]+=p.w*xp;if(i<3)t[i]+=p.w*xp*p.iv;xp*=p.m}});
+    const A=[[s[0],s[1],s[2],t[0]],[s[1],s[2],s[3],t[1]],[s[2],s[3],s[4],t[2]]];
+    for(let i=0;i<3;i++){let mx=i;for(let j=i+1;j<3;j++)if(Math.abs(A[j][i])>Math.abs(A[mx][i]))mx=j;[A[i],A[mx]]=[A[mx],A[i]];if(Math.abs(A[i][i])<1e-12)return null;for(let j=i+1;j<3;j++){const f=A[j][i]/A[i][i];for(let k=i;k<4;k++)A[j][k]-=f*A[i][k]}}
+    const c=A[2][3]/A[2][2],b=(A[1][3]-A[1][2]*c)/A[1][1];return[(A[0][3]-A[0][1]*b-A[0][2]*c)/A[0][0],b,c]};
+  let P=pts,co=null;
+  for(let it=0;it<3&&P.length>=4;it++){co=solve(P);if(!co)break;if(it===2)break;
+    const res=P.map(p=>p.iv-(co[0]+co[1]*p.m+co[2]*p.m*p.m)),sd=Math.sqrt(res.reduce((a,x)=>a+x*x,0)/res.length);
+    const keep=P.filter((p,i)=>Math.abs(res[i])<=2*sd+1e-9);if(keep.length===P.length||keep.length<4)break;P=keep}
+  const ivs=pts.map(p=>p.iv).sort((a,b)=>a-b),med=ivs[Math.floor(ivs.length/2)]||0.4;
+  if(!co)return()=>med;
+  const mLo=Math.min(...pts.map(p=>p.m)),mHi=Math.max(...pts.map(p=>p.m));
+  return m=>{const x=Math.min(mHi,Math.max(mLo,m));return Math.min(ivs[ivs.length-1]*1.3,Math.max(ivs[0]*0.7,co[0]+co[1]*x+co[2]*x*x))};
+}
+function secArbitraje(rows,T,days){
+  const S=gSpot;
+  const qt=o=>{if(!o)return null;const b=o.bid>0?o.bid:null,a=o.ask>0?o.ask:null,l=o.last>0?o.last:null,m=(b&&a)?(b+a)/2:l;return m?{b,a,m}:null};
+  const Q=rows.map(r=>({k:r.k,c:qt(r.c),p:qt(r.p)}));
+  // tasa implícita de las opciones (mediana de paridad near-ATM)
+  const ds=Q.filter(x=>x.c&&x.p&&Math.abs(x.k/S-1)<0.08).map(x=>(S-(x.c.m-x.p.m))/x.k).filter(d=>d>0.3&&d<1.5).sort((a,b)=>a-b);
+  const disc=ds.length?ds[Math.floor(ds.length/2)]:Math.exp(-0.2*T), r=-Math.log(disc)/T, rTna=(Math.exp(r*T)-1)/T*100;
+  const F=S*Math.exp(r*T);
+  // curva de IV de referencia: pata OTM de cada strike
+  const mk=strict=>{const pts=[];Q.forEach(x=>{const isC=x.k>=S,o=isC?x.c:x.p;if(!o||(strict&&!(o.b&&o.a)))return;const iv=ivR(o.m,S,x.k,T,isC,r);if(iv==null)return;const m=Math.log(x.k/F);pts.push({m,iv,w:1/(1+(m/0.15)**2)})});return pts};
+  let pts=mk(true);if(pts.length<4)pts=mk(false);
+  if(!pts.length)return null;
+  const curve=fitSmile(pts), ivAtm=curve(0);
+  const sig=(o,teo)=>{if(!o||!(teo>=0.5))return'ok';const e=(teo-o.m)/o.m;
+    if(o.a&&o.b){if((teo-o.a)/teo>=ARB_OP)return'buyOp';if((o.b-teo)/teo>=ARB_OP)return'sellOp'}
+    return e>=ARB_MID?'buy':e<=-ARB_MID?'sell':'ok'};
+  const opps=[];
+  const build=(kind)=>Q.filter(x=>x[kind]&&Math.abs(x.k/S-1)<0.25).map(x=>{
+    const o=x[kind],isC=kind==='c',ivC=curve(Math.log(x.k/F)),teo=bsR(S,x.k,T,ivC,isC,r),ivM=ivR(o.m,S,x.k,T,isC,r);
+    const edge=(teo-o.m)/o.m*100,s=sig(o,teo);
+    const oper=s==='buyOp'?teo-o.a:s==='sellOp'?o.b-teo:null;
+    if(s==='buyOp'||s==='sellOp')opps.push({kind:isC?'CALL':'PUT',k:x.k,s,px:s==='buyOp'?o.a:o.b,teo,oper,rel:Math.abs(oper)/teo*100});
+    return{k:x.k,o,teo,ivM,ivC,edge,s,oper,atm:Math.abs(x.k/S-1)<0.02};
+  });
+  const calls=build('c'),puts=build('p');
+  const badge=s=>s==='buyOp'?'<span class="anl-badge buy">COMPRAR · BARATA</span>':s==='sellOp'?'<span class="anl-badge sell">VENDER · CARA</span>':s==='buy'?'<span class="c-win" style="font-size:9px">barata (mid)</span>':s==='sell'?'<span class="c-costo" style="font-size:9px">cara (mid)</span>':'<span class="c-neutral">—</span>';
+  const tbl=(title,arr)=>`<div class="anl-card"><div class="anl-card-hdr"><span class="anl-card-title">${title}</span><span class="anl-card-sub">Teórico BS con IV de curva · edge = teórico vs mid</span></div>
+    <div class="anl-tscroll"><table class="anl-table"><thead><tr><th class="anl-th l">STRIKE</th><th class="anl-th">BID</th><th class="anl-th">ASK</th><th class="anl-th">TEÓRICO</th><th class="anl-th">EDGE</th><th class="anl-th">IV MKT</th><th class="anl-th">IV CURVA</th><th class="anl-th">SEÑAL</th></tr></thead><tbody>${arr.map(a=>`<tr class="anl-tr"${a.atm?' style="background:rgba(251,191,36,.06)"':''}>
+      <td class="anl-td l">${fk(a.k)}${a.atm?' <span class="anl-badge atm">ATM</span>':''}</td>
+      <td class="anl-td">${a.o.b?fp(a.o.b):'—'}</td><td class="anl-td">${a.o.a?fp(a.o.a):'—'}</td>
+      <td class="anl-td">${fp(a.teo)}</td>
+      <td class="anl-td ${a.edge>=ARB_MID*100?'c-win':a.edge<=-ARB_MID*100?'c-costo':'c-neutral'}">${fpct(a.edge)}</td>
+      <td class="anl-td">${a.ivM?fn(a.ivM*100,1)+'%':'—'}</td><td class="anl-td c-vega">${fn(a.ivC*100,1)}%</td>
+      <td class="anl-td">${badge(a.s)}${a.oper!=null?` <span class="c-neutral" style="font-size:8px">${a.oper>0?'+':''}${fp(a.oper)}</span>`:''}</td>
+    </tr>`).join('')||'<tr><td colspan="8" class="anl-empty">Sin datos</td></tr>'}</tbody></table></div>
+    <div class="anl-note"><b style="color:var(--green)">COMPRAR · BARATA</b>: teórico &gt; ask (+${ARB_OP*100}% mín.). <b style="color:var(--red)">VENDER · CARA</b>: bid &gt; teórico. "(mid)": desvío &gt;${ARB_MID*100}% pero sin cruzar la punta. El número chico es el edge operable por acción.</div></div>`;
+  // paridad put-call con puntas
+  const cf=365/days, cauc=gCauc/100, cost=gCost/100;
+  const par=Q.filter(x=>x.c?.b&&x.c?.a&&x.p?.b&&x.p?.a&&Math.abs(x.k/S-1)<0.15).map(x=>{
+    const outC=S+x.p.a-x.c.b, inR=S+x.p.b-x.c.a;
+    const convTna=(x.k/outC-1)*cf*100, revTna=(x.k/inR-1)*cf*100;
+    const convPnl=x.k-outC*(1+cauc/cf)-cost*outC, revPnl=inR*(1+cauc/cf)-x.k-cost*inR;
+    return{k:x.k,convTna,revTna,convPnl,revPnl,atm:Math.abs(x.k/S-1)<0.02};
+  });
+  par.forEach(p=>{if(p.convPnl>0)opps.push({kind:'PARIDAD',k:p.k,s:'conv',oper:p.convPnl,rel:p.convPnl/S*100});if(p.revPnl>0)opps.push({kind:'PARIDAD',k:p.k,s:'rev',oper:p.revPnl,rel:p.revPnl/S*100})});
+  const pnlCell=v=>`<td class="anl-td ${v>0?'c-win':'c-neutral'}">${v>0?'+':''}${fn(v*100,0)}</td>`;
+  const parHtml=`<div class="anl-card"><div class="anl-card-hdr"><span class="anl-card-title">Paridad Put-Call · Conversión / Reversal</span>
+    <span class="anl-card-sub">caución TNA % <input id="anlCauc" class="anl-esel" style="width:56px;padding:2px 5px" value="${gCauc}" onchange="anlSetP()"> costos % <input id="anlCost" class="anl-esel" style="width:48px;padding:2px 5px" value="${gCost}" onchange="anlSetP()"></span></div>
+    <div class="anl-tscroll"><table class="anl-table"><thead><tr><th class="anl-th l">STRIKE</th><th class="anl-th">TNA CONVERSIÓN</th><th class="anl-th">TNA REVERSAL</th><th class="anl-th">$/LOTE CONV.</th><th class="anl-th">$/LOTE REV.</th><th class="anl-th">SEÑAL</th></tr></thead><tbody>${par.map(p=>`<tr class="anl-tr"${p.atm?' style="background:rgba(251,191,36,.06)"':''}>
+      <td class="anl-td l">${fk(p.k)}${p.atm?' <span class="anl-badge atm">ATM</span>':''}</td>
+      <td class="anl-td ${p.convTna>gCauc?'c-win':'c-neutral'}">${fn(p.convTna,1)}%</td><td class="anl-td ${p.revTna<gCauc?'c-win':'c-neutral'}">${fn(p.revTna,1)}%</td>
+      ${pnlCell(p.convPnl)}${pnlCell(p.revPnl)}
+      <td class="anl-td">${p.convPnl>0?'<span class="anl-badge buy">CONVERSIÓN</span>':p.revPnl>0?'<span class="anl-badge sell">REVERSAL</span>':'<span class="c-neutral">—</span>'}</td>
+    </tr>`).join('')||'<tr><td colspan="6" class="anl-empty">Sin pares con puntas</td></tr>'}</tbody></table></div>
+    <div class="anl-note"><b>Conversión</b>: compra spot + compra put + vende call (a ask/bid) y financia a caución: hay arbitraje si su TNA &gt; caución. <b>Reversal</b>: vende spot (requiere tenerlo) + vende put + compra call e invierte a caución: hay arbitraje si su TNA &lt; caución. $/lote = resultado a vencimiento tras costos × 100.</div></div>`;
+  opps.sort((a,b)=>b.rel-a.rel);
+  const txt=o=>o.s==='conv'?`PARIDAD ${fk(o.k)}: <b class="c-win">CONVERSIÓN</b> +$${fn(o.oper*100,0)}/lote`:o.s==='rev'?`PARIDAD ${fk(o.k)}: <b class="c-costo">REVERSAL</b> +$${fn(o.oper*100,0)}/lote`:
+    `${o.kind} ${fk(o.k)}: <b class="${o.s==='buyOp'?'c-win':'c-costo'}">${o.s==='buyOp'?'COMPRAR':'VENDER'}</b> a ${fp(o.px)} · teórico ${fp(o.teo)} (+${fn(o.rel,1)}%)`;
+  const top=`<div class="anl-card" style="margin-bottom:10px"><div class="anl-card-hdr"><span class="anl-card-title">Mejores oportunidades · ${opps.length} operables</span>
+    <span class="anl-card-sub">r implícita ${fn(rTna,1)}% TNA · IV curva ATM ${fn(ivAtm*100,1)}%</span></div>
+    <div style="padding:8px 12px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.9">${opps.slice(0,6).map(o=>`<div>${txt(o)}</div>`).join('')||'<span class="c-neutral">Sin señales que crucen la punta con estos umbrales. Mirá "(mid)" en las tablas.</span>'}</div></div>`;
+  return{top,calls:tbl('Calls · valor teórico',calls),puts:tbl('Puts · valor teórico',puts),parity:parHtml};
 }
 
 // ══════════════════════════════════════════════════════════════
