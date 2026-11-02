@@ -122,10 +122,12 @@ const px=o=>{if(!o)return null;return gMode==='last'?(o.last??null):mid(o)};
 window.anlLoad=async()=>{
   try{
     const today=new Date().toISOString().slice(0,10);
-    const[sR,oR]=await Promise.all([
+    const[sR,oR,cR]=await Promise.all([
       sbF('mercado','symbol=eq.GGAL&settlement=eq.24hs&select=last,change&limit=1'),
-      sbF('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,previous_close&order=expiration.asc,strike.asc&limit=1000')
+      sbF('opciones_rt','underlying_asset=ilike.GGAL*&select=symbol,kind,strike,expiration,last,bid,ask,previous_close&order=expiration.asc,strike.asc&limit=1000'),
+      sbF('cauciones',`symbol=eq.PESOS&updated_at=gte.${today}&select=days,bid_rate,ask_rate,updated_at`)
     ]);
+    gCau=Array.isArray(cR)?cR:[];
     if(sR?.length){gSpot=sR[0].last;document.getElementById('anlSpotVal').textContent='$'+fn(gSpot,0)}
     gOpts=(Array.isArray(oR)?oR:[]).filter(o=>o.expiration>=today);
     const exps=[...new Set(gOpts.map(o=>o.expiration.slice(0,10)))].sort();
@@ -544,8 +546,12 @@ function secMultiPata(calls,puts,T){
 // SECCIÓN 0 — VALOR TEÓRICO (BS) + PARIDAD PUT-CALL
 // ══════════════════════════════════════════════════════════════
 const ARB_OP=0.02, ARB_MID=0.05;
-let gCauc=parseFloat(localStorage.getItem('anl_cauc'))||19.9, gCost=parseFloat(localStorage.getItem('anl_cost')); if(isNaN(gCost))gCost=0.6;
-window.anlSetP=()=>{const c=parseFloat(document.getElementById('anlCauc').value),k=parseFloat(document.getElementById('anlCost').value);if(!isNaN(c)){gCauc=c;localStorage.setItem('anl_cauc',c)}if(!isNaN(k)){gCost=k;localStorage.setItem('anl_cost',k)}anlRender()};
+// Derechos de mercado + IVA por lado (mismos que filler_eod.py). Broker 46767 sin arancel propio (plan flat).
+const FEE_S=0.000605, FEE_O=0.00242;
+let gCauc=parseFloat(localStorage.getItem('anl_cauc')), gCost=parseFloat(localStorage.getItem('anl_broker')), gCau=[]; if(isNaN(gCost))gCost=0;
+window.anlSetP=()=>{const c=parseFloat(document.getElementById('anlCauc').value),k=parseFloat(document.getElementById('anlCost').value);
+  gCauc=isNaN(c)?NaN:c;if(isNaN(c))localStorage.removeItem('anl_cauc');else localStorage.setItem('anl_cauc',c);
+  if(!isNaN(k)){gCost=k;localStorage.setItem('anl_broker',k)}anlRender()};
 const bsR=(S,K,T,s,isC,r)=>{if(T<=0||s<=0)return Math.max(isC?S-K:K-S,0);const q=Math.sqrt(T),d1=(Math.log(S/K)+(r+0.5*s*s)*T)/(s*q),d2=d1-q*s,D=Math.exp(-r*T);return isC?S*normCDF(d1)-K*D*normCDF(d2):K*D*normCDF(-d2)-S*normCDF(-d1)};
 const ivR=(price,S,K,T,isC,r)=>{if(!(price>0)||T<=0)return null;const D=K*Math.exp(-r*T);if(price<=Math.max(isC?S-D:D-S,0)+1e-6)return null;let a=0.01,b=5;for(let i=0;i<50;i++){const m=(a+b)/2;if(bsR(S,K,T,m,isC,r)>price)b=m;else a=m}const v=(a+b)/2;return v>0.02&&v<4.9?v:null};
 function fitSmile(pts){
@@ -599,24 +605,30 @@ function secArbitraje(rows,T,days){
     </tr>`).join('')||'<tr><td colspan="8" class="anl-empty">Sin datos</td></tr>'}</tbody></table></div>
     <div class="anl-note"><b style="color:var(--green)">COMPRAR · BARATA</b>: teórico &gt; ask (+${ARB_OP*100}% mín.). <b style="color:var(--red)">VENDER · CARA</b>: bid &gt; teórico. "(mid)": desvío &gt;${ARB_MID*100}% pero sin cruzar la punta. El número chico es el edge operable por acción.</div></div>`;
   // paridad put-call con puntas
-  const cf=365/days, cauc=gCauc/100, cost=gCost/100;
+  const cf=365/days, bk=gCost/100;
+  const cr=(()=>{const rs=gCau.filter(x=>x.bid_rate>0&&x.ask_rate>0&&Math.abs(x.ask_rate-x.bid_rate)<=2);if(!rs.length)return null;
+    const b=rs.reduce((a,x)=>Math.abs(x.days-days)<Math.abs(a.days-days)?x:a);return{d:b.days,lend:Math.min(b.bid_rate,b.ask_rate),borrow:Math.max(b.bid_rate,b.ask_rate)}})();
+  const manual=!isNaN(gCauc), borrowPct=manual?gCauc:cr?cr.borrow:19.9, lendPct=manual?gCauc:cr?cr.lend:19.9;
+  const borrow=borrowPct/100, lend=lendPct/100;
+  const srcTxt=manual?`manual ${gCauc}%`:cr?`mercado ${cr.d}D · toma ${fn(cr.borrow,1)}% / coloca ${fn(cr.lend,1)}%`:'sin dato (19,9% fijo)';
   const par=Q.filter(x=>x.c?.b&&x.c?.a&&x.p?.b&&x.p?.a&&Math.abs(x.k/S-1)<0.15).map(x=>{
     const outC=S+x.p.a-x.c.b, inR=S+x.p.b-x.c.a;
     const convTna=(x.k/outC-1)*cf*100, revTna=(x.k/inR-1)*cf*100;
-    const convPnl=x.k-outC*(1+cauc/cf)-cost*outC, revPnl=inR*(1+cauc/cf)-x.k-cost*inR;
+    const fS=(FEE_S+bk)*(S+x.k), fOc=(FEE_O+bk)*(x.p.a+x.c.b), fOr=(FEE_O+bk)*(x.p.b+x.c.a);
+    const convPnl=x.k-outC*(1+borrow/cf)-fS-fOc, revPnl=inR*(1+lend/cf)-x.k-fS-fOr;
     return{k:x.k,convTna,revTna,convPnl,revPnl,atm:Math.abs(x.k/S-1)<0.02};
   });
   par.forEach(p=>{if(p.convPnl>0)opps.push({kind:'PARIDAD',k:p.k,s:'conv',oper:p.convPnl,rel:p.convPnl/S*100});if(p.revPnl>0)opps.push({kind:'PARIDAD',k:p.k,s:'rev',oper:p.revPnl,rel:p.revPnl/S*100})});
   const pnlCell=v=>`<td class="anl-td ${v>0?'c-win':'c-neutral'}">${v>0?'+':''}${fn(v*100,0)}</td>`;
   const parHtml=`<div class="anl-card"><div class="anl-card-hdr"><span class="anl-card-title">Paridad Put-Call · Conversión / Reversal</span>
-    <span class="anl-card-sub">caución TNA % <input id="anlCauc" class="anl-esel" style="width:56px;padding:2px 5px" value="${gCauc}" onchange="anlSetP()"> costos % <input id="anlCost" class="anl-esel" style="width:48px;padding:2px 5px" value="${gCost}" onchange="anlSetP()"></span></div>
+    <span class="anl-card-sub">Caución: ${srcTxt}<br>forzar TNA % <input id="anlCauc" class="anl-esel" style="width:56px;padding:2px 5px" placeholder="auto" value="${manual?gCauc:''}" onchange="anlSetP()"> arancel broker % <input id="anlCost" class="anl-esel" style="width:48px;padding:2px 5px" value="${gCost}" onchange="anlSetP()"></span></div>
     <div class="anl-tscroll"><table class="anl-table"><thead><tr><th class="anl-th l">STRIKE</th><th class="anl-th">TNA CONVERSIÓN</th><th class="anl-th">TNA REVERSAL</th><th class="anl-th">$/LOTE CONV.</th><th class="anl-th">$/LOTE REV.</th><th class="anl-th">SEÑAL</th></tr></thead><tbody>${par.map(p=>`<tr class="anl-tr"${p.atm?' style="background:rgba(251,191,36,.06)"':''}>
       <td class="anl-td l">${fk(p.k)}${p.atm?' <span class="anl-badge atm">ATM</span>':''}</td>
-      <td class="anl-td ${p.convTna>gCauc?'c-win':'c-neutral'}">${fn(p.convTna,1)}%</td><td class="anl-td ${p.revTna<gCauc?'c-win':'c-neutral'}">${fn(p.revTna,1)}%</td>
+      <td class="anl-td ${p.convTna>borrowPct?'c-win':'c-neutral'}">${fn(p.convTna,1)}%</td><td class="anl-td ${p.revTna<lendPct?'c-win':'c-neutral'}">${fn(p.revTna,1)}%</td>
       ${pnlCell(p.convPnl)}${pnlCell(p.revPnl)}
       <td class="anl-td">${p.convPnl>0?'<span class="anl-badge buy">CONVERSIÓN</span>':p.revPnl>0?'<span class="anl-badge sell">REVERSAL</span>':'<span class="c-neutral">—</span>'}</td>
     </tr>`).join('')||'<tr><td colspan="6" class="anl-empty">Sin pares con puntas</td></tr>'}</tbody></table></div>
-    <div class="anl-note"><b>Conversión</b>: compra spot + compra put + vende call (a ask/bid) y financia a caución: hay arbitraje si su TNA &gt; caución. <b>Reversal</b>: vende spot (requiere tenerlo) + vende put + compra call e invierte a caución: hay arbitraje si su TNA &lt; caución. $/lote = resultado a vencimiento tras costos × 100.</div></div>`;
+    <div class="anl-note"><b>Conversión</b>: compra spot + compra put + vende call (a ask/bid) y financia a caución: hay arbitraje si su TNA &gt; caución. <b>Reversal</b>: vende spot (requiere tenerlo) + vende put + compra call e invierte a caución: hay arbitraje si su TNA &lt; caución. $/lote = resultado a vencimiento × 100, neto de derechos de mercado+IVA (opciones 0,242% sobre primas, acción 0,0605% en entrada y ejercicio) y arancel broker. Conversión financia a la tasa que TOMA la caución; Reversal coloca a la que PAGA. Plazo de caución = el más cercano con dato (la curva llega a ~30D).</div></div>`;
   opps.sort((a,b)=>b.rel-a.rel);
   const txt=o=>o.s==='conv'?`PARIDAD ${fk(o.k)}: <b class="c-win">CONVERSIÓN</b> +$${fn(o.oper*100,0)}/lote`:o.s==='rev'?`PARIDAD ${fk(o.k)}: <b class="c-costo">REVERSAL</b> +$${fn(o.oper*100,0)}/lote`:
     `${o.kind} ${fk(o.k)}: <b class="${o.s==='buyOp'?'c-win':'c-costo'}">${o.s==='buyOp'?'COMPRAR':'VENDER'}</b> a ${fp(o.px)} · teórico ${fp(o.teo)} (+${fn(o.rel,1)}%)`;
