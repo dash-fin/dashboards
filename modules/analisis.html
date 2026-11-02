@@ -132,6 +132,7 @@ window.anlLoad=async()=>{
     const sel=document.getElementById('anlExp');const cur=sel.value;
     sel.innerHTML=exps.map(e=>{const d=Math.ceil((new Date(e)-new Date())/86400000);return`<option value="${e}">${e} (${d}d)</option>`}).join('');
     if(cur&&exps.includes(cur))sel.value=cur;
+    else{const n={};gOpts.forEach(o=>{if(o.bid>0&&o.ask>0){const e=o.expiration.slice(0,10);n[e]=(n[e]||0)+1}});const best=exps.sort((a,b)=>(n[b]||0)-(n[a]||0))[0];exps.sort();if(best&&n[best])sel.value=best}
     const now=new Date();document.getElementById('anlUpd').textContent='Act. '+[now.getHours(),now.getMinutes()].map(v=>String(v).padStart(2,'0')).join(':');
     anlRender();
   }catch(e){console.error('[analisis]',e);}
