@@ -112,7 +112,7 @@ const pctCre=p=>p==null?'':p>40?'c-win':p>25?'c-prob-md':'c-costo';
 // ── Config ────────────────────────────────────────────────────
 const SBR='https://endymbpdayeidromxayb.supabase.co/rest/v1/';
 const KEY='sb_publishable_htIwpJMdPWs0ROzIml9Auw_bfBik5WY';
-const sbF=(t,p)=>fetch(SBR+t+'?'+p,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}).then(r=>r.ok?r.json():[]);
+const sbF=(t,p)=>window.sb?window.sb(t,p).then(d=>Array.isArray(d)?d:[]).catch(()=>[]):fetch(SBR+t+'?'+p,{headers:{apikey:KEY,Authorization:'Bearer '+KEY}}).then(r=>r.ok?r.json():[]);
 
 let gSpot=null,gOpts=[],gMode='last',gIV=0.4,gTimer=null;
 window.anlMode=(m,btn)=>{gMode=m;document.querySelectorAll('.anl-tbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');anlRender()};
