@@ -1009,13 +1009,14 @@ window.tickerSearch = async function(q){
 
     // ARS
     (ars||[]).forEach(r => {
-      _tickerResults.push({ sym:r.symbol, mercado:'ARS', last:r.last, chg:r.change, extra:r });
+      const px = r.last||r.bid||r.ask||0;
+      _tickerResults.push({ sym:r.symbol, mercado:'ARS', last:px, chg:r.change, extra:r });
       const chg = Number(r.change||0), cls = chg>0?'pos':chg<0?'neg':'neu';
       const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
       html += `<div data-idx="${_tickerResults.length-1}" class="tr-item">
         <span class="tr-sym">${r.symbol}</span>
         <span class="tr-badge tr-b-ars">ARS</span>
-        <span class="tr-price">$${fmtAR(r.last,2)}</span>
+        <span class="tr-price">$${fmtAR(px,2)}</span>
         <span class="tr-chg ${cls}">${chgStr}</span>
         <span class="tr-vol">${fmtM(r.turnover||0)}</span>
       </div>`;
@@ -1024,14 +1025,15 @@ window.tickerSearch = async function(q){
     // USA
     if((usa||[]).length && ars?.length) html += '<div class="tr-sep">\u{1F1FA}\u{1F1F8} USA</div>';
     (usa||[]).forEach(r => {
-      _tickerResults.push({ sym:r.symbol, mercado:'USA', last:r.last, chg:r.change_pct, extra:r });
+      const px = r.last||r.close||r.bid||r.ask||0;
+      _tickerResults.push({ sym:r.symbol, mercado:'USA', last:px, chg:r.change_pct, extra:r });
       const chg = Number(r.change_pct||0), cls = chg>0?'pos':chg<0?'neg':'neu';
       const chgStr = (chg>=0?'+':'')+chg.toFixed(2)+'%';
       const vol = r.volume_rel ? (Number(r.volume_rel).toFixed(1)+'x') : fmtM(r.volume||0);
       html += `<div data-idx="${_tickerResults.length-1}" class="tr-item">
         <span class="tr-sym">${r.symbol}</span>
         <span class="tr-badge tr-b-usa">USA</span>
-        <span class="tr-price">$${fmtAR(r.last,2)}</span>
+        <span class="tr-price">$${fmtAR(px,2)}</span>
         <span class="tr-chg ${cls}">${chgStr}</span>
         <span class="tr-vol">${vol}</span>
       </div>`;
@@ -1894,6 +1896,11 @@ async function renderHome(){
       <button onclick="captureElement(document.getElementById('dolarChartArea'),this)" type="button" title="Copiar imagen del dashboard" style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;color:var(--text4);font-size:10px;white-space:nowrap">📷 Compartir</button>
     </div>
   <div class="dolar-chart-area" id="dolarChartArea" style="display:none">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px">
+      <button class="flt dolar-mode" data-mode="dolar" onclick="setDolarMode('dolar')">Dólar</button>
+      <button class="flt dolar-mode" data-mode="canje" onclick="setDolarMode('canje')">Canje CCL/MEP</button>
+      <span id="dolarCanjeStat" style="display:none;margin-left:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></span>
+    </div>
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px">
       <button class="flt" data-range="wtd" onclick="selectDolarRange('wtd',this)">WTD</button>
       <button class="flt" data-range="mtd" onclick="selectDolarRange('mtd',this)">MTD</button>
@@ -3621,16 +3628,27 @@ async function aiGetContext(question) {
 // ── Gráfico del dólar ──
 let dolarChart;
 let dolarHistoricoCache = null;
+let _dolarMode = localStorage.getItem('dolarChartMode') === 'canje' ? 'canje' : 'dolar';
+let _dolarRange = 'ytd', _dolarFrom = null, _dolarTo = null;
+
+async function setDolarMode(mode, el){
+  _dolarMode = mode;
+  localStorage.setItem('dolarChartMode', mode);
+  document.querySelectorAll('#dolarChartArea .dolar-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  await renderDolarChart();
+}
 
 async function fetchDolarData(){
   if(dolarHistoricoCache) return dolarHistoricoCache;
 
-  const supabaseUrl = 'https://endymbpdayeidromxayb.supabase.co';
-  const url = `${supabaseUrl}/rest/v1/dolar_historico?order=fecha.asc&select=fecha,tipo,close`;
   try {
-    const resp = await fetch(url, { headers: CFG.SBH });
-    if(!resp.ok) throw new Error(`Supabase error: ${resp.status}`);
-    const data = await resp.json();
+    const data = [];
+    for(let off = 0; ; off += 1000){
+      const page = await sb('dolar_historico', `order=fecha.asc,tipo.asc&select=fecha,tipo,close&limit=1000&offset=${off}`);
+      if(!Array.isArray(page)) throw new Error('dolar_historico sin datos');
+      data.push(...page);
+      if(page.length < 1000) break;
+    }
 
     // Transformar a formato { date, oficial, mep, ccl }
     const map = {};
@@ -3693,12 +3711,36 @@ async function toggleDolarChart(){
 async function renderDolarChart(range, fromDate, toDate){
   const data = await fetchDolarData();
   if(!data || data.length === 0) return;
-  const filtered = range ? getDolarRange(data, range, fromDate, toDate) : getDolarRange(data, 'ytd');
-  const noGaps = filtered.filter(d => d.mep != null && d.date.getDay() > 0 && d.date.getDay() < 6);
+  if(range){ _dolarRange = range; _dolarFrom = fromDate; _dolarTo = toDate; }
+  const filtered = getDolarRange(data, _dolarRange, _dolarFrom, _dolarTo);
+  const canje = _dolarMode === 'canje';
+  document.querySelectorAll('#dolarChartArea .dolar-mode').forEach(b => b.classList.toggle('on', b.dataset.mode === _dolarMode));
+  const noGaps = filtered.filter(d => d.mep != null && (!canje || d.ccl != null) && d.date.getDay() > 0 && d.date.getDay() < 6);
   const labels = noGaps.map(d => d.date.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }));
   const oficial = noGaps.map(d => d.oficial);
   const mep = noGaps.map(d => d.mep);
   const ccl = noGaps.map(d => d.ccl);
+
+  let canjeDs = [];
+  const statEl = document.getElementById('dolarCanjeStat');
+  if(canje){
+    const pct = noGaps.map(d => (d.ccl / d.mep - 1) * 100);
+    const n = pct.length;
+    const media = n ? pct.reduce((a, b) => a + b, 0) / n : 0;
+    const sd = n > 1 ? Math.sqrt(pct.reduce((a, b) => a + (b - media) ** 2, 0) / (n - 1)) : 0;
+    const last = n ? pct[n - 1] : 0;
+    const z = sd ? (last - media) / sd : 0;
+    if(statEl){
+      statEl.style.display = 'inline';
+      statEl.textContent = `Actual ${last.toFixed(2)}% · Media ${media.toFixed(2)}% · Desvío ${sd.toFixed(2)}pp · z ${z >= 0 ? '+' : ''}${z.toFixed(2)}`;
+    }
+    canjeDs = [
+      { label: 'Canje CCL/MEP (%)', data: pct, borderColor: '#f0a500', backgroundColor: 'rgba(240,165,0,0.08)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.2, fill: false },
+      { label: `Media (${media.toFixed(2)}%)`, data: pct.map(() => media), borderColor: '#ff4560', borderWidth: 1.5, borderDash: [6, 4], pointRadius: 0, pointHoverRadius: 0, fill: false },
+      { label: '+1σ', data: pct.map(() => media + sd), borderColor: 'rgba(255,69,96,0.35)', borderWidth: 1, borderDash: [2, 3], pointRadius: 0, pointHoverRadius: 0, fill: false },
+      { label: '−1σ', data: pct.map(() => media - sd), borderColor: 'rgba(255,69,96,0.35)', borderWidth: 1, borderDash: [2, 3], pointRadius: 0, pointHoverRadius: 0, fill: false }
+    ];
+  } else if(statEl) statEl.style.display = 'none';
 
   const canvas = document.getElementById('dolarChartCanvas');
   if(!canvas) return;
@@ -3713,7 +3755,7 @@ async function renderDolarChart(range, fromDate, toDate){
     type: 'line',
     data: {
       labels,
-      datasets: [
+      datasets: canje ? canjeDs : [
         {
           label: 'Dólar Oficial',
           data: oficial,
@@ -3779,6 +3821,7 @@ async function renderDolarChart(range, fromDate, toDate){
           padding: 10,
           callbacks: {
             label: function(ctx){
+              if(canje) return ctx.dataset.label + ': ' + Number(ctx.parsed.y).toFixed(2) + '%';
               return ctx.dataset.label + ': $' + Number(ctx.parsed.y).toLocaleString('es-AR', { minimumFractionDigits: 2 });
             }
           }
@@ -3797,7 +3840,7 @@ async function renderDolarChart(range, fromDate, toDate){
           ticks: {
             color: '#4a5568',
             font: { family: 'IBM Plex Mono', size: 9 },
-            callback: function(val){ return '$' + Number(val).toLocaleString('es-AR'); }
+            callback: function(val){ return canje ? Number(val).toFixed(1) + '%' : '$' + Number(val).toLocaleString('es-AR'); }
           },
           grid: { color: gridColor }
         }
