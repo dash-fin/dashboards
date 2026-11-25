@@ -1738,7 +1738,7 @@ function updateClock(){
   const now=new Date(),p=n=>String(n).padStart(2,'0');
   document.getElementById('clock').textContent=`${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
   const day=now.getDay(),mins=now.getHours()*60+now.getMinutes();
-  const open=day>=1&&day<=5&&mins>=660&&mins<1020;
+  const open=day>=1&&day<=5&&mins>=660&&mins<1080;
   const el=document.getElementById('mktStatus');
   el.className=(open?'mkt-open':'mkt-closed')+' mkt-badge';
   document.getElementById('mktLabel').textContent=open?'Mercado abierto':'Mercado cerrado';
